@@ -1,26 +1,298 @@
-@import "tailwindcss";
+/* src/app/globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Reset and base styles */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Global HTML and body optimization */
+html {
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+  height: 100%;
+  overflow-x: hidden;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  @apply overflow-x-hidden;
+  min-height: 100%;
+  /* Better font rendering */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Consistent line height */
+  line-height: 1.6;
+  /* Remove default margins/padding that can cause gaps */
+  margin: 0;
+  padding: 0;
+}
+
+/* Professional container system - clean and scalable */
+@layer components {
+  .main-container {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    overflow-x: hidden;
+    padding-left: clamp(1rem, 1vw, 3rem);
+    padding-right: clamp(1rem, 1vw, 3rem);
+  }
+  /* Content containers for different layouts */
+  .content-container {
+    max-width: 65ch;
+    margin: 0 auto;
+    padding-left: clamp(1rem, 3vw, 2rem);
+    padding-right: clamp(1rem, 3vw, 2rem);
+  }
+
+  .wide-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding-left: clamp(1rem, 4vw, 3rem);
+    padding-right: clamp(1rem, 4vw, 3rem);
+  }
+}
+
+/* Prevent media overflow */
+img,
+video,
+iframe,
+embed,
+object {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Focus styles for accessibility */
+:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Smooth transitions */
+a,
+button,
+[role='button'] {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Professional utility classes */
+@layer utilities {
+  /* Fluid spacing system */
+  .section-spacing {
+    padding-top: clamp(2rem, 6vw, 5rem);
+    padding-bottom: clamp(2rem, 6vw, 5rem);
+  }
+
+  .section-spacing-sm {
+    padding-top: clamp(1rem, 3vw, 2.5rem);
+    padding-bottom: clamp(1rem, 3vw, 2.5rem);
+  }
+
+  /* Modern typography scaling */
+  .text-fluid {
+    font-size: clamp(0.875rem, 2.5vw, 1rem);
+  }
+
+  .text-fluid-lg {
+    font-size: clamp(1rem, 3vw, 1.25rem);
+  }
+
+  .heading-fluid {
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+  }
+
+  .heading-fluid-xl {
+    font-size: clamp(2rem, 5vw, 4rem);
+  }
+
+  /* Utility resets */
+  .no-padding {
+    padding: 0 !important;
+  }
+  .no-margin {
+    margin: 0 !important;
+  }
+  .full-width {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* Modern CSS Grid system */
+@layer components {
+  .layout-grid {
+    display: grid;
+    grid-template-columns:
+      [full-start]
+      minmax(clamp(1rem, 4vw, 3rem), 1fr)
+      [main-start]
+      minmax(0, 1400px)
+      [main-end]
+      minmax(clamp(1rem, 4vw, 3rem), 1fr)
+      [full-end];
+  }
+
+  .layout-grid > * {
+    grid-column: main;
+  }
+  .layout-grid .full-width {
+    grid-column: full;
+  }
+}
+
+/* Fixed Masonry Grid Styles */
+.masonry-grid {
+  columns: 1 auto;
+  column-gap: 1rem;
+  padding: 1.5rem;
+}
+
+.masonry-item {
+  break-inside: avoid;
+  margin-bottom: 1.5rem;
+  background: white;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  transform: translateZ(0);
+  will-change: transform;
+  opacity: 0;
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.masonry-item > * {
+  width: 100%;
+  display: block;
+}
+
+/* Staggered animation for masonry items */
+.masonry-item:nth-child(1) {
+  animation-delay: 0.05s;
+}
+.masonry-item:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.masonry-item:nth-child(3) {
+  animation-delay: 0.15s;
+}
+.masonry-item:nth-child(4) {
+  animation-delay: 0.2s;
+}
+.masonry-item:nth-child(5) {
+  animation-delay: 0.25s;
+}
+.masonry-item:nth-child(6) {
+  animation-delay: 0.3s;
+}
+.masonry-item:nth-child(7) {
+  animation-delay: 0.35s;
+}
+.masonry-item:nth-child(8) {
+  animation-delay: 0.4s;
+}
+.masonry-item:nth-child(9) {
+  animation-delay: 0.45s;
+}
+.masonry-item:nth-child(10) {
+  animation-delay: 0.5s;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive column counts */
+@media (min-width: 640px) {
+  .masonry-grid {
+    columns: 2 auto;
+  }
+}
+
+@media (min-width: 768px) {
+  .masonry-grid {
+    columns: 3 auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .masonry-grid {
+    columns: 4 auto;
+  }
+}
+
+@media (min-width: 1280px) {
+  .masonry-grid {
+    columns: 5 auto;
+  }
+}
+
+@media (min-width: 1536px) {
+  .masonry-grid {
+    columns: 6 auto;
+  }
+}
+
+/* Print styles */
+@media print {
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .main-container {
+    max-width: none;
+    padding: 0;
+  }
+
+  .masonry-item {
+    animation: none;
+    opacity: 1;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :focus {
+    outline: 3px solid;
+    outline-offset: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .masonry-item {
+    animation: none;
+    opacity: 1;
+  }
 }
