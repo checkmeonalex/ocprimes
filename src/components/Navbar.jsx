@@ -112,15 +112,13 @@ export default function Navbar() {
   )
 
   return (
-    <nav
-      className={`fixed top-0 transition-all duration-300 hidden lg:block 
-       ${isOpen ? 'left-60' : 'left-16'}
-        right-0 bg-white shadow-sm border-b border-gray-200 z-50`}
-    >
+    <nav className='hidden lg:block fixed top-0 right-0 left-16 z-30 bg-white border-b border-gray-200'>
       {/* Main navigation */}
-      <div className={`max-w-full px-4 sm:px-6 lg:px-8 relative z-20 transition-all duration-300 ${
-        showSecondaryNav ? 'translate-y-0' : '-translate-y-full'
-      }`}>
+      <div
+        className={`max-w-full px-4 sm:px-6 lg:px-8 relative z-20 transition-all duration-300 ${
+          showSecondaryNav ? 'translate-y-0' : '-translate-y-full'
+        }`}
+      >
         <div
           className={`flex justify-between items-center transition-all duration-300 ${
             showSecondaryNav ? 'h-16' : 'h-14'
@@ -193,11 +191,13 @@ export default function Navbar() {
       {/* Secondary navigation - Categories section */}
       <div
         className={`bg-gray-50 border-b border-gray-200 transition-all duration-300 absolute top-0 left-0 right-0 ${
-          showSecondaryNav ? 'translate-y-16 opacity-100' : 'translate-y-0 opacity-100'
+          showSecondaryNav
+            ? 'translate-y-16 opacity-100'
+            : 'translate-y-0 opacity-100'
         }`}
         style={{
           width: '100%',
-          zIndex: 30
+          zIndex: 30,
         }}
       >
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
@@ -312,7 +312,7 @@ export default function Navbar() {
                     d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
                   />
                 </svg>
-                </button>
+              </button>
             </div>
           </div>
         </div>
@@ -321,7 +321,9 @@ export default function Navbar() {
       {/* Categories Menu */}
       <div
         ref={menuRef}
-        className={`absolute top-14 left-0 right-0 z-40 ${showSecondaryNav ? '' : 'hidden'}`}
+        className={`absolute top-14 left-0 right-0 z-40 ${
+          showSecondaryNav ? '' : 'hidden'
+        }`}
         onMouseEnter={handleMenuMouseEnter}
         onMouseLeave={handleMenuMouseLeave}
       >

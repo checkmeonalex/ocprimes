@@ -5,7 +5,7 @@ export default function RightLayout() {
   const { summerHome, tweens } = right
 
   return (
-    <div className='flex flex-col justify-start pt-0 transition-all duration-300 equal-height-container'>
+    <div className='px-4 flex flex-col justify-start pt-0 transition-all duration-300 equal-height-container'>
       <div className='w-full grid grid-cols-2 gap-3 lg:flex lg:flex-col lg:space-y-3 lg:gap-0 h-full'>
         {/* Summer Home Trends Banner */}
         <div

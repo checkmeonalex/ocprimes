@@ -6,7 +6,7 @@ export default function CenterLayout() {
   const { products, boldFashion } = featured
 
   return (
-    <div className='w-full flex flex-col pt-0 transition-all duration-300 equal-height-column'>
+    <div className='w-full flex flex-col pt-0 transition-all duration-300 equal-height-column px-4'>
       {/* Top Section - Featured Products */}
       <div className='grid grid-cols-2 gap-2 sm:gap-4 mb-4 flex-shrink-0 lg:h-[280px]'>
         {products.map((product) => (
@@ -19,8 +19,8 @@ export default function CenterLayout() {
               <div
                 className='w-full h-full overflow-hidden'
                 style={{
-                  borderTopLeftRadius: '32px',
-                  borderTopRightRadius: '32px',
+                  borderTopLeftRadius: '3px',
+                  borderTopRightRadius: '3px',
                 }}
               >
                 <img

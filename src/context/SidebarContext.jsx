@@ -5,17 +5,19 @@ const SidebarContext = createContext()
 
 export function SidebarProvider({ children }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
 
-  // Set default state for desktop
   useEffect(() => {
-    const isDesktop = window.innerWidth >= 1024
-    setIsOpen(!isDesktop) // Closed by default on desktop
+    // Only open by default on desktop
+    const isMobile = window.innerWidth < 1024
+    setIsOpen(!isMobile)
+    setIsHydrated(true)
   }, [])
 
-  const toggleSidebar = () => setIsOpen(!isOpen)
+  const toggleSidebar = () => setIsOpen(prev => !prev)
 
   return (
-    <SidebarContext.Provider value={{ isOpen, setIsOpen, toggleSidebar }}>
+    <SidebarContext.Provider value={{ isOpen, toggleSidebar, isHydrated }}>
       {children}
     </SidebarContext.Provider>
   )
@@ -28,3 +30,4 @@ export function useSidebar() {
   }
   return context
 }
+

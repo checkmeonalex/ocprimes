@@ -22,7 +22,7 @@ export default function LeftLayout() {
   }
 
   return (
-    <div className='flex flex-col justify-start pt-0 transition-all duration-300 equal-height-column'>
+    <div className='px-4 flex flex-col justify-start pt-0 transition-all duration-300 equal-height-column'>
       <div className='w-full space-y-3 md:space-y-0 h-full lg:flex lg:flex-col'>
         {/* Mobile/Desktop: Top two banners, Tablet: Bold Fashion section */}
         <div className='block md:hidden lg:block lg:flex-1'>
@@ -136,7 +136,7 @@ export default function LeftLayout() {
               backgroundImage: `url('https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=200&h=250&fit=crop')`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              borderRadius: '28px',
+              borderRadius: '15px',
             }}
           >
             <button className='absolute top-2 right-2 w-5 h-5 sm:w-6 sm:h-6 bg-white/80 rounded-full flex items-center justify-center hover:bg-white transition-colors'>

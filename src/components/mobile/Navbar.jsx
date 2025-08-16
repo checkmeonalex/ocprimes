@@ -1,33 +1,45 @@
 // components/mobile/MobileNavbar.jsx
 'use client'
 import Link from 'next/link'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { useSidebar } from '../../context/SidebarContext'
-import CategoriesMenu from '../Catergories/CategoriesMenu'
+import dynamic from 'next/dynamic'
 
-export default function MobileNavbar() {
+// Lazy load CategoriesMenu since it's not immediately visible
+const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
+  loading: () => null, // No loading spinner needed
+})
+
+function MobileNavbar() {
   const { isOpen, toggleSidebar } = useSidebar()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const searchRef = useRef(null)
 
-  // Close search when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setIsSearchOpen(false)
-      }
+  // Memoize callback to prevent recreating on every render
+  const handleClickOutside = useCallback((event) => {
+    if (searchRef.current && !searchRef.current.contains(event.target)) {
+      setIsSearchOpen(false)
     }
+  }, [])
+
+  // Optimize event listener management
+  useEffect(() => {
+    if (!isSearchOpen) return // Only add listener when search is open
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
+  }, [isSearchOpen, handleClickOutside])
+
+  const handleCategoriesClick = useCallback(() => {
+    setIsCategoriesOpen((prev) => !prev)
   }, [])
 
-  const handleCategoriesClick = () => {
-    setIsCategoriesOpen(!isCategoriesOpen)
-  }
+  const handleSearchToggle = useCallback(() => {
+    setIsSearchOpen((prev) => !prev)
+  }, [])
 
   return (
     <>
@@ -35,11 +47,16 @@ export default function MobileNavbar() {
       <nav className='fixed top-0 left-0 right-0 bg-white shadow-sm border-b border-gray-200 z-50 lg:hidden'>
         <div className='px-4'>
           <div className='flex items-center justify-between h-14'>
-            {/* Left section - Hamburger Menu and Logo */}
+            {/* Updated hamburger button with active state */}
             <div className='flex items-center space-x-3'>
               <button
                 onClick={toggleSidebar}
-                className='p-2 text-gray-700 hover:text-gray-900 transition-colors'
+                className={`p-2 rounded-lg transition-all duration-200 ${
+                  isOpen
+                    ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                aria-label='Toggle sidebar'
               >
                 <svg
                   className='h-6 w-6'
@@ -48,11 +65,19 @@ export default function MobileNavbar() {
                   viewBox='0 0 24 24'
                   strokeWidth={2}
                 >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    d='M4 6h16M4 12h16M4 18h16'
-                  />
+                  {isOpen ? (
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      d='M6 18L18 6M6 6l12 12'
+                    />
+                  ) : (
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      d='M4 6h16M4 12h16M4 18h16'
+                    />
+                  )}
                 </svg>
               </button>
 
@@ -69,8 +94,9 @@ export default function MobileNavbar() {
             <div className='flex items-center space-x-2'>
               {/* Search Button */}
               <button
-                onClick={() => setIsSearchOpen(!isSearchOpen)}
+                onClick={handleSearchToggle}
                 className='p-2 text-gray-700 hover:text-gray-900 transition-colors'
+                aria-label='Toggle search'
               >
                 <svg
                   className='h-6 w-6'
@@ -88,7 +114,10 @@ export default function MobileNavbar() {
               </button>
 
               {/* Cart */}
-              <button className='p-2 text-gray-700 hover:text-gray-900 transition-colors relative'>
+              <button
+                className='p-2 text-gray-700 hover:text-gray-900 transition-colors relative'
+                aria-label='Shopping cart'
+              >
                 <svg
                   className='h-6 w-6'
                   fill='none'
@@ -115,13 +144,10 @@ export default function MobileNavbar() {
         <div className='bg-white border-b border-gray-200'>
           <div className='px-4 py-2'>
             <div className='flex items-center space-x-6 overflow-x-auto'>
-              <Link
-                href='#'
-                onClick={(e) => {
-                  e.preventDefault()
-                  handleCategoriesClick()
-                }}
+              <button
+                onClick={handleCategoriesClick}
                 className='text-sm font-medium text-gray-900 border-b-2 border-red-500 pb-2 whitespace-nowrap flex items-center gap-2'
+                aria-label='Toggle categories'
               >
                 <svg
                   className='h-5 w-5'
@@ -136,37 +162,16 @@ export default function MobileNavbar() {
                     d='M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z'
                   ></path>
                 </svg>
-              </Link>
-              <Link
-                href='#'
-                className='text-sm text-gray-600 hover:text-gray-900 pb-2 whitespace-nowrap'
-              >
-                Women
-              </Link>
-              <Link
-                href='#'
-                className='text-sm text-gray-600 hover:text-gray-900 pb-2 whitespace-nowrap'
-              >
-                Men
-              </Link>
-              <Link
-                href='#'
-                className='text-sm text-gray-600 hover:text-gray-900 pb-2 whitespace-nowrap'
-              >
-                Home
-              </Link>
-              <Link
-                href='#'
-                className='text-sm text-gray-600 hover:text-gray-900 pb-2 whitespace-nowrap'
-              >
-                Sports
-              </Link>
-              <Link
-                href='#'
-                className='text-sm text-gray-600 hover:text-gray-900 pb-2 whitespace-nowrap'
-              >
-                Jewelry
-              </Link>
+              </button>
+              {['Women', 'Men', 'Home', 'Sports', 'Jewelry'].map((item) => (
+                <Link
+                  key={item}
+                  href='#'
+                  className='text-sm text-gray-600 hover:text-gray-900 pb-2 whitespace-nowrap'
+                >
+                  {item}
+                </Link>
+              ))}
             </div>
           </div>
         </div>
@@ -200,7 +205,7 @@ export default function MobileNavbar() {
         </div>
       </nav>
 
-      {/* Search Overlay */}
+      {/* Search Overlay - Only render when open */}
       {isSearchOpen && (
         <div className='fixed inset-0 bg-black bg-opacity-50 z-50 lg:hidden'>
           <div className='bg-white'>
@@ -209,6 +214,7 @@ export default function MobileNavbar() {
                 <button
                   onClick={() => setIsSearchOpen(false)}
                   className='p-1 text-gray-500 hover:text-gray-700'
+                  aria-label='Close search'
                 >
                   <svg
                     className='h-6 w-6'
@@ -233,7 +239,7 @@ export default function MobileNavbar() {
                   />
                   <button className='absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400'>
                     <svg
-                      className='h-5 w-5'
+                      className='h-6 w-6'
                       fill='none'
                       stroke='currentColor'
                       viewBox='0 0 24 24'
@@ -250,7 +256,7 @@ export default function MobileNavbar() {
               </div>
             </div>
 
-            {/* Search suggestions or recent searches could go here */}
+            {/* Search suggestions */}
             <div className='p-4'>
               <div className='text-sm text-gray-500 mb-2'>Recent searches</div>
               <div className='space-y-2'>
@@ -270,7 +276,7 @@ export default function MobileNavbar() {
         </div>
       )}
 
-      {/* Sidebar Overlay */}
+      {/* Sidebar Overlay - Only render when open */}
       {isOpen && (
         <div
           className='fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden'
@@ -278,11 +284,37 @@ export default function MobileNavbar() {
         />
       )}
 
-      {/* Add Categories Menu */}
-      <CategoriesMenu
-        isOpen={isCategoriesOpen}
-        onClose={() => setIsCategoriesOpen(false)}
-      />
+      {/* Categories Menu - Only render when needed */}
+      {isCategoriesOpen && (
+        <CategoriesMenu
+          isOpen={isCategoriesOpen}
+          onClose={() => setIsCategoriesOpen(false)}
+        />
+      )}
     </>
   )
+}
+
+// Memoize the component to prevent unnecessary re-renders
+export default memo(MobileNavbar)
+
+export function useScreenSize() {
+  // Initialize from window when available to avoid initial mismatch/flicker
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth < 1024 : false
+  )
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 1024) // 1024px is the 'lg' breakpoint in Tailwind
+    }
+
+    // Add event listener
+    window.addEventListener('resize', checkScreenSize)
+
+    // Cleanup
+    return () => window.removeEventListener('resize', checkScreenSize)
+  }, [])
+
+  return { isMobile }
 }
