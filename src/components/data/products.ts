@@ -1,5 +1,5 @@
 // src/data/products.js
-export const productsData = [
+const baseProducts = [
   {
     id: 1,
     name: 'Classic White Sneakers',
@@ -476,3 +476,69 @@ export const productsData = [
     stock: 2,
   },
 ]
+
+const materialByCategory = {
+  Footwear: 'Leather & Rubber',
+  Accessories: 'Aluminum & Glass',
+  Clothing: 'Cotton Blend',
+  Electronics: 'Aluminum & Plastic',
+}
+
+const dimensionsByCategory = {
+  Footwear: '12 x 5 x 4 in',
+  Accessories: '8 x 4 x 2 in',
+  Clothing: '24 x 18 x 2 in',
+  Electronics: '10 x 7 x 3 in',
+}
+
+export const productsData = baseProducts.map((product, index) => {
+  const sku = `SKU-${String(index + 1).padStart(4, '0')}`
+  const shortDescription = `A refined ${product.category.toLowerCase()} essential designed by ${product.vendor}.`
+  const fullDescription = `${product.name} delivers everyday comfort and durability with a clean, modern silhouette. Built for repeat wear, it balances form and function with thoughtful details from ${product.vendor}.`
+  const stockRemaining = product.stock ?? 0
+  const material =
+    materialByCategory[product.category] || 'Premium Mixed Materials'
+  const dimensions =
+    dimensionsByCategory[product.category] || '10 x 6 x 3 in'
+  const shippingEstimate = 'Ships in 3-5 business days'
+  const tags = [
+    product.category,
+    product.vendor,
+    product.isTrending ? 'Trending' : 'Popular',
+  ]
+  const variationsSource = product.gallery?.length
+    ? product.gallery
+    : [product.image]
+  const variations = variationsSource.slice(0, 6).map((img, idx) => {
+    const priceDelta = (idx + 1) * 2.5
+    const variationPrice = Math.max(5, product.price + priceDelta)
+    const variationOriginal = product.originalPrice
+      ? Math.max(variationPrice + 10, product.originalPrice + priceDelta)
+      : null
+
+    return {
+      id: `${product.slug}-var-${idx + 1}`,
+      label: `Variant ${idx + 1}`,
+      image: img,
+      price: Number(variationPrice.toFixed(2)),
+      originalPrice: variationOriginal
+        ? Number(variationOriginal.toFixed(2))
+        : null,
+      sku: `${sku}-V${idx + 1}`,
+      inStock: product.stock > 0,
+    }
+  })
+
+  return {
+    ...product,
+    sku,
+    shortDescription,
+    fullDescription,
+    stockRemaining,
+    material,
+    dimensions,
+    shippingEstimate,
+    tags,
+    variations,
+  }
+})

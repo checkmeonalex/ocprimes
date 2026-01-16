@@ -4,7 +4,7 @@ import { Heart } from 'lucide-react'
 import StarRating from './StarRating'
 import Image from 'next/image'
 import ColorOptions from './ColorOptions' // Import new component
-import ProductSkeleton from './ProductSkeleton'
+import ProductCardSkeleton from '../ProductCardSkeleton'
 import Link from 'next/link'
 
 const ProductCard = ({ product, onAddToCart }) => {
@@ -49,16 +49,21 @@ const ProductCard = ({ product, onAddToCart }) => {
   }
 
   if (!product) {
-    return <ProductSkeleton />
+    return <ProductCardSkeleton />
   }
 
   return (
     <Link href={`/product/${product.slug}`}>
       <div
-        className='bg-white rounded-[5px] overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group'
+        className='relative bg-white rounded-[5px] overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group'
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
+        {!imageLoaded && (
+          <div className='absolute inset-0 z-10 pointer-events-none'>
+            <ProductCardSkeleton />
+          </div>
+        )}
         {/* Image Container */}
         <div
           className={`relative ${
@@ -66,16 +71,22 @@ const ProductCard = ({ product, onAddToCart }) => {
           } bg-gray-50 overflow-hidden`}
         >
           <div className='relative w-full h-full'>
-            {!imageLoaded && <ProductSkeleton type='image' />}
+            {!imageLoaded && (
+              <div className='absolute inset-0'>
+                <ProductCardSkeleton type='image' />
+              </div>
+            )}
             <Image
               src={product.gallery?.[currentImageIndex] || product.image}
               alt={product.name}
               fill
               sizes='(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw'
-              className={`object-cover transition-transform duration-300 ${
-                imageLoaded ? 'group-hover:scale-105' : ''
+              className={`object-cover transition-all duration-300 ${
+                imageLoaded
+                  ? 'opacity-100 group-hover:scale-105'
+                  : 'opacity-0'
               }`}
-              onLoadingComplete={() => setImageLoaded(true)}
+              onLoad={handleImageLoad}
               onError={() => setImageLoaded(true)}
             />
           </div>

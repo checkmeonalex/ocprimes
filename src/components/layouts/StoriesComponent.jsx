@@ -1,3 +1,4 @@
+'use client'
 import React, { useState, useEffect, useRef } from 'react'
 import { ChevronLeft, ChevronRight, Eye } from 'lucide-react'
 import { storiesData } from '../data/storiesData'

@@ -6,6 +6,9 @@ export default function Gallery({
   currentImage,
   setCurrentImage,
   productName,
+  badgeText = null,
+  showMoreStack = true,
+  mainImageRef = null,
 }) {
   const [isMobileView, setIsMobileView] = useState(false)
   const [isZooming, setIsZooming] = useState(false)
@@ -17,6 +20,7 @@ export default function Gallery({
     x: 50,
     y: 50,
   })
+  const [mainAspect, setMainAspect] = useState(3 / 4)
 
   useEffect(() => {
     const checkDeviceWidth = () => {
@@ -93,14 +97,26 @@ export default function Gallery({
     }
   }, [isLightboxOpen])
 
-  const maxMainImageWidth = 400
-  const portraitHeight = (maxMainImageWidth * 4) / 3
+  useEffect(() => {
+    if (!currentImage) return
+
+    const img = new window.Image()
+    img.onload = () => {
+      if (img.naturalWidth && img.naturalHeight) {
+        setMainAspect(img.naturalWidth / img.naturalHeight)
+      }
+    }
+    img.src = currentImage
+  }, [currentImage])
+
+  const mainImageMaxWidth = 640
+  const mainImageHeight = mainImageMaxWidth / mainAspect
   const defaultThumbSize = 64
   const gapSize = 8
 
   // Calculate how many thumbs fit fully at default size within portraitHeight
   const maxThumbCount = Math.floor(
-    (portraitHeight + gapSize) / (defaultThumbSize + gapSize)
+    (mainImageHeight + gapSize) / (defaultThumbSize + gapSize)
   )
 
   // Determine how many thumbnails to show normally (all or maxThumbCount - 1 if overflow)
@@ -118,14 +134,15 @@ export default function Gallery({
           currentImage={currentImage}
           setCurrentImage={setCurrentImage}
           productName={productName}
+          badgeText={badgeText}
         />
       ) : (
-        <div className='flex gap-4'>
+        <div className='flex gap-0 items-start'>
           {/* Thumbnails */}
           <div
             className='flex flex-col items-center bg-white rounded-md border border-gray-200'
             style={{
-              height: portraitHeight,
+              height: mainImageHeight,
               width: defaultThumbSize + 16,
               gap: `${gapSize}px`,
             }}
@@ -139,6 +156,7 @@ export default function Gallery({
                     : 'border-gray-200 hover:border-gray-400'
                 }`}
                 onClick={() => setCurrentImage(img)}
+                onMouseEnter={() => setCurrentImage(img)}
                 style={{
                   width: defaultThumbSize,
                   height: defaultThumbSize,
@@ -183,41 +201,69 @@ export default function Gallery({
             )}
           </div>
 
-          {/* Main image with zoom & expand */}
-          <div
-            className='flex-1 bg-gray-50 rounded-md overflow-hidden flex items-start justify-center relative'
-            style={{
-              aspectRatio: '3 / 4',
-              maxWidth: `${maxMainImageWidth}px`,
-              width: '100%',
-              position: 'relative',
-            }}
-            onMouseEnter={() => setIsZooming(true)}
-            onMouseLeave={() => setIsZooming(false)}
-            onMouseMove={handleMouseMove}
-          >
-            {/* Expand button */}
-            <button
-              onClick={openLightbox}
-              className='absolute top-2 right-2 bg-white rounded-md p-2 shadow-lg hover:bg-gray-100 border border-gray-300 z-10'
-              title='Expand'
+          <div className='flex flex-col w-full lg:w-[640px]'>
+            {/* Main image with zoom & expand */}
+            <div
+              ref={mainImageRef}
+              className='bg-gray-50 rounded-md overflow-hidden flex items-start justify-center relative w-full'
+              style={{
+                aspectRatio: mainAspect,
+                maxWidth: `${mainImageMaxWidth}px`,
+                position: 'relative',
+              }}
+              onMouseEnter={() => setIsZooming(true)}
+              onMouseLeave={() => setIsZooming(false)}
+              onMouseMove={handleMouseMove}
             >
-              ⛶
-            </button>
+              {/* Expand button */}
+              <button
+                onClick={openLightbox}
+                className='absolute top-2 right-2 bg-white rounded-md p-2 shadow-lg hover:bg-gray-100 border border-gray-300 z-10'
+                title='Expand'
+              >
+                ⛶
+              </button>
 
-            <img
-              src={currentImage}
-              alt={productName}
-              className='max-w-full max-h-full object-contain transition-transform duration-300'
-              style={
-                isZooming
-                  ? {
-                      transform: 'scale(2)',
-                      transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
-                    }
-                  : { transform: 'scale(1)' }
-              }
-            />
+              <img
+                src={currentImage}
+                alt={productName}
+                className='max-w-full max-h-full object-contain transition-transform duration-300'
+                style={
+                  isZooming
+                    ? {
+                        transform: 'scale(2)',
+                        transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                      }
+                    : { transform: 'scale(1)' }
+                }
+              />
+            </div>
+
+            {showMoreStack && images.length > 1 && (
+              <div className='mt-6'>
+                <div className='flex items-center justify-center text-sm text-gray-600'>
+                  See more
+                  <span className='ml-1'>▾</span>
+                </div>
+                <div className='mt-4 space-y-4'>
+                  {images
+                    .filter((img) => img !== currentImage)
+                    .map((img, index) => (
+                      <div
+                        key={`${img}-${index}`}
+                        className='w-full bg-gray-50 rounded-md overflow-hidden'
+                        style={{ aspectRatio: '5 / 3' }}
+                      >
+                        <img
+                          src={img}
+                          alt={`${productName} more ${index + 1}`}
+                          className='w-full h-full object-cover'
+                        />
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

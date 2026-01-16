@@ -1,4 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react'
+'use client'
+import React, { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function MobileGallery({
   images = [
@@ -13,8 +15,10 @@ export default function MobileGallery({
   currentImage,
   setCurrentImage,
   productName = 'Premium Hoodie',
+  badgeText = null,
 }) {
-  const [activeImage, setActiveImage] = useState(currentImage || images[0])
+  const router = useRouter()
+  const [activeIndex, setActiveIndex] = useState(0)
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const [lightboxCurrentIndex, setLightboxCurrentIndex] = useState(0)
   const [isLightboxZooming, setIsLightboxZooming] = useState(false)
@@ -22,15 +26,38 @@ export default function MobileGallery({
     x: 50,
     y: 50,
   })
-  const [imageAspectRatio, setImageAspectRatio] = useState(null)
-  const mainImageRef = useRef(null)
-  const thumbnailsRef = useRef(null)
-  const [shouldStackVertically, setShouldStackVertically] = useState(false)
+  const activeImage = images[activeIndex] || images[0]
+  const touchStartX = useRef(0)
+  const touchEndX = useRef(0)
 
-  const handleImageSelect = (img, index) => {
-    setActiveImage(img)
+  const handleImageSelect = (index) => {
+    setActiveIndex(index)
     if (setCurrentImage) {
-      setCurrentImage(img)
+      setCurrentImage(images[index])
+    }
+  }
+
+  const handleSwipe = () => {
+    const delta = touchStartX.current - touchEndX.current
+    const threshold = 40
+    if (Math.abs(delta) < threshold) return
+
+    if (delta > 0) {
+      setActiveIndex((prev) => {
+        const nextIndex = (prev + 1) % images.length
+        if (setCurrentImage) {
+          setCurrentImage(images[nextIndex])
+        }
+        return nextIndex
+      })
+    } else {
+      setActiveIndex((prev) => {
+        const nextIndex = prev === 0 ? images.length - 1 : prev - 1
+        if (setCurrentImage) {
+          setCurrentImage(images[nextIndex])
+        }
+        return nextIndex
+      })
     }
   }
 
@@ -62,8 +89,7 @@ export default function MobileGallery({
   }
 
   const openLightbox = () => {
-    const currentIndex = images.indexOf(activeImage)
-    setLightboxCurrentIndex(currentIndex >= 0 ? currentIndex : 0)
+    setLightboxCurrentIndex(activeIndex)
     setIsLightboxOpen(true)
   }
 
@@ -89,25 +115,12 @@ export default function MobileGallery({
     }
   }
 
-  const handleMainImageLoad = (e) => {
-    const { naturalWidth, naturalHeight } = e.target
-    const ratio = naturalWidth / naturalHeight
-    setImageAspectRatio(ratio)
-  }
-
   useEffect(() => {
-    const checkHeights = () => {
-      if (mainImageRef.current && thumbnailsRef.current) {
-        const mainHeight = mainImageRef.current.offsetHeight
-        const thumbHeight = thumbnailsRef.current.offsetHeight
-        setShouldStackVertically(mainHeight < thumbHeight)
-      }
+    const currentIndex = currentImage ? images.indexOf(currentImage) : 0
+    if (currentIndex >= 0) {
+      setActiveIndex(currentIndex)
     }
-
-    checkHeights()
-    window.addEventListener('resize', checkHeights)
-    return () => window.removeEventListener('resize', checkHeights)
-  }, [imageAspectRatio])
+  }, [currentImage, images])
 
   useEffect(() => {
     if (isLightboxOpen) {
@@ -123,142 +136,67 @@ export default function MobileGallery({
   return (
     <>
       <div className='w-full max-w-2xl mx-auto bg-white'>
-        {/* Main Layout with conditional className */}
-        <div
-          className={`${
-            imageAspectRatio === 1 || shouldStackVertically
-              ? 'flex flex-col gap-4'
-              : 'flex gap-4'
-          }`}
-        >
-          {/* Main Image Display */}
+        <div className='relative w-full bg-gray-50 rounded-2xl overflow-hidden'>
           <div
-            ref={mainImageRef}
-            className={`${
-              imageAspectRatio === 1 || shouldStackVertically
-                ? 'w-full'
-                : 'flex-1'
-            }`}
+            className='w-full cursor-pointer'
+            style={{ aspectRatio: '4 / 5' }}
+            onClick={openLightbox}
+            onTouchStart={(e) => {
+              touchStartX.current = e.touches[0].clientX
+            }}
+            onTouchMove={(e) => {
+              touchEndX.current = e.touches[0].clientX
+            }}
+            onTouchEnd={handleSwipe}
           >
-            <div
-              className='w-full bg-gray-50 rounded-lg overflow-hidden cursor-pointer group'
-              style={{
-                aspectRatio: imageAspectRatio === 1 ? '1 / 1' : '3 / 4',
-              }}
-              onClick={openLightbox}
-            >
-              <img
-                src={activeImage}
-                alt={productName}
-                className='w-full h-full object-contain object-center transition-transform duration-300 group-hover:scale-105'
-                onLoad={handleMainImageLoad}
-              />
-              {/* Zoom indicator */}
-              <div className='absolute top-3 right-3 bg-black bg-opacity-60 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity'>
-                <svg
-                  className='w-4 h-4'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7'
-                  />
-                </svg>
-              </div>
-            </div>
+            <img
+              src={activeImage}
+              alt={productName}
+              className='w-full h-full object-cover'
+            />
           </div>
 
-          {/* Thumbnails with conditional styling */}
-          <div
-            ref={thumbnailsRef}
-            className={`
-              flex gap-2
-              ${
-                imageAspectRatio === 1 || shouldStackVertically
-                  ? 'flex-row overflow-x-auto scrollbar-hide'
-                  : 'flex-col'
-              }
-            `}
-            style={
-              imageAspectRatio === 1 || shouldStackVertically
-                ? { height: '80px' }
-                : { width: '80px' }
-            }
+          <button
+            type='button'
+            onClick={() => router.back()}
+            className='absolute top-4 left-4 w-9 h-9 rounded-full bg-white/90 shadow-sm flex items-center justify-center'
+            aria-label='Back'
           >
-            {images.slice(0, 4).map((img, index) => (
-              <div
-                key={index}
-                className={`
-                  relative cursor-pointer rounded-lg overflow-hidden transition-all duration-200
-                  ${
-                    activeImage === img
-                      ? 'ring-2 ring-blue-500 ring-offset-1'
-                      : 'hover:ring-2 hover:ring-gray-300 hover:ring-offset-1 opacity-70 hover:opacity-100'
-                  }
-                `}
-                onClick={() => handleImageSelect(img, index)}
-                style={{ aspectRatio: '1 / 1' }}
-              >
-                <img
-                  src={img}
-                  alt={`${productName} view ${index + 1}`}
-                  className='w-full h-full object-cover'
-                />
-                {/* Selected indicator */}
-                {activeImage === img && (
-                  <div className='absolute inset-0 bg-blue-500 bg-opacity-10 flex items-center justify-center'>
-                    <div className='bg-blue-500 text-white rounded-full p-1'>
-                      <svg
-                        className='w-3 h-3'
-                        fill='currentColor'
-                        viewBox='0 0 20 20'
-                      >
-                        <path
-                          fillRule='evenodd'
-                          d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z'
-                          clipRule='evenodd'
-                        />
-                      </svg>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+            <svg
+              className='w-4 h-4'
+              fill='none'
+              stroke='currentColor'
+              viewBox='0 0 24 24'
+            >
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                strokeWidth={2}
+                d='M15 19l-7-7 7-7'
+              />
+            </svg>
+          </button>
 
-            {/* Show more indicator if there are more than 4 images */}
-            {images.length > 4 && (
-              <div className='flex flex-col items-center gap-1'>
-                <div
-                  className='relative cursor-pointer rounded-lg overflow-hidden transition-all duration-200 hover:ring-2 hover:ring-gray-300 hover:ring-offset-1 opacity-70 hover:opacity-100'
-                  onClick={openLightbox}
-                  style={{ aspectRatio: '1 / 1', width: '100%' }}
-                >
-                  <img
-                    src={images[4]}
-                    alt={`${productName} view 5`}
-                    className='w-full h-full object-cover'
-                  />
-                  {/* Dark overlay with plus icon */}
-                  <div className='absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center'>
-                    <div className='text-white text-center'>
-                      <div className='text-lg font-bold mb-1'>
-                        +{images.length - 4}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  onClick={openLightbox}
-                  className='text-xs text-blue-600 hover:text-blue-800 font-medium transition-colors'
-                >
-                  View All
-                </button>
-              </div>
-            )}
+          {badgeText && (
+            <div className='absolute bottom-4 left-4 bg-red-500 text-white text-xs font-semibold px-3 py-1 rounded-full'>
+              {badgeText}
+            </div>
+          )}
+
+          <div className='absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2'>
+            {images.map((_, index) => (
+              <button
+                key={index}
+                type='button'
+                onClick={() => handleImageSelect(index)}
+                className={`h-1.5 rounded-full transition-all ${
+                  activeIndex === index
+                    ? 'w-6 bg-blue-500'
+                    : 'w-2 bg-white/70'
+                }`}
+                aria-label={`View image ${index + 1}`}
+              />
+            ))}
           </div>
         </div>
       </div>

@@ -1,16 +1,8 @@
-'use client'
-
-import { SidebarProvider } from '../context/SidebarContext'
 import LeftLayout from '../components/layouts/hero/LeftLayout'
 import CenterLayout from '../components/layouts/hero/CenterLayout'
 import RightLayout from '../components/layouts/hero/RightLayout'
 import dynamic from 'next/dynamic'
 import { memo } from 'react'
-import Sidebar from '../components/Sidebar'
-
-// Import navbars so they render before body content
-import Navbar from '../components/Navbar'
-import MobileNavbar from '../components/mobile/Navbar'
 
 // Lazy load heavier sections with better loading states
 const BrowseCategories = dynamic(
@@ -37,10 +29,9 @@ const MemoBrowseCategories = memo(BrowseCategories)
 const MemoStoriesComponent = memo(StoriesComponent)
 const MemoProductCardList = memo(ProductCardList)
 
-function MainContent() {
+export default function HomePage() {
   return (
     <div className='min-h-screen flex'>
-      <Sidebar />
       <div className='flex-1 min-w-0'>
         <main className='lg:pl-16 min-h-screen bg-gray-50 overflow-x-hidden w-full'>
           {/* Use main-container class instead of px-4 to avoid double padding */}
@@ -78,18 +69,5 @@ function MainContent() {
         </main>
       </div>
     </div>
-  )
-}
-
-export default function HomePage() {
-  return (
-    <SidebarProvider>
-      {/* Render navbars first so they load before the body */}
-      <Navbar />
-      <MobileNavbar />
-
-      {/* Main content loads after navbars; heavy sections are dynamically imported */}
-      <MainContent />
-    </SidebarProvider>
   )
 }

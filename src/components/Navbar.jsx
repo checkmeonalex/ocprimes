@@ -78,17 +78,6 @@ export default function Navbar() {
     setHoverTimeout(timeout)
   }
 
-  const handleMenuMouseEnter = () => {
-    if (hoverTimeout) clearTimeout(hoverTimeout)
-  }
-
-  const handleMenuMouseLeave = () => {
-    const timeout = setTimeout(() => {
-      setIsCategoriesOpen(false)
-    }, 300)
-    setHoverTimeout(timeout)
-  }
-
   // Cart component
   const CartButton = ({ className = '' }) => (
     <button
@@ -199,14 +188,14 @@ export default function Navbar() {
           width: '100%',
           zIndex: 30,
         }}
+        ref={categoriesRef}
+        onMouseEnter={handleCategoriesMouseEnter}
+        onMouseLeave={handleCategoriesMouseLeave}
       >
-        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+        <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative'>
           <div className='flex items-center justify-between h-14'>
             {/* Categories title with icon */}
-            <div
-              className='flex items-center space-x-2 relative'
-              ref={categoriesRef}
-            >
+            <div className='flex items-center space-x-2'>
               <button
                 className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors duration-200 ${
                   isCategoriesOpen
@@ -214,8 +203,6 @@ export default function Navbar() {
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
                 onClick={() => setIsCategoriesOpen(!isCategoriesOpen)}
-                onMouseEnter={handleCategoriesMouseEnter}
-                onMouseLeave={handleCategoriesMouseLeave}
               >
                 <svg
                   className='h-5 w-5'
@@ -315,22 +302,18 @@ export default function Navbar() {
               </button>
             </div>
           </div>
+          <div
+            ref={menuRef}
+            className={`absolute top-14 left-0 right-0 z-40 ${
+              showSecondaryNav ? '' : 'hidden'
+            }`}
+          >
+            <CategoriesMenu
+              isOpen={isCategoriesOpen}
+              onClose={() => setIsCategoriesOpen(false)}
+            />
+          </div>
         </div>
-      </div>
-
-      {/* Categories Menu */}
-      <div
-        ref={menuRef}
-        className={`absolute top-14 left-0 right-0 z-40 ${
-          showSecondaryNav ? '' : 'hidden'
-        }`}
-        onMouseEnter={handleMenuMouseEnter}
-        onMouseLeave={handleMenuMouseLeave}
-      >
-        <CategoriesMenu
-          isOpen={isCategoriesOpen}
-          onClose={() => setIsCategoriesOpen(false)}
-        />
       </div>
     </nav>
   )
