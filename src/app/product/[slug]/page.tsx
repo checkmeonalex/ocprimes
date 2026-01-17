@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, use } from 'react'
 import Image from 'next/image'
 import { productsData } from '../../../components/data/products'
+import { getSwatchStyle } from '../../../components/product/colorUtils.mjs'
 import StarRating from '../../../components/product/StarRating'
 import Gallery from '../../../components/product/ProductDetails/gallery'
 import Breadcrumb from '../../../components/Breadcrumb'
@@ -32,10 +33,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const rightColumnRef = useRef<HTMLDivElement | null>(null)
   const rightPinRef = useRef<HTMLDivElement | null>(null)
   const rightSpacerRef = useRef<HTMLDivElement | null>(null)
-  const productNameRef = useRef<HTMLHeadingElement | null>(null)
-  const autoScrollArmedRef = useRef(true)
   const leftColumnRef = useRef<HTMLDivElement | null>(null)
-  const leftTopSentinelRef = useRef<HTMLDivElement | null>(null)
   const descriptionRef = useRef<HTMLParagraphElement | null>(null)
 
   useEffect(() => {
@@ -148,29 +146,6 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }, [isMobile, product])
 
   useEffect(() => {
-    if (isMobile) return
-    const target = productNameRef.current
-    const sentinel = leftTopSentinelRef.current
-    if (!target || !sentinel) return
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && autoScrollArmedRef.current) {
-          autoScrollArmedRef.current = false
-          target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
-        if (!entry.isIntersecting) {
-          autoScrollArmedRef.current = true
-        }
-      },
-      { threshold: 1 }
-    )
-
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [isMobile, product])
-
-  useEffect(() => {
     if (!product) {
       setShowSeeMore(false)
       return
@@ -237,7 +212,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const activePrice = selectedVariation?.price ?? product.price
   const activeOriginalPrice =
     selectedVariation?.originalPrice ?? product.originalPrice
-  const activeImage = selectedVariation?.image || currentImage
+  const activeImage = currentImage || selectedVariation?.image || product.image
   const sizeRange = product.sizes?.length ? product.sizes.join(', ') : 'One size'
   const categorySlug = encodeURIComponent(product.category.toLowerCase())
 
@@ -263,35 +238,35 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   return (
     <div className='min-h-screen flex'>
       <div className='flex-1 min-w-0'>
-        <main className='lg:pl-16 min-h-screen bg-[#f7f7f5] overflow-x-hidden w-full'>
-          <div className='main-container py-10'>
-            <div className='mb-6'>
-              <Breadcrumb
-                items={[
-                  { label: 'Catalogue', href: '/' },
-                  { label: product.category, href: `/category/${categorySlug}` },
-                  { label: product.name },
-                ]}
-                rightAction={{
-                  label: 'Report This Product',
-                  icon: (
-                    <svg
-                      className='h-4 w-4'
-                      fill='none'
-                      stroke='currentColor'
-                      viewBox='0 0 24 24'
-                    >
-                      <path
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                        strokeWidth={1.8}
-                        d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
-                      />
-                    </svg>
-                  ),
-                }}
-              />
-            </div>
+        <main className='lg:pl-16 min-h-screen bg-white overflow-x-hidden w-full'>
+          <div className='main-container py-0'>
+              <div className='pt-2 sm:pt-0'>
+                <Breadcrumb
+                  items={[
+                    { label: 'Catalogue', href: '/' },
+                    { label: product.category, href: `/products/${categorySlug}` },
+                    { label: product.name },
+                  ]}
+                  rightAction={{
+                    ariaLabel: 'Report This Product',
+                    icon: (
+                      <svg
+                        className='h-4 w-4'
+                        fill='none'
+                        stroke='currentColor'
+                        viewBox='0 0 24 24'
+                      >
+                        <path
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                          strokeWidth={1.8}
+                          d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
+                        />
+                      </svg>
+                    ),
+                  }}
+                />
+              </div>
             <div className='bg-white rounded-2xl shadow-sm border border-gray-100'>
               <div
                 ref={sectionRef}
@@ -299,7 +274,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
               >
                 {/* Left side - Images */}
                 <div ref={leftColumnRef} className='space-y-6 lg:pr-6'>
-                  <div ref={leftTopSentinelRef} className='h-px w-full' />
+                  <div className='h-px w-full' />
                   <Gallery
                     images={product.gallery}
                     currentImage={activeImage}
@@ -310,12 +285,14 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     }
                     mainImageRef={galleryMainRef}
                   />
-                  <CustomerReviews
-                    data={
-                      customerReviewsByProductId[product.id] ||
-                      customerReviewsData
-                    }
-                  />
+                  {!isMobile && (
+                    <CustomerReviews
+                      data={
+                        customerReviewsByProductId[product.id] ||
+                        customerReviewsData
+                      }
+                    />
+                  )}
                 </div>
 
                 {/* Right side - Product info */}
@@ -359,10 +336,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                   </div>
 
                   <div className='space-y-3'>
-                    <h1
-                      ref={productNameRef}
-                      className='text-3xl font-semibold text-gray-900 font-serif'
-                    >
+                    <h1 className='text-3xl font-semibold text-gray-900 font-serif'>
                       {product.name}
                     </h1>
                     <div className='flex items-center gap-3 text-sm text-gray-600'>
@@ -480,25 +454,65 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                         </div>
                       </div>
                     )}
-                    {product.sizes && (
-                      <div className='space-y-2'>
-                        <div className='text-sm font-semibold text-gray-900'>
-                          Sizes
-                        </div>
-                        <div className='flex flex-wrap gap-2'>
-                          {product.sizes.map((size: string) => (
-                            <button
-                              key={size}
-                              className={`px-3 py-1.5 border rounded-full text-xs ${
-                                selectedSize === size
-                                  ? 'border-gray-900 bg-gray-900 text-white'
-                                  : 'border-gray-300 hover:border-gray-400 text-gray-700'
-                              }`}
-                              onClick={() => setSelectedSize(size)}
-                            >
-                              {size}
-                            </button>
-                          ))}
+                    {(product.colors?.length > 0 || product.sizes?.length > 0) && (
+                      <div className='grid gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3'>
+                        <div className='flex flex-wrap items-start gap-4'>
+                          <div className='flex-1 min-w-[220px]'>
+                            <div className='text-[11px] uppercase tracking-wide text-gray-500 mb-2'>
+                              Color
+                            </div>
+                            <div className='flex flex-wrap gap-2'>
+                              {product.colors?.map((color: string) => (
+                                <button
+                                  key={color}
+                                  type='button'
+                                  onClick={() => setSelectedColor(color)}
+                                  className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition ${
+                                    selectedColor === color
+                                      ? 'border-gray-900 text-gray-900'
+                                      : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                                  }`}
+                                  aria-pressed={selectedColor === color}
+                                >
+                                  <span
+                                    className='h-3 w-3 rounded-full border border-gray-300'
+                                    style={getSwatchStyle(color)}
+                                  />
+                                  <span className='capitalize'>{color}</span>
+                                </button>
+                              ))}
+                              {!product.colors?.length && (
+                                <span className='text-xs text-gray-400'>
+                                  —
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className='flex-1 min-w-[220px]'>
+                            <div className='text-[11px] uppercase tracking-wide text-gray-500 mb-2'>
+                              Size
+                            </div>
+                            <div className='flex flex-wrap gap-2'>
+                              {product.sizes?.map((size: string) => (
+                                <button
+                                  key={size}
+                                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                                    selectedSize === size
+                                      ? 'border-gray-900 bg-gray-900 text-white'
+                                      : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                                  }`}
+                                  onClick={() => setSelectedSize(size)}
+                                >
+                                  {size}
+                                </button>
+                              ))}
+                              {!product.sizes?.length && (
+                                <span className='text-xs text-gray-400'>
+                                  —
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -544,10 +558,10 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                       )}
                     </div>
 
-                    <div className='grid gap-3 sm:grid-cols-2'>
-                      <div className='border border-gray-200 rounded-xl p-4 text-sm'>
-                        <div className='font-semibold text-gray-900 mb-2'>
-                          Size & Fit
+                  <div className='grid gap-3 sm:grid-cols-2'>
+                    <div className='border border-gray-200 rounded-xl p-4 text-sm'>
+                      <div className='font-semibold text-gray-900 mb-2'>
+                        Size & Fit
                         </div>
                         <div className='flex justify-between text-gray-600'>
                           <span>Range</span>
@@ -573,7 +587,14 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                       </div>
                     </div>
 
-                  <ShippingInfoCard shippingEstimate={shippingEstimate} />
+                  {isMobile && (
+                    <CustomerReviews
+                      data={
+                        customerReviewsByProductId[product.id] ||
+                        customerReviewsData
+                      }
+                    />
+                  )}
                   <AboutStoreCard
                     vendor={product.vendor}
                     rating={product.vendorRating}
@@ -583,6 +604,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     badge={product.vendorBadge}
                     avatarUrl={product.image}
                   />
+                  <ShippingInfoCard shippingEstimate={shippingEstimate} />
                   </div>
                   </div>
                 </div>

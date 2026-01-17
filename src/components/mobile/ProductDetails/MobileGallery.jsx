@@ -32,9 +32,6 @@ export default function MobileGallery({
 
   const handleImageSelect = (index) => {
     setActiveIndex(index)
-    if (setCurrentImage) {
-      setCurrentImage(images[index])
-    }
   }
 
   const handleSwipe = () => {
@@ -44,19 +41,11 @@ export default function MobileGallery({
 
     if (delta > 0) {
       setActiveIndex((prev) => {
-        const nextIndex = (prev + 1) % images.length
-        if (setCurrentImage) {
-          setCurrentImage(images[nextIndex])
-        }
-        return nextIndex
+        return (prev + 1) % images.length
       })
     } else {
       setActiveIndex((prev) => {
-        const nextIndex = prev === 0 ? images.length - 1 : prev - 1
-        if (setCurrentImage) {
-          setCurrentImage(images[nextIndex])
-        }
-        return nextIndex
+        return prev === 0 ? images.length - 1 : prev - 1
       })
     }
   }
@@ -121,6 +110,14 @@ export default function MobileGallery({
       setActiveIndex(currentIndex)
     }
   }, [currentImage, images])
+
+  useEffect(() => {
+    if (!setCurrentImage) return
+    const nextImage = images[activeIndex] || images[0]
+    if (nextImage && nextImage !== currentImage) {
+      setCurrentImage(nextImage)
+    }
+  }, [activeIndex, currentImage, images, setCurrentImage])
 
   useEffect(() => {
     if (isLightboxOpen) {

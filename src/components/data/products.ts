@@ -16,7 +16,7 @@ const baseProducts = [
     rating: 4.5,
     reviews: 128,
     colors: ['white', 'black', 'gray', 'red', 'blue'],
-    sizes: ['US 7', 'US 8', 'US 9', 'US 10', 'US 11'],
+    sizes: ['US 7', 'US 8', 'US 9', 'US 10', 'US 11', 'US 12', 'US 13'],
     isTrending: false,
     isPortrait: false,
     image:

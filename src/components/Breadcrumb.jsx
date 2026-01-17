@@ -43,13 +43,13 @@ const Breadcrumb = ({
           </button>
         )}
 
-        <div className='flex items-center gap-2 text-gray-500 min-w-0'>
+        <div className='flex items-center gap-2 text-gray-500 min-w-0 overflow-x-auto whitespace-nowrap pr-2'>
           {items.map((item, index) => {
             const isLast = index === items.length - 1
             return (
               <div
                 key={`${item.label}-${index}`}
-                className='flex items-center gap-2 min-w-0'
+                className='flex items-center gap-2 min-w-0 shrink-0'
               >
                 {item.href && !isLast ? (
                   <Link
@@ -73,19 +73,21 @@ const Breadcrumb = ({
           {rightAction.href ? (
             <Link
               href={rightAction.href}
+              aria-label={rightAction.ariaLabel || rightAction.label}
               className='inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 transition'
             >
               {rightAction.icon}
-              <span>{rightAction.label}</span>
+              {rightAction.label && <span>{rightAction.label}</span>}
             </Link>
           ) : (
             <button
               type='button'
               onClick={rightAction.onClick}
+              aria-label={rightAction.ariaLabel || rightAction.label}
               className='inline-flex items-center gap-2 text-gray-500 hover:text-gray-700 transition'
             >
               {rightAction.icon}
-              <span>{rightAction.label}</span>
+              {rightAction.label && <span>{rightAction.label}</span>}
             </button>
           )}
         </div>

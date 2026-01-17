@@ -141,7 +141,6 @@ export default function Gallery({
           <div
             className='flex flex-col items-center bg-white rounded-md border border-gray-200'
             style={{
-              height: mainImageHeight,
               width: defaultThumbSize + 16,
               gap: `${gapSize}px`,
             }}

@@ -3,14 +3,20 @@ import Navbar from './Navbar'
 import MobileNavbar from './mobile/Navbar'
 import Sidebar from './Sidebar'
 import { useScreenSize } from '../hooks/useScreenSize'
-import SmoothScrollProvider from './SmoothScrollProvider'
+import { usePathname } from 'next/navigation'
 
 export default function ClientLayout({ children }) {
   const { isMobile } = useScreenSize()
+  const pathname = usePathname()
+  const isAuthRoute = pathname?.startsWith('/login')
+  const isBackendAdmin = pathname?.startsWith('/backend/admin')
+
+  if (isAuthRoute || isBackendAdmin) {
+    return <main className='min-h-screen'>{children}</main>
+  }
 
   return (
     <>
-      <SmoothScrollProvider />
       {isMobile ? <MobileNavbar /> : <Navbar />}
       <div className={`flex pt-32 ${isMobile ? 'mt-5' : ''}`}>
         <Sidebar />
