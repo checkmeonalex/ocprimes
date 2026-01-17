@@ -1,0 +1,107 @@
+export const customerReviewsData = {
+  summary: {
+    rating: 4.3,
+    totalReviews: 2000,
+    wouldRecommendPercent: 90,
+    wouldRecommendCount: 1700,
+    verifiedBy: 'WiserNotify',
+  },
+  breakdown: [
+    { stars: 5, count: 1000 },
+    { stars: 4, count: 700 },
+    { stars: 3, count: 200 },
+    { stars: 2, count: 80 },
+    { stars: 1, count: 20 },
+  ],
+  reviews: [
+    {
+      id: 'rev-1',
+      name: 'Rachna Sheth',
+      location: 'Surat, Gujarat',
+      rating: 5,
+      title: 'Amazing',
+      body:
+        'Loved the quality and the design. Trendy and perfect for carrying my laptop.',
+      helpful: 12,
+      unhelpful: 1,
+      isVerifiedBuyer: true,
+    },
+    {
+      id: 'rev-2',
+      name: 'Mark Johnson',
+      location: 'Austin, TX',
+      rating: 4,
+      title: 'Great value',
+      body: 'Comfortable and stylish. Delivery was faster than expected.',
+      helpful: 8,
+      unhelpful: 0,
+      isVerifiedBuyer: true,
+    },
+    {
+      id: 'rev-3',
+      name: 'Aisha Bello',
+      location: 'Lagos, Nigeria',
+      rating: 4,
+      title: 'Solid pick',
+      body:
+        'Good build and finish. The size is just right for daily use.',
+      helpful: 5,
+      unhelpful: 2,
+      isVerifiedBuyer: false,
+    },
+  ],
+}
+
+export const customerReviewsByProductId = {
+  10: {
+    summary: {
+      rating: 4.8,
+      totalReviews: 860,
+      wouldRecommendPercent: 94,
+      wouldRecommendCount: 810,
+      verifiedBy: 'WiserNotify',
+    },
+    breakdown: [
+      { stars: 5, count: 600 },
+      { stars: 4, count: 180 },
+      { stars: 3, count: 50 },
+      { stars: 2, count: 20 },
+      { stars: 1, count: 10 },
+    ],
+    reviews: [
+      {
+        id: 'rev-10-1',
+        name: 'Chinedu Okafor',
+        location: 'Abuja, Nigeria',
+        rating: 5,
+        title: 'Top quality',
+        body: 'Great feel and craftsmanship. Looks premium in person.',
+        helpful: 18,
+        unhelpful: 2,
+        isVerifiedBuyer: true,
+      },
+      {
+        id: 'rev-10-2',
+        name: 'Zara Mendes',
+        location: 'Lisbon, Portugal',
+        rating: 4,
+        title: 'Very satisfied',
+        body: 'Stylish and comfortable. Shipping was quick.',
+        helpful: 7,
+        unhelpful: 0,
+        isVerifiedBuyer: true,
+      },
+      {
+        id: 'rev-10-3',
+        name: 'Noah Lee',
+        location: 'Seattle, WA',
+        rating: 5,
+        title: 'Exceeded expectations',
+        body: 'The details are excellent and it fits perfectly.',
+        helpful: 11,
+        unhelpful: 1,
+        isVerifiedBuyer: false,
+      },
+    ],
+  },
+} as const

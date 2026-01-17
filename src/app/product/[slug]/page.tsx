@@ -6,6 +6,12 @@ import StarRating from '../../../components/product/StarRating'
 import Gallery from '../../../components/product/ProductDetails/gallery'
 import Breadcrumb from '../../../components/Breadcrumb'
 import ShippingInfoCard from '../../../components/product/ShippingInfoCard'
+import AboutStoreCard from '../../../components/product/AboutStoreCard'
+import CustomerReviews from '../../../components/product/CustomerReviews'
+import {
+  customerReviewsByProductId,
+  customerReviewsData,
+} from '../../../components/data/customerReviews'
 
 function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params)
@@ -18,12 +24,19 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const [showFloatingCart, setShowFloatingCart] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [selectedVariation, setSelectedVariation] = useState<any>(null)
-  const [showMoreStack, setShowMoreStack] = useState(false)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [showSeeMore, setShowSeeMore] = useState(false)
   const addToCartRef = useRef<HTMLDivElement | null>(null)
   const galleryMainRef = useRef<HTMLDivElement | null>(null)
-  const galleryPinRef = useRef<HTMLDivElement | null>(null)
-  const leftColumnRef = useRef<HTMLDivElement | null>(null)
+  const sectionRef = useRef<HTMLDivElement | null>(null)
   const rightColumnRef = useRef<HTMLDivElement | null>(null)
+  const rightPinRef = useRef<HTMLDivElement | null>(null)
+  const rightSpacerRef = useRef<HTMLDivElement | null>(null)
+  const productNameRef = useRef<HTMLHeadingElement | null>(null)
+  const autoScrollArmedRef = useRef(true)
+  const leftColumnRef = useRef<HTMLDivElement | null>(null)
+  const leftTopSentinelRef = useRef<HTMLDivElement | null>(null)
+  const descriptionRef = useRef<HTMLParagraphElement | null>(null)
 
   useEffect(() => {
     const foundProduct = productsData.find(
@@ -63,37 +76,39 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }, [isMobile])
 
   useEffect(() => {
-    setShowMoreStack(false)
-  }, [])
-
-  useEffect(() => {
     if (isMobile) return
+    if (!product) return
 
-    const pinEl = galleryPinRef.current
-    const leftCol = leftColumnRef.current
+    const sectionEl = sectionRef.current
+    const pinEl = rightPinRef.current
+    const spacerEl = rightSpacerRef.current
     const rightCol = rightColumnRef.current
-    if (!pinEl || !leftCol || !rightCol) return
+    if (!sectionEl || !pinEl || !spacerEl || !rightCol) return
 
     let frameId = 0
     const headerOffset = 96
 
     const update = () => {
       const scrollY = window.scrollY
-      const leftRect = leftCol.getBoundingClientRect()
+      const sectionRect = sectionEl.getBoundingClientRect()
       const rightRect = rightCol.getBoundingClientRect()
-      const pinRect = pinEl.getBoundingClientRect()
-      const leftTop = leftRect.top + scrollY
-      const rightBottom = rightRect.bottom + scrollY
-      const galleryHeight = pinEl.offsetHeight
-      const maxTop = Math.max(0, rightBottom - galleryHeight - leftTop)
-      const shouldPin = pinRect.top <= headerOffset
-      const shouldUnpinBottom = scrollY + headerOffset >= rightBottom - galleryHeight
+      const sectionTop = sectionRect.top + scrollY
+      const sectionBottom = sectionRect.bottom + scrollY
+      const pinHeight = pinEl.offsetHeight
+      const maxTop = Math.max(0, sectionBottom - pinHeight - sectionTop)
+      const shouldPin = scrollY + headerOffset >= sectionTop
+      const shouldUnpinBottom =
+        scrollY + headerOffset >= sectionBottom - pinHeight
+
+      spacerEl.style.height = `${pinHeight}px`
+      rightCol.style.minHeight = `${pinHeight}px`
 
       if (!shouldPin) {
         pinEl.style.position = 'absolute'
         pinEl.style.top = '0px'
         pinEl.style.left = '0px'
-        pinEl.style.width = `${leftRect.width}px`
+        pinEl.style.width = '100%'
+        pinEl.style.zIndex = '1'
         return
       }
 
@@ -101,14 +116,16 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
         pinEl.style.position = 'absolute'
         pinEl.style.top = `${maxTop}px`
         pinEl.style.left = '0px'
-        pinEl.style.width = `${leftRect.width}px`
+        pinEl.style.width = '100%'
+        pinEl.style.zIndex = '1'
         return
       }
 
       pinEl.style.position = 'fixed'
       pinEl.style.top = `${headerOffset}px`
-      pinEl.style.left = `${leftRect.left}px`
-      pinEl.style.width = `${leftRect.width}px`
+      pinEl.style.left = `${rightRect.left}px`
+      pinEl.style.width = `${rightRect.width}px`
+      pinEl.style.zIndex = '10'
     }
 
     const onScroll = () => {
@@ -128,9 +145,72 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       window.removeEventListener('resize', onScroll)
       if (frameId) window.cancelAnimationFrame(frameId)
     }
-  }, [isMobile])
+  }, [isMobile, product])
 
+  useEffect(() => {
+    if (isMobile) return
+    const target = productNameRef.current
+    const sentinel = leftTopSentinelRef.current
+    if (!target || !sentinel) return
 
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && autoScrollArmedRef.current) {
+          autoScrollArmedRef.current = false
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+        if (!entry.isIntersecting) {
+          autoScrollArmedRef.current = true
+        }
+      },
+      { threshold: 1 }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [isMobile, product])
+
+  useEffect(() => {
+    if (!product) {
+      setShowSeeMore(false)
+      return
+    }
+
+    if (activeTab !== 'details') {
+      setShowSeeMore(false)
+      return
+    }
+
+    const description =
+      product.fullDescription ||
+      product.shortDescription ||
+      `Elevate your ${product.category.toLowerCase()} collection with the ${
+        product.name
+      }. Crafted with comfort and durability in mind, this piece balances style and everyday performance.`
+
+    let animationFrame: number | null = null
+
+    const measureOverflow = () => {
+      if (!descriptionRef.current) {
+        setShowSeeMore(false)
+        return
+      }
+
+      const el = descriptionRef.current
+      const hasOverflow = el.scrollHeight > el.clientHeight + 1
+      setShowSeeMore(hasOverflow)
+    }
+
+    animationFrame = window.requestAnimationFrame(measureOverflow)
+    window.addEventListener('resize', measureOverflow)
+
+    return () => {
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame)
+      }
+      window.removeEventListener('resize', measureOverflow)
+    }
+  }, [activeTab, product])
 
   if (!product) {
     return (
@@ -146,12 +226,8 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       )
     : null
 
-  const shortDescription =
-    product.shortDescription ||
-    `Elevate your ${product.category.toLowerCase()} collection with the ${
-      product.name
-    }. Crafted with comfort and durability in mind, this piece balances style and everyday performance.`
-  const fullDescription = product.fullDescription || shortDescription
+  const shortDescription = product.shortDescription ?? ''
+  const fullDescription = product.fullDescription ?? ''
   const stockRemaining = product.stockRemaining ?? product.stock ?? 0
   const sku = product.sku || 'N/A'
   const material = product.material || 'Premium Mixed Materials'
@@ -182,6 +258,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       content: `${shippingEstimate}. Express options available at checkout.`,
     },
   ]
+  const activeTabData = tabs.find((tab) => tab.id === activeTab)
 
   return (
     <div className='min-h-screen flex'>
@@ -216,29 +293,49 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
               />
             </div>
             <div className='bg-white rounded-2xl shadow-sm border border-gray-100'>
-              <div className='grid lg:grid-cols-[640px_1fr] lg:items-start'>
+              <div
+                ref={sectionRef}
+                className='grid lg:grid-cols-[640px_1fr] lg:items-stretch'
+              >
                 {/* Left side - Images */}
-                <div ref={leftColumnRef} className='relative'>
-                  <div ref={galleryPinRef}>
-                    <Gallery
-                      images={product.gallery}
-                      currentImage={activeImage}
-                      setCurrentImage={setCurrentImage}
-                      productName={product.name}
-                      badgeText={
-                        discountPercentage ? `-${discountPercentage}%` : null
-                      }
-                      showMoreStack={showMoreStack}
-                      mainImageRef={galleryMainRef}
-                    />
-                  </div>
+                <div ref={leftColumnRef} className='space-y-6 lg:pr-6'>
+                  <div ref={leftTopSentinelRef} className='h-px w-full' />
+                  <Gallery
+                    images={product.gallery}
+                    currentImage={activeImage}
+                    setCurrentImage={setCurrentImage}
+                    productName={product.name}
+                    badgeText={
+                      discountPercentage ? `-${discountPercentage}%` : null
+                    }
+                    mainImageRef={galleryMainRef}
+                  />
+                  <CustomerReviews
+                    data={
+                      customerReviewsByProductId[product.id] ||
+                      customerReviewsData
+                    }
+                  />
                 </div>
 
                 {/* Right side - Product info */}
                 <div
                   ref={rightColumnRef}
-                  className='p-6 space-y-6 border-t border-gray-100 lg:border-t-0 lg:border-l'
+                  className='relative p-6 border-t border-gray-100 lg:border-t-0 lg:border-l'
                 >
+                  <div ref={rightSpacerRef} />
+                  <div
+                    ref={rightPinRef}
+                    className='space-y-6 no-scrollbar'
+                    style={
+                      isMobile
+                        ? undefined
+                        : {
+                            height: 'calc(100vh - 96px)',
+                            overflowY: 'auto',
+                          }
+                    }
+                  >
                   <div className='flex items-center justify-between'>
                     <span className='text-xs font-semibold uppercase tracking-wide bg-gray-100 text-gray-700 px-3 py-1 rounded-full'>
                       {product.category}
@@ -262,7 +359,10 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                   </div>
 
                   <div className='space-y-3'>
-                    <h1 className='text-3xl font-semibold text-gray-900 font-serif'>
+                    <h1
+                      ref={productNameRef}
+                      className='text-3xl font-semibold text-gray-900 font-serif'
+                    >
                       {product.name}
                     </h1>
                     <div className='flex items-center gap-3 text-sm text-gray-600'>
@@ -272,28 +372,28 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                           {product.rating}
                         </span>
                       </div>
-                    <span>{product.reviews} reviews</span>
-                    <span className='text-green-600'>
-                      {stockRemaining} in stock
-                    </span>
-                  </div>
-                  <p className='text-sm text-gray-600 leading-relaxed'>
-                    {shortDescription}
-                  </p>
-                  <div className='text-xs text-gray-500'>SKU: {sku}</div>
-                  {tags.length > 0 && (
-                    <div className='flex flex-wrap gap-2 pt-1'>
-                      {tags.map((tag: string) => (
-                        <span
-                          key={tag}
-                          className='text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600'
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                      <span>{product.reviews} reviews</span>
+                      <span className='text-green-600'>
+                        {stockRemaining} in stock
+                      </span>
                     </div>
-                  )}
-                </div>
+                    <p className='text-sm text-gray-600 leading-relaxed'>
+                      {shortDescription}
+                    </p>
+                    <div className='text-xs text-gray-500'>SKU: {sku}</div>
+                    {tags.length > 0 && (
+                      <div className='flex flex-wrap gap-2 pt-1'>
+                        {tags.map((tag: string) => (
+                          <span
+                            key={tag}
+                            className='text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600'
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <div className='flex items-center gap-4'>
                     <span className='text-3xl font-semibold text-gray-900'>
@@ -418,9 +518,31 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                         </button>
                       ))}
                     </div>
-                    <p className='text-sm text-gray-600'>
-                      {tabs.find((tab) => tab.id === activeTab)?.content}
-                    </p>
+                    <div className='relative'>
+                      <p
+                        ref={descriptionRef}
+                        className={`text-sm text-gray-600 leading-relaxed ${
+                          activeTab === 'details'
+                            ? 'max-h-24 overflow-hidden'
+                            : ''
+                        }`}
+                      >
+                        {activeTabData?.content}
+                      </p>
+                      {showSeeMore && (
+                        <>
+                          <div className='pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent' />
+                          <div className='mt-2 flex justify-center'>
+                            <button
+                              onClick={() => setShowDetailsModal(true)}
+                              className='text-xs font-semibold text-gray-800 hover:text-gray-900 transition'
+                            >
+                              See more &gt;
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
 
                     <div className='grid gap-3 sm:grid-cols-2'>
                       <div className='border border-gray-200 rounded-xl p-4 text-sm'>
@@ -451,7 +573,17 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                       </div>
                     </div>
 
-                    <ShippingInfoCard shippingEstimate={shippingEstimate} />
+                  <ShippingInfoCard shippingEstimate={shippingEstimate} />
+                  <AboutStoreCard
+                    vendor={product.vendor}
+                    rating={product.vendorRating}
+                    followers={product.vendorFollowers}
+                    soldCount={product.vendorSoldCount}
+                    itemsCount={product.vendorItemsCount}
+                    badge={product.vendorBadge}
+                    avatarUrl={product.image}
+                  />
+                  </div>
                   </div>
                 </div>
               </div>
@@ -474,6 +606,35 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
             <button className='flex-1 bg-amber-400 text-gray-900 font-semibold py-3 rounded-full hover:bg-amber-300 transition'>
               Add to Cart
             </button>
+          </div>
+        </div>
+      )}
+
+      {showDetailsModal && (
+        <div
+          className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowDetailsModal(false)
+            }
+          }}
+        >
+          <div className='w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl'>
+            <div className='flex items-center justify-between'>
+              <h3 className='text-lg font-semibold text-gray-900'>
+                {activeTabData?.label}
+              </h3>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className='rounded-full p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition'
+                aria-label='Close'
+              >
+                ✕
+              </button>
+            </div>
+            <p className='mt-4 text-sm text-gray-600 leading-relaxed whitespace-pre-line'>
+              {activeTabData?.content}
+            </p>
           </div>
         </div>
       )}

@@ -1,7 +1,6 @@
 'use client'
 import React from 'react'
-import ProductCard from './ProductCard'
-import MasonryGrid from './MasonryGrid'
+import ProductMasonry from './ProductMasonry'
 import { productsData } from '../data/products'
 
 const ProductCardList = ({ sidebarOpen }) => {
@@ -28,15 +27,10 @@ const ProductCardList = ({ sidebarOpen }) => {
         </div>
 
         {/* Masonry Product Grid */}
-        <MasonryGrid>
-          {productsData.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              onAddToCart={handleAddToCart}
-            />
-          ))}
-        </MasonryGrid>
+        <ProductMasonry
+          products={productsData}
+          onAddToCart={handleAddToCart}
+        />
       </div>
     </div>
   )

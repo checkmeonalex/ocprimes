@@ -7,7 +7,6 @@ export default function Gallery({
   setCurrentImage,
   productName,
   badgeText = null,
-  showMoreStack = true,
   mainImageRef = null,
 }) {
   const [isMobileView, setIsMobileView] = useState(false)
@@ -109,7 +108,7 @@ export default function Gallery({
     img.src = currentImage
   }, [currentImage])
 
-  const mainImageMaxWidth = 640
+  const mainImageMaxWidth = 560
   const mainImageHeight = mainImageMaxWidth / mainAspect
   const defaultThumbSize = 64
   const gapSize = 8
@@ -207,8 +206,9 @@ export default function Gallery({
               ref={mainImageRef}
               className='bg-gray-50 rounded-md overflow-hidden flex items-start justify-center relative w-full'
               style={{
-                aspectRatio: mainAspect,
+                aspectRatio: '4 / 5',
                 maxWidth: `${mainImageMaxWidth}px`,
+                maxHeight: 'calc(100vh - 220px)',
                 position: 'relative',
               }}
               onMouseEnter={() => setIsZooming(true)}
@@ -227,7 +227,11 @@ export default function Gallery({
               <img
                 src={currentImage}
                 alt={productName}
-                className='max-w-full max-h-full object-contain transition-transform duration-300'
+                className={`w-full h-full transition-transform duration-300 ${
+                  mainAspect && mainAspect < 0.8
+                    ? 'object-contain object-[30%_50%]'
+                    : 'object-cover'
+                }`}
                 style={
                   isZooming
                     ? {
@@ -239,31 +243,6 @@ export default function Gallery({
               />
             </div>
 
-            {showMoreStack && images.length > 1 && (
-              <div className='mt-6'>
-                <div className='flex items-center justify-center text-sm text-gray-600'>
-                  See more
-                  <span className='ml-1'>▾</span>
-                </div>
-                <div className='mt-4 space-y-4'>
-                  {images
-                    .filter((img) => img !== currentImage)
-                    .map((img, index) => (
-                      <div
-                        key={`${img}-${index}`}
-                        className='w-full bg-gray-50 rounded-md overflow-hidden'
-                        style={{ aspectRatio: '5 / 3' }}
-                      >
-                        <img
-                          src={img}
-                          alt={`${productName} more ${index + 1}`}
-                          className='w-full h-full object-cover'
-                        />
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
