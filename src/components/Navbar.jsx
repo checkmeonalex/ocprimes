@@ -2,12 +2,14 @@
 'use client'
 import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
+import { useCart } from '../context/CartContext'
 import { useSidebar } from '../context/SidebarContext'
 import CategoriesMenu from './Catergories/CategoriesMenu'
 import UserMenu from './auth/UserMenu'
 
 export default function Navbar() {
   const { isOpen } = useSidebar()
+  const { summary } = useCart()
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const [hoverTimeout, setHoverTimeout] = useState(null)
   const [showSecondaryNav, setShowSecondaryNav] = useState(true)
@@ -81,7 +83,8 @@ export default function Navbar() {
 
   // Cart component
   const CartButton = ({ className = '' }) => (
-    <button
+    <Link
+      href='/cart'
       className={`flex items-center space-x-2 text-gray-700 hover:text-gray-900 px-3 py-2 text-sm font-medium relative ${className}`}
     >
       <svg
@@ -98,7 +101,12 @@ export default function Navbar() {
         />
       </svg>
       <span>Cart</span>
-    </button>
+      {summary.itemCount > 0 && (
+        <span className='ml-1 rounded-full bg-blue-600 px-2 py-0.5 text-xs font-semibold text-white'>
+          {summary.itemCount}
+        </span>
+      )}
+    </Link>
   )
 
   return (

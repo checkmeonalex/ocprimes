@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { useSidebar } from '../../context/SidebarContext'
 import dynamic from 'next/dynamic'
+import { useCart } from '../../context/CartContext'
 
 // Lazy load CategoriesMenu since it's not immediately visible
 const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
@@ -12,6 +13,7 @@ const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
 
 function MobileNavbar() {
   const { isOpen, toggleSidebar } = useSidebar()
+  const { summary } = useCart()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const searchRef = useRef(null)
@@ -114,7 +116,8 @@ function MobileNavbar() {
               </button>
 
               {/* Cart */}
-              <button
+              <Link
+                href='/cart'
                 className='p-2 text-gray-700 hover:text-gray-900 transition-colors relative'
                 aria-label='Shopping cart'
               >
@@ -132,10 +135,12 @@ function MobileNavbar() {
                   />
                 </svg>
                 {/* Cart badge */}
-                <span className='absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center'>
-                  0
-                </span>
-              </button>
+                {summary.itemCount > 0 && (
+                  <span className='absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center'>
+                    {summary.itemCount}
+                  </span>
+                )}
+              </Link>
             </div>
           </div>
         </div>

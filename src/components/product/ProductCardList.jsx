@@ -2,10 +2,12 @@
 import React from 'react'
 import ProductMasonry from './ProductMasonry'
 import { productsData } from '../data/products'
+import { useCart } from '../../context/CartContext'
 
 const ProductCardList = ({ sidebarOpen }) => {
+  const { addItem } = useCart()
   const handleAddToCart = (productData) => {
-    console.log('Adding to cart:', productData)
+    addItem(productData, 1)
   }
 
   if (!productsData || !Array.isArray(productsData)) {

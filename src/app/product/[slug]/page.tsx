@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState, use } from 'react'
 import Image from 'next/image'
+import { useSearchParams } from 'next/navigation'
 import { productsData } from '../../../components/data/products'
 import { getSwatchStyle } from '../../../components/product/colorUtils.mjs'
 import StarRating from '../../../components/product/StarRating'
@@ -13,6 +14,7 @@ import {
   customerReviewsByProductId,
   customerReviewsData,
 } from '../../../components/data/customerReviews'
+import { useCart } from '../../../context/CartContext'
 
 function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params)
@@ -25,8 +27,11 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const [showFloatingCart, setShowFloatingCart] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [selectedVariation, setSelectedVariation] = useState<any>(null)
+  const [variationError, setVariationError] = useState('')
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showSeeMore, setShowSeeMore] = useState(false)
+  const { addItem } = useCart()
+  const searchParams = useSearchParams()
   const addToCartRef = useRef<HTMLDivElement | null>(null)
   const galleryMainRef = useRef<HTMLDivElement | null>(null)
   const sectionRef = useRef<HTMLDivElement | null>(null)
@@ -45,9 +50,36 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       setSelectedColor(foundProduct.colors?.[0] || '')
       setSelectedSize(foundProduct.sizes?.[0] || '')
       setCurrentImage(foundProduct.image)
-      setSelectedVariation(foundProduct.variations?.[0] || null)
+      setSelectedVariation(null)
+      setVariationError('')
     }
   }, [resolvedParams.slug])
+
+  useEffect(() => {
+    if (!product) return
+    const variantParam = searchParams.get('variant')
+    const colorParam = searchParams.get('color')
+    const sizeParam = searchParams.get('size')
+
+    if (colorParam && product.colors?.includes(colorParam)) {
+      setSelectedColor(colorParam)
+    }
+
+    if (sizeParam && product.sizes?.includes(sizeParam)) {
+      setSelectedSize(sizeParam)
+    }
+
+    if (variantParam && product.variations?.length) {
+      const matched = product.variations.find(
+        (variation: any) => String(variation.id) === variantParam
+      )
+      if (matched) {
+        setSelectedVariation(matched)
+        setCurrentImage(matched.image)
+        setVariationError('')
+      }
+    }
+  }, [product, searchParams])
 
   useEffect(() => {
     const updateIsMobile = () => setIsMobile(window.innerWidth < 1024)
@@ -200,6 +232,26 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
         ((product.originalPrice - product.price) / product.originalPrice) * 100
       )
     : null
+
+  const handleAddToCart = () => {
+    if (product.variations?.length && !selectedVariation) {
+      setVariationError('Select a variation to continue.')
+      return
+    }
+    addItem(
+      {
+        ...product,
+        selectedColor,
+        selectedSize,
+        image: selectedVariation?.image || product.image,
+        price: selectedVariation?.price || product.price,
+        originalPrice: selectedVariation?.originalPrice || product.originalPrice,
+        selectedVariationId: selectedVariation?.id,
+        selectedVariationLabel: selectedVariation?.label,
+      },
+      1
+    )
+  }
 
   const shortDescription = product.shortDescription ?? ''
   const fullDescription = product.fullDescription ?? ''
@@ -386,7 +438,11 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                   </div>
 
                   <div ref={addToCartRef} className='flex items-center gap-3'>
-                    <button className='flex-1 bg-amber-400 text-gray-900 font-semibold py-3 rounded-full hover:bg-amber-300 transition'>
+                    <button
+                      onClick={handleAddToCart}
+                      disabled={product.variations?.length && !selectedVariation}
+                      className='flex-1 bg-amber-400 text-gray-900 font-semibold py-3 rounded-full hover:bg-amber-300 transition'
+                    >
                       Add to Cart
                     </button>
                     <button
@@ -408,6 +464,9 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                       </svg>
                     </button>
                   </div>
+                  {variationError && (
+                    <p className='text-xs text-rose-600'>{variationError}</p>
+                  )}
 
                   <div className='border-t border-gray-200 pt-3 space-y-3'>
                     {product.variations?.length > 0 && (
@@ -426,6 +485,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                                 onClick={() => {
                                   setSelectedVariation(variation)
                                   setCurrentImage(variation.image)
+                                  setVariationError('')
                                 }}
                                 className={`text-left border rounded-lg p-0.5 transition ${
                                   isSelected
@@ -622,10 +682,14 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                 Price
               </div>
               <div className='text-lg font-semibold text-gray-900'>
-                ${product.price}
+                ${activePrice}
               </div>
             </div>
-            <button className='flex-1 bg-amber-400 text-gray-900 font-semibold py-3 rounded-full hover:bg-amber-300 transition'>
+            <button
+              onClick={handleAddToCart}
+              disabled={product.variations?.length && !selectedVariation}
+              className='flex-1 bg-amber-400 text-gray-900 font-semibold py-3 rounded-full hover:bg-amber-300 transition'
+            >
               Add to Cart
             </button>
           </div>

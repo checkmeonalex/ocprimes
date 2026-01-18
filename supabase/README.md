@@ -33,4 +33,10 @@ After you create `public.orders` and `public.customers` tables (with a `user_id`
 
 - `supabase/sql/002_rls_templates.sql`
 
+## 7) Cart tables (cross-device cart)
+Run:
+
+- `supabase/sql/007_cart.sql`
+- `supabase/sql/008_cart_variations.sql` (adds variation fields + unique constraint)
+
 These policies allow admins to read all rows and customers to read their own rows.

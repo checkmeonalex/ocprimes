@@ -22,6 +22,7 @@ const ProductCard = ({ product, onAddToCart }) => {
   }
 
   const handleAddToCart = (e) => {
+    e.preventDefault()
     e.stopPropagation()
     onAddToCart({ ...product, selectedColor, selectedSize })
   }
