@@ -8,7 +8,11 @@ import { usePathname } from 'next/navigation'
 export default function ClientLayout({ children }) {
   const { isMobile } = useScreenSize()
   const pathname = usePathname()
-  const isAuthRoute = pathname?.startsWith('/login')
+  const isAuthRoute =
+    pathname?.startsWith('/login') ||
+    pathname?.startsWith('/signup') ||
+    pathname?.startsWith('/admin/login') ||
+    pathname?.startsWith('/admin/signup')
   const isBackendAdmin = pathname?.startsWith('/backend/admin')
 
   if (isAuthRoute || isBackendAdmin) {

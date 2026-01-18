@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState, useRef, useEffect } from 'react'
 import { useSidebar } from '../context/SidebarContext'
 import CategoriesMenu from './Catergories/CategoriesMenu'
+import UserMenu from './auth/UserMenu'
 
 export default function Navbar() {
   const { isOpen } = useSidebar()
@@ -159,20 +160,7 @@ export default function Navbar() {
             {showSecondaryNav && <CartButton />}
 
             {/* User profile */}
-            <div className='flex items-center space-x-3'>
-              <div className='flex items-center space-x-2'>
-                <div className='w-8 h-8 bg-pink-400 rounded-full flex items-center justify-center'>
-                  <svg
-                    className='h-5 w-5 text-white'
-                    fill='currentColor'
-                    viewBox='0 0 24 24'
-                  >
-                    <path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z' />
-                  </svg>
-                </div>
-                <span className='text-gray-700 text-sm font-medium'>Ryana</span>
-              </div>
-            </div>
+            <UserMenu />
           </div>
         </div>
       </div>
