@@ -7,6 +7,7 @@ import {
   findSeedProduct,
   mergeSeedAndDbProducts,
 } from '@/lib/catalog/seed-products'
+import { getUserRole } from '@/lib/auth/roles'
 
 const PRODUCT_TABLE = 'products'
 const CATEGORY_TABLE = 'admin_categories'
@@ -200,12 +201,31 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
     return jsonError('Invalid product slug.', 400)
   }
 
-  const { data, error } = await supabase
+  const previewRequested =
+    request.nextUrl.searchParams.get('preview') === '1' ||
+    request.nextUrl.searchParams.get('preview') === 'true'
+
+  if (previewRequested) {
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+    if (userError || !userData?.user?.id) {
+      return jsonError('Product not found.', 404)
+    }
+    const role = await getUserRole(supabase, userData.user.id)
+    if (role !== 'admin') {
+      return jsonError('Product not found.', 404)
+    }
+  }
+
+  let query = supabase
     .from(PRODUCT_TABLE)
     .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, main_image_id, created_at, updated_at')
     .eq('slug', parsed.data.slug)
-    .eq('status', 'publish')
-    .single()
+
+  if (!previewRequested) {
+    query = query.eq('status', 'publish')
+  }
+
+  const { data, error } = await query.single()
 
   if (error && error.code !== 'PGRST116') {
     console.error('public product fetch failed:', error.message)

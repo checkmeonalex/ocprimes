@@ -29,14 +29,18 @@ const getStorefrontOrigin = () => {
   return window.location?.origin || '';
 };
 
-const buildProductUrl = (product, fallbackSlug) => {
-  if (product?.preview_link) return product.preview_link;
-  if (product?.permalink) return product.permalink;
+const buildProductUrl = (product, fallbackSlug, options = {}) => {
+  const preview = Boolean(options.preview);
+  if (!preview) {
+    if (product?.preview_link) return product.preview_link;
+    if (product?.permalink) return product.permalink;
+  }
   const baseUrl = getStorefrontOrigin();
   if (!baseUrl) return '';
   const slug = product?.slug || fallbackSlug;
   if (slug) {
-    return `${baseUrl.replace(/\/+$/, '')}/product/${slug}`;
+    const base = `${baseUrl.replace(/\/+$/, '')}/product/${slug}`;
+    return preview ? `${base}?preview=1` : base;
   }
   if (product?.id) {
     return `${baseUrl.replace(/\/+$/, '')}/?post_type=product&p=${product.id}`;
@@ -134,8 +138,6 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   const [sizeGuideEnabled, setSizeGuideEnabled] = useState(false);
   const [selectedSizeGuideId, setSelectedSizeGuideId] = useState('');
   const [useDefaultSizeGuides, setUseDefaultSizeGuides] = useState(true);
-  const autosaveTimerRef = useRef(null);
-  const lastDraftSnapshotRef = useRef('');
 
   useEffect(() => {
     if (!isOpen) {
@@ -446,13 +448,8 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     setError('');
     setStatusMessage('');
     setSavedProduct(null);
-    setPreviewUrl(buildProductUrl(product, nextForm.name));
+    setPreviewUrl(buildProductUrl(product, nextForm.name, { preview: true }));
     setDraftReady(false);
-    lastDraftSnapshotRef.current = '';
-    if (autosaveTimerRef.current) {
-      clearTimeout(autosaveTimerRef.current);
-      autosaveTimerRef.current = null;
-    }
     if (Array.isArray(product?.images) && product.images.length) {
       const nextGallery = product.images
         .map((image) => ({
@@ -472,10 +469,16 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   const previewSlug = useMemo(() => slug || toSlug(form.name), [form.name, slug]);
   const previewImage = selectedImage?.url || product?.images?.[0]?.src || '';
   const previewCandidateUrl = useMemo(
-    () => buildProductUrl(savedProduct || { slug: previewSlug }, previewSlug),
+    () => buildProductUrl(savedProduct || { slug: previewSlug }, previewSlug, { preview: true }),
     [previewSlug, savedProduct],
   );
   const isEditing = Boolean(product?.id);
+  const canDraftSave = Boolean(
+    form.name.trim() &&
+      (form.regular_price || form.price) &&
+      form.image_id &&
+      selectedCategories.length,
+  );
 
   const selectedAttributesWithOptions = useMemo(() => {
     return selectedAttributes
@@ -745,9 +748,9 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   };
 
   const handleDraftSave = async () => {
-    if (!form.name.trim()) return;
+    if (!canDraftSave) return '';
     const basePrice = form.regular_price || form.price;
-    if (!basePrice || !form.image_id || !selectedCategories.length) return;
+    if (!basePrice || !form.image_id || !selectedCategories.length) return '';
     setIsDraftSaving(true);
     setDraftReady(false);
     try {
@@ -768,70 +771,30 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         ? await updateProduct({ id: existingId, updates: payload })
         : await createProduct({ form: draftForm });
       setSavedProduct(saved);
-      setPreviewUrl(buildProductUrl(saved, previewSlug));
+      const nextUrl = buildProductUrl(saved, previewSlug, { preview: true });
+      setPreviewUrl(nextUrl);
       setDraftReady(true);
-      lastDraftSnapshotRef.current = JSON.stringify(draftForm);
+      setStatusMessage('Draft saved.');
+      return nextUrl;
     } catch (_error) {
       setDraftReady(false);
+      return '';
     } finally {
       setIsDraftSaving(false);
     }
   };
 
-  useEffect(() => {
-    if (!isOpen) return;
-    if (autosaveTimerRef.current) {
-      clearTimeout(autosaveTimerRef.current);
+  const handlePreview = async () => {
+    if (isDraftSaving) return;
+    if (!canDraftSave) {
+      setError('Add a name, price, image, and category to preview.');
+      return;
     }
-    const snapshot = JSON.stringify({
-      name: form.name,
-      status: form.status,
-      sku: form.sku,
-      price: form.price,
-      regular_price: form.regular_price,
-      sale_price: form.sale_price,
-      description: form.description,
-      short_description: form.short_description,
-      category_ids: selectedCategories,
-      tag_ids: selectedTags,
-      brand_ids: selectedBrands,
-      product_type: variationEnabled ? 'variable' : 'simple',
-      attributes: buildAttributePayload(),
-      variations: buildVariationPayload(),
-      size_guide_id: sizeGuideEnabled ? selectedSizeGuideId : '',
-      image_id: form.image_id,
-      image_ids: form.image_ids,
-    });
-    if (snapshot === lastDraftSnapshotRef.current) return;
-    autosaveTimerRef.current = setTimeout(() => {
-      handleDraftSave();
-    }, 2000);
-    return () => {
-      if (autosaveTimerRef.current) {
-        clearTimeout(autosaveTimerRef.current);
-      }
-    };
-  }, [
-    form.name,
-    form.status,
-    form.sku,
-    form.price,
-    form.regular_price,
-    form.sale_price,
-    form.description,
-    form.short_description,
-    selectedCategories,
-    selectedTags,
-    selectedBrands,
-    variationEnabled,
-    selectedAttributesWithOptions,
-    variations,
-    sizeGuideEnabled,
-    selectedSizeGuideId,
-    form.image_id,
-    form.image_ids,
-    isOpen,
-  ]);
+    const nextUrl = draftReady && previewUrl ? previewUrl : await handleDraftSave();
+    if (nextUrl) {
+      window.open(nextUrl, '_blank');
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -883,12 +846,21 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             )}
             <LoadingButton
               type="button"
-              onClick={() => previewUrl && window.open(previewUrl, '_blank')}
-              disabled={!draftReady || !previewUrl}
+              onClick={handlePreview}
+              disabled={!canDraftSave}
               isLoading={isDraftSaving}
               className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 disabled:cursor-not-allowed disabled:text-slate-300"
             >
               Preview
+            </LoadingButton>
+            <LoadingButton
+              type="button"
+              onClick={handleDraftSave}
+              disabled={!canDraftSave}
+              isLoading={isDraftSaving}
+              className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500 disabled:cursor-not-allowed disabled:text-slate-300"
+            >
+              Save draft
             </LoadingButton>
             <button
               type="button"

@@ -80,7 +80,9 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     let isActive = true
     const loadProduct = async () => {
       try {
-        const response = await fetch(`/api/products/${resolvedParams.slug}`)
+        const previewParam = searchParams.get('preview')
+        const query = previewParam ? `?preview=${encodeURIComponent(previewParam)}` : ''
+        const response = await fetch(`/api/products/${resolvedParams.slug}${query}`)
         const payload = await response.json().catch(() => null)
         if (!response.ok) {
           throw new Error(payload?.error || 'Unable to load product.')
@@ -102,7 +104,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     return () => {
       isActive = false
     }
-  }, [resolvedParams.slug])
+  }, [resolvedParams.slug, searchParams])
 
   useEffect(() => {
     if (!product) return
