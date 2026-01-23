@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { readStoredSiteId } from '../../../../utils/connector';
 import LazyImage from '../components/LazyImage';
 import ProductImageLibraryModal from './ProductImageLibraryModal';
@@ -95,6 +96,7 @@ const normalizeGallery = (images) => {
 };
 
 function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode = 'modal' }) {
+  const router = useRouter();
   const [isVisible, setIsVisible] = useState(false);
   const [form, setForm] = useState(() => buildInitialForm(product));
   const [slug, setSlug] = useState('');
@@ -738,7 +740,8 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         onSaved(saved);
       }
       if (statusOverride === 'publish' && nextUrl) {
-        window.location.assign(nextUrl);
+        const resolvedUrl = new URL(nextUrl, window.location.origin);
+        router.push(`${resolvedUrl.pathname}${resolvedUrl.search}${resolvedUrl.hash}`);
       }
     } catch (saveError) {
       setError(saveError?.message || 'Unable to save product.');
