@@ -2,7 +2,6 @@
 import { useEffect, useRef, useState, use } from 'react'
 import Image from 'next/image'
 import { useSearchParams } from 'next/navigation'
-import { productsData } from '../../../components/data/products'
 import { getSwatchStyle } from '../../../components/product/colorUtils.mjs'
 import StarRating from '../../../components/product/StarRating'
 import Gallery from '../../../components/product/ProductDetails/gallery'
@@ -15,6 +14,42 @@ import {
   customerReviewsData,
 } from '../../../components/data/customerReviews'
 import { useCart } from '../../../context/CartContext'
+
+const mapApiProduct = (item: any) => {
+  if (!item) return null
+  const images = Array.isArray(item.images) ? item.images : []
+  const imageUrls = images.map((image) => image?.url).filter(Boolean)
+  const basePrice = Number(item.price) || 0
+  const discountPrice = Number(item.discount_price) || 0
+  const hasDiscount = discountPrice > 0 && discountPrice < basePrice
+  const displayPrice = hasDiscount ? discountPrice : basePrice
+  const primaryCategory = Array.isArray(item.categories) ? item.categories[0] : null
+  const primaryBrand = Array.isArray(item.brands) ? item.brands[0] : null
+
+  return {
+    id: item.id,
+    name: item.name,
+    slug: item.slug,
+    category: primaryCategory?.name || 'Uncategorized',
+    vendor: primaryBrand?.name || 'OCPRIMES',
+    vendorFont: 'Georgia, serif',
+    shortDescription: item.short_description || '',
+    fullDescription: item.description || '',
+    price: displayPrice,
+    originalPrice: hasDiscount ? basePrice : null,
+    rating: 0,
+    reviews: 0,
+    colors: [],
+    sizes: [],
+    isTrending: false,
+    isPortrait: false,
+    image: item.image_url || imageUrls[0] || '',
+    gallery: imageUrls.length ? imageUrls : item.image_url ? [item.image_url] : [],
+    stock: Number.isFinite(Number(item.stock_quantity)) ? Number(item.stock_quantity) : 0,
+    tags: Array.isArray(item.tags) ? item.tags.map((tag: any) => tag?.name).filter(Boolean) : [],
+    variations: [],
+  }
+}
 
 function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params)
@@ -42,16 +77,30 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const descriptionRef = useRef<HTMLParagraphElement | null>(null)
 
   useEffect(() => {
-    const foundProduct = productsData.find(
-      (p) => p.slug === resolvedParams.slug
-    )
-    if (foundProduct) {
-      setProduct(foundProduct)
-      setSelectedColor(foundProduct.colors?.[0] || '')
-      setSelectedSize(foundProduct.sizes?.[0] || '')
-      setCurrentImage(foundProduct.image)
-      setSelectedVariation(null)
-      setVariationError('')
+    let isActive = true
+    const loadProduct = async () => {
+      try {
+        const response = await fetch(`/api/products/${resolvedParams.slug}`)
+        const payload = await response.json().catch(() => null)
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Unable to load product.')
+        }
+        const mapped = mapApiProduct(payload?.item)
+        if (!isActive) return
+        setProduct(mapped)
+        setSelectedColor(mapped?.colors?.[0] || '')
+        setSelectedSize(mapped?.sizes?.[0] || '')
+        setCurrentImage(mapped?.image || '')
+        setSelectedVariation(null)
+        setVariationError('')
+      } catch (_error) {
+        if (!isActive) return
+        setProduct(null)
+      }
+    }
+    loadProduct()
+    return () => {
+      isActive = false
     }
   }, [resolvedParams.slug])
 
@@ -227,11 +276,15 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     )
   }
 
-  const discountPercentage = product.originalPrice
-    ? Math.round(
-        ((product.originalPrice - product.price) / product.originalPrice) * 100
-      )
-    : null
+  const discountPercentage =
+    product.originalPrice && product.price < product.originalPrice
+      ? Math.max(
+          1,
+          Math.round(
+            ((product.originalPrice - product.price) / product.originalPrice) * 100
+          )
+        )
+      : null
 
   const handleAddToCart = () => {
     if (product.variations?.length && !selectedVariation) {

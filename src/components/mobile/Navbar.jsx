@@ -13,7 +13,7 @@ const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
 
 function MobileNavbar() {
   const { isOpen, toggleSidebar } = useSidebar()
-  const { summary } = useCart()
+  const { summary, isUpdating } = useCart()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const searchRef = useRef(null)
@@ -121,19 +121,41 @@ function MobileNavbar() {
                 className='p-2 text-gray-700 hover:text-gray-900 transition-colors relative'
                 aria-label='Shopping cart'
               >
-                <svg
-                  className='h-6 w-6'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    d='M3 3h2l.4 2M7 13h10l4-8H5.4m.6 16a1 1 0 11-2 0 1 1 0 012 0zm10 0a1 1 0 11-2 0 1 1 0 012 0z'
-                  />
-                </svg>
+                {isUpdating ? (
+                  <svg
+                    className='h-6 w-6 animate-spin'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                  >
+                    <circle
+                      className='opacity-25'
+                      cx='12'
+                      cy='12'
+                      r='10'
+                      stroke='currentColor'
+                      strokeWidth='3'
+                    />
+                    <path
+                      className='opacity-75'
+                      fill='currentColor'
+                      d='M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z'
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className='h-6 w-6'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      d='M3 3h2l.4 2M7 13h10l4-8H5.4m.6 16a1 1 0 11-2 0 1 1 0 012 0zm10 0a1 1 0 11-2 0 1 1 0 012 0z'
+                    />
+                  </svg>
+                )}
                 {/* Cart badge */}
                 {summary.itemCount > 0 && (
                   <span className='absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center'>

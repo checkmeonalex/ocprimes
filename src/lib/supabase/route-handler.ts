@@ -2,10 +2,12 @@ import { createServerClient } from '@supabase/ssr'
 import type { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseConfig } from './config'
 
+import type { CookieOptions } from '@supabase/ssr'
+
 type CookieChange = {
   name: string
   value: string
-  options?: Parameters<NextResponse['cookies']['set']>[0]
+  options?: CookieOptions
 }
 
 export function createRouteHandlerSupabaseClient(request: NextRequest) {

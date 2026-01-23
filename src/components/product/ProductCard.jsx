@@ -28,11 +28,15 @@ const ProductCard = ({ product, onAddToCart }) => {
   }
 
   // Calculate discount percentage
-  const discountPercentage = product.originalPrice
-    ? Math.round(
-        ((product.originalPrice - product.price) / product.originalPrice) * 100
-      )
-    : null
+  const discountPercentage =
+    product.originalPrice && product.price < product.originalPrice
+      ? Math.max(
+          1,
+          Math.round(
+            ((product.originalPrice - product.price) / product.originalPrice) * 100
+          )
+        )
+      : null
 
   // Determine aspect ratio class based on image type
   const imageContainerClass = product.isPortrait

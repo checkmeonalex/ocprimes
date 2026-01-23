@@ -45,6 +45,23 @@ export async function POST(request: NextRequest) {
     cartId = created.id
   }
 
+  const { error: colorFixError } = await supabase
+    .from('cart_items')
+    .update({ selected_color: 'default' })
+    .eq('cart_id', cartId)
+    .is('selected_color', null)
+  if (colorFixError) {
+    return jsonError('Unable to normalize cart items.', 500)
+  }
+  const { error: sizeFixError } = await supabase
+    .from('cart_items')
+    .update({ selected_size: 'default' })
+    .eq('cart_id', cartId)
+    .is('selected_size', null)
+  if (sizeFixError) {
+    return jsonError('Unable to normalize cart items.', 500)
+  }
+
   const normalizedIncoming = parsed.data.map(normalizeItem)
   const incomingKeys = new Set(normalizedIncoming.map((item) => item.key))
 

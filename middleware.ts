@@ -3,17 +3,18 @@ import type { NextRequest } from 'next/server'
 import { createMiddlewareSupabaseClient } from '@/lib/supabase/middleware'
 import { getUserRole } from '@/lib/auth/roles'
 
-const ADMIN_PREFIXES = ['/backend/admin', '/admin']
+const ADMIN_PREFIXES = ['/backend/admin', '/admin', '/api/admin']
 const ADMIN_PUBLIC_PATHS = ['/admin/login', '/admin/signup']
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const isApiRequest = pathname.startsWith('/api/admin')
 
   if (!ADMIN_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return NextResponse.next()
   }
 
-  if (ADMIN_PUBLIC_PATHS.includes(pathname)) {
+  if (!isApiRequest && ADMIN_PUBLIC_PATHS.includes(pathname)) {
     return NextResponse.next()
   }
 
@@ -22,6 +23,9 @@ export async function middleware(request: NextRequest) {
   const { data, error } = await supabase.auth.getUser()
 
   if (error || !data.user) {
+    if (isApiRequest) {
+      return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
+    }
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('next', pathname)
     return NextResponse.redirect(loginUrl)
@@ -29,6 +33,9 @@ export async function middleware(request: NextRequest) {
 
   const role = await getUserRole(supabase, data.user.id)
   if (role !== 'admin') {
+    if (isApiRequest) {
+      return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
+    }
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('error', 'forbidden')
     return NextResponse.redirect(loginUrl)
@@ -38,5 +45,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/backend/admin/:path*', '/admin/:path*'],
+  matcher: ['/backend/admin/:path*', '/admin/:path*', '/api/admin/:path*'],
 }

@@ -33,8 +33,8 @@ export const normalizeItem = (item) => ({
   image: item.image || null,
   selectedVariationId: normalizeValue(item.selectedVariationId),
   selectedVariationLabel: item.selectedVariationLabel || null,
-  selectedColor: item.selectedColor || null,
-  selectedSize: item.selectedSize || null,
+  selectedColor: normalizeValue(item.selectedColor),
+  selectedSize: normalizeValue(item.selectedSize),
   quantity: Number(item.quantity || 1),
 })
 
@@ -51,9 +51,9 @@ export const fromRow = (row) => ({
   price: Number(row.price),
   originalPrice: row.original_price !== null ? Number(row.original_price) : null,
   image: row.image,
-  selectedVariationId: row.selected_variation_id,
+  selectedVariationId: normalizeValue(row.selected_variation_id),
   selectedVariationLabel: row.selected_variation_label,
-  selectedColor: row.selected_color,
-  selectedSize: row.selected_size,
+  selectedColor: normalizeValue(row.selected_color),
+  selectedSize: normalizeValue(row.selected_size),
   quantity: row.quantity,
 })

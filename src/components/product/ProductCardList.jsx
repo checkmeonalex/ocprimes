@@ -1,16 +1,71 @@
 'use client'
 import React from 'react'
 import ProductMasonry from './ProductMasonry'
-import { productsData } from '../data/products'
+import { getSeedProducts, mergeSeedAndDbProducts } from '../../lib/catalog/seed-products'
 import { useCart } from '../../context/CartContext'
 
-const ProductCardList = ({ sidebarOpen }) => {
+const normalizeProduct = (item) => {
+  const images = Array.isArray(item?.images) ? item.images : []
+  const imageUrls = images
+    .map((image) => (typeof image === 'string' ? image : image?.url))
+    .filter(Boolean)
+  const basePrice = Number(item?.price) || 0
+  const discountPrice = Number(item?.discount_price) || 0
+  const hasDiscount = discountPrice > 0 && discountPrice < basePrice
+  const price = hasDiscount ? discountPrice : basePrice
+  const originalPrice =
+    hasDiscount && basePrice ? basePrice : Number(item?.originalPrice) || null
+
+  return {
+    id: item?.id,
+    name: item?.name || 'Untitled product',
+    slug: item?.slug || '',
+    category:
+      item?.category ||
+      (Array.isArray(item?.categories) ? item.categories[0]?.name : '') ||
+      'Uncategorized',
+    vendor:
+      item?.vendor ||
+      (Array.isArray(item?.brands) ? item.brands[0]?.name : '') ||
+      'OCPRIMES',
+    vendorFont: item?.vendorFont || 'Georgia, serif',
+    shortDescription: item?.short_description || item?.shortDescription || '',
+    fullDescription: item?.description || item?.fullDescription || '',
+    price,
+    originalPrice,
+    rating: Number(item?.rating) || 0,
+    reviews: Number(item?.reviews) || 0,
+    colors: Array.isArray(item?.colors) ? item.colors : [],
+    sizes: Array.isArray(item?.sizes) ? item.sizes : [],
+    isTrending: Boolean(item?.isTrending),
+    isPortrait: Boolean(item?.isPortrait),
+    image: item?.image_url || item?.image || imageUrls[0] || '',
+    gallery: imageUrls.length ? imageUrls : item?.gallery || [],
+    stock: Number.isFinite(Number(item?.stock_quantity))
+      ? Number(item.stock_quantity)
+      : Number(item?.stock) || 0,
+  }
+}
+
+const ProductCardList = ({ sidebarOpen, products }) => {
   const { addItem } = useCart()
   const handleAddToCart = (productData) => {
     addItem(productData, 1)
   }
 
-  if (!productsData || !Array.isArray(productsData)) {
+  const seedProducts = getSeedProducts()
+  const hasSeedProducts = Array.isArray(products)
+    ? products.some((item) => String(item?.id || '').startsWith('seed-'))
+    : false
+  const source =
+    Array.isArray(products) && products.length
+      ? hasSeedProducts
+        ? products
+        : mergeSeedAndDbProducts(seedProducts, products, { dbFirst: true })
+      : seedProducts
+  const normalized = Array.isArray(source) ? source.map(normalizeProduct) : []
+
+  if (!normalized.length) {
     return <div>No products available</div>
   }
 
@@ -30,7 +85,7 @@ const ProductCardList = ({ sidebarOpen }) => {
 
         {/* Masonry Product Grid */}
         <ProductMasonry
-          products={productsData}
+          products={normalized}
           onAddToCart={handleAddToCart}
         />
       </div>

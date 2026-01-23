@@ -36,26 +36,94 @@ export function CartProvider({ children }) {
   const [items, setItems] = useState([])
   const [isReady, setIsReady] = useState(false)
   const [isServerReady, setIsServerReady] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
   const { user, isLoading } = useAuthUser()
   const itemsRef = useRef(items)
   const lastUserIdRef = useRef(null)
-  const lastSyncedRef = useRef('')
+  const pendingSyncRef = useRef(null)
+  const syncInFlightRef = useRef(false)
+  const refreshInFlightRef = useRef(false)
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed)) {
-          setItems(normalizeItems(parsed))
+    if (isLoading) return
+
+    if (!user) {
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed)) {
+            setItems(normalizeItems(parsed))
+          } else {
+            setItems([])
+          }
+        } else {
+          setItems([])
         }
+      } catch {
+        setItems([])
+      } finally {
+        setIsReady(true)
+        setIsServerReady(false)
       }
-    } catch {
-      setItems([])
-    } finally {
-      setIsReady(true)
+      return
     }
-  }, [])
+
+    if (lastUserIdRef.current === user.id) return
+    lastUserIdRef.current = user.id
+
+    const loadServerCart = async () => {
+      setIsServerReady(false)
+      setIsReady(true)
+      let localItems = []
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed)) {
+            localItems = normalizeItems(parsed)
+          }
+        }
+      } catch {
+        localItems = []
+      }
+
+      try {
+        if (localItems.length > 0) {
+          const response = await fetch('/api/cart/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: localItems }),
+          })
+          if (response.ok) {
+            const data = await response.json()
+            setItems(normalizeItems(data?.items))
+          } else {
+            setItems([])
+          }
+        } else {
+          const response = await fetch('/api/cart')
+          if (response.ok) {
+            const data = await response.json()
+            setItems(normalizeItems(data?.items))
+          } else {
+            setItems([])
+          }
+        }
+      } catch {
+        setItems([])
+      } finally {
+        try {
+          window.localStorage.removeItem(STORAGE_KEY)
+        } catch {
+          // Ignore storage errors.
+        }
+        setIsServerReady(true)
+      }
+    }
+
+    void loadServerCart()
+  }, [isLoading, user])
 
   useEffect(() => {
     if (!isReady || user) return
@@ -74,125 +142,155 @@ export function CartProvider({ children }) {
     if (isLoading) return
     if (!user) {
       lastUserIdRef.current = null
-      setIsServerReady(false)
-      return
     }
-
-    if (lastUserIdRef.current === user.id) return
-    lastUserIdRef.current = user.id
-
-    const syncOnLogin = async () => {
-      setIsServerReady(false)
-      try {
-        const localItems = itemsRef.current
-        if (localItems.length > 0) {
-          const response = await fetch('/api/cart/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: localItems }),
-          })
-          if (response.ok) {
-            const data = await response.json()
-            setItems(normalizeItems(data?.items))
-            window.localStorage.removeItem(STORAGE_KEY)
-          }
-        } else {
-          const response = await fetch('/api/cart')
-          if (response.ok) {
-            const data = await response.json()
-            setItems(normalizeItems(data?.items))
-          }
-        }
-      } catch {
-        // Keep local cart if sync fails.
-      } finally {
-        setIsServerReady(true)
-      }
-    }
-
-    void syncOnLogin()
   }, [isLoading, user])
 
-  useEffect(() => {
-    if (!user || !isReady || !isServerReady) return
-    const signature = JSON.stringify(
-      items
-        .map((item) => ({
-          key: item.key,
-          quantity: item.quantity,
-          price: item.price,
-          originalPrice: item.originalPrice ?? null,
-          selectedColor: item.selectedColor ?? null,
-          selectedSize: item.selectedSize ?? null,
-        }))
-        .sort((a, b) => (a.key > b.key ? 1 : -1))
-    )
-
-    if (signature === lastSyncedRef.current) return
-    lastSyncedRef.current = signature
-
-    const persistCart = async () => {
-      try {
-        await fetch('/api/cart/set', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ items }),
-        })
-      } catch {
-        // Ignore network errors; we'll retry on next change.
-      }
+  const addItemToList = (list, product, quantity) => {
+    const key = buildKey(product)
+    const existing = list.find((entry) => entry.key === key)
+    if (existing) {
+      return list.map((entry) =>
+        entry.key === key
+          ? { ...entry, quantity: entry.quantity + quantity }
+          : entry
+      )
     }
+    return [
+      ...list,
+      {
+        key,
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        price: product.price,
+        originalPrice: product.originalPrice,
+        image: product.image,
+        selectedVariationId: product.selectedVariationId,
+        selectedVariationLabel: product.selectedVariationLabel,
+        selectedColor: product.selectedColor,
+        selectedSize: product.selectedSize,
+        quantity,
+      },
+    ]
+  }
 
-    void persistCart()
-  }, [items, isReady, isServerReady, user])
+  const updateQuantityInList = (list, key, quantity) =>
+    list
+      .map((entry) =>
+        entry.key === key ? { ...entry, quantity } : entry
+      )
+      .filter((entry) => entry.quantity > 0)
+
+  const removeItemFromList = (list, key) => list.filter((entry) => entry.key !== key)
+
+  const syncCartToServer = async (nextItems) => {
+    if (syncInFlightRef.current) return
+    syncInFlightRef.current = true
+    setIsUpdating(true)
+    try {
+      const response = await fetch('/api/cart/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: nextItems }),
+      })
+      if (!response.ok) {
+        throw new Error('Unable to update cart.')
+      }
+      const refreshed = await fetch('/api/cart')
+      if (refreshed.ok) {
+        const data = await refreshed.json()
+        setItems(normalizeItems(data?.items))
+      } else {
+        setItems(nextItems)
+      }
+    } catch {
+      setItems(nextItems)
+    } finally {
+      syncInFlightRef.current = false
+      setIsUpdating(false)
+    }
+  }
+
+  const refreshCartFromServer = async () => {
+    if (refreshInFlightRef.current || !user) return
+    refreshInFlightRef.current = true
+    try {
+      const response = await fetch('/api/cart')
+      if (response.ok) {
+        const data = await response.json()
+        setItems(normalizeItems(data?.items))
+      }
+    } finally {
+      refreshInFlightRef.current = false
+    }
+  }
 
   const addItem = (product, quantity = 1) => {
     if (!product) return
-    const key = buildKey(product)
-    setItems((prev) => {
-      const existing = prev.find((entry) => entry.key === key)
-      if (existing) {
-        return prev.map((entry) =>
-          entry.key === key
-            ? { ...entry, quantity: entry.quantity + quantity }
-            : entry
-        )
-      }
-      return [
-        ...prev,
-        {
-          key,
-          id: product.id,
-          name: product.name,
-          slug: product.slug,
-          price: product.price,
-          originalPrice: product.originalPrice,
-          image: product.image,
-          selectedVariationId: product.selectedVariationId,
-          selectedVariationLabel: product.selectedVariationLabel,
-          selectedColor: product.selectedColor,
-          selectedSize: product.selectedSize,
-          quantity,
-        },
-      ]
-    })
+    const nextItems = addItemToList(itemsRef.current, product, quantity)
+    setItems(nextItems)
+    if (user && isServerReady) {
+      void syncCartToServer(nextItems)
+    } else if (user) {
+      pendingSyncRef.current = nextItems
+    }
   }
 
   const updateQuantity = (key, quantity) => {
-    setItems((prev) =>
-      prev
-        .map((entry) =>
-          entry.key === key ? { ...entry, quantity } : entry
-        )
-        .filter((entry) => entry.quantity > 0)
-    )
+    const nextItems = updateQuantityInList(itemsRef.current, key, quantity)
+    setItems(nextItems)
+    if (user && isServerReady) {
+      void syncCartToServer(nextItems)
+    } else if (user) {
+      pendingSyncRef.current = nextItems
+    }
   }
 
   const removeItem = (key) => {
-    setItems((prev) => prev.filter((entry) => entry.key !== key))
+    const nextItems = removeItemFromList(itemsRef.current, key)
+    setItems(nextItems)
+    if (user && isServerReady) {
+      void syncCartToServer(nextItems)
+    } else if (user) {
+      pendingSyncRef.current = nextItems
+    }
   }
 
-  const clearCart = () => setItems([])
+  const clearCart = () => {
+    setItems([])
+    if (user && isServerReady) {
+      void syncCartToServer([])
+    } else if (user) {
+      pendingSyncRef.current = []
+    }
+  }
+
+  useEffect(() => {
+    if (!user || !isServerReady) return
+    if (pendingSyncRef.current) {
+      const queued = pendingSyncRef.current
+      pendingSyncRef.current = null
+      void syncCartToServer(queued)
+    }
+  }, [user, isServerReady])
+
+  useEffect(() => {
+    if (!user || !isServerReady) return
+    const handleFocus = () => {
+      void refreshCartFromServer()
+    }
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshCartFromServer()
+      }
+    }
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [user, isServerReady])
 
   const summary = useMemo(() => {
     const subtotal = items.reduce(
@@ -214,13 +312,14 @@ export function CartProvider({ children }) {
       items,
       isReady,
       isServerReady,
+      isUpdating,
       addItem,
       updateQuantity,
       removeItem,
       clearCart,
       summary,
     }),
-    [items, isReady, summary]
+    [items, isReady, isServerReady, isUpdating, summary]
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

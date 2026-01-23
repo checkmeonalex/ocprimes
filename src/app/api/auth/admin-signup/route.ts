@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         return jsonError('Unable to locate existing account.', 400)
       }
       const matched = listData?.users?.find(
-        (item) => item.email?.toLowerCase() === email.toLowerCase(),
+        (item: { email?: string }) => item.email?.toLowerCase() === email.toLowerCase(),
       )
       if (!matched?.id) {
         console.error('Admin super signup lookup failed: user not found')
