@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import CompactProductCard from '@/components/product/CompactProductCard'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
@@ -100,10 +101,13 @@ const RecentlyViewedSection = ({
                         className='relative overflow-hidden bg-gray-100'
                       >
                         {item.image ? (
-                          <img
+                          <Image
                             src={item.image}
                             alt={item.name}
-                            className='h-full w-full object-cover'
+                            fill
+                            sizes='200px'
+                            className='object-cover'
+                            unoptimized
                           />
                         ) : null}
                       </div>

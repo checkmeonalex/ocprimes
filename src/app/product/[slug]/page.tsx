@@ -204,7 +204,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const leftColumnRef = useRef<HTMLDivElement | null>(null)
   const descriptionRef = useRef<HTMLParagraphElement | null>(null)
 
-  const variationList = product?.variations || []
+  const variationList = useMemo(() => product?.variations || [], [product?.variations])
   const normalizedVariations = useMemo(() => {
     return variationList.map((variation: any) => {
       const attrs: Record<string, string> = {}
@@ -228,9 +228,11 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     const map = new Map<string, Set<string>>()
     normalizedVariations.forEach(({ attrs }) => {
       Object.entries(attrs).forEach(([key, value]) => {
-        if (!key || !value) return
+        if (!key || value === undefined || value === null) return
+        const stringValue = String(value).trim()
+        if (!stringValue) return
         const set = map.get(key) || new Set<string>()
-        set.add(value)
+        set.add(stringValue)
         map.set(key, set)
       })
     })
@@ -389,7 +391,17 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       vendor: product.vendor || null,
       vendorFont: product.vendorFont || null,
     })
-  }, [product?.id, product?.slug])
+  }, [
+    product?.id,
+    product?.slug,
+    product?.name,
+    product?.image,
+    product?.price,
+    product?.originalPrice,
+    product?.stock,
+    product?.vendor,
+    product?.vendorFont,
+  ])
 
   useEffect(() => {
     let isActive = true

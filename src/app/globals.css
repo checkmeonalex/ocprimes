@@ -1,4 +1,15 @@
 /* src/app/globals.css */
+:root {
+  --glass-spinner-border: rgba(0, 0, 0, 0.35);
+  --glass-spinner-top: rgba(0, 0, 0, 0.7);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --glass-spinner-border: rgba(255, 255, 255, 0.35);
+    --glass-spinner-top: rgba(255, 255, 255, 0.8);
+  }
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

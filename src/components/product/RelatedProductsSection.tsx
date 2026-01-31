@@ -23,6 +23,9 @@ type RelatedProduct = {
   originalPrice?: number | null
   rating?: number
   reviews?: number
+  selectedVariationId?: string | number | null
+  selectedColor?: string | null
+  selectedSize?: string | null
 }
 
 type RelatedProductsSectionProps = {
@@ -36,9 +39,9 @@ const RelatedProductsSection = ({
   items,
   seeAllHref,
 }: RelatedProductsSectionProps) => {
-  if (!Array.isArray(items) || items.length === 0) return null
   const { addItem, items: cartItems, updateQuantity } = useCart()
   const [loadingSlug, setLoadingSlug] = useState<string | null>(null)
+  if (!Array.isArray(items) || items.length === 0) return null
 
   return (
     <section className='border-t border-gray-100 px-6 pb-6 pt-5'>
@@ -82,8 +85,8 @@ const RelatedProductsSection = ({
           const cartEntry = findCartEntry(cartItems, selection)
           const quantity = cartEntry?.quantity || 0
 
-          const handleAddToCart = (event: MouseEvent<HTMLButtonElement>) => {
-            event.preventDefault()
+          const handleAddToCart = (event?: MouseEvent<HTMLButtonElement>) => {
+            event?.preventDefault()
             if (loadingSlug === product.slug) return
             setLoadingSlug(product.slug)
             addItem({
@@ -100,8 +103,8 @@ const RelatedProductsSection = ({
               )
             }, 700)
           }
-          const handleIncrement = (event: MouseEvent<HTMLButtonElement>) => {
-            event.preventDefault()
+          const handleIncrement = (event?: MouseEvent<HTMLButtonElement>) => {
+            event?.preventDefault()
             if (loadingSlug === product.slug) return
             setLoadingSlug(product.slug)
             if (cartEntry?.key) {
@@ -123,8 +126,8 @@ const RelatedProductsSection = ({
             }, 700)
           }
 
-          const handleDecrement = (event: MouseEvent<HTMLButtonElement>) => {
-            event.preventDefault()
+          const handleDecrement = (event?: MouseEvent<HTMLButtonElement>) => {
+            event?.preventDefault()
             if (loadingSlug === product.slug) return
             setLoadingSlug(product.slug)
             if (cartEntry?.key) {

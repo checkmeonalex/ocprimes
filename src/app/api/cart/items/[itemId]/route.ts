@@ -23,7 +23,7 @@ const buildConflictResponse = async (supabase, cartId, cartVersion) => {
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { itemId: string } },
+  context: { params: Promise<{ itemId: string }> },
 ) {
   try {
     const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
@@ -79,7 +79,7 @@ export async function PATCH(
       }
     }
 
-    const { itemId } = await params
+    const { itemId } = await context.params
     if (!itemId) {
       return jsonError('Missing cart item.', 400)
     }
