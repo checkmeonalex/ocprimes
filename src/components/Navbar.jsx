@@ -289,14 +289,16 @@ export default function Navbar() {
           width: '100%',
           zIndex: 30,
         }}
-        ref={categoriesRef}
-        onMouseEnter={handleCategoriesMouseEnter}
-        onMouseLeave={handleCategoriesMouseLeave}
       >
         <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative'>
           <div className='flex items-center justify-between h-14'>
             {/* Categories title with icon */}
-            <div className='flex items-center space-x-2'>
+            <div
+              className='flex items-center space-x-2'
+              ref={categoriesRef}
+              onMouseEnter={handleCategoriesMouseEnter}
+              onMouseLeave={handleCategoriesMouseLeave}
+            >
               <button
                 className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors duration-200 ${
                   isCategoriesOpen
@@ -408,6 +410,8 @@ export default function Navbar() {
             className={`absolute top-14 left-0 right-0 z-40 ${
               showSecondaryNav ? '' : 'hidden'
             }`}
+            onMouseEnter={handleCategoriesMouseEnter}
+            onMouseLeave={handleCategoriesMouseLeave}
           >
             <CategoriesMenu
               isOpen={isCategoriesOpen}
