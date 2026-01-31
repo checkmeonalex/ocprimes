@@ -8,6 +8,11 @@ import {
   mergeSeedAndDbProducts,
 } from '@/lib/catalog/seed-products'
 import { getUserRole } from '@/lib/auth/roles'
+import { personalizationSignalsSchema } from '@/lib/personalization/signal-schema'
+import {
+  rankProductsWithSignals,
+  toPersonalizationSignals,
+} from '@/lib/personalization/rank-products'
 
 const PRODUCT_TABLE = 'products'
 const CATEGORY_TABLE = 'admin_categories'
@@ -103,6 +108,14 @@ export async function listPublicProducts(request: NextRequest) {
   }
 
   const { page, per_page, search, category } = parseResult.data
+
+  const signalParse = personalizationSignalsSchema.safeParse(
+    Object.fromEntries(request.nextUrl.searchParams.entries()),
+  )
+  if (!signalParse.success) {
+    return jsonError('Invalid personalization signals.', 400)
+  }
+  const personalizationSignals = toPersonalizationSignals(signalParse.data)
   const from = (page - 1) * per_page
   const to = from + per_page - 1
 
@@ -181,10 +194,11 @@ export async function listPublicProducts(request: NextRequest) {
   const dbItems = await attachRelations(supabase, data ?? [])
   const seedItems = filterSeedProducts({ search, category })
   const mergedItems = mergeSeedAndDbProducts(seedItems, dbItems, { dbFirst: true })
+  const rankedItems = rankProductsWithSignals(mergedItems, personalizationSignals)
   const combinedCount = (totalCount || 0) + seedItems.length
 
   const response = jsonOk({
-    items: mergedItems,
+    items: rankedItems,
     pages: 1,
     page: 1,
     total_count: combinedCount || null,

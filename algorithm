@@ -1,0 +1,16 @@
+Product personalization ranking (option 1, query params)
+
+Inputs (CSV, optional weight suffix ":N"):
+- visited_categories
+- visited_tags
+- visited_brands
+- visited_attributes (key=value or value)
+
+Scoring (fixed weights):
+- category match weight x3
+- tag match weight x2
+- brand match weight x2
+- attribute match weight x1
+
+Example:
+/api/products?visited_categories=shoes:5,accessories:2&visited_attributes=color=black:3,size=xl

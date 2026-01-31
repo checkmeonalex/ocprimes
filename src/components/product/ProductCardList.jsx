@@ -3,6 +3,7 @@ import React from 'react'
 import ProductMasonry from './ProductMasonry'
 import { getSeedProducts, mergeSeedAndDbProducts } from '../../lib/catalog/seed-products'
 import { useCart } from '../../context/CartContext'
+import { deriveOptionsFromVariations } from './variationUtils.mjs'
 
 const normalizeProduct = (item) => {
   const images = Array.isArray(item?.images) ? item.images : []
@@ -15,6 +16,8 @@ const normalizeProduct = (item) => {
   const price = hasDiscount ? discountPrice : basePrice
   const originalPrice =
     hasDiscount && basePrice ? basePrice : Number(item?.originalPrice) || null
+  const variationColors = deriveOptionsFromVariations(item?.variations, ['color', 'colour'])
+  const variationSizes = deriveOptionsFromVariations(item?.variations, ['size'])
 
   return {
     id: item?.id,
@@ -35,15 +38,25 @@ const normalizeProduct = (item) => {
     originalPrice,
     rating: Number(item?.rating) || 0,
     reviews: Number(item?.reviews) || 0,
-    colors: Array.isArray(item?.colors) ? item.colors : [],
-    sizes: Array.isArray(item?.sizes) ? item.sizes : [],
+    colors: variationColors.length
+      ? variationColors
+      : Array.isArray(item?.colors)
+        ? item.colors
+        : [],
+    sizes: variationSizes.length
+      ? variationSizes
+      : Array.isArray(item?.sizes)
+        ? item.sizes
+        : [],
     isTrending: Boolean(item?.isTrending),
     isPortrait: Boolean(item?.isPortrait),
     image: item?.image_url || item?.image || imageUrls[0] || '',
     gallery: imageUrls.length ? imageUrls : item?.gallery || [],
+    images,
     stock: Number.isFinite(Number(item?.stock_quantity))
       ? Number(item.stock_quantity)
       : Number(item?.stock) || 0,
+    variations: Array.isArray(item?.variations) ? item.variations : [],
   }
 }
 

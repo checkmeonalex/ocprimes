@@ -1,18 +1,40 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Heart } from 'lucide-react'
 import StarRating from './StarRating'
 import Image from 'next/image'
 import ColorOptions from './ColorOptions' // Import new component
 import ProductCardSkeleton from '../ProductCardSkeleton'
 import Link from 'next/link'
+import { buildSwatchImages, deriveOptionsFromVariations } from './variationUtils.mjs'
+import { useCart } from '../../context/CartContext'
+import QuantityControl from '../cart/QuantityControl'
+import { findCartEntry } from '../../lib/cart/cart-match'
 
 const ProductCard = ({ product, onAddToCart }) => {
   const [isFavorite, setIsFavorite] = useState(false)
   const [imageLoaded, setImageLoaded] = useState(false)
-  const [selectedColor, setSelectedColor] = useState(product.colors[0])
+  const [selectedColor, setSelectedColor] = useState(product.colors?.[0] || '')
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0])
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [previewImage, setPreviewImage] = useState('')
+  const { items, updateQuantity } = useCart()
+  const availableColors = React.useMemo(() => {
+    const fromVariations = deriveOptionsFromVariations(product.variations, ['color', 'colour'])
+    if (fromVariations.length) return fromVariations
+    return Array.isArray(product.colors) ? product.colors : []
+  }, [product.colors, product.variations])
+  const swatchImages = React.useMemo(
+    () => buildSwatchImages(product.variations, product.images, ['color', 'colour']),
+    [product.images, product.variations],
+  )
+
+  React.useEffect(() => {
+    if (!availableColors.length) return
+    if (!selectedColor || !availableColors.includes(selectedColor)) {
+      setSelectedColor(availableColors[0])
+    }
+  }, [availableColors, selectedColor])
 
   // Handle image load once
   const handleImageLoad = () => {
@@ -25,6 +47,34 @@ const ProductCard = ({ product, onAddToCart }) => {
     e.preventDefault()
     e.stopPropagation()
     onAddToCart({ ...product, selectedColor, selectedSize })
+  }
+
+  const selectionForCart = useMemo(
+    () => ({
+      id: product?.id,
+      selectedVariationId: product?.selectedVariationId,
+      selectedColor,
+      selectedSize,
+    }),
+    [product?.id, product?.selectedVariationId, selectedColor, selectedSize],
+  )
+  const cartEntry = findCartEntry(items, selectionForCart)
+  const quantity = cartEntry?.quantity || 0
+  const handleIncrement = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (cartEntry?.key) {
+      updateQuantity(cartEntry.key, quantity + 1)
+    } else {
+      onAddToCart({ ...product, selectedColor, selectedSize })
+    }
+  }
+  const handleDecrement = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (cartEntry?.key) {
+      updateQuantity(cartEntry.key, Math.max(0, quantity - 1))
+    }
   }
 
   // Calculate discount percentage
@@ -50,6 +100,16 @@ const ProductCard = ({ product, onAddToCart }) => {
   }
 
   const handleMouseLeave = () => {
+    setCurrentImageIndex(0)
+  }
+  const handlePreviewImage = (url) => {
+    if (!url) return
+    setPreviewImage(url)
+    setCurrentImageIndex(-1)
+    setImageLoaded(true)
+  }
+  const handleClearPreview = () => {
+    setPreviewImage('')
     setCurrentImageIndex(0)
   }
 
@@ -82,7 +142,11 @@ const ProductCard = ({ product, onAddToCart }) => {
               </div>
             )}
             <Image
-              src={product.gallery?.[currentImageIndex] || product.image}
+              src={
+                currentImageIndex === -1
+                  ? previewImage
+                  : product.gallery?.[currentImageIndex] || product.image
+              }
               alt={product.name}
               fill
               sizes='(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw'
@@ -125,16 +189,19 @@ const ProductCard = ({ product, onAddToCart }) => {
               </div>
 
               {/* Color Options - Bottom Right of Image - Adjusted for portrait */}
-              {product.colors && product.colors.length > 1 && (
+              {availableColors.length > 0 && (
                 <div
                   className={`absolute z-20 ${
                     product.isPortrait ? 'bottom-4 right-3' : 'bottom-3 right-3'
                   }`}
                 >
                   <ColorOptions
-                    colors={product.colors}
+                    colors={availableColors}
                     selectedColor={selectedColor}
                     setSelectedColor={setSelectedColor}
+                    swatchImages={swatchImages}
+                    onPreviewImage={handlePreviewImage}
+                    onClearPreview={handleClearPreview}
                   />
                 </div>
               )}
@@ -232,25 +299,35 @@ const ProductCard = ({ product, onAddToCart }) => {
                 )}
               </div>
 
-              <button
-                onClick={handleAddToCart}
-                className='w-9 h-9 rounded-lg border-2 border-gray-300 bg-white text-gray-600
-                 flex items-center justify-center hover:border-gray-400 hover:bg-gray-50
-                 transition-all duration-200 group/btn'
-              >
-                <svg
-                  width='22'
-                  height='22'
-                  viewBox='-3.2 -3.2 38.40 38.40'
-                  fill='currentColor'
-                  className='group-hover/btn:scale-110 transition-transform duration-200'
+              {quantity > 0 ? (
+                <QuantityControl
+                  quantity={quantity}
+                  onIncrement={handleIncrement}
+                  onDecrement={handleDecrement}
+                  size='sm'
+                  isLoading={Boolean(cartEntry?.isSyncing)}
+                />
+              ) : (
+                <button
+                  onClick={handleAddToCart}
+                  className='w-9 h-9 rounded-lg border-2 border-gray-300 bg-white text-gray-600
+                   flex items-center justify-center hover:border-gray-400 hover:bg-gray-50
+                   transition-all duration-200 group/btn'
                 >
-                  <circle cx='10' cy='28' r='2'></circle>
-                  <circle cx='24' cy='28' r='2'></circle>
-                  <path d='M4.9806,2.8039A1,1,0,0,0,4,2H0V4H3.18L7.0194,23.1961A1,1,0,0,0,8,24H26V22H8.82l-.8-4H26a1,1,0,0,0,.9762-.783L29.2445,7H27.1971l-1.9989,9H7.62Z'></path>
-                  <polygon points='18 6 18 2 16 2 16 6 12 6 12 8 16 8 16 12 18 12 18 8 22 8 22 6 18 6'></polygon>
-                </svg>
-              </button>
+                  <svg
+                    width='22'
+                    height='22'
+                    viewBox='-3.2 -3.2 38.40 38.40'
+                    fill='currentColor'
+                    className='group-hover/btn:scale-110 transition-transform duration-200'
+                  >
+                    <circle cx='10' cy='28' r='2'></circle>
+                    <circle cx='24' cy='28' r='2'></circle>
+                    <path d='M4.9806,2.8039A1,1,0,0,0,4,2H0V4H3.18L7.0194,23.1961A1,1,0,0,0,8,24H26V22H8.82l-.8-4H26a1,1,0,0,0,.9762-.783L29.2445,7H27.1971l-1.9989,9H7.62Z'></path>
+                    <polygon points='18 6 18 2 16 2 16 6 12 6 12 8 16 8 16 12 18 12 18 8 22 8 22 6 18 6'></polygon>
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
         )}

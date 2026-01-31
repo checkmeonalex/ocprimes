@@ -15,3 +15,11 @@ export const cartItemSchema = z.object({
 })
 
 export const cartItemsSchema = z.array(cartItemSchema)
+
+export const cartItemUpsertSchema = cartItemSchema.extend({
+  quantity: z.number().int().min(0),
+})
+
+export const cartQuantitySchema = z.object({
+  quantity: z.number().int().min(0),
+})

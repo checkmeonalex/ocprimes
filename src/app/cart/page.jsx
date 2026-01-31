@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { useCart } from '../../context/CartContext'
+import QuantityControl from '../../components/cart/QuantityControl'
 
 const formatMoney = (value) => `$${value.toFixed(2)}`
 const buildProductHref = (item) => {
@@ -22,7 +23,8 @@ const buildProductHref = (item) => {
 }
 
 export default function CartPage() {
-  const { items, summary, updateQuantity, removeItem, clearCart } = useCart()
+  const { items, summary, updateQuantity, removeItem, clearCart, retryItem } =
+    useCart()
   const asideWrapRef = useRef(null)
   const asideRef = useRef(null)
   const [stickyStyle, setStickyStyle] = useState({})
@@ -204,22 +206,26 @@ export default function CartPage() {
                               </button>
                             </div>
 
-                            <div className='flex items-center gap-3 rounded-full border border-slate-200 bg-white px-3 py-1'>
-                              <button
-                                onClick={() => updateQuantity(item.key, item.quantity - 1)}
-                                className='text-sm text-slate-500'
-                              >
-                                −
-                              </button>
-                              <span className='text-sm font-semibold text-slate-900'>
-                                {item.quantity}
-                              </span>
-                              <button
-                                onClick={() => updateQuantity(item.key, item.quantity + 1)}
-                                className='text-sm text-slate-500'
-                              >
-                                +
-                              </button>
+                            <div className='flex flex-col items-end gap-2'>
+                              <QuantityControl
+                                quantity={item.quantity}
+                                onIncrement={() =>
+                                  updateQuantity(item.key, item.quantity + 1)
+                                }
+                                onDecrement={() =>
+                                  updateQuantity(item.key, item.quantity - 1)
+                                }
+                                size='sm'
+                                isLoading={Boolean(item.isSyncing)}
+                              />
+                              {item.syncError ? (
+                                <button
+                                  onClick={() => retryItem(item.key)}
+                                  className='text-[11px] text-rose-500 hover:text-rose-600'
+                                >
+                                  {item.syncError}
+                                </button>
+                              ) : null}
                             </div>
                           </div>
                         </div>

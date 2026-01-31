@@ -456,7 +456,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
       const nextGallery = product.images
         .map((image) => ({
           id: image?.id ? String(image.id) : '',
-          url: image?.src || '',
+          url: image?.url || image?.src || '',
           title: image?.alt || product.name || 'Product image',
         }))
         .filter((image) => image.id || image.url);
@@ -469,7 +469,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   }, [product]);
 
   const previewSlug = useMemo(() => slug || toSlug(form.name), [form.name, slug]);
-  const previewImage = selectedImage?.url || product?.images?.[0]?.src || '';
+  const previewImage = selectedImage?.url || product?.images?.[0]?.url || product?.images?.[0]?.src || '';
   const previewCandidateUrl = useMemo(
     () => buildProductUrl(savedProduct || { slug: previewSlug }, previewSlug, { preview: true }),
     [previewSlug, savedProduct],

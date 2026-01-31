@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
 
   const { data: existingCart, error: cartError } = await supabase
     .from('carts')
-    .select('id')
+    .select('id, cart_version')
     .eq('user_id', auth.user.id)
     .maybeSingle()
 
@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
   }
 
   let cartId = existingCart?.id
+  let cartVersion = existingCart?.cart_version ?? 1
   if (!cartId) {
     const { data: created, error: createError } = await supabase
       .from('carts')
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
       return jsonError('Unable to create cart.', 500)
     }
     cartId = created.id
+    cartVersion = 1
   }
 
   const { error: colorFixError } = await supabase
@@ -131,7 +133,21 @@ export async function POST(request: NextRequest) {
     return jsonError('Unable to load cart.', 500)
   }
 
-  const response = jsonOk({ items: (mergedItems || []).map(fromRow) })
+  let nextVersion = cartVersion
+  const { data: updatedCart } = await supabase
+    .from('carts')
+    .update({ cart_version: cartVersion + 1, updated_at: new Date().toISOString() })
+    .eq('id', cartId)
+    .select('cart_version')
+    .single()
+  if (updatedCart?.cart_version) {
+    nextVersion = updatedCart.cart_version
+  }
+
+  const response = jsonOk({
+    items: (mergedItems || []).map(fromRow),
+    cartVersion: nextVersion,
+  })
   applyCookies(response)
   return response
 }

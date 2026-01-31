@@ -33,10 +33,19 @@ const baseProductSchema = z.object({
     .array(
       z.object({
         attributes: z.record(z.string(), z.string()).optional(),
-        regular_price: z.preprocess(normalizeBlank, z.string().optional()),
-        sale_price: z.preprocess(normalizeBlank, z.string().optional()),
+        regular_price: z.preprocess(
+          normalizeBlank,
+          z.union([z.string(), z.number()]).optional(),
+        ),
+        sale_price: z.preprocess(
+          normalizeBlank,
+          z.union([z.string(), z.number()]).optional(),
+        ),
         sku: z.preprocess(normalizeBlank, z.string().max(120).optional()),
-        stock_quantity: z.preprocess(normalizeBlank, z.string().optional()),
+        stock_quantity: z.preprocess(
+          normalizeBlank,
+          z.union([z.string(), z.number()]).optional(),
+        ),
         image_id: z.preprocess(normalizeBlank, z.string().uuid().optional()),
       }),
     )

@@ -2,16 +2,12 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuthUser } from '@/lib/auth/useAuthUser'
+import { buildKey, normalizeItem } from '@/lib/cart/utils'
 
 const CartContext = createContext(null)
 const STORAGE_KEY = 'ocprimes_cart_items'
-
-const buildKey = (item) => {
-  const variation = item.selectedVariationId || 'default'
-  const color = item.selectedColor || 'default'
-  const size = item.selectedSize || 'default'
-  return `${item.id}-${variation}-${color}-${size}`
-}
+const DEBOUNCE_MS = 200
+const RETRY_DELAYS = [200, 500, 1000]
 
 const normalizeItems = (items) => {
   if (!Array.isArray(items)) return []
@@ -32,17 +28,70 @@ const normalizeItems = (items) => {
   return Array.from(map.values())
 }
 
+const initMeta = (quantity) => ({
+  qtyDisplayed: quantity,
+  qtyConfirmed: quantity,
+  pendingDelta: 0,
+  isSyncing: false,
+  latestOpId: 0,
+  inFlight: false,
+  timerId: null,
+  syncError: null,
+})
+
 export function CartProvider({ children }) {
   const [items, setItems] = useState([])
   const [isReady, setIsReady] = useState(false)
   const [isServerReady, setIsServerReady] = useState(false)
-  const [isUpdating, setIsUpdating] = useState(false)
+  const [cartVersion, setCartVersion] = useState(null)
   const { user, isLoading } = useAuthUser()
   const itemsRef = useRef(items)
   const lastUserIdRef = useRef(null)
   const pendingSyncRef = useRef(null)
-  const syncInFlightRef = useRef(false)
-  const refreshInFlightRef = useRef(false)
+  const cartVersionRef = useRef(cartVersion)
+  const metaRef = useRef(new Map())
+
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
+
+  useEffect(() => {
+    cartVersionRef.current = cartVersion
+  }, [cartVersion])
+
+  const setItemsState = (nextItems) => {
+    setItems(nextItems)
+    itemsRef.current = nextItems
+  }
+
+  const ensureMetaForItem = (key, quantity) => {
+    const meta = metaRef.current.get(key)
+    if (meta) return meta
+    const created = initMeta(quantity)
+    metaRef.current.set(key, created)
+    return created
+  }
+
+  const syncMetaFromItems = (nextItems) => {
+    const seen = new Set()
+    nextItems.forEach((item) => {
+      const key = item.key || buildKey(item)
+      seen.add(key)
+      const meta = ensureMetaForItem(key, item.quantity)
+      meta.qtyDisplayed = item.quantity
+      meta.qtyConfirmed = item.quantity
+      meta.pendingDelta = 0
+      meta.isSyncing = false
+      meta.syncError = null
+    })
+    Array.from(metaRef.current.keys()).forEach((key) => {
+      if (!seen.has(key)) {
+        const meta = metaRef.current.get(key)
+        if (meta?.pendingDelta) return
+        metaRef.current.delete(key)
+      }
+    })
+  }
 
   useEffect(() => {
     if (isLoading) return
@@ -53,18 +102,21 @@ export function CartProvider({ children }) {
         if (raw) {
           const parsed = JSON.parse(raw)
           if (Array.isArray(parsed)) {
-            setItems(normalizeItems(parsed))
+            const normalized = normalizeItems(parsed)
+            setItemsState(normalized)
+            syncMetaFromItems(normalized)
           } else {
-            setItems([])
+            setItemsState([])
           }
         } else {
-          setItems([])
+          setItemsState([])
         }
       } catch {
-        setItems([])
+        setItemsState([])
       } finally {
         setIsReady(true)
         setIsServerReady(false)
+        setCartVersion(null)
       }
       return
     }
@@ -97,21 +149,30 @@ export function CartProvider({ children }) {
           })
           if (response.ok) {
             const data = await response.json()
-            setItems(normalizeItems(data?.items))
+            const normalized = normalizeItems(data?.items)
+            setItemsState(normalized)
+            syncMetaFromItems(normalized)
+            setCartVersion(data?.cartVersion ?? 1)
           } else {
-            setItems([])
+            setItemsState([])
+            setCartVersion(1)
           }
         } else {
           const response = await fetch('/api/cart')
           if (response.ok) {
             const data = await response.json()
-            setItems(normalizeItems(data?.items))
+            const normalized = normalizeItems(data?.items)
+            setItemsState(normalized)
+            syncMetaFromItems(normalized)
+            setCartVersion(data?.cartVersion ?? 1)
           } else {
-            setItems([])
+            setItemsState([])
+            setCartVersion(1)
           }
         }
       } catch {
-        setItems([])
+        setItemsState([])
+        setCartVersion(1)
       } finally {
         try {
           window.localStorage.removeItem(STORAGE_KEY)
@@ -135,144 +196,304 @@ export function CartProvider({ children }) {
   }, [items, isReady, user])
 
   useEffect(() => {
-    itemsRef.current = items
-  }, [items])
-
-  useEffect(() => {
     if (isLoading) return
     if (!user) {
       lastUserIdRef.current = null
     }
   }, [isLoading, user])
 
-  const addItemToList = (list, product, quantity) => {
-    const key = buildKey(product)
-    const existing = list.find((entry) => entry.key === key)
-    if (existing) {
-      return list.map((entry) =>
-        entry.key === key
-          ? { ...entry, quantity: entry.quantity + quantity }
-          : entry
-      )
-    }
-    return [
-      ...list,
-      {
-        key,
-        id: product.id,
-        name: product.name,
-        slug: product.slug,
-        price: product.price,
-        originalPrice: product.originalPrice,
-        image: product.image,
-        selectedVariationId: product.selectedVariationId,
-        selectedVariationLabel: product.selectedVariationLabel,
-        selectedColor: product.selectedColor,
-        selectedSize: product.selectedSize,
-        quantity,
-      },
-    ]
+  const updateItemState = (key, updater) => {
+    setItemsState((itemsRef.current || []).reduce((acc, item) => {
+      if (item.key !== key) {
+        acc.push(item)
+        return acc
+      }
+      const next = updater(item)
+      if (!next || next.quantity <= 0) return acc
+      acc.push(next)
+      return acc
+    }, []))
   }
 
-  const updateQuantityInList = (list, key, quantity) =>
-    list
-      .map((entry) =>
-        entry.key === key ? { ...entry, quantity } : entry
-      )
-      .filter((entry) => entry.quantity > 0)
+  const addItemToState = (item) => {
+    setItemsState([...(itemsRef.current || []), item])
+  }
 
-  const removeItemFromList = (list, key) => list.filter((entry) => entry.key !== key)
+  const applyOptimistic = (key, desiredQty, extra = {}) => {
+    updateItemState(key, (item) => ({
+      ...item,
+      quantity: desiredQty,
+      ...extra,
+    }))
+  }
 
-  const syncCartToServer = async (nextItems) => {
-    if (syncInFlightRef.current) return
-    syncInFlightRef.current = true
-    setIsUpdating(true)
-    try {
-      const response = await fetch('/api/cart/set', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: nextItems }),
-      })
+  const scheduleSync = (key) => {
+    const meta = metaRef.current.get(key)
+    if (!meta) return
+    if (meta.timerId) {
+      clearTimeout(meta.timerId)
+    }
+    meta.timerId = setTimeout(() => {
+      meta.timerId = null
+      void syncItem(key)
+    }, DEBOUNCE_MS)
+  }
+
+  const applyServerError = (key) => {
+    const meta = metaRef.current.get(key)
+    if (!meta) return
+    meta.pendingDelta = 0
+    meta.qtyDisplayed = meta.qtyConfirmed
+    meta.isSyncing = false
+    meta.syncError = 'Couldn\'t update cart. Tap to retry.'
+    applyOptimistic(key, meta.qtyDisplayed, {
+      isSyncing: false,
+      syncError: meta.syncError,
+    })
+  }
+
+  const handleResponseUpdate = (key, desiredQty, responseData) => {
+    const meta = metaRef.current.get(key)
+    if (!meta) return
+    meta.qtyConfirmed = desiredQty
+    meta.pendingDelta = 0
+    meta.isSyncing = false
+    meta.syncError = null
+
+    const responseItems = Array.isArray(responseData?.items) ? responseData.items : []
+    const updated = responseItems.find((entry) => entry.key === key)
+    if (updated) {
+      updateItemState(key, (item) => ({
+        ...item,
+        itemId: updated.itemId,
+        quantity: updated.quantity,
+        isSyncing: false,
+        syncError: null,
+      }))
+    } else if (desiredQty <= 0) {
+      updateItemState(key, () => null)
+    } else {
+      applyOptimistic(key, desiredQty, { isSyncing: false, syncError: null })
+    }
+  }
+
+  const syncItem = async (key) => {
+    const meta = metaRef.current.get(key)
+    if (!meta) return
+    if (meta.inFlight) {
+      meta.isSyncing = true
+      return
+    }
+    const desiredQty = Math.max(0, meta.qtyConfirmed + meta.pendingDelta)
+    if (desiredQty === meta.qtyConfirmed) {
+      meta.pendingDelta = 0
+      meta.isSyncing = false
+      applyOptimistic(key, meta.qtyDisplayed, { isSyncing: false, syncError: null })
+      return
+    }
+
+    meta.inFlight = true
+    meta.isSyncing = true
+    meta.syncError = null
+    applyOptimistic(key, meta.qtyDisplayed, { isSyncing: true, syncError: null })
+
+    const runAttempt = async (attempt) => {
+      const item = (itemsRef.current || []).find((entry) => entry.key === key)
+      if (!item) {
+        meta.inFlight = false
+        meta.isSyncing = false
+        return
+      }
+      meta.latestOpId += 1
+      const idempotencyKey = crypto.randomUUID()
+      const headers = {
+        'Content-Type': 'application/json',
+        'If-Match': String(cartVersionRef.current ?? 1),
+        'Idempotency-Key': idempotencyKey,
+      }
+
+      let response
+      try {
+        if (item.itemId) {
+          response = await fetch(`/api/cart/items/${item.itemId}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ quantity: desiredQty }),
+          })
+        } else {
+          response = await fetch('/api/cart/items', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              id: item.id,
+              name: item.name,
+              slug: item.slug,
+              price: item.price,
+              originalPrice: item.originalPrice,
+              image: item.image,
+              selectedVariationId: item.selectedVariationId,
+              selectedVariationLabel: item.selectedVariationLabel,
+              selectedColor: item.selectedColor,
+              selectedSize: item.selectedSize,
+              quantity: desiredQty,
+            }),
+          })
+        }
+      } catch {
+        response = null
+      }
+
+      if (!response) {
+        if (attempt < RETRY_DELAYS.length) {
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[attempt]))
+          return runAttempt(attempt + 1)
+        }
+        applyServerError(key)
+        meta.inFlight = false
+        return
+      }
+
+      if (response.status === 409) {
+        const data = await response.json().catch(() => null)
+        if (data?.cartVersion) {
+          setCartVersion(data.cartVersion)
+        }
+        if (Array.isArray(data?.items)) {
+          const normalized = normalizeItems(data.items)
+          setItemsState(normalized)
+          syncMetaFromItems(normalized)
+        }
+        if (attempt < RETRY_DELAYS.length) {
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[attempt]))
+          return runAttempt(attempt + 1)
+        }
+        applyServerError(key)
+        meta.inFlight = false
+        return
+      }
+
+      if (response.status === 429 || response.status >= 500) {
+        if (attempt < RETRY_DELAYS.length) {
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[attempt]))
+          return runAttempt(attempt + 1)
+        }
+        applyServerError(key)
+        meta.inFlight = false
+        return
+      }
+
       if (!response.ok) {
-        throw new Error('Unable to update cart.')
+        applyServerError(key)
+        meta.inFlight = false
+        return
       }
-      const refreshed = await fetch('/api/cart')
-      if (refreshed.ok) {
-        const data = await refreshed.json()
-        setItems(normalizeItems(data?.items))
-      } else {
-        setItems(nextItems)
-      }
-    } catch {
-      setItems(nextItems)
-    } finally {
-      syncInFlightRef.current = false
-      setIsUpdating(false)
-    }
-  }
 
-  const refreshCartFromServer = async () => {
-    if (refreshInFlightRef.current || !user) return
-    refreshInFlightRef.current = true
-    try {
-      const response = await fetch('/api/cart')
-      if (response.ok) {
-        const data = await response.json()
-        setItems(normalizeItems(data?.items))
+      const data = await response.json().catch(() => null)
+      if (data?.cartVersion) {
+        setCartVersion(data.cartVersion)
       }
-    } finally {
-      refreshInFlightRef.current = false
+      handleResponseUpdate(key, desiredQty, data)
+      meta.inFlight = false
+
+      if (meta.pendingDelta !== 0) {
+        scheduleSync(key)
+      }
+      return
     }
+
+    await runAttempt(0)
   }
 
   const addItem = (product, quantity = 1) => {
     if (!product) return
-    const nextItems = addItemToList(itemsRef.current, product, quantity)
-    setItems(nextItems)
+    const normalized = normalizeItem({ ...product, quantity })
+    const key = normalized.key
+    const existing = (itemsRef.current || []).find((entry) => entry.key === key)
+    const meta = ensureMetaForItem(key, existing?.quantity || 0)
+    meta.pendingDelta += quantity
+    meta.qtyDisplayed = Math.max(0, meta.qtyConfirmed + meta.pendingDelta)
+    meta.isSyncing = true
+    meta.syncError = null
+
+    if (existing) {
+      applyOptimistic(key, meta.qtyDisplayed, { isSyncing: true, syncError: null })
+    } else {
+      addItemToState({
+        ...normalized,
+        quantity: meta.qtyDisplayed,
+        isSyncing: true,
+        syncError: null,
+      })
+    }
+
     if (user && isServerReady) {
-      void syncCartToServer(nextItems)
+      scheduleSync(key)
     } else if (user) {
-      pendingSyncRef.current = nextItems
+      pendingSyncRef.current = key
     }
   }
 
   const updateQuantity = (key, quantity) => {
-    const nextItems = updateQuantityInList(itemsRef.current, key, quantity)
-    setItems(nextItems)
+    const meta = ensureMetaForItem(key, 0)
+    meta.pendingDelta = quantity - meta.qtyConfirmed
+    meta.qtyDisplayed = Math.max(0, quantity)
+    meta.isSyncing = true
+    meta.syncError = null
+
+    applyOptimistic(key, meta.qtyDisplayed, { isSyncing: true, syncError: null })
+
     if (user && isServerReady) {
-      void syncCartToServer(nextItems)
+      scheduleSync(key)
     } else if (user) {
-      pendingSyncRef.current = nextItems
+      pendingSyncRef.current = key
     }
   }
 
   const removeItem = (key) => {
-    const nextItems = removeItemFromList(itemsRef.current, key)
-    setItems(nextItems)
-    if (user && isServerReady) {
-      void syncCartToServer(nextItems)
-    } else if (user) {
-      pendingSyncRef.current = nextItems
-    }
+    updateQuantity(key, 0)
   }
 
   const clearCart = () => {
-    setItems([])
+    setItemsState([])
+    metaRef.current.clear()
     if (user && isServerReady) {
-      void syncCartToServer([])
-    } else if (user) {
-      pendingSyncRef.current = []
+      void fetch('/api/cart/set', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: [] }),
+      })
     }
+  }
+
+  const retryItem = (key) => {
+    const meta = metaRef.current.get(key)
+    if (!meta) return
+    meta.syncError = null
+    meta.isSyncing = true
+    applyOptimistic(key, meta.qtyDisplayed, { isSyncing: true, syncError: null })
+    scheduleSync(key)
   }
 
   useEffect(() => {
     if (!user || !isServerReady) return
     if (pendingSyncRef.current) {
-      const queued = pendingSyncRef.current
+      const queuedKey = pendingSyncRef.current
       pendingSyncRef.current = null
-      void syncCartToServer(queued)
+      scheduleSync(queuedKey)
     }
   }, [user, isServerReady])
+
+  const refreshCartFromServer = async () => {
+    if (!user) return
+    const response = await fetch('/api/cart')
+    if (response.ok) {
+      const data = await response.json()
+      const normalized = normalizeItems(data?.items)
+      setItemsState(normalized)
+      syncMetaFromItems(normalized)
+      setCartVersion(data?.cartVersion ?? cartVersionRef.current ?? 1)
+    }
+  }
 
   useEffect(() => {
     if (!user || !isServerReady) return
@@ -295,7 +516,7 @@ export function CartProvider({ children }) {
   const summary = useMemo(() => {
     const subtotal = items.reduce(
       (sum, entry) => sum + entry.price * entry.quantity,
-      0
+      0,
     )
     const originalTotal = items.reduce((sum, entry) => {
       const original = entry.originalPrice || entry.price
@@ -307,6 +528,11 @@ export function CartProvider({ children }) {
     return { subtotal, originalTotal, savings, itemCount }
   }, [items])
 
+  const isUpdating = useMemo(
+    () => items.some((entry) => entry.isSyncing),
+    [items],
+  )
+
   const value = useMemo(
     () => ({
       items,
@@ -317,9 +543,11 @@ export function CartProvider({ children }) {
       updateQuantity,
       removeItem,
       clearCart,
+      retryItem,
       summary,
+      cartVersion,
     }),
-    [items, isReady, isServerReady, isUpdating, summary]
+    [items, isReady, isServerReady, isUpdating, summary, cartVersion],
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

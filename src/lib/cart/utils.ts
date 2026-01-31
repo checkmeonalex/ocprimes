@@ -38,7 +38,26 @@ export const normalizeItem = (item) => ({
   quantity: Number(item.quantity || 1),
 })
 
+export const normalizeUpsertItem = (item) => ({
+  key: buildKey(item),
+  id: String(item.id),
+  name: item.name,
+  slug: item.slug || null,
+  price: Number(item.price),
+  originalPrice:
+    item.originalPrice !== null && item.originalPrice !== undefined
+      ? Number(item.originalPrice)
+      : null,
+  image: item.image || null,
+  selectedVariationId: normalizeValue(item.selectedVariationId),
+  selectedVariationLabel: item.selectedVariationLabel || null,
+  selectedColor: normalizeValue(item.selectedColor),
+  selectedSize: normalizeValue(item.selectedSize),
+  quantity: Math.max(0, Number(item.quantity || 0)),
+})
+
 export const fromRow = (row) => ({
+  itemId: row.id,
   key: buildKey({
     id: row.product_id,
     selectedVariationId: row.selected_variation_id,

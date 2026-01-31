@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const { data: cart, error: cartError } = await supabase
     .from('carts')
-    .select('id')
+    .select('id, cart_version')
     .eq('user_id', auth.user.id)
     .maybeSingle()
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (!cart?.id) {
-    const response = jsonOk({ items: [] })
+    const response = jsonOk({ items: [], cartVersion: null })
     applyCookies(response)
     return response
   }
@@ -39,7 +39,10 @@ export async function GET(request: NextRequest) {
     return jsonError('Unable to load cart items.', 500)
   }
 
-  const response = jsonOk({ items: (items || []).map(fromRow) })
+  const response = jsonOk({
+    items: (items || []).map(fromRow),
+    cartVersion: cart.cart_version,
+  })
   applyCookies(response)
   return response
 }

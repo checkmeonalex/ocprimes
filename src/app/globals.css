@@ -35,6 +35,14 @@ body {
   padding: 0;
 }
 
+/* Global horizontal clamp to prevent overflow on wide layouts */
+#__next,
+#__next > div,
+main {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 /* Professional container system - clean and scalable */
 @layer components {
   .main-container {
@@ -118,6 +126,25 @@ object {
   max-width: 100%;
   height: auto;
   display: block;
+}
+
+/* Recently viewed horizontal scrollbar */
+.recently-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.recently-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.recently-scroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 130, 0.25);
+  border-radius: 999px;
+}
+
+.recently-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 120, 130, 0.35) transparent;
 }
 
 /* Focus styles for accessibility */

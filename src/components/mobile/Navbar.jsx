@@ -5,6 +5,7 @@ import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { useSidebar } from '../../context/SidebarContext'
 import dynamic from 'next/dynamic'
 import { useCart } from '../../context/CartContext'
+import { useIpLocation } from '../../hooks/useIpLocation'
 
 // Lazy load CategoriesMenu since it's not immediately visible
 const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
@@ -13,7 +14,8 @@ const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
 
 function MobileNavbar() {
   const { isOpen, toggleSidebar } = useSidebar()
-  const { summary, isUpdating } = useCart()
+  const { summary } = useCart()
+  const { locationLabel } = useIpLocation()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const searchRef = useRef(null)
@@ -121,47 +123,45 @@ function MobileNavbar() {
                 className='p-2 text-gray-700 hover:text-gray-900 transition-colors relative'
                 aria-label='Shopping cart'
               >
-                {isUpdating ? (
-                  <svg
-                    className='h-6 w-6 animate-spin'
-                    viewBox='0 0 24 24'
-                    fill='none'
-                  >
-                    <circle
-                      className='opacity-25'
-                      cx='12'
-                      cy='12'
-                      r='10'
-                      stroke='currentColor'
-                      strokeWidth='3'
-                    />
+                <svg
+                  className='h-9 w-9'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  xmlns='http://www.w3.org/2000/svg'
+                  aria-hidden='true'
+                >
+                  {summary?.itemCount > 0 ? null : (
                     <path
-                      className='opacity-75'
-                      fill='currentColor'
-                      d='M4 12a8 8 0 018-8v3a5 5 0 00-5 5H4z'
+                      d='M14,12a1,1,0,0,1-1-1V9H11a1,1,0,0,1,0-2h2V5a1,1,0,0,1,2,0V7h2a1,1,0,0,1,0,2H15v2A1,1,0,0,1,14,12Z'
+                      fill='#520000'
                     />
-                  </svg>
-                ) : (
-                  <svg
-                    className='h-6 w-6'
-                    fill='none'
-                    stroke='currentColor'
-                    viewBox='0 0 24 24'
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      d='M3 3h2l.4 2M7 13h10l4-8H5.4m.6 16a1 1 0 11-2 0 1 1 0 012 0zm10 0a1 1 0 11-2 0 1 1 0 012 0z'
-                    />
-                  </svg>
-                )}
-                {/* Cart badge */}
-                {summary.itemCount > 0 && (
-                  <span className='absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center'>
-                    {summary.itemCount}
-                  </span>
-                )}
+                  )}
+                  <path
+                    d='M17,19a1.5,1.5,0,1,0,1.5,1.5A1.5,1.5,0,0,0,17,19Zm-6,0a1.5,1.5,0,1,0,1.5,1.5A1.5,1.5,0,0,0,11,19Z'
+                    fill='#520000'
+                  />
+                  <path
+                    d='M18.22,17H9.8a2,2,0,0,1-2-1.55L5.2,4H3A1,1,0,0,1,3,2H5.2a2,2,0,0,1,2,1.55L9.8,15h8.42L20,7.76A1,1,0,0,1,22,8.24l-1.81,7.25A2,2,0,0,1,18.22,17Z'
+                    fill='#000000'
+                  />
+                  {summary?.itemCount > 0 && (
+                    <text
+                      x='14'
+                      y='9.25'
+                      textAnchor='middle'
+                      dominantBaseline='middle'
+                      fontSize={summary?.itemCount > 9 ? 7 : 8}
+                      fontWeight='500'
+                      fill='#000000'
+                      style={{
+                        fontFamily:
+                          'system-ui, -apple-system, Segoe UI, Roboto, Arial',
+                      }}
+                    >
+                      {summary?.itemCount > 99 ? '99+' : summary?.itemCount}
+                    </text>
+                  )}
+                </svg>
               </Link>
             </div>
           </div>
@@ -206,17 +206,18 @@ function MobileNavbar() {
         {/* Location Bar */}
         <div className='bg-gray-50 border-b border-gray-200'>
           <div className='px-4 py-2'>
-            <div className='flex items-center space-x-2 text-gray-700'>
+            <div className='flex items-center gap-3 text-gray-700'>
+              <span className='text-sm font-semibold tracking-wide text-gray-900'>
+                OCPRIMES
+              </span>
               <svg className='h-4 w-4' fill='currentColor' viewBox='0 0 24 24'>
                 <path d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z' />
               </svg>
               <div className='flex items-center justify-between w-full'>
-                <div className='flex flex-col'>
-                  <span className='text-sm font-medium'>
-                    Pickup or delivery?
-                  </span>
-                  <span className='text-xs text-gray-500'>
-                    Sacramento, 95829 • Store
+                <div className='flex flex-col leading-tight'>
+                  <span className='text-xs font-medium'>Shipping to</span>
+                  <span className='text-[11px] text-gray-500'>
+                    {locationLabel || 'Select a mode'}
                   </span>
                 </div>
                 <svg

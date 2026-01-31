@@ -19,6 +19,12 @@ const COLOR_SWATCHES = {
 export const getSwatchStyle = (color) => {
   if (!color) return { backgroundColor: '#d1d5db' }
   const key = color.toLowerCase()
+  if (key === 'multicolor' || key === 'multi') {
+    return {
+      backgroundImage:
+        'conic-gradient(#ef4444, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7, #ef4444)',
+    }
+  }
   if (key === 'white') {
     return {
       backgroundColor: '#ffffff',
