@@ -11,6 +11,7 @@ export const publicProductListSchema = z.object({
   per_page: z.coerce.number().int().min(1).max(30).default(12),
   search: z.preprocess(normalizeBlank, z.string().max(120).optional()),
   category: z.preprocess(normalizeBlank, z.string().max(120).optional()),
+  tag: z.preprocess(normalizeBlank, z.string().max(120).optional()),
 })
 
 export const publicProductSlugSchema = z.object({

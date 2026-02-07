@@ -5,12 +5,14 @@ import { getUserRole } from '@/lib/auth/roles'
 
 const ADMIN_PREFIXES = ['/backend/admin', '/admin', '/api/admin']
 const ADMIN_PUBLIC_PATHS = ['/admin/login', '/admin/signup']
+const USER_PREFIXES = ['/UserBackend', '/wishlist']
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isApiRequest = pathname.startsWith('/api/admin')
+  const isUserBackend = USER_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 
-  if (!ADMIN_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+  if (!ADMIN_PREFIXES.some((prefix) => pathname.startsWith(prefix)) && !isUserBackend) {
     return NextResponse.next()
   }
 
@@ -31,6 +33,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
+  if (isUserBackend) {
+    return response
+  }
+
   const role = await getUserRole(supabase, data.user.id)
   if (role !== 'admin') {
     if (isApiRequest) {
@@ -45,5 +51,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/backend/admin/:path*', '/admin/:path*', '/api/admin/:path*'],
+  matcher: [
+    '/backend/admin/:path*',
+    '/admin/:path*',
+    '/api/admin/:path*',
+    '/UserBackend/:path*',
+  ],
 }

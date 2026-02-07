@@ -43,13 +43,13 @@ useEffect(() => {
     let newItemsPerView
     
     if (width < 640) {
-      newItemsPerView = 2.5  // Mobile
+      newItemsPerView = 1.5  // Mobile
     } else if (width < 768) {
-      newItemsPerView = 2.5  // Small tablet
+      newItemsPerView = 1.5  // Small tablet
     } else if (width < 1024) {
       newItemsPerView = 3    // Tablet
     } else {
-      newItemsPerView = 5    // Desktop and above
+      newItemsPerView = 4  // Desktop and above
     }
     
     setItemsPerView(newItemsPerView)
@@ -189,7 +189,7 @@ useEffect(() => {
   }
 
   return (
-    <div className='w-full py-2'>
+    <div className='w-full py-2 mt-3 lg:mt-8'>
       {/* Header with Navigation Buttons */}
       <div className='flex justify-between items-center mb-4 px-4 md:px-6 lg:px-8'>
         <h2 className='text-2xl md:text-3xl font-medium text-gray-900'>
@@ -227,7 +227,7 @@ useEffect(() => {
 
       {/* Stories Carousel Container */}
       <div className='relative w-full'>
-        <div className='lg:px-8'>
+        <div className='lg:px-2'>
           <div 
             ref={scrollRef}
             className='flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth'
@@ -239,12 +239,19 @@ useEffect(() => {
             }}
           >
             {storiesData.map((story) => (
-              <div
+                <div
                 key={story.id}
                 className='flex-none'
                 style={{
                   width: `${100 / itemsPerView}%`,
-                  minWidth: windowWidth < 640 ? '40%' : windowWidth < 768 ? '40%' : windowWidth < 1024 ? '33.33%' : '20%',
+                  minWidth:
+                    windowWidth < 640
+                      ? '66.66%'
+                      : windowWidth < 768
+                        ? '66.66%'
+                        : windowWidth < 1024
+                          ? '33.33%'
+                        : '24%',
                   scrollSnapAlign: 'start',
                 }}
               >
@@ -296,30 +303,32 @@ useEffect(() => {
 
         {mounted && scrollWidth > containerWidth && (
           <div className='flex justify-center mt-4 gap-1.5'>
-            {Array.from({ length: getProgressCount() }).map((_, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  const container = scrollRef.current
-                  if (!container) return
-                  
-                  const maxScroll = container.scrollWidth - container.clientWidth
-                  const scrollPerPage = maxScroll / (getProgressCount() - 1)
-                  const targetScroll = index === getProgressCount() - 1 ? maxScroll : index * scrollPerPage
-                  
-                  container.scrollTo({
-                    left: targetScroll,
-                    behavior: 'smooth'
-                  })
-                }}
-                className={`w-2 h-2 rounded-full transition-colors duration-200 ${
-                  getCurrentProgressIndex() === index
-                    ? 'bg-gray-600'
-                    : 'bg-gray-300'
-                }`}
-                aria-label={`Go to slide ${index + 1}`}
-              />
-            ))}
+            {Array.from({ length: getProgressCount() }).map((_, index) => {
+              const isActive = getCurrentProgressIndex() === index
+              return (
+                <button
+                  key={index}
+                  onClick={() => {
+                    const container = scrollRef.current
+                    if (!container) return
+
+                    const maxScroll = container.scrollWidth - container.clientWidth
+                    const scrollPerPage = maxScroll / (getProgressCount() - 1)
+                    const targetScroll =
+                      index === getProgressCount() - 1 ? maxScroll : index * scrollPerPage
+
+                    container.scrollTo({
+                      left: targetScroll,
+                      behavior: 'smooth',
+                    })
+                  }}
+                  className={`h-2 rounded-full transition-all duration-200 ${
+                    isActive ? 'w-6 bg-gray-800' : 'w-2 bg-gray-300'
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              )
+            })}
           </div>
         )}
 

@@ -1,6 +1,8 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import LoadingButton from '@/components/LoadingButton';
+import ColorPicker, { defaultSwatches, getSwatchStyle } from './ColorPicker';
+import { useAlerts } from '@/context/AlertContext';
 
 const PAGE_SIZE = 10;
 
@@ -21,6 +23,7 @@ function TaxonomyManager({
   pluralLabel,
   optionsEndpoint,
 }) {
+  const { confirmAlert } = useAlerts();
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -149,37 +152,6 @@ function TaxonomyManager({
   };
 
   const isColorAttribute = activeItem?.type?.slug === 'color';
-  const colorSwatches = [
-    '#111827',
-    '#f9fafb',
-    '#ef4444',
-    '#f97316',
-    '#f59e0b',
-    '#22c55e',
-    '#3b82f6',
-    '#6366f1',
-    '#8b5cf6',
-    '#ec4899',
-    '#a855f7',
-    '#0f766e',
-    'multicolor',
-  ];
-
-  const getSwatchStyle = (value) => {
-    if (value === 'multicolor') {
-      return {
-        background:
-          'conic-gradient(#111827, #ef4444, #f59e0b, #22c55e, #3b82f6, #8b5cf6, #ec4899, #111827)',
-      };
-    }
-    return { backgroundColor: value || '#111827' };
-  };
-
-  const normalizeColorValue = (value) => {
-    if (value === 'multicolor') return value;
-    if (!value) return '';
-    return value;
-  };
 
   const loadOptions = useCallback(async (attribute) => {
     if (!optionsEndpoint || !attribute?.id) return;
@@ -281,7 +253,14 @@ function TaxonomyManager({
 
   const handleDeleteItem = async (item) => {
     if (!item?.id) return;
-    if (!window.confirm(`Delete ${item.name || singularLabel}?`)) return;
+    const confirmed = await confirmAlert({
+      type: 'warning',
+      title: `Delete ${singularLabel}?`,
+      message: `Delete ${item.name || singularLabel}?`,
+      confirmLabel: 'Allow',
+      cancelLabel: 'Deny',
+    });
+    if (!confirmed) return;
     setDeleteLoadingId(item.id);
     setEditError('');
     try {
@@ -308,7 +287,14 @@ function TaxonomyManager({
 
   const handleDeleteOption = async (option) => {
     if (!option?.id || !optionsEndpoint) return;
-    if (!window.confirm(`Delete option "${option.name}"?`)) return;
+    const confirmed = await confirmAlert({
+      type: 'warning',
+      title: 'Delete option?',
+      message: `Delete option "${option.name}"?`,
+      confirmLabel: 'Allow',
+      cancelLabel: 'Deny',
+    });
+    if (!confirmed) return;
     setOptionDeleteLoadingId(option.id);
     setOptionEditError('');
     try {
@@ -735,35 +721,18 @@ function TaxonomyManager({
               <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
                 Color
               </label>
-              <input
-                type="color"
-                value={optionForm.color_hex && optionForm.color_hex !== 'multicolor' ? optionForm.color_hex : '#111827'}
-                onChange={(event) => setOptionForm((prev) => ({ ...prev, color_hex: event.target.value }))}
-                className={`mt-2 h-12 w-full rounded-2xl border border-slate-200 p-1 ${!isColorAttribute ? 'opacity-40' : ''}`}
+              <ColorPicker
+                value={optionForm.color_hex}
+                onChange={(value) => setOptionForm((prev) => ({ ...prev, color_hex: value }))}
                 disabled={!isColorAttribute}
+                showSwatches={isColorAttribute}
+                showTextInput={isColorAttribute}
+                swatches={defaultSwatches}
+                inputClassName={`mt-2 h-12 w-full rounded-2xl border border-slate-200 p-1 ${
+                  !isColorAttribute ? 'opacity-40' : ''
+                }`}
+                textInputClassName="mt-3 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-700"
               />
-              {isColorAttribute && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {colorSwatches.map((swatch) => (
-                    <button
-                      key={swatch}
-                      type="button"
-                      onClick={() => setOptionForm((prev) => ({ ...prev, color_hex: swatch }))}
-                      className="h-7 w-7 rounded-full border border-slate-200"
-                      style={getSwatchStyle(swatch)}
-                      aria-label={`Set color ${swatch}`}
-                    />
-                  ))}
-                </div>
-              )}
-              {isColorAttribute && (
-                <input
-                  value={normalizeColorValue(optionForm.color_hex)}
-                  onChange={(event) => setOptionForm((prev) => ({ ...prev, color_hex: event.target.value }))}
-                  placeholder="#ffffff"
-                  className="mt-3 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-700"
-                />
-              )}
             </div>
             <div className="md:col-span-3 flex flex-wrap items-center gap-3">
               <LoadingButton
@@ -841,41 +810,20 @@ function TaxonomyManager({
                       <td className="px-4 py-3">
                         {isOptionEditing ? (
                           <div className="space-y-2">
-                            <input
-                              type="color"
-                              value={optionEditForm.color_hex && optionEditForm.color_hex !== 'multicolor' ? optionEditForm.color_hex : '#111827'}
-                              onChange={(event) =>
-                                setOptionEditForm((prev) => ({ ...prev, color_hex: event.target.value }))
+                            <ColorPicker
+                              value={optionEditForm.color_hex}
+                              onChange={(value) =>
+                                setOptionEditForm((prev) => ({ ...prev, color_hex: value }))
                               }
-                              className={`h-10 w-14 rounded-xl border border-slate-200 p-1 ${!isColorAttribute ? 'opacity-40' : ''}`}
                               disabled={!isColorAttribute}
+                              showSwatches={isColorAttribute}
+                              showTextInput={isColorAttribute}
+                              swatches={defaultSwatches}
+                              inputClassName={`h-10 w-14 rounded-xl border border-slate-200 p-1 ${
+                                !isColorAttribute ? 'opacity-40' : ''
+                              }`}
+                              textInputClassName="w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-700"
                             />
-                            {isColorAttribute && (
-                              <div className="flex flex-wrap gap-2">
-                                {colorSwatches.map((swatch) => (
-                                  <button
-                                    key={swatch}
-                                    type="button"
-                                    onClick={() =>
-                                      setOptionEditForm((prev) => ({ ...prev, color_hex: swatch }))
-                                    }
-                                    className="h-6 w-6 rounded-full border border-slate-200"
-                                    style={getSwatchStyle(swatch)}
-                                    aria-label={`Set color ${swatch}`}
-                                  />
-                                ))}
-                              </div>
-                            )}
-                            {isColorAttribute && (
-                              <input
-                                value={normalizeColorValue(optionEditForm.color_hex)}
-                                onChange={(event) =>
-                                  setOptionEditForm((prev) => ({ ...prev, color_hex: event.target.value }))
-                                }
-                                placeholder="#ffffff"
-                                className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-700"
-                              />
-                            )}
                           </div>
                         ) : option.color_hex ? (
                           <div className="flex items-center gap-2">

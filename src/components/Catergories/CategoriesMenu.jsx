@@ -7,6 +7,12 @@ const CategoriesMenu = ({ isOpen, onClose }) => {
   const [categoriesData, setCategoriesData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [activeCategory, setActiveCategory] = useState(null)
+  const fallbackImage = `data:image/svg+xml;base64,${btoa(`
+    <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60">
+      <rect width="60" height="60" fill="#f3f4f6"/>
+      <text x="30" y="30" text-anchor="middle" dy="0.35em" font-family="Arial" font-size="12" fill="#9ca3af">Image</text>
+    </svg>
+  `)}`
 
   useEffect(() => {
     if (isOpen && !categoriesData) {
@@ -35,6 +41,8 @@ const CategoriesMenu = ({ isOpen, onClose }) => {
   const handleCategoryClick = (category) => {
     if (category.subcategories && category.subcategories.length > 0) {
       setActiveCategory(activeCategory?.id === category.id ? null : category)
+    } else if (category.slug) {
+      window.location.href = `/products/${encodeURIComponent(category.slug)}`
     }
   }
 
@@ -54,9 +62,9 @@ const CategoriesMenu = ({ isOpen, onClose }) => {
             </button>
           </div>
 
-          <div className="flex">
+          <div className="flex flex-row">
             {/* Categories Sidebar */}
-           <div className="max-w-[30%] w-full bg-gray-50 border-r border-gray-200 py-4">
+           <div className="w-[32%] max-w-[32%] border-r bg-gray-50 border-gray-200 py-3 lg:max-w-[30%] lg:py-4">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -89,11 +97,11 @@ const CategoriesMenu = ({ isOpen, onClose }) => {
             </div>
 
             {/* Subcategories Content */}
-            <div className="flex-1 py-4">
+            <div className="flex-1 py-3 lg:py-4">
               {activeCategory?.subcategories?.map((subcategory) => (
                 <div key={subcategory.id} className="px-1 lg:px-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <div className="flex items-center justify-between mb-3 lg:mb-4">
+                    <h3 className="text-sm font-semibold text-gray-900 flex items-center lg:text-lg">
                       {subcategory.name}
                       {subcategory.hasArrow && (
                         <svg
@@ -105,26 +113,54 @@ const CategoriesMenu = ({ isOpen, onClose }) => {
                         </svg>
                       )}
                     </h3>
+                    {activeCategory?.slug && (
+                      <a
+                        href={`/products/${encodeURIComponent(activeCategory.slug)}`}
+                        className="text-xs font-semibold text-blue-600 hover:underline"
+                      >
+                        View all
+                      </a>
+                    )}
                   </div>
 
                   {/* Items Grid - Responsive: 3 columns on mobile, 5 on desktop */}
                   {subcategory.items && (
-                    <div className="grid grid-cols-3 lg:grid-cols-5 gap-6">
+                    <div className="grid gap-2 lg:gap-8 justify-start grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                      {activeCategory?.slug && (
+                        <a
+                          key={`${activeCategory.id}-view-all`}
+                          href={`/products/${encodeURIComponent(activeCategory.slug)}`}
+                          className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 p-3 hover:border-gray-200 hover:shadow-sm transition"
+                        >
+                          <div className="h-14 w-14 lg:h-20 lg:w-20 rounded-full border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-gray-500">
+                            <svg
+                              className="h-6 w-6"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                              <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                              <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                              <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                            </svg>
+                          </div>
+                          <span className="text-[11px] lg:text-sm text-center font-semibold text-gray-800">
+                            View All
+                          </span>
+                        </a>
+                      )}
                       {subcategory.items.map((item) => (
                         <div key={item.id} className="flex flex-col items-center group cursor-pointer">
                           <div className="relative mb-2">
-                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden group-hover:shadow-md transition-shadow">
+                            <div className="w-14 h-14 lg:w-24 lg:h-24 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden group-hover:shadow-md transition-shadow">
                               <img
-                                src={item.image}
+                                src={item.image || fallbackImage}
                                 alt={item.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
-                                  e.target.src = `data:image/svg+xml;base64,${btoa(`
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60">
-                                      <rect width="60" height="60" fill="#f3f4f6"/>
-                                      <text x="30" y="30" text-anchor="middle" dy="0.35em" font-family="Arial" font-size="12" fill="#9ca3af">Image</text>
-                                    </svg>
-                                  `)}`
+                                  e.target.src = fallbackImage
                                 }}
                               />
                             </div>
@@ -134,7 +170,7 @@ const CategoriesMenu = ({ isOpen, onClose }) => {
                               </span>
                             )}
                           </div>
-                          <span className="text-xs text-center text-gray-700 group-hover:text-blue-600 transition-colors">
+                          <span className="text-[11px] lg:text-sm text-center text-gray-700 group-hover:text-blue-600 transition-colors">
                             {item.name}
                           </span>
                         </div>

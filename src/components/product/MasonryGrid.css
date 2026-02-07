@@ -40,3 +40,25 @@
     column-count: 2;
   }
 }
+
+.masonry--wishlist {
+  column-count: 5;
+}
+
+@media (max-width: 1536px) {
+  .masonry--wishlist {
+    column-count: 4;
+  }
+}
+
+@media (max-width: 1024px) {
+  .masonry--wishlist {
+    column-count: 3;
+  }
+}
+
+@media (max-width: 768px) {
+  .masonry--wishlist {
+    column-count: 2;
+  }
+}

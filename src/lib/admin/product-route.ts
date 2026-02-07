@@ -19,16 +19,36 @@ const VARIATIONS_TABLE = 'product_variations'
 const buildMissingTableMessage = () =>
   'products table not found. Run migration 012_admin_products.sql.'
 
-const ensureUniqueSku = async (supabase, baseSku) => {
+const buildValidationErrorPayload = (error: any) => {
+  const flattened = error?.flatten?.() || { fieldErrors: {}, formErrors: [] }
+  const issues = Array.isArray(error?.issues)
+    ? error.issues.map((issue: any) => ({
+        path: Array.isArray(issue.path) ? issue.path.join('.') : '',
+        message: issue.message,
+        code: issue.code,
+      }))
+    : []
+  return {
+    field_errors: flattened.fieldErrors || {},
+    form_errors: flattened.formErrors || [],
+    issues,
+  }
+}
+
+const ensureUniqueSku = async (supabase, baseSku, excludeProductId?: string) => {
   if (!baseSku) return null
   const sanitize = baseSku.trim().toUpperCase().replace(/\s+/g, '-')
   let candidate = sanitize
   for (let attempt = 0; attempt < 5; attempt += 1) {
-    const { data, error } = await supabase
+    let query = supabase
       .from(PRODUCT_TABLE)
       .select('id')
       .eq('sku', candidate)
       .limit(1)
+    if (excludeProductId) {
+      query = query.neq('id', excludeProductId)
+    }
+    const { data, error } = await query
     if (error) {
       console.error('sku lookup failed:', error.message)
       break
@@ -39,6 +59,82 @@ const ensureUniqueSku = async (supabase, baseSku) => {
     candidate = `${sanitize}-${Math.floor(Math.random() * 900 + 100)}`
   }
   return `${sanitize}-${Date.now().toString().slice(-4)}`
+}
+
+const toLettersOnlyPrefix = (value: string, fallback = 'PR') => {
+  const cleaned = String(value || '')
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '')
+  if (!cleaned) return fallback
+  return cleaned.slice(0, 2).padEnd(2, 'X')
+}
+
+const randomDigits = (length: number) =>
+  Array.from({ length }, () => Math.floor(Math.random() * 10)).join('')
+
+const randomLetters = (length: number) =>
+  Array.from({ length }, () =>
+    String.fromCharCode(65 + Math.floor(Math.random() * 26)),
+  ).join('')
+
+const generateSkuCandidate = (prefix: string) =>
+  `${prefix}${randomDigits(7)}${randomLetters(2)}`
+
+const resolveSkuPrefixFromCategory = async (supabase, categoryIds: string[] = []) => {
+  const primaryCategoryId = Array.isArray(categoryIds) ? categoryIds[0] : null
+  if (!primaryCategoryId) return 'PR'
+  const { data, error } = await supabase
+    .from('admin_categories')
+    .select('name, slug')
+    .eq('id', primaryCategoryId)
+    .maybeSingle()
+  if (error) {
+    console.error('sku category prefix lookup failed:', error.message)
+    return 'PR'
+  }
+  return toLettersOnlyPrefix(data?.slug || data?.name || 'PR', 'PR')
+}
+
+const generateAutoSku = async (supabase, categoryIds: string[] = []) => {
+  const prefix = await resolveSkuPrefixFromCategory(supabase, categoryIds)
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    const candidate = generateSkuCandidate(prefix)
+    const { data, error } = await supabase
+      .from(PRODUCT_TABLE)
+      .select('id')
+      .eq('sku', candidate)
+      .limit(1)
+    if (error) {
+      console.error('auto sku lookup failed:', error.message)
+      break
+    }
+    if (!Array.isArray(data) || data.length === 0) {
+      return candidate
+    }
+  }
+  return `${prefix}${Date.now().toString().slice(-9)}`
+}
+
+const resolveCategoryIdsForSkuGeneration = async (
+  supabase,
+  productId: string,
+  incomingCategoryIds?: string[],
+) => {
+  if (Array.isArray(incomingCategoryIds) && incomingCategoryIds.length) {
+    return incomingCategoryIds
+  }
+  const { data, error } = await supabase
+    .from(CATEGORY_LINKS)
+    .select('category_id')
+    .eq('product_id', productId)
+    .limit(1)
+  if (error) {
+    console.error('category lookup for sku generation failed:', error.message)
+    return []
+  }
+  const categoryId =
+    Array.isArray(data) && data[0]?.category_id ? String(data[0].category_id) : ''
+  return categoryId ? [categoryId] : []
 }
 
 const mapRelations = (items, relations, key) => {
@@ -196,7 +292,7 @@ export async function listProducts(request: NextRequest) {
 
   let query = supabase
     .from(PRODUCT_TABLE)
-    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, main_image_id, created_at, updated_at')
+    .select('id, name, slug, short_description, description, price, discount_price, sku, sku_auto_generated, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at')
     .order('created_at', { ascending: false })
     .range(from, to)
 
@@ -267,7 +363,7 @@ export async function getProduct(request: NextRequest, id: string) {
 
   const { data, error } = await supabase
     .from(PRODUCT_TABLE)
-    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, main_image_id, created_at, updated_at')
+    .select('id, name, slug, short_description, description, price, discount_price, sku, sku_auto_generated, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at')
     .eq('id', parsed.data.id)
     .single()
 
@@ -303,7 +399,13 @@ export async function createProduct(request: NextRequest) {
 
   const parsed = createProductSchema.safeParse(payload)
   if (!parsed.success) {
-    return jsonError('Invalid product details.', 400)
+    return jsonOk(
+      {
+        error: 'Invalid product details.',
+        validation: buildValidationErrorPayload(parsed.error),
+      },
+      400,
+    )
   }
   if (
     parsed.data.discount_price !== undefined &&
@@ -319,7 +421,11 @@ export async function createProduct(request: NextRequest) {
     return jsonError('Invalid slug.', 400)
   }
 
-  const sku = await ensureUniqueSku(supabase, parsed.data.sku || `SKU-${slug}`)
+  const providedSku = parsed.data.sku?.trim()
+  const skuAutoGenerated = !providedSku
+  const sku = providedSku
+    ? await ensureUniqueSku(supabase, providedSku)
+    : await generateAutoSku(supabase, parsed.data.category_ids || [])
 
   const { data, error } = await supabase
     .from(PRODUCT_TABLE)
@@ -330,15 +436,19 @@ export async function createProduct(request: NextRequest) {
       description: parsed.data.description || null,
       price: parsed.data.price,
       discount_price: parsed.data.discount_price || null,
-      sku: sku || null,
+      sku: sku,
+      sku_auto_generated: skuAutoGenerated,
       stock_quantity: parsed.data.stock_quantity ?? 0,
       status: parsed.data.status || 'publish',
       product_type:
         parsed.data.product_type ||
         (Array.isArray(parsed.data.variations) && parsed.data.variations.length ? 'variable' : 'simple'),
+      condition_check: parsed.data.condition_check,
+      packaging_style: parsed.data.packaging_style,
+      return_policy: parsed.data.return_policy,
       main_image_id: parsed.data.main_image_id || null,
     })
-    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, main_image_id, created_at, updated_at')
+    .select('id, name, slug, short_description, description, price, discount_price, sku, sku_auto_generated, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at')
     .single()
 
   if (error) {
@@ -387,7 +497,13 @@ export async function updateProduct(request: NextRequest, id: string) {
 
   const parsed = updateProductSchema.safeParse({ id, ...(payload as object) })
   if (!parsed.success) {
-    return jsonError('Invalid product details.', 400)
+    return jsonOk(
+      {
+        error: 'Invalid product details.',
+        validation: buildValidationErrorPayload(parsed.error),
+      },
+      400,
+    )
   }
   if (
     parsed.data.discount_price !== undefined &&
@@ -399,29 +515,73 @@ export async function updateProduct(request: NextRequest, id: string) {
   }
 
   const updates = parsed.data
+  const { data: existingProduct, error: existingProductError } = await supabase
+    .from(PRODUCT_TABLE)
+    .select('id, sku, sku_auto_generated')
+    .eq('id', parsed.data.id)
+    .maybeSingle()
+  if (existingProductError) {
+    console.error('product current sku lookup failed:', existingProductError.message)
+    return jsonError('Unable to update product.', 500)
+  }
+  if (!existingProduct?.id) {
+    return jsonError('Product not found.', 404)
+  }
+
   const slugSource = updates.slug || updates.name
   const slug = slugSource ? buildSlug(slugSource) : undefined
 
-  const sku = updates.sku ? await ensureUniqueSku(supabase, updates.sku) : null
+  let skuAutoGenerated = Boolean(existingProduct?.sku_auto_generated)
+  let sku: string | null | undefined = undefined
+  if (updates.sku !== undefined) {
+    sku = updates.sku
+      ? await ensureUniqueSku(supabase, updates.sku, parsed.data.id)
+      : null
+    skuAutoGenerated = false
+  } else if (!existingProduct?.sku) {
+    const categoryIds = await resolveCategoryIdsForSkuGeneration(
+      supabase,
+      parsed.data.id,
+      updates.category_ids,
+    )
+    sku = await generateAutoSku(supabase, categoryIds)
+    skuAutoGenerated = true
+  }
+  const updatePayload: Record<string, unknown> = {
+    name: updates.name,
+    slug: slug,
+    short_description: updates.short_description ?? null,
+    description: updates.description ?? null,
+    price: updates.price,
+    discount_price: updates.discount_price ?? null,
+    stock_quantity: updates.stock_quantity,
+    status: updates.status,
+    product_type: updates.product_type,
+    main_image_id: updates.main_image_id ?? null,
+    updated_at: new Date().toISOString(),
+  }
+  if (updates.condition_check !== undefined) {
+    updatePayload.condition_check = updates.condition_check
+  }
+  if (updates.packaging_style !== undefined) {
+    updatePayload.packaging_style = updates.packaging_style
+  }
+  if (updates.return_policy !== undefined) {
+    updatePayload.return_policy = updates.return_policy
+  }
+  if (updates.sku !== undefined) {
+    updatePayload.sku = sku
+    updatePayload.sku_auto_generated = skuAutoGenerated
+  } else if (!existingProduct?.sku) {
+    updatePayload.sku = sku
+    updatePayload.sku_auto_generated = skuAutoGenerated
+  }
 
   const { data, error } = await supabase
     .from(PRODUCT_TABLE)
-    .update({
-      name: updates.name,
-      slug: slug,
-      short_description: updates.short_description ?? null,
-      description: updates.description ?? null,
-      price: updates.price,
-      discount_price: updates.discount_price ?? null,
-      sku: updates.sku ? sku : null,
-      stock_quantity: updates.stock_quantity,
-      status: updates.status,
-      product_type: updates.product_type,
-      main_image_id: updates.main_image_id ?? null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', parsed.data.id)
-    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, main_image_id, created_at, updated_at')
+    .select('id, name, slug, short_description, description, price, discount_price, sku, sku_auto_generated, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at')
     .single()
 
   if (error) {

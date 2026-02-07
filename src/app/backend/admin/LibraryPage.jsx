@@ -6,6 +6,7 @@ import ImageEditorModal from './image/ImageEditorModal';
 import LoadingButton from '../../../components/LoadingButton';
 import { prepareWebpUpload } from './image/utils/webpUtils.mjs';
 import AdminSidebar from '@/components/AdminSidebar';
+import { useAlerts } from '@/context/AlertContext';
 
 const MEDIA_PAGE_SIZE = 20;
 const STALE_DAYS = 180;
@@ -13,6 +14,10 @@ const STALE_DAYS = 180;
 const FILTERS = [
   { label: 'All Images', value: 'all' },
   { label: 'Unattached', value: 'unattached' },
+  { label: 'Stale', value: 'stale' },
+];
+const COMPONENT_FILTERS = [
+  { label: 'All Images', value: 'all' },
   { label: 'Stale', value: 'stale' },
 ];
 const GRID_OPTIONS = [2, 4, 5, 7, 9];
@@ -56,9 +61,16 @@ const renderGridIcon = (cols) => {
   );
 };
 
-function WooCommerceLibraryPage() {
+function WooCommerceLibraryPage({
+  listEndpoint = '/api/admin/media',
+  uploadEndpoint = '/api/admin/media/upload',
+  deleteEndpointBase = '/api/admin/media',
+  title = 'Image Library',
+  filterOptions = FILTERS,
+}) {
+  const { confirmAlert } = useAlerts();
   const [mediaItems, setMediaItems] = useState([]);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState(filterOptions[0]?.value || 'all');
   const [columns, setColumns] = useState(4);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
@@ -101,7 +113,7 @@ function WooCommerceLibraryPage() {
         const { webpFile, filename } = await prepareWebpUpload(file);
         const formData = new FormData();
         formData.append('file', webpFile);
-        const response = await fetch('/api/admin/media/upload', {
+        const response = await fetch(uploadEndpoint, {
           method: 'POST',
           body: formData,
         });
@@ -129,11 +141,17 @@ function WooCommerceLibraryPage() {
 
   const handleDelete = useCallback(async (item) => {
     if (!item?.id) return;
-    const confirmed = window.confirm('Delete this image? This cannot be undone.');
+    const confirmed = await confirmAlert({
+      type: 'warning',
+      title: 'Delete image?',
+      message: 'Delete this image? This cannot be undone.',
+      confirmLabel: 'Allow',
+      cancelLabel: 'Deny',
+    });
     if (!confirmed) return;
     setError('');
     try {
-      const response = await fetch(`/api/admin/media/${item.id}`, { method: 'DELETE' });
+      const response = await fetch(`${deleteEndpointBase}/${item.id}`, { method: 'DELETE' });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to delete image.');
@@ -143,7 +161,7 @@ function WooCommerceLibraryPage() {
     } catch (err) {
       setError(err?.message || 'Unable to delete image.');
     }
-  }, []);
+  }, [confirmAlert]);
 
   const loadMedia = useCallback(
     async (requestedPage, replace = false) => {
@@ -156,7 +174,7 @@ function WooCommerceLibraryPage() {
           filter,
           stale_days: STALE_DAYS.toString(),
         });
-        const response = await fetch(`/api/admin/media?${params.toString()}`);
+        const response = await fetch(`${listEndpoint}?${params.toString()}`);
         const payload = await response.json().catch(() => null);
         if (!response.ok) {
           throw new Error(payload?.error || 'Unable to load the library.');
@@ -236,7 +254,7 @@ function WooCommerceLibraryPage() {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Library</p>
-                <h1 className="mt-2 text-2xl font-semibold text-slate-900">Image Library</h1>
+                <h1 className="mt-2 text-2xl font-semibold text-slate-900">{title}</h1>
                 <p className="mt-2 text-sm text-slate-500">
                   Review uploaded images, filter stale assets, and keep your library clean.
                 </p>
@@ -265,7 +283,7 @@ function WooCommerceLibraryPage() {
 
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
-                {FILTERS.map((item) => (
+                {(filterOptions || FILTERS).map((item) => (
                   <button
                     key={item.value}
                     type="button"

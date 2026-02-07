@@ -6,6 +6,7 @@ import ProductCategorySelector from './products/ProductCategorySelector';
 import { uploadMediaFile } from './products/functions/media';
 import LoadingButton from '../../../components/LoadingButton';
 import AdminSidebar from '@/components/AdminSidebar';
+import { useAlerts } from '@/context/AlertContext';
 
 const buildTableHtml = (columns, rows) => {
   const head = columns.map((col) => `<th>${col || ''}</th>`).join('');
@@ -18,6 +19,7 @@ const buildTableHtml = (columns, rows) => {
 const stripHtml = (value) => value.replace(/<[^>]+>/g, '').trim();
 
 function WooCommerceSizeGuidesPage() {
+  const { confirmAlert } = useAlerts();
   const [siteInfo, setSiteInfo] = useState(() => readStoredSiteInfo());
   const [siteId, setSiteId] = useState(() => readStoredSiteId() || siteInfo?.siteId || '');
   const [sizeGuides, setSizeGuides] = useState([]);
@@ -207,7 +209,13 @@ function WooCommerceSizeGuidesPage() {
 
   const handleDeleteGuide = async (guide) => {
     if (!guide?.id) return;
-    const confirmDelete = window.confirm(`Delete "${guide.title}"? This cannot be undone.`);
+    const confirmDelete = await confirmAlert({
+      type: 'warning',
+      title: 'Delete size guide?',
+      message: `Delete "${guide.title}"? This cannot be undone.`,
+      confirmLabel: 'Allow',
+      cancelLabel: 'Deny',
+    });
     if (!confirmDelete) return;
     setDeleteError('');
     try {

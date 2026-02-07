@@ -10,15 +10,24 @@ import { buildSwatchImages, deriveOptionsFromVariations } from './variationUtils
 import { useCart } from '../../context/CartContext'
 import QuantityControl from '../cart/QuantityControl'
 import { findCartEntry } from '../../lib/cart/cart-match'
+import { useWishlist } from '../../context/WishlistContext'
 
-const ProductCard = ({ product, onAddToCart }) => {
-  const [isFavorite, setIsFavorite] = useState(false)
+const ProductCard = ({
+  product,
+  onAddToCart,
+  className = '',
+  wishlistMode = false,
+  onRemove,
+  showTopAddToCart = false,
+}) => {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [selectedColor, setSelectedColor] = useState(product.colors?.[0] || '')
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0])
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [previewImage, setPreviewImage] = useState('')
   const { items, updateQuantity } = useCart()
+  const { openSaveModal, isRecentlySaved } = useWishlist()
+  const isFavorite = isRecentlySaved(product?.id)
   const availableColors = React.useMemo(() => {
     const fromVariations = deriveOptionsFromVariations(product.variations, ['color', 'colour'])
     if (fromVariations.length) return fromVariations
@@ -112,6 +121,17 @@ const ProductCard = ({ product, onAddToCart }) => {
     setPreviewImage('')
     setCurrentImageIndex(0)
   }
+  const handleWishlist = (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    openSaveModal({
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      price: product.price,
+      image: product.image,
+    })
+  }
 
   if (!product) {
     return <ProductCardSkeleton />
@@ -120,7 +140,7 @@ const ProductCard = ({ product, onAddToCart }) => {
   return (
     <Link href={`/product/${product.slug}`}>
       <div
-        className='relative bg-white rounded-[5px] overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group'
+        className={`relative ${className.includes('bg-') ? '' : 'bg-white'} rounded-[5px] overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group ${className}`}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -163,17 +183,43 @@ const ProductCard = ({ product, onAddToCart }) => {
           {imageLoaded && (
             <>
               {/* Favorite Button */}
-              <button
-                onClick={() => setIsFavorite(!isFavorite)}
-                className='absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition-colors z-20 shadow-sm'
-              >
-                <Heart
-                  size={16}
-                  className={
-                    isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'
-                  }
-                />
-              </button>
+              {!wishlistMode && (
+                <button
+                  onClick={handleWishlist}
+                  aria-pressed={isFavorite}
+                  className={`absolute top-3 right-3 w-8 h-8 backdrop-blur-sm rounded-full flex items-center justify-center transition-colors z-20 shadow-sm wishlist-heart-shell ${
+                    isFavorite ? 'wishlist-heart-shell--active' : ''
+                  }`}
+                >
+                  <Heart
+                    size={16}
+                    className={isFavorite ? 'fill-current wishlist-heart-pop' : ''}
+                  />
+                </button>
+              )}
+
+              {showTopAddToCart && (
+                <button
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    handleAddToCart(event)
+                  }}
+                  className='absolute top-3 right-3 w-7 h-7 bg-white rounded-full flex items-center justify-center text-black font-extrabold shadow-sm hover:bg-gray-50 transition-colors z-20'
+                  aria-label='Add to cart'
+                >
+                  <svg
+                    viewBox='0 0 24 24'
+                    className='h-4 w-4 text-black'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='3'
+                    strokeLinecap='round'
+                  >
+                    <path d='M12 5v14M5 12h14' />
+                  </svg>
+                </button>
+              )}
 
               {/* Vendor Name - Top Left Overlay */}
               <div className='absolute top-3 left-3 z-20'>
@@ -280,7 +326,7 @@ const ProductCard = ({ product, onAddToCart }) => {
             )}
 
             {/* Price and Add to Cart */}
-            <div className='flex items-center justify-between'>
+            <div className='space-y-1'>
               <div className='flex flex-col'>
                 <div className='flex items-center gap-2'>
                   <span className='text-lg font-bold text-gray-900'>
@@ -292,42 +338,73 @@ const ProductCard = ({ product, onAddToCart }) => {
                     </span>
                   )}
                 </div>
-                {discountPercentage && (
+              </div>
+
+              <div className='flex items-center justify-between gap-2 pt-0.5'>
+                {discountPercentage ? (
                   <span className='text-xs text-green-600 font-semibold'>
                     Save ${(product.originalPrice - product.price).toFixed(2)}
                   </span>
+                ) : (
+                  <span />
+                )}
+                {wishlistMode ? (
+                  <button
+                    type='button'
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      onRemove?.()
+                    }}
+                    className='flex items-center gap-2 rounded-full border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:border-gray-400 hover:bg-gray-50'
+                  >
+                    <span className='hidden sm:inline'>Remove</span>
+                    <svg
+                      className='h-4 w-4 sm:hidden'
+                      viewBox='0 0 24 24'
+                      fill='none'
+                      xmlns='http://www.w3.org/2000/svg'
+                      aria-hidden='true'
+                    >
+                      <path d='M20.5001 6H3.5' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+                      <path d='M9.5 11L10 16' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+                      <path d='M14.5 11L14 16' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+                      <path d='M6.5 6C6.55588 6 6.58382 6 6.60915 5.99936C7.43259 5.97849 8.15902 5.45491 8.43922 4.68032C8.44784 4.65649 8.45667 4.62999 8.47434 4.57697L8.57143 4.28571C8.65431 4.03708 8.69575 3.91276 8.75071 3.8072C8.97001 3.38607 9.37574 3.09364 9.84461 3.01877C9.96213 3 10.0932 3 10.3553 3H13.6447C13.9068 3 14.0379 3 14.1554 3.01877C14.6243 3.09364 15.03 3.38607 15.2493 3.8072C15.3043 3.91276 15.3457 4.03708 15.4286 4.28571L15.5257 4.57697C15.5433 4.62992 15.5522 4.65651 15.5608 4.68032C15.841 5.45491 16.5674 5.97849 17.3909 5.99936C17.4162 6 17.4441 6 17.5 6' stroke='currentColor' strokeWidth='1.5' />
+                      <path d='M18.3735 15.3991C18.1965 18.054 18.108 19.3815 17.243 20.1907C16.378 21 15.0476 21 12.3868 21H11.6134C8.9526 21 7.6222 21 6.75719 20.1907C5.89218 19.3815 5.80368 18.054 5.62669 15.3991L5.16675 8.5M18.8334 8.5L18.6334 11.5' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+                    </svg>
+                  </button>
+                ) : quantity > 0 ? (
+                  <QuantityControl
+                    quantity={quantity}
+                    onIncrement={handleIncrement}
+                    onDecrement={handleDecrement}
+                    size='sm'
+                    isLoading={Boolean(cartEntry?.isSyncing)}
+                    appearance='solid'
+                    stylePreset='card'
+                  />
+                ) : (
+                  <button
+                    onClick={handleAddToCart}
+                    className='w-9 h-9 rounded-lg border-2 border-gray-300 bg-white text-gray-600
+                     flex items-center justify-center hover:border-gray-400 hover:bg-gray-50
+                     transition-all duration-200 group/btn'
+                  >
+                    <svg
+                      width='22'
+                      height='22'
+                      viewBox='-3.2 -3.2 38.40 38.40'
+                      fill='currentColor'
+                      className='group-hover/btn:scale-110 transition-transform duration-200'
+                    >
+                      <circle cx='10' cy='28' r='2'></circle>
+                      <circle cx='24' cy='28' r='2'></circle>
+                      <path d='M4.9806,2.8039A1,1,0,0,0,4,2H0V4H3.18L7.0194,23.1961A1,1,0,0,0,8,24H26V22H8.82l-.8-4H26a1,1,0,0,0,.9762-.783L29.2445,7H27.1971l-1.9989,9H7.62Z'></path>
+                      <polygon points='18 6 18 2 16 2 16 6 12 6 12 8 16 8 16 12 18 12 18 8 22 8 22 6 18 6'></polygon>
+                    </svg>
+                  </button>
                 )}
               </div>
-
-              {quantity > 0 ? (
-                <QuantityControl
-                  quantity={quantity}
-                  onIncrement={handleIncrement}
-                  onDecrement={handleDecrement}
-                  size='sm'
-                  isLoading={Boolean(cartEntry?.isSyncing)}
-                />
-              ) : (
-                <button
-                  onClick={handleAddToCart}
-                  className='w-9 h-9 rounded-lg border-2 border-gray-300 bg-white text-gray-600
-                   flex items-center justify-center hover:border-gray-400 hover:bg-gray-50
-                   transition-all duration-200 group/btn'
-                >
-                  <svg
-                    width='22'
-                    height='22'
-                    viewBox='-3.2 -3.2 38.40 38.40'
-                    fill='currentColor'
-                    className='group-hover/btn:scale-110 transition-transform duration-200'
-                  >
-                    <circle cx='10' cy='28' r='2'></circle>
-                    <circle cx='24' cy='28' r='2'></circle>
-                    <path d='M4.9806,2.8039A1,1,0,0,0,4,2H0V4H3.18L7.0194,23.1961A1,1,0,0,0,8,24H26V22H8.82l-.8-4H26a1,1,0,0,0,.9762-.783L29.2445,7H27.1971l-1.9989,9H7.62Z'></path>
-                    <polygon points='18 6 18 2 16 2 16 6 12 6 12 8 16 8 16 12 18 12 18 8 22 8 22 6 18 6'></polygon>
-                  </svg>
-                </button>
-              )}
             </div>
           </div>
         )}

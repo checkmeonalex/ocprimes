@@ -26,7 +26,14 @@ const sidebarItems = [
 ]
 
 export default function Sidebar() {
-  const { isOpen, toggleSidebar, isHydrated } = useSidebar()
+  const {
+    isOpen,
+    toggleSidebar,
+    isHydrated,
+    setIsHovering,
+    openSidebar,
+    closeSidebar,
+  } = useSidebar()
   const [selectedItem, setSelectedItem] = useState('Popular Products')
 
   if (!isHydrated) {
@@ -39,6 +46,10 @@ export default function Sidebar() {
         items={sidebarItems}
         selectedItem={selectedItem}
         onSelect={setSelectedItem}
+        isOpen={isOpen}
+        onHoverChange={setIsHovering}
+        onOpen={openSidebar}
+        onClose={closeSidebar}
       />
       <MobileSidebar
         isOpen={isOpen}

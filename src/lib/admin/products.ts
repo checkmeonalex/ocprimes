@@ -1,4 +1,7 @@
 import { z } from 'zod'
+import { PRODUCT_CONDITION_VALUES } from '@/lib/admin/product-conditions'
+import { PRODUCT_PACKAGING_VALUES } from '@/lib/admin/product-packaging'
+import { PRODUCT_RETURN_POLICY_VALUES } from '@/lib/admin/product-returns'
 
 const normalizeBlank = (value: unknown) => {
   if (typeof value !== 'string') return value
@@ -24,8 +27,11 @@ const baseProductSchema = z.object({
   stock_quantity: z.coerce.number().int().min(0),
   status: z.enum(['publish', 'draft', 'archived']).optional(),
   product_type: z.enum(['simple', 'variable']).optional(),
+  condition_check: z.enum(PRODUCT_CONDITION_VALUES),
+  packaging_style: z.enum(PRODUCT_PACKAGING_VALUES),
+  return_policy: z.enum(PRODUCT_RETURN_POLICY_VALUES),
   category_ids: z.array(z.string().uuid()).min(1),
-  tag_ids: z.array(z.string().uuid()).optional(),
+  tag_ids: z.array(z.string().uuid()).max(12).optional(),
   brand_ids: z.array(z.string().uuid()).optional(),
   image_ids: z.array(z.string().uuid()).optional(),
   main_image_id: z.preprocess(normalizeBlank, z.string().uuid().optional()),

@@ -1,23 +1,34 @@
 'use client'
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 
 const SidebarContext = createContext()
 
 export function SidebarProvider({ children }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
+  const [isHovering, setIsHovering] = useState(false)
 
   useEffect(() => {
-    // Only open by default on desktop
-    const isMobile = window.innerWidth < 1024
-    setIsOpen(!isMobile)
+    setIsOpen(false)
     setIsHydrated(true)
   }, [])
 
-  const toggleSidebar = () => setIsOpen(prev => !prev)
+  const toggleSidebar = useCallback(() => setIsOpen((prev) => !prev), [])
+  const openSidebar = useCallback(() => setIsOpen(true), [])
+  const closeSidebar = useCallback(() => setIsOpen(false), [])
 
   return (
-    <SidebarContext.Provider value={{ isOpen, toggleSidebar, isHydrated }}>
+    <SidebarContext.Provider
+      value={{
+        isOpen,
+        toggleSidebar,
+        openSidebar,
+        closeSidebar,
+        isHydrated,
+        isHovering,
+        setIsHovering,
+      }}
+    >
       {children}
     </SidebarContext.Provider>
   )
@@ -30,4 +41,3 @@ export function useSidebar() {
   }
   return context
 }
-

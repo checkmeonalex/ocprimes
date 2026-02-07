@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useMemo, useRef, useState, use, useCallback } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { getSwatchStyle } from '../../../components/product/colorUtils.mjs'
 import StarRating from '../../../components/product/StarRating'
@@ -14,11 +15,13 @@ import {
   customerReviewsData,
 } from '../../../components/data/customerReviews'
 import { useCart } from '../../../context/CartContext'
+import { useWishlist } from '../../../context/WishlistContext'
 import RelatedProductsSection from '../../../components/product/RelatedProductsSection'
 import QuantityControl from '../../../components/cart/QuantityControl'
 import { findCartEntry } from '../../../lib/cart/cart-match'
 import RecentlyViewedSection from '../../../components/product/RecentlyViewedSection'
 import { addRecentlyViewed } from '../../../lib/recently-viewed/storage'
+import ShareProductModal from '../../../components/product/ShareProductModal'
 
 const buildVariationLabel = (attributes: Record<string, string> | null | undefined) => {
   if (!attributes || typeof attributes !== 'object') return ''
@@ -61,6 +64,84 @@ const slugifyCategory = (value: string) =>
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
+
+const buildCategoryHref = (slugOrName: string) => {
+  const normalized = slugifyCategory(slugOrName)
+  return normalized ? `/products/${encodeURIComponent(normalized)}` : '/products'
+}
+
+const CONDITION_COPY: Record<string, { label: string; details: string }> = {
+  brand_new: {
+    label: 'Brand New',
+    details:
+      'This product is brand new, unused, and shipped directly from the manufacturer or authorized source.',
+  },
+  like_new: {
+    label: 'Like New',
+    details:
+      'This product is in excellent condition with minimal signs of handling and full functionality.',
+  },
+  open_box: {
+    label: 'Open Box',
+    details:
+      'This product was opened for inspection but remains unused and fully functional with complete quality checks.',
+  },
+  refurbished: {
+    label: 'Refurbished',
+    details:
+      'This product has been professionally restored, tested, and verified to meet performance standards.',
+  },
+  handmade: {
+    label: 'Handmade',
+    details:
+      'This product is crafted by hand by the seller or maker, with unique finishing and artisanal character.',
+  },
+  okx: {
+    label: 'OKX',
+    details:
+      'This product is imported through trusted international supply channels and quality-checked before listing.',
+  },
+}
+
+const RETURN_POLICY_COPY: Record<string, { label: string; details: string }> = {
+  not_returnable: {
+    label: 'Not Returnable',
+    details: 'This product is final sale and cannot be returned after purchase.',
+  },
+  support_return: {
+    label: 'Support Return',
+    details:
+      'This product supports returns under our return window and policy guidelines.',
+  },
+}
+
+const PACKAGING_STYLE_COPY: Record<string, { label: string; details: string }> = {
+  in_wrap_nylon: {
+    label: 'In Wrap Nylon',
+    details:
+      'Packed securely in protective nylon wrap to reduce dust and moisture exposure.',
+  },
+  in_a_box: {
+    label: 'In a Box',
+    details: 'Packed in a standard shipping box for stable protection during delivery.',
+  },
+  premium_gift_packaging: {
+    label: 'Premium / Gift Packaging',
+    details: 'Packed in premium presentation packaging suitable for gifting.',
+  },
+  cardboard_wrap: {
+    label: 'Cardboard Wrap',
+    details:
+      'Wrapped with reinforced cardboard layers for practical transit protection.',
+  },
+}
+
+const PACKAGING_IMAGE_BY_STYLE: Record<string, string> = {
+  in_wrap_nylon: '/images/packaging/preview3.png',
+  in_a_box: '/images/packaging/preview1.png',
+  premium_gift_packaging: '/images/packaging/preview4.png',
+  cardboard_wrap: '/images/packaging/preview2.png',
+}
 
 const buildSignalCsv = (values: string[], limit = 20) => {
   const cleaned = values
@@ -122,6 +203,19 @@ const mapApiProduct = (item: any) => {
   const primaryBrand = Array.isArray(item.brands) ? item.brands[0] : null
   const fallbackImage = item.image_url || imageUrls[0] || ''
   const categorySlug = primaryCategory?.slug || slugifyCategory(primaryCategory?.name)
+  const primaryCategoryPath = Array.isArray(item.primary_category_path)
+    ? item.primary_category_path
+        .map((segment: any) => {
+          const label = String(segment?.label || segment?.name || '').trim()
+          if (!label) return null
+          const source = String(segment?.slug || label)
+          return {
+            label,
+            href: String(segment?.href || buildCategoryHref(source)),
+          }
+        })
+        .filter(Boolean)
+    : []
 
   const variations = Array.isArray(item.variations)
     ? item.variations.map((variation: any) => {
@@ -156,10 +250,15 @@ const mapApiProduct = (item: any) => {
     slug: item.slug,
     category: primaryCategory?.name || 'Uncategorized',
     categorySlug,
+    categoryPath: primaryCategoryPath,
     vendor: primaryBrand?.name || 'OCPRIMES',
     vendorFont: 'Georgia, serif',
     shortDescription: item.short_description || '',
     fullDescription: item.description || '',
+    sku: item.sku || '',
+    conditionCheck: String(item.condition_check || ''),
+    packagingStyle: String(item.packaging_style || 'in_wrap_nylon'),
+    returnPolicy: String(item.return_policy || 'not_returnable'),
     price: displayPrice,
     originalPrice: hasDiscount ? basePrice : null,
     rating: Number(item.rating) || 0,
@@ -172,6 +271,17 @@ const mapApiProduct = (item: any) => {
     gallery: imageUrls.length ? imageUrls : fallbackImage ? [fallbackImage] : [],
     stock: Number.isFinite(Number(item.stock_quantity)) ? Number(item.stock_quantity) : 0,
     tags: Array.isArray(item.tags) ? item.tags.map((tag: any) => tag?.name).filter(Boolean) : [],
+    tagLinks: Array.isArray(item.tags)
+      ? item.tags
+          .map((tag: any) => {
+            const name = String(tag?.name || '').trim()
+            if (!name) return null
+            const slug = String(tag?.slug || slugifyCategory(name)).trim()
+            if (!slug) return null
+            return { name, slug }
+          })
+          .filter(Boolean)
+      : [],
     variations,
   }
 }
@@ -192,17 +302,26 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const [shakeKeys, setShakeKeys] = useState<string[]>([])
   const [variationError, setVariationError] = useState('')
   const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
   const [showSeeMore, setShowSeeMore] = useState(false)
+  const [showAllTags, setShowAllTags] = useState(false)
+  const [showConditionInfo, setShowConditionInfo] = useState(false)
+  const [showReturnInfo, setShowReturnInfo] = useState(false)
   const { addItem, items, updateQuantity } = useCart()
+  const { openSaveModal, isRecentlySaved } = useWishlist()
   const searchParams = useSearchParams()
   const addToCartRef = useRef<HTMLDivElement | null>(null)
   const galleryMainRef = useRef<HTMLDivElement | null>(null)
+  const conditionInfoRef = useRef<HTMLDivElement | null>(null)
+  const returnInfoRef = useRef<HTMLDivElement | null>(null)
   const sectionRef = useRef<HTMLDivElement | null>(null)
   const rightColumnRef = useRef<HTMLDivElement | null>(null)
   const rightPinRef = useRef<HTMLDivElement | null>(null)
   const rightSpacerRef = useRef<HTMLDivElement | null>(null)
   const leftColumnRef = useRef<HTMLDivElement | null>(null)
-  const descriptionRef = useRef<HTMLParagraphElement | null>(null)
+  const descriptionRef = useRef<HTMLDivElement | null>(null)
+  const variationSectionRef = useRef<HTMLDivElement | null>(null)
+  const cartSelectionHydratedRef = useRef<string | null>(null)
 
   const variationList = useMemo(() => product?.variations || [], [product?.variations])
   const normalizedVariations = useMemo(() => {
@@ -477,6 +596,10 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }, [product])
 
   useEffect(() => {
+    setShowAllTags(false)
+  }, [product?.id])
+
+  useEffect(() => {
     if (!product) return
     const variantParam = searchParams.get('variant')
     const colorParam = searchParams.get('color')
@@ -503,6 +626,76 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }, [product, searchParams])
 
   useEffect(() => {
+    if (!product?.id) return
+    cartSelectionHydratedRef.current = null
+  }, [product?.id])
+
+  useEffect(() => {
+    if (!product?.id) return
+
+    const variantParam = searchParams.get('variant')
+    const colorParam = searchParams.get('color')
+    const sizeParam = searchParams.get('size')
+    const hasExplicitSelection = Boolean(variantParam || colorParam || sizeParam)
+    if (hasExplicitSelection) return
+
+    const productEntries = (Array.isArray(items) ? items : []).filter((item: any) => {
+      if (!item) return false
+      return String(item.id) === String(product.id) && Number(item.quantity || 0) > 0
+    })
+    if (!productEntries.length) return
+
+    const preferredEntry =
+      productEntries.find((item: any) => item.selectedVariationId && item.selectedVariationId !== 'default') ||
+      productEntries[0]
+    if (!preferredEntry) return
+
+    const hydrationKey = `${product.id}:${preferredEntry.key || ''}:${preferredEntry.quantity || 0}`
+    if (cartSelectionHydratedRef.current === hydrationKey) return
+    cartSelectionHydratedRef.current = hydrationKey
+
+    const preferredVariationId = String(preferredEntry.selectedVariationId || '')
+    const matchedVariation =
+      preferredVariationId && preferredVariationId !== 'default'
+        ? normalizedVariations.find(({ variation }: any) =>
+            String(variation?.id || '') === preferredVariationId,
+          )
+        : null
+
+    if (matchedVariation) {
+      const attrs = matchedVariation.attrs || {}
+      const extras: Record<string, string> = {}
+      Object.entries(attrs).forEach(([key, value]) => {
+        if (!value || key === 'color' || key === 'size') return
+        extras[key] = String(value)
+      })
+      setSelectedColor(String(attrs.color || ''))
+      setSelectedSize(String(attrs.size || ''))
+      setSelectedAttributes(extras)
+      setSelectedVariation(matchedVariation.variation)
+      if (matchedVariation.variation?.image) {
+        setCurrentImage(matchedVariation.variation.image)
+      }
+      setVariationError('')
+      return
+    }
+
+    const normalizedColor =
+      preferredEntry.selectedColor && preferredEntry.selectedColor !== 'default'
+        ? String(preferredEntry.selectedColor)
+        : ''
+    const normalizedSize =
+      preferredEntry.selectedSize && preferredEntry.selectedSize !== 'default'
+        ? String(preferredEntry.selectedSize)
+        : ''
+    setSelectedColor(normalizedColor)
+    setSelectedSize(normalizedSize)
+    setSelectedAttributes({})
+    setSelectedVariation(null)
+    setVariationError('')
+  }, [product?.id, normalizedVariations, items, searchParams])
+
+  useEffect(() => {
     const updateIsMobile = () => setIsMobile(window.innerWidth < 1024)
     updateIsMobile()
     window.addEventListener('resize', updateIsMobile)
@@ -524,7 +717,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
 
     observer.observe(addToCartRef.current)
     return () => observer.disconnect()
-  }, [isMobile])
+  }, [isMobile, product?.id])
 
   useEffect(() => {
     if (isMobile) return
@@ -537,7 +730,22 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     if (!sectionEl || !pinEl || !spacerEl || !rightCol) return
 
     let frameId = 0
+    let autoScrollFrameId = 0
+    let isAutoScrollingRight = false
+    let autoScrollDirection: 'down' | 'up' | null = null
     const headerOffset = 96
+    const epsilon = 1
+    const autoStepPx = 18
+    let previousScrollY = window.scrollY
+
+    const stopAutoScroll = () => {
+      if (autoScrollFrameId) {
+        window.cancelAnimationFrame(autoScrollFrameId)
+        autoScrollFrameId = 0
+      }
+      isAutoScrollingRight = false
+      autoScrollDirection = null
+    }
 
     const update = () => {
       const scrollY = window.scrollY
@@ -547,28 +755,68 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       const sectionBottom = sectionRect.bottom + scrollY
       const pinHeight = pinEl.offsetHeight
       const maxTop = Math.max(0, sectionBottom - pinHeight - sectionTop)
+      const pinStartScrollY = sectionTop - headerOffset
+      const pinEndScrollY = sectionBottom - pinHeight - headerOffset
+      const pinTravel = Math.max(1, pinEndScrollY - pinStartScrollY)
+      const rightMaxScroll = Math.max(0, pinEl.scrollHeight - pinEl.clientHeight)
+      const isScrollingUp = scrollY < previousScrollY - epsilon
       const shouldPin = scrollY + headerOffset >= sectionTop
       const shouldUnpinBottom =
-        scrollY + headerOffset >= sectionBottom - pinHeight
+        scrollY + headerOffset >= sectionBottom - pinHeight - epsilon
 
       spacerEl.style.height = `${pinHeight}px`
       rightCol.style.minHeight = `${pinHeight}px`
 
       if (!shouldPin) {
+        stopAutoScroll()
         pinEl.style.position = 'absolute'
         pinEl.style.top = '0px'
         pinEl.style.left = '0px'
         pinEl.style.width = '100%'
         pinEl.style.zIndex = '1'
+        previousScrollY = scrollY
         return
       }
 
       if (shouldUnpinBottom) {
+        const canAutoFinishRight =
+          rightMaxScroll > 0 && pinEl.scrollTop < rightMaxScroll - epsilon
+
+        if (canAutoFinishRight) {
+          // Keep the panel constrained to the section while auto-finishing right scroll.
+          pinEl.style.position = 'absolute'
+          pinEl.style.top = `${maxTop}px`
+          pinEl.style.left = '0px'
+          pinEl.style.width = '100%'
+          pinEl.style.zIndex = '1'
+          if (!isAutoScrollingRight) {
+            isAutoScrollingRight = true
+            autoScrollDirection = 'down'
+            if (Math.abs(window.scrollY - pinEndScrollY) > epsilon) {
+              window.scrollTo({ top: pinEndScrollY, behavior: 'auto' })
+            }
+            const autoStep = () => {
+              if (!isAutoScrollingRight || autoScrollDirection !== 'down') return
+              pinEl.scrollTop = Math.min(rightMaxScroll, pinEl.scrollTop + autoStepPx)
+              if (pinEl.scrollTop >= rightMaxScroll - epsilon) {
+                stopAutoScroll()
+                return
+              }
+              autoScrollFrameId = window.requestAnimationFrame(autoStep)
+            }
+            autoScrollFrameId = window.requestAnimationFrame(autoStep)
+          }
+          previousScrollY = scrollY
+          return
+        }
+
+        stopAutoScroll()
         pinEl.style.position = 'absolute'
         pinEl.style.top = `${maxTop}px`
         pinEl.style.left = '0px'
         pinEl.style.width = '100%'
         pinEl.style.zIndex = '1'
+        previousScrollY = scrollY
         return
       }
 
@@ -577,6 +825,22 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       pinEl.style.left = `${rightRect.left}px`
       pinEl.style.width = `${rightRect.width}px`
       pinEl.style.zIndex = '10'
+
+      if (isScrollingUp && rightMaxScroll > 0) {
+        const progress = Math.min(
+          1,
+          Math.max(0, (scrollY - pinStartScrollY) / pinTravel)
+        )
+        const syncedRightTop = progress * rightMaxScroll
+        if (Math.abs(pinEl.scrollTop - syncedRightTop) > 0.5) {
+          pinEl.scrollTop = syncedRightTop
+        }
+      }
+
+      if (isAutoScrollingRight) {
+        stopAutoScroll()
+      }
+      previousScrollY = scrollY
     }
 
     const onScroll = () => {
@@ -587,16 +851,159 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       })
     }
 
+    const onWheelWhileAuto = (event: WheelEvent) => {
+      if (!isAutoScrollingRight) return
+      if (autoScrollDirection === 'down' && event.deltaY > 0) {
+        event.preventDefault()
+        return
+      }
+      if (autoScrollDirection === 'up' && event.deltaY < 0) {
+        event.preventDefault()
+        return
+      }
+      stopAutoScroll()
+    }
+
+    const onRightWheelSyncUp = (event: WheelEvent) => {
+      if (isAutoScrollingRight) return
+      if (event.deltaY >= 0) return
+
+      const scrollY = window.scrollY
+      const sectionRect = sectionEl.getBoundingClientRect()
+      const sectionTop = sectionRect.top + scrollY
+      const sectionBottom = sectionRect.bottom + scrollY
+      const pinHeight = pinEl.offsetHeight
+      const pinStartScrollY = sectionTop - headerOffset
+      const pinEndScrollY = sectionBottom - pinHeight - headerOffset
+      const inPinnedRange =
+        scrollY >= pinStartScrollY - epsilon && scrollY <= pinEndScrollY + epsilon
+      if (!inPinnedRange) return
+
+      // Scroll left/body together while right column scrolls upward.
+      window.scrollBy({ top: event.deltaY, behavior: 'auto' })
+    }
+
     update()
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', onScroll, { passive: true })
+    window.addEventListener('wheel', onWheelWhileAuto, { passive: false })
+    pinEl.addEventListener('wheel', onRightWheelSyncUp, { passive: true })
 
     return () => {
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onScroll)
+      window.removeEventListener('wheel', onWheelWhileAuto)
+      pinEl.removeEventListener('wheel', onRightWheelSyncUp)
+      stopAutoScroll()
       if (frameId) window.cancelAnimationFrame(frameId)
     }
   }, [isMobile, product])
+
+  useEffect(() => {
+    if (!isMobile) return
+    const pinEl = rightPinRef.current
+    const spacerEl = rightSpacerRef.current
+    const rightCol = rightColumnRef.current
+    if (spacerEl) spacerEl.style.height = '0px'
+    if (rightCol) rightCol.style.minHeight = ''
+    if (!pinEl) return
+    pinEl.style.position = ''
+    pinEl.style.top = ''
+    pinEl.style.left = ''
+    pinEl.style.width = ''
+    pinEl.style.zIndex = ''
+    pinEl.style.maxHeight = ''
+    pinEl.style.overflowY = ''
+  }, [isMobile, product?.id])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const previous = window.history.scrollRestoration
+    window.history.scrollRestoration = 'manual'
+    return () => {
+      window.history.scrollRestoration = previous
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!product?.id) return
+    if (typeof window === 'undefined') return
+
+    const storageKey = `product-scroll:${resolvedParams.slug}`
+
+    const restore = () => {
+      const raw = window.sessionStorage.getItem(storageKey)
+      if (raw === null) {
+        window.scrollTo({ top: 0, behavior: 'auto' })
+        if (rightPinRef.current) {
+          rightPinRef.current.scrollTop = 0
+        }
+        return
+      }
+      let windowTop = 0
+      let rightTop = 0
+      try {
+        const parsed = JSON.parse(raw)
+        windowTop = Number.isFinite(Number(parsed?.windowY))
+          ? Math.max(0, Number(parsed.windowY))
+          : 0
+        rightTop = Number.isFinite(Number(parsed?.rightY))
+          ? Math.max(0, Number(parsed.rightY))
+          : 0
+      } catch {
+        const parsed = Number(raw)
+        windowTop = Number.isFinite(parsed) ? Math.max(0, parsed) : 0
+      }
+      window.scrollTo({ top: windowTop, behavior: 'auto' })
+      if (rightPinRef.current) {
+        rightPinRef.current.scrollTop = rightTop
+      }
+    }
+
+    const restoreTimer = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(restore)
+    })
+
+    const persistPosition = () => {
+      const payload = {
+        windowY: window.scrollY,
+        rightY: rightPinRef.current?.scrollTop || 0,
+      }
+      window.sessionStorage.setItem(storageKey, JSON.stringify(payload))
+    }
+
+    let ticking = false
+    const persist = () => {
+      persistPosition()
+      ticking = false
+    }
+    const onScroll = () => {
+      if (ticking) return
+      ticking = true
+      window.requestAnimationFrame(persist)
+    }
+    const onPageHide = () => {
+      persistPosition()
+    }
+    const onRightScroll = () => {
+      if (ticking) return
+      ticking = true
+      window.requestAnimationFrame(persist)
+    }
+
+    const rightScrollEl = rightPinRef.current
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('pagehide', onPageHide)
+    rightScrollEl?.addEventListener('scroll', onRightScroll, { passive: true })
+
+    return () => {
+      window.cancelAnimationFrame(restoreTimer)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('pagehide', onPageHide)
+      rightScrollEl?.removeEventListener('scroll', onRightScroll)
+      persistPosition()
+    }
+  }, [product?.id, resolvedParams.slug])
 
   useEffect(() => {
     if (!product) {
@@ -646,6 +1053,30 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     }
   }, [isSelectionComplete, shakeKeys.length])
 
+  useEffect(() => {
+    if (!showConditionInfo) return
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (conditionInfoRef.current?.contains(target)) return
+      setShowConditionInfo(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showConditionInfo])
+
+  useEffect(() => {
+    if (!showReturnInfo) return
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (returnInfoRef.current?.contains(target)) return
+      setShowReturnInfo(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showReturnInfo])
+
   if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -666,6 +1097,10 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
 
   const handleAddToCart = () => {
     if (!isSelectionComplete) {
+      variationSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
       setShakeKeys(['__all__'])
       setVariationError('Select a variation to continue.')
       setTimeout(() => setShakeKeys([]), 650)
@@ -689,6 +1124,10 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
 
   const handleIncrementQuantity = () => {
     if (!isSelectionComplete) {
+      variationSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
       setShakeKeys(['__all__'])
       setVariationError('Select a variation to continue.')
       setTimeout(() => setShakeKeys([]), 650)
@@ -709,21 +1148,60 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
 
   const shortDescription = product.shortDescription ?? ''
   const fullDescription = product.fullDescription ?? ''
+  const sanitizeRichHtml = (input: string) =>
+    String(input || '')
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')
+      .replace(/\son\w+="[^"]*"/gi, '')
+      .replace(/\son\w+='[^']*'/gi, '')
+      .replace(/javascript:/gi, '')
   const stockRemaining = product.stockRemaining ?? product.stock ?? 0
   const sku = product.sku || 'N/A'
-  const material = product.material || 'Premium Mixed Materials'
-  const dimensions = product.dimensions || '10 x 6 x 3 in'
   const shippingEstimate = product.shippingEstimate || 'Ships in 3-5 business days'
-  const tags = product.tags || []
+  const tags = Array.isArray(product.tagLinks) ? product.tagLinks : []
+  const visibleTags = showAllTags ? tags : tags.slice(0, 6)
+  const hasMoreTags = tags.length > 6
   const activePrice = selectedVariation?.price ?? product.price
   const activeOriginalPrice =
     selectedVariation?.originalPrice ?? product.originalPrice
+  const savingsAmount =
+    activeOriginalPrice && activeOriginalPrice > activePrice
+      ? activeOriginalPrice - activePrice
+      : 0
+  const savingsAmountLabel = Number.isInteger(savingsAmount)
+    ? String(savingsAmount)
+    : savingsAmount.toFixed(2)
   const activeImage = currentImage || selectedVariation?.image || product.image
-  const sizeRange = product.sizes?.length ? product.sizes.join(', ') : 'One size'
+  const conditionKey = String(product.conditionCheck || '').trim().toLowerCase()
+  const conditionMeta =
+    CONDITION_COPY[conditionKey] || {
+      label: conditionKey
+        ? conditionKey.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+        : 'Brand New',
+      details: 'Condition information provided by the seller for this product.',
+    }
+  const visibleSizeSummary = sizeOptions.slice(0, 4)
+  const extraSizeCount = Math.max(0, sizeOptions.length - visibleSizeSummary.length)
+  const sizeSummaryLabel = visibleSizeSummary.length ? visibleSizeSummary.join(', ') : 'One size'
+  const packagingStyleKey = String(product.packagingStyle || 'in_wrap_nylon').trim().toLowerCase()
+  const packagingStyleMeta =
+    PACKAGING_STYLE_COPY[packagingStyleKey] || PACKAGING_STYLE_COPY.in_wrap_nylon
+  const packagingImageSrc =
+    PACKAGING_IMAGE_BY_STYLE[packagingStyleKey] || PACKAGING_IMAGE_BY_STYLE.in_wrap_nylon
+  const returnPolicyKey = String(product.returnPolicy || 'not_returnable').trim().toLowerCase()
+  const returnPolicyMeta =
+    RETURN_POLICY_COPY[returnPolicyKey] || RETURN_POLICY_COPY.not_returnable
   const rawCategorySlug = product.categorySlug || product.category || ''
   const categorySlug = encodeURIComponent(
     slugifyCategory(String(rawCategorySlug)),
   )
+  const fallbackCategoryHref = categorySlug ? `/products/${categorySlug}` : '/products'
+  const breadcrumbItems =
+    Array.isArray(product.categoryPath) && product.categoryPath.length > 0
+      ? product.categoryPath
+      : [
+          { label: product.category, href: fallbackCategoryHref },
+        ]
   const cartSelection = {
     id: product.id,
     selectedVariationId: selectedVariation?.id,
@@ -732,6 +1210,54 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }
   const cartEntry = findCartEntry(items, cartSelection)
   const cartQuantity = cartEntry?.quantity || 0
+  const hasReviews = Number(product.reviews) > 0
+  const hasRating = Number(product.rating) > 0
+  const stockCount = Number(stockRemaining) || 0
+  const quantitySelectorMax = Math.max(1, Math.min(10, stockCount > 0 ? stockCount : 10))
+  const handleSetQuantity = (nextQuantity: number) => {
+    const safeQuantity = Math.max(1, Math.min(quantitySelectorMax, Number(nextQuantity) || 1))
+    if (!isSelectionComplete) {
+      variationSectionRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
+      setShakeKeys(['__all__'])
+      setVariationError('Select a variation to continue.')
+      setTimeout(() => setShakeKeys([]), 650)
+      return
+    }
+    if (cartEntry?.key) {
+      updateQuantity(cartEntry.key, safeQuantity)
+      return
+    }
+    addItem(
+      {
+        ...product,
+        selectedColor,
+        selectedSize,
+        selectedAttributes: selectionMap,
+        image: selectedVariation?.image || product.image,
+        price: selectedVariation?.price || product.price,
+        originalPrice: selectedVariation?.originalPrice || product.originalPrice,
+        selectedVariationId: selectedVariation?.id,
+        selectedVariationLabel: selectedVariation?.label,
+      },
+      safeQuantity
+    )
+  }
+  const stockLabel =
+    stockCount <= 0
+      ? 'Out of stock'
+      : stockCount < 5
+        ? `${stockCount} remaining`
+        : `${stockCount} in stock`
+  const stockTextClass =
+    stockCount <= 0 ? 'text-rose-600' : stockCount < 5 ? 'text-amber-600' : 'text-green-600'
+  const shareUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/product/${product.slug}`
+      : `/product/${product.slug}`
+  const wishlistSaved = isRecentlySaved(product?.id)
 
   const tabs = [
     {
@@ -742,7 +1268,11 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     {
       id: 'packaging',
       label: 'Packaging',
-      content: 'Ships in protective packaging with extra padding to keep it safe in transit.',
+      content: `
+        <p>${packagingStyleMeta.label}. ${packagingStyleMeta.details}</p>
+        <h4 class="mt-2 text-sm font-semibold text-gray-800">Packing will look like this</h4>
+        <img class="packaging-preview-image" src="${packagingImageSrc}" alt="${packagingStyleMeta.label} packaging example" loading="lazy" />
+      `,
     },
     {
       id: 'shipping',
@@ -751,47 +1281,26 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     },
   ]
   const activeTabData = tabs.find((tab) => tab.id === activeTab)
+  const activeTabHtml = sanitizeRichHtml(String(activeTabData?.content || ''))
 
   return (
     <div className='min-h-screen flex overflow-x-hidden'>
       <div className='flex-1 min-w-0'>
-        <main className='lg:pl-16 min-h-screen bg-white overflow-x-hidden w-full'>
-          <div className='main-container py-0'>
+        <main className='min-h-screen bg-white overflow-x-hidden w-full'>
+          <div className='main-container px-2 sm:px-4 lg:px-6 py-0'>
               <div className='pt-2 sm:pt-0'>
                 <Breadcrumb
-                  items={[
-                    { label: 'Catalogue', href: '/' },
-                    { label: product.category, href: `/products/${categorySlug}` },
-                    { label: product.name },
-                  ]}
-                  rightAction={{
-                    ariaLabel: 'Report This Product',
-                    icon: (
-                      <svg
-                        className='h-4 w-4'
-                        fill='none'
-                        stroke='currentColor'
-                        viewBox='0 0 24 24'
-                      >
-                        <path
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                          strokeWidth={1.8}
-                          d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
-                        />
-                      </svg>
-                    ),
-                  }}
+                  items={breadcrumbItems}
+                  collapseFrom={4}
                 />
               </div>
-            <div className='bg-white rounded-2xl shadow-sm border border-gray-100'>
+            <div className='bg-white rounded-2xl shadow-sm'>
               <div
                 ref={sectionRef}
                 className='grid lg:grid-cols-[640px_1fr] lg:items-stretch'
               >
                 {/* Left side - Images */}
                 <div ref={leftColumnRef} className='space-y-6 lg:pr-6'>
-                  <div className='h-px w-full' />
                   <Gallery
                     images={product.gallery}
                     currentImage={activeImage}
@@ -803,19 +1312,21 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     mainImageRef={galleryMainRef}
                   />
                   {!isMobile && (
-                    <CustomerReviews
-                      data={
-                        customerReviewsByProductId[product.id] ||
-                        customerReviewsData
-                      }
-                    />
+                    <div id='reviews-section'>
+                      <CustomerReviews
+                        data={
+                          customerReviewsByProductId[product.id] ||
+                          customerReviewsData
+                        }
+                      />
+                    </div>
                   )}
                 </div>
 
                 {/* Right side - Product info */}
                 <div
                   ref={rightColumnRef}
-                  className='relative p-6 border-t border-gray-100 lg:border-t-0 lg:border-l overflow-x-hidden'
+                  className='relative overflow-x-hidden'
                 >
                   <div ref={rightSpacerRef} />
                   <div
@@ -830,11 +1341,18 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                           }
                     }
                   >
-                  <div className='flex items-center justify-between'>
-                    <span className='text-xs font-semibold uppercase tracking-wide bg-gray-100 text-gray-700 px-3 py-1 rounded-full'>
+                  <div className='flex items-center justify-between pt-1'>
+                    <Link
+                      href={fallbackCategoryHref}
+                      className='text-[11px] font-medium bg-gray-50 text-gray-500 px-2 py-0.5 rounded-[3px] hover:text-gray-700 transition'
+                    >
                       {product.category}
-                    </span>
-                    <button className='flex items-center gap-2 text-xs font-medium text-gray-600 border border-gray-200 px-3 py-2 rounded-full hover:bg-gray-50 transition'>
+                    </Link>
+                    <button
+                      type='button'
+                      onClick={() => setShowShareModal(true)}
+                      className='flex items-center gap-2 text-xs font-medium text-gray-600 px-3 py-2 hover:bg-gray-50 transition'
+                    >
                       <svg
                         className='h-4 w-4'
                         fill='none'
@@ -852,36 +1370,56 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     </button>
                   </div>
 
-                  <div className='space-y-3'>
+                  <div className='space-y-3 !mt-0'>
                     <h1 className='text-3xl font-semibold text-gray-900 font-serif'>
                       {product.name}
                     </h1>
                     <div className='flex items-center gap-3 text-sm text-gray-600'>
-                      <div className='flex items-center gap-2'>
-                        <StarRating rating={product.rating} />
-                        <span className='font-medium text-gray-800'>
-                          {product.rating}
-                        </span>
-                      </div>
-                      <span>{product.reviews} reviews</span>
-                      <span className='text-green-600'>
-                        {stockRemaining} in stock
-                      </span>
+                      {hasRating && (
+                        <div className='flex items-center gap-2'>
+                          <StarRating rating={product.rating} />
+                          <span className='font-medium text-gray-800'>
+                            {product.rating}
+                          </span>
+                        </div>
+                      )}
+                      <button
+                        type='button'
+                        onClick={() => {
+                          const el = document.getElementById('reviews-section')
+                          if (!el) return
+                          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                        }}
+                        className='text-xs underline underline-offset-2 decoration-gray-300 hover:text-gray-800 hover:decoration-gray-500 transition'
+                      >
+                        {hasReviews ? `${product.reviews} reviews` : 'No reviews yet'}
+                      </button>
+                      <span className={stockTextClass}>{stockLabel}</span>
                     </div>
+                    <div className='text-xs text-gray-500'>SKU: {sku}</div>
                     <p className='text-sm text-gray-600 leading-relaxed'>
                       {shortDescription}
                     </p>
-                    <div className='text-xs text-gray-500'>SKU: {sku}</div>
                     {tags.length > 0 && (
                       <div className='flex flex-wrap gap-2 pt-1'>
-                        {tags.map((tag: string) => (
-                          <span
-                            key={tag}
-                            className='text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600'
+                        {visibleTags.map((tag: any) => (
+                          <Link
+                            key={`${tag.slug}-${tag.name}`}
+                            href={`/products?tag=${encodeURIComponent(tag.slug)}`}
+                            className='text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:text-gray-800 transition underline underline-offset-2 decoration-gray-300 hover:decoration-gray-500'
                           >
-                            {tag}
-                          </span>
+                            #{tag.name}
+                          </Link>
                         ))}
+                        {hasMoreTags && (
+                          <button
+                            type='button'
+                            onClick={() => setShowAllTags((prev) => !prev)}
+                            className='text-[10px] text-gray-700 hover:text-gray-900 transition underline underline-offset-2 decoration-gray-300 hover:decoration-gray-500'
+                          >
+                            {showAllTags ? 'See less' : `See more (${tags.length - 6})`}
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -895,14 +1433,15 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                         ${activeOriginalPrice}
                       </span>
                     )}
-                    {discountPercentage && (
-                      <span className='text-xs font-semibold text-white bg-red-500 px-2.5 py-1 rounded-full'>
-                        {discountPercentage}% off
+                    {savingsAmount > 0 && (
+                      <span className='text-xs font-semibold text-green-600'>
+                        Save ${savingsAmountLabel} if you buy now
                       </span>
                     )}
                   </div>
 
                   <div
+                    ref={variationSectionRef}
                     className={`border-t border-gray-200 pt-3 space-y-3 ${
                       shakeKeys.length ? 'ring-1 ring-rose-400/70 rounded-2xl' : ''
                     }`}
@@ -944,25 +1483,25 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                                   setCurrentImage(variation.image || product.image)
                                   setVariationError('')
                                 }}
-                                className={`w-[104px] text-left border rounded-lg p-0.5 transition ${
+                                className={`w-[76px] text-left border rounded-lg p-0.5 transition ${
                                   isSelected
                                     ? 'border-blue-500 ring-2 ring-blue-200'
                                     : 'border-gray-200 hover:border-gray-300'
                                 }`}
                               >
-                                <div className='h-[110px] w-full rounded-md overflow-hidden bg-gray-100 relative'>
+                                <div className='h-[78px] w-full rounded-md overflow-hidden bg-gray-100 relative'>
                                   <Image
                                     src={variation.image}
                                     alt={variation.label}
                                     fill
-                                    sizes='110px'
+                                    sizes='78px'
                                     className='object-cover'
                                   />
                                 </div>
-                                <div className='pt-1 text-[11px] font-semibold text-gray-900 truncate'>
+                                <div className='pt-1 text-[10px] font-semibold text-gray-900 truncate'>
                                   {variation.color || variation.label}
                                 </div>
-                                <div className='text-[10px] font-semibold text-gray-900'>
+                                <div className='text-[9px] font-semibold text-gray-900'>
                                   ${variation.price}
                                 </div>
                               </button>
@@ -977,7 +1516,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                         <div className='flex flex-wrap items-start gap-4'>
                           {!hasCompleteVariationImages && (
                             <div className='flex-1 min-w-[220px]'>
-                              <div className='text-[11px] uppercase tracking-wide text-gray-500 mb-2'>
+                              <div className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600'>
                                 Color
                               </div>
                               <div className='flex flex-wrap gap-2'>
@@ -994,7 +1533,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                                         String(prev) === String(color) ? '' : String(color),
                                       )
                                     }}
-                                    className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs transition ${
+                                    className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
                                       selectedColor === color
                                         ? 'border-gray-900 text-gray-900'
                                         : 'border-gray-300 text-gray-700 hover:border-gray-400'
@@ -1002,7 +1541,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                                     aria-pressed={selectedColor === color}
                                   >
                                     <span
-                                      className='h-3 w-3 rounded-full border border-gray-300'
+                                      className='h-3.5 w-3.5 rounded-full border border-gray-300'
                                       style={getSwatchStyle(color)}
                                     />
                                     <span className='capitalize'>{color}</span>
@@ -1018,7 +1557,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                             </div>
                           )}
                           <div className='flex-1 min-w-[220px]'>
-                            <div className='text-[11px] uppercase tracking-wide text-gray-500 mb-2'>
+                            <div className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600'>
                               Size
                             </div>
                             <div className='flex flex-wrap gap-2'>
@@ -1028,7 +1567,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                                 <button
                                   key={size}
                                   disabled={!isAvailable}
-                                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                                  className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
                                     selectedSize === size
                                       ? 'border-gray-900 bg-gray-900 text-white'
                                       : 'border-gray-300 text-gray-700 hover:border-gray-400'
@@ -1053,7 +1592,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                           </div>
                           {extraAttributeOptions.map((attribute) => (
                             <div key={attribute.key} className='flex-1 min-w-[220px]'>
-                              <div className='text-[11px] uppercase tracking-wide text-gray-500 mb-2'>
+                              <div className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600'>
                                 {attribute.label}
                               </div>
                               <div className='flex flex-wrap gap-2'>
@@ -1064,7 +1603,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                                   <button
                                     key={`${attribute.key}-${option}`}
                                     disabled={!isAvailable}
-                                    className={`rounded-full border px-3 py-1 text-xs transition ${
+                                    className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
                                       isSelected
                                         ? 'border-gray-900 bg-gray-900 text-white'
                                         : 'border-gray-300 text-gray-700 hover:border-gray-400'
@@ -1101,24 +1640,28 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
 
                   <div
                     ref={addToCartRef}
-                    className='sticky bottom-0 -mx-6 bg-white/90 px-6 py-3 backdrop-blur border-t border-gray-100 shadow-[0_-8px_20px_rgba(0,0,0,0.05)]'
+                    className='sticky bottom-0 bg-white/90 px-2 py-2 backdrop-blur border-t border-gray-100 shadow-[0_-8px_20px_rgba(0,0,0,0.05)]'
                   >
-                    <div className='pointer-events-none absolute -top-6 left-0 right-0 h-6 bg-gradient-to-t from-white/90 to-transparent' />
-                    <div className='flex items-center gap-3 relative'>
+                    <div className='pointer-events-none absolute -top-4 left-0 right-0 h-4 bg-gradient-to-t from-white/90 to-transparent' />
+                    <div className='relative flex items-center gap-2'>
                       {cartQuantity > 0 ? (
                         <QuantityControl
                           quantity={cartQuantity}
                           onIncrement={handleIncrementQuantity}
                           onDecrement={handleDecrementQuantity}
+                          onSetQuantity={handleSetQuantity}
                           size='md'
                           fullWidth
                           isLoading={Boolean(cartEntry?.isSyncing)}
+                          appearance='solid'
+                          controlType='select'
+                          maxQuantity={quantitySelectorMax}
                         />
                       ) : (
                         <button
                           onClick={handleAddToCart}
                           aria-disabled={!isSelectionComplete}
-                          className={`flex-1 bg-amber-400 text-gray-900 font-semibold py-3 rounded-full transition ${
+                          className={`inline-flex h-10 flex-1 items-center justify-center rounded-full bg-amber-400 text-sm font-semibold text-gray-900 transition ${
                             !isSelectionComplete
                               ? 'opacity-80'
                               : 'hover:bg-amber-300'
@@ -1129,11 +1672,23 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                       )}
                       <button
                         type='button'
-                        className='w-11 h-11 rounded-full border border-gray-200 flex items-center justify-center text-gray-700 hover:bg-gray-50 transition'
+                        aria-pressed={wishlistSaved}
+                        className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition wishlist-heart-shell ${
+                          wishlistSaved ? 'wishlist-heart-shell--active' : ''
+                        }`}
+                        onClick={() =>
+                          openSaveModal({
+                            id: product.id,
+                            name: product.name,
+                            slug: product.slug,
+                            price: product.price,
+                            image: product.image,
+                          })
+                        }
                       >
                         <svg
-                          className='h-5 w-5'
-                          fill='none'
+                          className={`block h-5 w-5 ${wishlistSaved ? 'wishlist-heart-pop' : ''}`}
+                          fill={wishlistSaved ? 'currentColor' : 'none'}
                           stroke='currentColor'
                           viewBox='0 0 24 24'
                         >
@@ -1166,23 +1721,33 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     ))}
                   </div>
                   <div className='relative'>
-                    <p
+                    <div
                       ref={descriptionRef}
-                      className={`text-sm text-gray-600 leading-relaxed ${
-                        activeTab === 'details' ? 'max-h-24 overflow-hidden' : ''
+                      className={`overflow-x-hidden text-sm text-gray-600 leading-relaxed [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-gray-900 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:mt-0 [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_img]:!max-w-full [&_img]:!h-auto [&_.packaging-preview-image]:-mt-8 ${
+                        activeTab === 'details' ? 'max-h-28 overflow-hidden' : ''
                       }`}
+                      dangerouslySetInnerHTML={{ __html: activeTabHtml }}
                     >
-                      {activeTabData?.content}
-                    </p>
+                    </div>
                     {showSeeMore && (
                       <>
-                        <div className='pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent' />
-                        <div className='mt-2 flex justify-center'>
+                        <div className='pointer-events-none absolute inset-0 z-10 backdrop-blur-[0.6px] bg-gradient-to-b from-white/0 via-white/65 to-white' />
+                        <div className='relative z-30 flex justify-center bg-white pt-1'>
                           <button
                             onClick={() => setShowDetailsModal(true)}
-                            className='text-xs font-semibold text-gray-800 hover:text-gray-900 transition'
+                            className='inline-flex items-center gap-1 text-xs font-semibold text-gray-800 hover:text-gray-900 transition'
                           >
-                            See more &gt;
+                            <span>See more</span>
+                            <svg
+                              viewBox='0 0 20 20'
+                              className='h-3.5 w-3.5'
+                              fill='none'
+                              stroke='currentColor'
+                              strokeWidth='1.8'
+                              aria-hidden='true'
+                            >
+                              <path d='M7 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
+                            </svg>
                           </button>
                         </div>
                       </>
@@ -1195,36 +1760,82 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                         Size & Fit
                       </div>
                       <div className='flex justify-between text-gray-600'>
-                        <span>Range</span>
-                        <span>{sizeRange}</span>
+                        <span>Available Sizes</span>
+                        <span className='text-right'>
+                          {sizeSummaryLabel}
+                          {extraSizeCount > 0 ? ` +${extraSizeCount} more` : ''}
+                        </span>
                       </div>
-                      <div className='flex justify-between text-gray-600 mt-2'>
-                        <span>Dimensions</span>
-                        <span>{dimensions}</span>
+                      <div className='relative flex items-center justify-between text-gray-600 mt-2'>
+                        <span>Condition</span>
+                        <span ref={conditionInfoRef} className='inline-flex items-center gap-1'>
+                          <span>{conditionMeta.label}</span>
+                          <button
+                            type='button'
+                            onClick={() => setShowConditionInfo((prev) => !prev)}
+                            className='inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-600 hover:bg-gray-50'
+                            aria-label='Show condition details'
+                          >
+                            <svg viewBox='0 0 20 20' className='h-3 w-3' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                              <circle cx='10' cy='10' r='7' />
+                              <path d='M10 8.2v5' strokeLinecap='round' />
+                              <circle cx='10' cy='5.7' r='0.8' fill='currentColor' stroke='none' />
+                            </svg>
+                          </button>
+                        </span>
+                        {showConditionInfo && (
+                          <div className='absolute right-0 top-7 z-20 w-64 rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg'>
+                            {conditionMeta.details}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className='border border-gray-200 rounded-xl p-4 text-sm'>
                       <div className='font-semibold text-gray-900 mb-2'>
-                        Material
+                        Returns
                       </div>
-                      <div className='flex justify-between text-gray-600'>
-                        <span>Material</span>
-                        <span>{material}</span>
+                      <div className='relative flex items-center justify-between text-gray-600'>
+                        <span>Policy</span>
+                        <span ref={returnInfoRef} className='inline-flex items-center gap-1'>
+                          <span>{returnPolicyMeta.label}</span>
+                          <button
+                            type='button'
+                            onClick={() => setShowReturnInfo((prev) => !prev)}
+                            className='inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-600 hover:bg-gray-50'
+                            aria-label='Show return policy details'
+                          >
+                            <svg viewBox='0 0 20 20' className='h-3 w-3' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                              <circle cx='10' cy='10' r='7' />
+                              <path d='M10 8.2v5' strokeLinecap='round' />
+                              <circle cx='10' cy='5.7' r='0.8' fill='currentColor' stroke='none' />
+                            </svg>
+                          </button>
+                        </span>
+                        {showReturnInfo && (
+                          <div className='absolute right-0 top-7 z-20 w-64 rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-600 shadow-lg'>
+                            {returnPolicyMeta.details}
+                          </div>
+                        )}
                       </div>
-                      <div className='flex justify-between text-gray-600 mt-2'>
-                        <span>Shipping</span>
-                        <span>{shippingEstimate}</span>
+                      <div className='mt-2 text-xs text-gray-500'>
+                        Return eligibility depends on product policy and order status.
+                        {' '}
+                        <Link href='/returns-policy' className='font-semibold text-gray-700 underline underline-offset-2 hover:text-gray-900'>
+                          More on return
+                        </Link>
                       </div>
                     </div>
                   </div>
 
                   {isMobile && (
-                    <CustomerReviews
-                      data={
-                        customerReviewsByProductId[product.id] ||
-                        customerReviewsData
-                      }
-                    />
+                    <div id='reviews-section'>
+                      <CustomerReviews
+                        data={
+                          customerReviewsByProductId[product.id] ||
+                          customerReviewsData
+                        }
+                      />
+                    </div>
                   )}
                   <AboutStoreCard
                     vendor={product.vendor}
@@ -1265,15 +1876,19 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                 quantity={cartQuantity}
                 onIncrement={handleIncrementQuantity}
                 onDecrement={handleDecrementQuantity}
+                onSetQuantity={handleSetQuantity}
                 size='md'
                 fullWidth
                 isLoading={Boolean(cartEntry?.isSyncing)}
+                appearance='solid'
+                controlType='select'
+                maxQuantity={quantitySelectorMax}
               />
             ) : (
               <button
                 onClick={handleAddToCart}
                 aria-disabled={!isSelectionComplete}
-                className={`flex-1 bg-amber-400 text-gray-900 font-semibold py-3 rounded-full transition ${
+                className={`inline-flex h-11 flex-1 items-center justify-center rounded-full bg-amber-400 text-sm font-semibold text-gray-900 transition ${
                   !isSelectionComplete ? 'opacity-80' : 'hover:bg-amber-300'
                 }`}
               >
@@ -1286,15 +1901,15 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
 
       {showDetailsModal && (
         <div
-          className='fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'
+          className='fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4'
           onClick={(event) => {
             if (event.target === event.currentTarget) {
               setShowDetailsModal(false)
             }
           }}
         >
-          <div className='w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl'>
-            <div className='flex items-center justify-between'>
+          <div className='flex h-screen w-full flex-col overflow-hidden bg-white px-4 py-4 shadow-2xl sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:rounded-2xl sm:p-6'>
+            <div className='flex shrink-0 items-center justify-between'>
               <h3 className='text-lg font-semibold text-gray-900'>
                 {activeTabData?.label}
               </h3>
@@ -1306,12 +1921,21 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                 ✕
               </button>
             </div>
-            <p className='mt-4 text-sm text-gray-600 leading-relaxed whitespace-pre-line'>
-              {activeTabData?.content}
-            </p>
+            <div
+              className='mt-4 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pr-0 text-sm text-gray-600 leading-relaxed whitespace-pre-line sm:pr-1 [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-gray-900 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:mt-0 [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_img]:!max-w-full [&_img]:!h-auto [&_.packaging-preview-image]:-mt-8'
+              style={{ WebkitOverflowScrolling: 'touch' }}
+              dangerouslySetInnerHTML={{ __html: activeTabHtml }}
+            />
           </div>
         </div>
       )}
+
+      <ShareProductModal
+        open={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        shareUrl={shareUrl}
+        productName={product.name}
+      />
     </div>
   )
 }

@@ -21,7 +21,7 @@ export const findCartEntry = (
   const color = normalize(product.selectedColor)
   const size = normalize(product.selectedSize)
 
-  return (
+  const strictMatch =
     items.find((item) => {
       if (!item) return false
       return (
@@ -31,7 +31,23 @@ export const findCartEntry = (
         normalize(item.selectedSize) === size
       )
     }) || null
-  )
+
+  if (strictMatch) return strictMatch
+
+  // Fallback for server-normalized carts where color/size may differ but variation is stable.
+  if (variation !== 'default') {
+    return (
+      items.find((item) => {
+        if (!item) return false
+        return (
+          normalize(item.id, '') === id &&
+          normalize(item.selectedVariationId) === variation
+        )
+      }) || null
+    )
+  }
+
+  return null
 }
 
 export const getCartQuantity = (

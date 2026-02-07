@@ -13,6 +13,12 @@ function ProductImageLibraryModal({
   onApply,
   selectedId,
   selectedIds = [],
+  listEndpoint = '/api/admin/media',
+  uploadEndpoint = '/api/admin/media/upload',
+  deleteEndpointBase = '/api/admin/media',
+  title = 'Image Library',
+  maxSelection = 7,
+  zIndexClass = 'z-[60]',
 }) {
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
@@ -21,6 +27,9 @@ function ProductImageLibraryModal({
   const [error, setError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [deletingId, setDeletingId] = useState('');
   const [selectedMap, setSelectedMap] = useState({});
   const [selectedOrder, setSelectedOrder] = useState([]);
   const inputRef = useRef(null);
@@ -37,6 +46,7 @@ function ProductImageLibraryModal({
         const payload = await fetchMediaPage({
           page: requestedPage,
           perPage: MEDIA_PAGE_SIZE,
+          endpoint: listEndpoint,
         });
         const nextItems = Array.isArray(payload?.items) ? payload.items : [];
         setItems((prev) => (replace ? nextItems : [...prev, ...nextItems]));
@@ -53,7 +63,7 @@ function ProductImageLibraryModal({
         setIsLoading(false);
       }
     },
-    [],
+    [listEndpoint],
   );
 
   useEffect(() => {
@@ -70,7 +80,37 @@ function ProductImageLibraryModal({
     setSelectedMap(seeded);
     setSelectedOrder(nextOrder);
     loadImages(1, true);
-  }, [isOpen, loadImages, selectedId, selectedIds]);
+    // run only when opening
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  const handleDeleteImage = useCallback(
+    async (media) => {
+      const id = media?.id ? String(media.id) : '';
+      if (!id || deletingId) return;
+      setDeleteError('');
+      setDeletingId(id);
+      try {
+        const response = await fetch(`${deleteEndpointBase}/${id}`, { method: 'DELETE' });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Unable to delete image.');
+        }
+        setItems((prev) => prev.filter((item) => String(item?.id || '') !== id));
+        setSelectedMap((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+        setSelectedOrder((prev) => prev.filter((entry) => entry !== id));
+      } catch (err) {
+        setDeleteError(err?.message || 'Unable to delete image.');
+      } finally {
+        setDeletingId('');
+      }
+    },
+    [deleteEndpointBase, deletingId],
+  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -89,21 +129,40 @@ function ProductImageLibraryModal({
     return () => observer.disconnect();
   }, [hasMore, isLoading, loadImages, page, isOpen]);
 
-  const handleUpload = useCallback(
-    async (file) => {
-      if (!file) return;
+  const handleUploadFiles = useCallback(
+    async (incomingFiles) => {
+      const files = Array.from(incomingFiles || []).filter((file) =>
+        String(file?.type || '').startsWith('image/'),
+      );
+      if (!files.length) {
+        setUploadError('Please select valid image file(s).');
+        return;
+      }
       setIsUploading(true);
       setUploadError('');
-      try {
-        const uploaded = await uploadMediaFile({ file });
-        setItems((prev) => [uploaded, ...prev]);
-      } catch (uploadErr) {
-        setUploadError(uploadErr?.message || 'Unable to upload image.');
-      } finally {
-        setIsUploading(false);
+      const uploadedItems = [];
+      const failed = [];
+      for (const file of files) {
+        try {
+          const uploaded = await uploadMediaFile({ file, endpoint: uploadEndpoint });
+          uploadedItems.push(uploaded);
+        } catch (uploadErr) {
+          failed.push(file?.name || uploadErr?.message || 'Upload failed');
+        }
       }
+      if (uploadedItems.length) {
+        setItems((prev) => [...uploadedItems, ...prev]);
+      }
+      if (failed.length) {
+        const preview = failed.slice(0, 2).join(', ');
+        const suffix = failed.length > 2 ? ` (+${failed.length - 2} more)` : '';
+        setUploadError(
+          `Uploaded ${uploadedItems.length}/${files.length}. Failed: ${preview}${suffix}`,
+        );
+      }
+      setIsUploading(false);
     },
-    [],
+    [uploadEndpoint],
   );
 
   const skeletons = useMemo(() => Array.from({ length: 8 }, (_, idx) => idx), []);
@@ -117,7 +176,7 @@ function ProductImageLibraryModal({
       if (next[id]) {
         delete next[id];
         setSelectedOrder((order) => order.filter((entry) => entry !== id));
-      } else if (Object.keys(next).length < 7) {
+      } else if (Object.keys(next).length < maxSelection) {
         next[id] = true;
         setSelectedOrder((order) => [...order, id]);
       }
@@ -141,7 +200,7 @@ function ProductImageLibraryModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 py-6">
+    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center px-4 py-6`}>
       <button
         type="button"
         onClick={onClose}
@@ -163,11 +222,12 @@ function ProductImageLibraryModal({
               ref={inputRef}
               type="file"
               accept="image/*"
+              multiple
               className="hidden"
               onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) {
-                  handleUpload(file);
+                const files = event.target.files;
+                if (files?.length) {
+                  handleUploadFiles(files);
                 }
                 if (inputRef.current) {
                   inputRef.current.value = '';
@@ -180,7 +240,7 @@ function ProductImageLibraryModal({
               className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600"
               isLoading={isUploading}
             >
-              Upload
+              Upload image(s)
             </LoadingButton>
             <LoadingButton
               type="button"
@@ -201,8 +261,36 @@ function ProductImageLibraryModal({
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-5" style={{ maxHeight: '70vh' }}>
+          <div
+            onDragOver={(event) => {
+              event.preventDefault();
+              setIsDragOver(true);
+            }}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setIsDragOver(true);
+            }}
+            onDragLeave={(event) => {
+              event.preventDefault();
+              if (event.currentTarget.contains(event.relatedTarget)) return;
+              setIsDragOver(false);
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              setIsDragOver(false);
+              handleUploadFiles(event.dataTransfer?.files || []);
+            }}
+            className={`mb-4 rounded-2xl border-2 border-dashed px-4 py-4 text-center text-xs transition ${
+              isDragOver
+                ? 'border-blue-400 bg-blue-50 text-blue-700'
+                : 'border-slate-200 bg-slate-50 text-slate-500'
+            }`}
+          >
+            Drag and drop image(s) here, or use Upload image(s)
+          </div>
           {error && <p className="mb-4 text-xs text-rose-500">{error}</p>}
           {uploadError && <p className="mb-4 text-xs text-rose-500">{uploadError}</p>}
+          {deleteError && <p className="mb-4 text-xs text-rose-500">{deleteError}</p>}
 
           {!items.length && isLoading && (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -241,6 +329,36 @@ function ProductImageLibraryModal({
                       <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2 py-1 text-[10px] font-semibold text-slate-600">
                         Selected
                       </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleDeleteImage(media);
+                    }}
+                    disabled={deletingId === String(media.id)}
+                    className="absolute bottom-3 right-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-rose-600 shadow-sm transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                    aria-label="Delete image"
+                    title="Delete image"
+                  >
+                    {deletingId === String(media.id) ? (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-rose-600 border-t-transparent" />
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="h-4 w-4"
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4h8v2" />
+                        <path d="M19 6l-1 14H6L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                      </svg>
                     )}
                   </button>
                 </div>

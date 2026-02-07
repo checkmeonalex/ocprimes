@@ -2,10 +2,10 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useState } from 'react'
 import type { MouseEvent } from 'react'
 import { BadgePercent, Heart, Star } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
+import { useWishlist } from '@/context/WishlistContext'
 import QuantityControl from '@/components/cart/QuantityControl'
 import { findCartEntry } from '@/lib/cart/cart-match'
 
@@ -30,34 +30,37 @@ type RelatedProduct = {
 
 type RelatedProductsSectionProps = {
   title?: string
+  subtitle?: string
   items: RelatedProduct[]
   seeAllHref?: string
 }
 
 const RelatedProductsSection = ({
-  title = 'For You',
+  title = 'Just for you',
+  subtitle = 'Inspired Choices',
   items,
   seeAllHref,
 }: RelatedProductsSectionProps) => {
   const { addItem, items: cartItems, updateQuantity } = useCart()
-  const [loadingSlug, setLoadingSlug] = useState<string | null>(null)
+  const { openSaveModal, isRecentlySaved } = useWishlist()
   if (!Array.isArray(items) || items.length === 0) return null
 
   return (
-    <section className='border-t border-gray-100 px-6 pb-6 pt-5'>
-      <div className='flex items-center justify-between'>
-        <h2 className='text-base font-semibold text-gray-900'>{title}</h2>
-        {seeAllHref ? (
-          <Link
-            href={seeAllHref}
-            className='text-sm font-semibold text-amber-600 hover:text-amber-700 transition'
-          >
-            See All
-          </Link>
-        ) : null}
+    <section className='border-t border-gray-100 px-2 pb-5 pt-4 sm:px-6 sm:pb-6 sm:pt-5'>
+      <div className='px-1 pb-1 pt-1 sm:pb-2'>
+        <p className='text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 sm:text-xs'>
+          {subtitle}
+        </p>
+        <div className='mt-2 flex items-center gap-4 sm:gap-6'>
+          <span className='h-px flex-1 bg-gray-300' />
+          <h2 className='shrink-0 text-center font-serif text-[2rem] font-semibold leading-none text-gray-900 sm:text-[2.4rem]'>
+            {title}
+          </h2>
+          <span className='h-px flex-1 bg-gray-300' />
+        </div>
       </div>
 
-      <div className='mt-4 grid gap-0 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'>
+      <div className='mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'>
         {items.map((product) => {
           const discountPercentage =
             product.originalPrice && product.originalPrice > product.price
@@ -75,6 +78,7 @@ const RelatedProductsSection = ({
           const showRating = rating > 0
 
           const hasImage = Boolean(product.image)
+          const isSaved = isRecentlySaved(product?.id)
 
           const selection = {
             id: product.id,
@@ -87,8 +91,6 @@ const RelatedProductsSection = ({
 
           const handleAddToCart = (event?: MouseEvent<HTMLButtonElement>) => {
             event?.preventDefault()
-            if (loadingSlug === product.slug) return
-            setLoadingSlug(product.slug)
             addItem({
               id: product.id,
               name: product.name,
@@ -97,16 +99,9 @@ const RelatedProductsSection = ({
               originalPrice: product.originalPrice,
               image: product.image,
             })
-            window.setTimeout(() => {
-              setLoadingSlug((current) =>
-                current === product.slug ? null : current
-              )
-            }, 700)
           }
           const handleIncrement = (event?: MouseEvent<HTMLButtonElement>) => {
             event?.preventDefault()
-            if (loadingSlug === product.slug) return
-            setLoadingSlug(product.slug)
             if (cartEntry?.key) {
               updateQuantity(cartEntry.key, quantity + 1)
             } else {
@@ -119,34 +114,22 @@ const RelatedProductsSection = ({
                 image: product.image,
               })
             }
-            window.setTimeout(() => {
-              setLoadingSlug((current) =>
-                current === product.slug ? null : current
-              )
-            }, 700)
           }
 
           const handleDecrement = (event?: MouseEvent<HTMLButtonElement>) => {
             event?.preventDefault()
-            if (loadingSlug === product.slug) return
-            setLoadingSlug(product.slug)
             if (cartEntry?.key) {
               updateQuantity(cartEntry.key, Math.max(0, quantity - 1))
             }
-            window.setTimeout(() => {
-              setLoadingSlug((current) =>
-                current === product.slug ? null : current
-              )
-            }, 700)
           }
 
           return (
             <Link
               key={product.slug}
               href={`/product/${product.slug}`}
-              className='group'
+              className='group min-w-0'
             >
-              <div className='relative h-full bg-white p-3 shadow-sm transition hover:shadow-md'>
+              <div className='relative h-full min-w-0 overflow-hidden bg-white p-2 shadow-sm transition hover:shadow-md sm:p-3'>
                 <div className='relative aspect-square overflow-hidden border border-gray-200 bg-gray-100'>
                   {discountPercentage ? (
                     <div className='absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-rose-500 px-2.5 py-1 text-[10px] font-semibold text-white'>
@@ -170,48 +153,73 @@ const RelatedProductsSection = ({
                   <button
                     type='button'
                     aria-label='Save item'
-                    className='absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/40 text-white shadow-sm backdrop-blur-md transition hover:bg-white/55'
-                    onClick={(event) => event.preventDefault()}
+                    aria-pressed={isSaved}
+                    className={`absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full shadow-sm backdrop-blur-md transition wishlist-heart-shell ${
+                      isSaved ? 'wishlist-heart-shell--active' : ''
+                    }`}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      openSaveModal({
+                        id: product.id,
+                        name: product.name,
+                        slug: product.slug,
+                        price: product.price,
+                        image: product.image,
+                      })
+                    }}
                   >
-                    <Heart size={18} />
+                    <Heart size={18} className={isSaved ? 'fill-current wishlist-heart-pop' : ''} />
                   </button>
                 </div>
 
-                <div className='mt-2 space-y-1'>
+                <div className='mt-2 min-w-0 flex flex-col'>
                   <h3 className='text-sm font-semibold text-gray-900 line-clamp-2 leading-tight'>
                     {product.name}
                   </h3>
-                  <div className='flex items-center justify-between gap-3'>
-                    <div className='flex items-baseline gap-2'>
-                      <span className='text-base font-semibold text-gray-900'>
-                        ${formatPrice(product.price)}
+                  <div className='mt-1 min-w-0 flex flex-wrap items-baseline gap-1.5'>
+                    <span className='text-base font-semibold text-gray-900'>
+                      ${formatPrice(product.price)}
+                    </span>
+                    {product.originalPrice ? (
+                      <span className='text-sm text-gray-400 line-through'>
+                        ${formatPrice(product.originalPrice)}
                       </span>
-                      {product.originalPrice ? (
-                        <span className='text-sm text-gray-400 line-through'>
-                          ${formatPrice(product.originalPrice)}
-                        </span>
                       ) : null}
+                  </div>
+                  <div className='mt-1 flex items-center justify-between gap-2'>
+                    <div className='min-w-0 flex items-center gap-2 text-xs text-gray-500'>
+                      {showRating ? (
+                        <>
+                          <Star className='h-4 w-4 text-amber-500 fill-amber-500' />
+                          <span className='font-semibold text-gray-800'>
+                            {rating.toFixed(1)}
+                          </span>
+                          {reviews > 0 ? <span>({reviews})</span> : null}
+                        </>
+                      ) : (
+                        <span className='text-gray-400'>New</span>
+                      )}
                     </div>
                     {quantity > 0 ? (
-                      <QuantityControl
-                        quantity={quantity}
-                        onIncrement={handleIncrement}
-                        onDecrement={handleDecrement}
-                        size='sm'
-                        isLoading={Boolean(cartEntry?.isSyncing)}
-                      />
+                      <div className='shrink-0'>
+                        <QuantityControl
+                          quantity={quantity}
+                          onIncrement={handleIncrement}
+                          onDecrement={handleDecrement}
+                          size='sm'
+                          isLoading={Boolean(cartEntry?.isSyncing)}
+                          appearance='solid'
+                          stylePreset='card'
+                        />
+                      </div>
                     ) : (
                       <button
                         type='button'
                         aria-label='Add to cart'
                         onClick={handleAddToCart}
-                        className={`h-9 w-9 shrink-0 rounded-lg border-2 border-gray-300 bg-white text-gray-600 flex items-center justify-center transition-all duration-200 group/btn ${
-                          loadingSlug === product.slug
-                            ? 'cursor-wait opacity-70'
-                            : 'hover:border-gray-400 hover:bg-gray-50'
-                        }`}
+                        className='h-9 w-9 shrink-0 rounded-lg border-2 border-gray-300 bg-white text-gray-600 flex items-center justify-center transition-all duration-200 group/btn hover:border-gray-400 hover:bg-gray-50'
                       >
-                        {loadingSlug === product.slug ? (
+                        {Boolean(cartEntry?.isSyncing) ? (
                           <span className='h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600' />
                         ) : (
                           <svg
@@ -230,25 +238,33 @@ const RelatedProductsSection = ({
                       </button>
                     )}
                   </div>
-                  <div className='flex items-center gap-2 text-xs text-gray-500'>
-                    {showRating ? (
-                      <>
-                        <Star className='h-4 w-4 text-amber-500 fill-amber-500' />
-                        <span className='font-semibold text-gray-800'>
-                          {rating.toFixed(1)}
-                        </span>
-                        {reviews > 0 ? <span>({reviews})</span> : null}
-                      </>
-                    ) : (
-                      <span className='text-gray-400'>New</span>
-                    )}
-                  </div>
                 </div>
               </div>
             </Link>
           )
         })}
       </div>
+
+      {seeAllHref ? (
+        <div className='mt-4 flex justify-center'>
+          <Link
+            href={seeAllHref}
+            className='inline-flex items-center justify-center rounded-full bg-orange-500 px-8 py-3 text-base font-semibold text-white transition hover:bg-orange-600 sm:px-10'
+          >
+            <span>See more</span>
+            <svg
+              viewBox='0 0 20 20'
+              fill='none'
+              stroke='currentColor'
+              strokeWidth='2'
+              className='ml-2 h-4 w-4'
+              aria-hidden='true'
+            >
+              <path d='M6 8l4 4 4-4' strokeLinecap='round' strokeLinejoin='round' />
+            </svg>
+          </Link>
+        </div>
+      ) : null}
     </section>
   )
 }

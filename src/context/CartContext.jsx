@@ -6,7 +6,7 @@ import { buildKey, normalizeItem } from '@/lib/cart/utils'
 
 const CartContext = createContext(null)
 const STORAGE_KEY = 'ocprimes_cart_items'
-const DEBOUNCE_MS = 200
+const DEBOUNCE_MS = 0
 const RETRY_DELAYS = [200, 500, 1000]
 
 const normalizeItems = (items) => {
@@ -232,7 +232,14 @@ export function CartProvider({ children }) {
     if (!meta) return
     if (meta.timerId) {
       clearTimeout(meta.timerId)
+      meta.timerId = null
     }
+
+    if (DEBOUNCE_MS <= 0) {
+      void syncItem(key)
+      return
+    }
+
     meta.timerId = setTimeout(() => {
       meta.timerId = null
       void syncItem(key)
@@ -242,8 +249,8 @@ export function CartProvider({ children }) {
   const applyServerError = (key) => {
     const meta = metaRef.current.get(key)
     if (!meta) return
-    meta.pendingDelta = 0
-    meta.qtyDisplayed = meta.qtyConfirmed
+    // Keep the user's latest optimistic quantity on transient failures.
+    // This prevents visible "snap back" when network is unstable.
     meta.isSyncing = false
     meta.syncError = 'Couldn\'t update cart. Tap to retry.'
     applyOptimistic(key, meta.qtyDisplayed, {

@@ -4,6 +4,7 @@ const ProductTagSelector = ({
   selectedTags = [],
   onSelectTags = () => {},
   tags = [],
+  maxSelected = 12,
   isLoading = false,
   errorMessage = '',
   onOpen = () => {},
@@ -11,6 +12,7 @@ const ProductTagSelector = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const normalizeId = (value) => String(value ?? '').trim();
 
   const filteredTags = useMemo(() => {
     if (!searchTerm) return tags;
@@ -22,17 +24,24 @@ const ProductTagSelector = ({
   }, [tags, searchTerm]);
 
   const toggleTag = (tagId) => {
-    const newSelection = selectedTags.includes(tagId)
-      ? selectedTags.filter(id => id !== tagId)
+    const targetId = normalizeId(tagId);
+    const isSelected = selectedTags.some((id) => normalizeId(id) === targetId);
+    if (!isSelected && selectedTags.length >= maxSelected) {
+      return;
+    }
+    const newSelection = isSelected
+      ? selectedTags.filter((id) => normalizeId(id) !== targetId)
       : [...selectedTags, tagId];
     onSelectTags(newSelection);
   };
 
-  const isTagSelected = (tagId) => selectedTags.includes(tagId);
+  const isTagSelected = (tagId) =>
+    selectedTags.some((id) => normalizeId(id) === normalizeId(tagId));
 
   const selectedTagNames = useMemo(() => {
+    const selectedSet = new Set(selectedTags.map((id) => normalizeId(id)));
     return tags
-      .filter((tag) => selectedTags.includes(tag.id))
+      .filter((tag) => selectedSet.has(normalizeId(tag.id)))
       .map((tag) => tag.name)
       .join(', ');
   }, [selectedTags, tags]);
@@ -42,13 +51,10 @@ const ProductTagSelector = ({
       <button
         type="button"
         onClick={() => {
-          setIsOpen((prev) => {
-            const next = !prev;
-            if (next) {
-              onOpen();
-            }
-            return next;
-          });
+          if (!isOpen) {
+            onOpen();
+          }
+          setIsOpen((prev) => !prev);
         }}
         className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
       >
@@ -91,6 +97,9 @@ const ProductTagSelector = ({
                   Tags
                 </p>
                 <p className="mt-2 text-sm font-semibold text-slate-900">Select product tags</p>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Maximum {maxSelected} tags
+                </p>
               </div>
               <button
                 type="button"
@@ -144,27 +153,43 @@ const ProductTagSelector = ({
 
             {!isLoading && !errorMessage && (
               <div className="mt-4 space-y-1">
-                {filteredTags.map((tag) => (
+                {filteredTags.map((tag) => {
+                  const selected = isTagSelected(tag.id);
+                  return (
                   <label
                     key={tag.id}
-                    className="flex items-center rounded-2xl px-3 py-2 hover:bg-slate-50"
+                    className={`flex items-center rounded-2xl border px-3 py-2 transition ${
+                      selected
+                        ? 'border-emerald-200 bg-emerald-50/70'
+                        : 'border-transparent hover:bg-slate-50'
+                    }`}
                   >
                     <input
                       type="checkbox"
-                      checked={isTagSelected(tag.id)}
+                      checked={selected}
                       onChange={() => toggleTag(tag.id)}
                       className="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
                     />
-                    <span className="ml-2 block truncate text-xs font-medium text-slate-700">
+                    <span
+                      className={`ml-2 block truncate text-xs font-medium ${
+                        selected ? 'text-emerald-700' : 'text-slate-700'
+                      }`}
+                    >
                       {tag.name}
                     </span>
                     {tag.count !== undefined && (
-                      <span className="ml-auto text-xs text-slate-500">
+                      <span className={`ml-auto text-xs ${selected ? 'text-emerald-600' : 'text-slate-500'}`}>
                         {tag.count}
                       </span>
                     )}
                   </label>
-                ))}
+                  );
+                })}
+              </div>
+            )}
+            {!isLoading && !errorMessage && selectedTags.length >= maxSelected && (
+              <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                Maximum {maxSelected} tags selected.
               </div>
             )}
 

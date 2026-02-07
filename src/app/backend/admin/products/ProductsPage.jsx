@@ -12,6 +12,7 @@ import LoadingButton from '../../../../components/LoadingButton';
 import { FILTER_OPTIONS, SORT_OPTIONS, applyProductFilters, applyProductSort } from './filters/productFilters';
 import { deleteProduct, fetchProducts, updateProduct } from './functions/products';
 import AdminSidebar from '@/components/AdminSidebar';
+import { useAlerts } from '@/context/AlertContext';
 
 const PRODUCT_PAGE_SIZE = 8;
 const METRIC_DAYS = 7;
@@ -63,6 +64,7 @@ const formatDelta = (current, previous) => {
 };
 
 function WooCommerceProductsPage() {
+  const { confirmAlert } = useAlerts();
   const [siteInfo, setSiteInfo] = useState(null);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [products, setProducts] = useState([]);
@@ -327,9 +329,13 @@ function WooCommerceProductsPage() {
     async (action) => {
       if (!selectedProductIds.length || bulkAction) return;
       if (action === 'delete') {
-        const confirmDelete = window.confirm(
-          `Delete ${selectedProductIds.length} product${selectedProductIds.length === 1 ? '' : 's'} permanently?`,
-        );
+        const confirmDelete = await confirmAlert({
+          type: 'warning',
+          title: 'Delete selected products?',
+          message: `Delete ${selectedProductIds.length} product${selectedProductIds.length === 1 ? '' : 's'} permanently?`,
+          confirmLabel: 'Allow',
+          cancelLabel: 'Deny',
+        });
         if (!confirmDelete) return;
       }
       setBulkAction(action);
@@ -361,7 +367,7 @@ function WooCommerceProductsPage() {
         setBulkAction('');
       }
     },
-    [bulkAction, productLookup, selectedProductIds],
+    [bulkAction, confirmAlert, productLookup, selectedProductIds],
   );
 
   const siteName = hasHydrated ? siteInfo?.name || 'Store' : 'Store';
@@ -845,7 +851,12 @@ function WooCommerceProductsPage() {
                               <span className="h-12 w-12 rounded-2xl bg-slate-200" />
                             )}
                             <div>
-                              <p className="text-sm font-semibold text-slate-700">{product.name}</p>
+                              <p
+                                title={product.name || ''}
+                                className="max-w-[180px] truncate text-sm font-semibold text-slate-700 sm:max-w-[280px]"
+                              >
+                                {product.name}
+                              </p>
                               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
                                 <span>{getCategoryLabel(product)}</span>
                                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadge.tone}`}>
@@ -1052,7 +1063,12 @@ function WooCommerceProductsPage() {
                             <span className="h-10 w-10 rounded-2xl bg-slate-200" />
                           )}
                           <div className="flex-1">
-                            <p className="text-xs font-semibold text-slate-700">{product.name}</p>
+                            <p
+                              title={product.name || ''}
+                              className="truncate text-xs font-semibold text-slate-700"
+                            >
+                              {product.name}
+                            </p>
                             <p className="text-[11px] text-slate-400">{getCategoryLabel(product)}</p>
                           </div>
                           <p className="text-xs font-semibold text-slate-700">
@@ -1076,7 +1092,12 @@ function WooCommerceProductsPage() {
                             <span className="h-10 w-10 rounded-2xl bg-slate-200" />
                           )}
                           <div className="flex-1">
-                            <p className="text-xs font-semibold text-slate-700">{item.name}</p>
+                            <p
+                              title={item.name || ''}
+                              className="truncate text-xs font-semibold text-slate-700"
+                            >
+                              {item.name}
+                            </p>
                             <p className="text-[11px] text-slate-400">
                               {item.category ? item.category : `Qty ${item.quantity}`}
                             </p>

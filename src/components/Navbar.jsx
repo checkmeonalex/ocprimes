@@ -1,6 +1,8 @@
 // components/Navbar.jsx
 'use client'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { useState, useRef, useEffect } from 'react'
 import { useCart } from '../context/CartContext'
 import { useSidebar } from '../context/SidebarContext'
@@ -9,6 +11,7 @@ import UserMenu from './auth/UserMenu'
 import { useIpLocation } from '../hooks/useIpLocation'
 
 export default function Navbar() {
+  const router = useRouter()
   const { isOpen } = useSidebar()
   const { summary } = useCart()
   const { locationLabel } = useIpLocation()
@@ -17,8 +20,115 @@ export default function Navbar() {
   const [showSecondaryNav, setShowSecondaryNav] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
   const [isScrolling, setIsScrolling] = useState(false)
+  const [isSearchOpen, setIsSearchOpen] = useState(false)
+  const [searchValue, setSearchValue] = useState('')
+  const [recentSearches, setRecentSearches] = useState([])
   const categoriesRef = useRef(null)
   const menuRef = useRef(null)
+  const searchContainerRef = useRef(null)
+
+  const popularSearches = [
+    'high quality men clothes',
+    'men wears',
+    'mobile offer',
+    'joggers for men',
+    'trousers for men',
+    'cheap mobile phones',
+    'two piece for men',
+    'samsung galaxy mobile phones',
+    'headphones',
+    'shoes for men sale',
+  ]
+  const placeholderChipImage =
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="20" fill="%23e5e7eb"/></svg>'
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('ocp_recent_searches')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed)) {
+          const normalized = parsed
+            .map((item) => {
+              if (typeof item === 'string') {
+                return { term: item, image: '' }
+              }
+              if (item && typeof item.term === 'string') {
+                return { term: item.term, image: item.image || '' }
+              }
+              return null
+            })
+            .filter(Boolean)
+          setRecentSearches(normalized)
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [])
+
+  const persistRecentSearches = (next) => {
+    setRecentSearches(next)
+    try {
+      window.localStorage.setItem('ocp_recent_searches', JSON.stringify(next))
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  const fetchFirstSearchImage = async (term) => {
+    try {
+      const response = await fetch(
+        `/api/products?search=${encodeURIComponent(term)}&per_page=1&page=1`,
+      )
+      if (!response.ok) return ''
+      const payload = await response.json().catch(() => null)
+      const first = payload?.items?.[0]
+      return (
+        first?.image_url ||
+        first?.image ||
+        first?.images?.[0]?.url ||
+        ''
+      )
+    } catch {
+      return ''
+    }
+  }
+
+  const handleSearchSubmit = async (value) => {
+    const trimmed = value.trim()
+    if (!trimmed) return
+    const existing = recentSearches.find((item) => item.term === trimmed)
+    const next = [
+      { term: trimmed, image: existing?.image || '' },
+      ...recentSearches.filter((item) => item.term !== trimmed),
+    ].slice(0, 8)
+    persistRecentSearches(next)
+    const image = await fetchFirstSearchImage(trimmed)
+    if (image) {
+      const updated = [
+        { term: trimmed, image },
+        ...next.filter((item) => item.term !== trimmed),
+      ].slice(0, 8)
+      persistRecentSearches(updated)
+    }
+    router.push(`/products?search=${encodeURIComponent(trimmed)}`)
+    setIsSearchOpen(false)
+  }
+
+  const handleSearchKeyDown = (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      void handleSearchSubmit(searchValue)
+    }
+    if (event.key === 'Escape') {
+      setIsSearchOpen(false)
+    }
+  }
+
+  const clearRecentSearches = () => {
+    persistRecentSearches([])
+  }
 
   // Add scroll handler
   useEffect(() => {
@@ -50,6 +160,21 @@ export default function Navbar() {
       if (scrollTimeout) clearTimeout(scrollTimeout)
     }
   }, [lastScrollY])
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(event.target)
+      ) {
+        setIsSearchOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -138,7 +263,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className='hidden lg:block fixed top-0 right-0 left-16 z-30 bg-white border-b border-gray-200'>
+    <nav className='hidden lg:block fixed top-0 left-0 right-0 z-30 bg-white border-b border-gray-200'>
       {/* Main navigation */}
       <div
         className={`max-w-full px-4 sm:px-6 lg:px-8 relative z-20 transition-all duration-300 ${
@@ -372,37 +497,199 @@ export default function Navbar() {
               {/* Cart - show only when secondary nav is hidden */}
               {!showSecondaryNav && <CartButton />}
 
-              <button className='text-gray-700 hover:text-gray-900 px-3 py-2 text-sm font-medium flex items-center space-x-1'>
-                <svg
-                  className='h-4 w-4'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z'
+              {!isSearchOpen && (
+                <button className='text-gray-700 hover:text-gray-900 px-3 py-2 text-lg font-semibold flex items-center space-x-2'>
+                  <svg
+                    className='h-6 w-6'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    xmlns='http://www.w3.org/2000/svg'
+                    aria-hidden='true'
+                  >
+                    <path
+                      d='M19.5617 7C19.7904 5.69523 18.7863 4.5 17.4617 4.5H6.53788C5.21323 4.5 4.20922 5.69523 4.43784 7'
+                      stroke='#b80000'
+                      strokeWidth='1.5'
+                    />
+                    <path
+                      d='M17.4999 4.5C17.5283 4.24092 17.5425 4.11135 17.5427 4.00435C17.545 2.98072 16.7739 2.12064 15.7561 2.01142C15.6497 2 15.5194 2 15.2588 2H8.74099C8.48035 2 8.35002 2 8.24362 2.01142C7.22584 2.12064 6.45481 2.98072 6.45704 4.00434C6.45727 4.11135 6.47146 4.2409 6.49983 4.5'
+                      stroke='#b80000'
+                      strokeWidth='1.5'
+                    />
+                    <path
+                      d='M21.1935 16.793C20.8437 19.2739 20.6689 20.5143 19.7717 21.2572C18.8745 22 17.5512 22 14.9046 22H9.09536C6.44881 22 5.12553 22 4.22834 21.2572C3.33115 20.5143 3.15626 19.2739 2.80648 16.793L2.38351 13.793C1.93748 10.6294 1.71447 9.04765 2.66232 8.02383C3.61017 7 5.29758 7 8.67239 7H15.3276C18.7024 7 20.3898 7 21.3377 8.02383C22.0865 8.83268 22.1045 9.98979 21.8592 12'
+                      stroke='#b80000'
+                      strokeWidth='1.5'
+                      strokeLinecap='round'
+                    />
+                    <path
+                      d='M14.5812 13.6159C15.1396 13.9621 15.1396 14.8582 14.5812 15.2044L11.2096 17.2945C10.6669 17.6309 10 17.1931 10 16.5003L10 12.32C10 11.6273 10.6669 11.1894 11.2096 11.5258L14.5812 13.6159Z'
+                      stroke='#b80000'
+                      strokeWidth='1.5'
+                    />
+                  </svg>
+                  <span>PLAY</span>
+                </button>
+              )}
+              {isSearchOpen ? (
+                <div className='relative' ref={searchContainerRef}>
+                  <input
+                    type='text'
+                    placeholder='Search OCPRIMES'
+                    autoFocus
+                    value={searchValue}
+                    onChange={(event) => setSearchValue(event.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    className='h-10 w-80 rounded-full border border-gray-300 bg-white pl-4 pr-10 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10'
                   />
-                </svg>
-                <span>Filters</span>
-              </button>
-              <button className='text-gray-700 hover:text-gray-900 p-2'>
-                <svg
-                  className='h-5 w-5'
-                  fill='none'
-                  stroke='currentColor'
-                  viewBox='0 0 24 24'
+                  <button
+                    type='button'
+                    className='absolute right-1 top-1 h-8 w-8 rounded-full bg-gray-900 text-white flex items-center justify-center'
+                    aria-label='Search'
+                    onClick={() => handleSearchSubmit(searchValue)}
+                  >
+                    <svg
+                      className='h-4 w-4'
+                      fill='none'
+                      stroke='currentColor'
+                      viewBox='0 0 24 24'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        strokeWidth={2}
+                        d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
+                      />
+                    </svg>
+                  </button>
+                  <div
+                    className='absolute right-0 mt-3 w-[420px] rounded-2xl border border-gray-200 bg-white shadow-lg p-4 z-50'
+                    onMouseDown={(event) => event.preventDefault()}
+                  >
+                    <div className='flex items-center justify-between'>
+                      <span className='text-sm font-semibold text-gray-900'>
+                        Recently searched
+                      </span>
+                      <button
+                        type='button'
+                        className='text-gray-400 hover:text-gray-600'
+                        aria-label='Clear recent searches'
+                    onClick={clearRecentSearches}
+                  >
+                        <svg
+                          className='h-4 w-4'
+                          viewBox='0 0 24 24'
+                          fill='none'
+                          xmlns='http://www.w3.org/2000/svg'
+                        >
+                          <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            strokeWidth={1.5}
+                            d='M20.5001 6H3.5'
+                            stroke='#000000'
+                          />
+                          <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            strokeWidth={1.5}
+                            d='M9.5 11L10 16'
+                            stroke='#000000'
+                          />
+                          <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            strokeWidth={1.5}
+                            d='M14.5 11L14 16'
+                            stroke='#000000'
+                          />
+                          <path
+                            strokeWidth={1.5}
+                            d='M6.5 6C6.55588 6 6.58382 6 6.60915 5.99936C7.43259 5.97849 8.15902 5.45491 8.43922 4.68032C8.44784 4.65649 8.45667 4.62999 8.47434 4.57697L8.57143 4.28571C8.65431 4.03708 8.69575 3.91276 8.75071 3.8072C8.97001 3.38607 9.37574 3.09364 9.84461 3.01877C9.96213 3 10.0932 3 10.3553 3H13.6447C13.9068 3 14.0379 3 14.1554 3.01877C14.6243 3.09364 15.03 3.38607 15.2493 3.8072C15.3043 3.91276 15.3457 4.03708 15.4286 4.28571L15.5257 4.57697C15.5433 4.62992 15.5522 4.65651 15.5608 4.68032C15.841 5.45491 16.5674 5.97849 17.3909 5.99936C17.4162 6 17.4441 6 17.5 6'
+                            stroke='#000000'
+                          />
+                          <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            strokeWidth={1.5}
+                            d='M18.3735 15.3991C18.1965 18.054 18.108 19.3815 17.243 20.1907C16.378 21 15.0476 21 12.3868 21H11.6134C8.9526 21 7.6222 21 6.75719 20.1907C5.89218 19.3815 5.80368 18.054 5.62669 15.3991L5.16675 8.5M18.8334 8.5L18.6334 11.5'
+                            stroke='#000000'
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className='mt-3 flex flex-wrap gap-2'>
+                      {recentSearches.length ? (
+                        recentSearches.map((item) => (
+                          <button
+                            key={item.term}
+                            type='button'
+                            onClick={() => setSearchValue(item.term)}
+                            className='rounded-full bg-gray-100 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-200 flex items-center gap-2'
+                          >
+                            <Image
+                              src={item.image || placeholderChipImage}
+                              alt=''
+                              width={20}
+                              height={20}
+                              className='h-5 w-5 rounded-full object-cover'
+                              unoptimized
+                            />
+                            {item.term}
+                          </button>
+                        ))
+                      ) : (
+                        <span className='text-xs text-gray-400'>
+                          No recent searches
+                        </span>
+                      )}
+                    </div>
+                    <div className='mt-4 text-sm font-semibold text-gray-900'>
+                      Popular right now
+                    </div>
+                    <div className='mt-3 flex flex-wrap gap-2'>
+                      {popularSearches.map((item) => (
+                        <button
+                          key={item}
+                          type='button'
+                          onClick={() => setSearchValue(item)}
+                          className='rounded-full bg-gray-100 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-200 flex items-center gap-2'
+                        >
+                          <Image
+                            src={placeholderChipImage}
+                            alt=''
+                            width={20}
+                            height={20}
+                            className='h-5 w-5 rounded-full object-cover'
+                            unoptimized
+                          />
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  className='text-gray-700 hover:text-gray-900 p-2'
+                  onClick={() => setIsSearchOpen(true)}
+                  aria-label='Open search'
                 >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    strokeWidth={2}
-                    d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
-                  />
-                </svg>
-              </button>
+                  <svg
+                    className='h-5 w-5'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      strokeWidth={2}
+                      d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
+                    />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
           <div

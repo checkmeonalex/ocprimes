@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import MobileGallery from '../../mobile/ProductDetails/MobileGallery'
 
 export default function Gallery({
@@ -20,6 +20,8 @@ export default function Gallery({
     y: 50,
   })
   const [mainAspect, setMainAspect] = useState(3 / 4)
+  const lastAspectRef = useRef(3 / 4)
+  const lastAspectImageRef = useRef('')
 
   useEffect(() => {
     const checkDeviceWidth = () => {
@@ -96,17 +98,24 @@ export default function Gallery({
     }
   }, [isLightboxOpen])
 
-  useEffect(() => {
-    if (!currentImage) return
+  const handleMainImageLoad = useCallback((event) => {
+    const imageEl = event.currentTarget
+    if (!imageEl) return
+    const width = Number(imageEl.naturalWidth || 0)
+    const height = Number(imageEl.naturalHeight || 0)
+    if (!width || !height) return
+    const nextAspect = width / height
+    if (!Number.isFinite(nextAspect) || nextAspect <= 0) return
 
-    const img = new window.Image()
-    img.onload = () => {
-      if (img.naturalWidth && img.naturalHeight) {
-        setMainAspect(img.naturalWidth / img.naturalHeight)
-      }
-    }
-    img.src = currentImage
-  }, [currentImage])
+    const srcKey = String(imageEl.currentSrc || imageEl.src || '')
+    const sameImage = srcKey && lastAspectImageRef.current === srcKey
+    const sameAspect = Math.abs(lastAspectRef.current - nextAspect) < 0.0001
+    if (sameImage && sameAspect) return
+
+    lastAspectImageRef.current = srcKey
+    lastAspectRef.current = nextAspect
+    setMainAspect(nextAspect)
+  }, [])
 
   const mainImageMaxWidth = 560
   const mainImageHeight = mainImageMaxWidth / mainAspect
@@ -226,6 +235,7 @@ export default function Gallery({
               <img
                 src={currentImage}
                 alt={productName}
+                onLoad={handleMainImageLoad}
                 className={`w-full h-full transition-transform duration-300 ${
                   mainAspect && mainAspect < 0.8
                     ? 'object-contain object-[30%_50%]'

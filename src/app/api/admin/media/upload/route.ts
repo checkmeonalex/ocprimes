@@ -1,11 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
 import { requireAdmin } from '@/lib/auth/require-admin'
 import { jsonError, jsonOk } from '@/lib/http/response'
-
-const MAX_FILE_BYTES = 5 * 1024 * 1024
-const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+import {
+  ALLOWED_IMAGE_TYPES,
+  MAX_UPLOAD_BYTES,
+  buildObjectKey,
+  uploadToR2,
+} from '@/lib/storage/r2'
 
 const formSchema = z.object({
   product_id: z.string().uuid().optional(),
@@ -15,29 +17,6 @@ const formSchema = z.object({
     z.number().int().min(0).max(1000).optional(),
   ),
 })
-
-const getR2Config = () => {
-  const accountId = process.env.R2_ACCOUNT_ID
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
-  const bucketName = process.env.R2_BUCKET_NAME
-  const endpoint = process.env.R2_ENDPOINT
-  const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL || ''
-
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucketName || !endpoint) {
-    throw new Error('R2 is not configured.')
-  }
-
-  return { accountId, accessKeyId, secretAccessKey, bucketName, endpoint, publicBaseUrl }
-}
-
-const buildObjectKey = (file: File, productId?: string) => {
-  const ext = file.name.includes('.') ? file.name.split('.').pop() : 'bin'
-  const safeExt = ext ? ext.replace(/[^a-zA-Z0-9]/g, '') : 'bin'
-  const prefix = productId ? `products/${productId}` : 'products/unassigned'
-  const stamp = crypto.randomUUID()
-  return `${prefix}/${Date.now()}-${stamp}.${safeExt || 'bin'}`
-}
 
 export async function POST(request: NextRequest) {
   const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
@@ -58,10 +37,10 @@ export async function POST(request: NextRequest) {
   if (!(file instanceof File)) {
     return jsonError('Missing file.', 400)
   }
-  if (!ALLOWED_TYPES.has(file.type)) {
+  if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
     return jsonError('Unsupported file type.', 415)
   }
-  if (file.size > MAX_FILE_BYTES) {
+  if (file.size > MAX_UPLOAD_BYTES) {
     return jsonError('File too large.', 413)
   }
 
@@ -74,50 +53,26 @@ export async function POST(request: NextRequest) {
     return jsonError('Invalid metadata.', 400)
   }
 
-  let r2Config
+  const prefix = parsed.data.product_id
+    ? `products/${parsed.data.product_id}`
+    : 'products/unassigned'
+  const key = buildObjectKey(file, prefix)
+  let uploaded
   try {
-    r2Config = getR2Config()
-  } catch (error) {
-    console.error('R2 config error:', error)
-    return jsonError('Storage configuration missing.', 500)
-  }
-
-  const key = buildObjectKey(file, parsed.data.product_id)
-  const body = Buffer.from(await file.arrayBuffer())
-
-  const client = new S3Client({
-    region: 'auto',
-    endpoint: r2Config.endpoint,
-    credentials: {
-      accessKeyId: r2Config.accessKeyId,
-      secretAccessKey: r2Config.secretAccessKey,
-    },
-  })
-
-  try {
-    await client.send(
-      new PutObjectCommand({
-        Bucket: r2Config.bucketName,
-        Key: key,
-        Body: body,
-        ContentType: file.type,
-        CacheControl: 'public, max-age=31536000, immutable',
-      }),
-    )
+    uploaded = await uploadToR2(file, key)
   } catch (error) {
     console.error('R2 upload failed:', error)
     return jsonError('Upload failed.', 500)
   }
 
-  const publicBase = r2Config.publicBaseUrl
-  const url = publicBase ? `${publicBase.replace(/\/+$/, '')}/${key}` : `${r2Config.endpoint.replace(/\/+$/, '')}/${r2Config.bucketName}/${key}`
+  const url = uploaded?.url || ''
 
   const { data, error } = await supabase
     .from('product_images')
     .insert({
       product_id: parsed.data.product_id || null,
-      r2_key: key,
-      url,
+      r2_key: uploaded?.key || key,
+      url: url,
       alt_text: parsed.data.alt_text || null,
       sort_order: parsed.data.sort_order ?? 0,
     })

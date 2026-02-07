@@ -7,6 +7,7 @@ export const fetchMediaPage = async ({
   perPage = DEFAULT_MEDIA_PAGE_SIZE,
   filter = 'all',
   staleDays = 180,
+  endpoint = '/api/admin/media',
 } = {}) => {
   const params = new URLSearchParams({
     per_page: perPage.toString(),
@@ -14,7 +15,7 @@ export const fetchMediaPage = async ({
     filter,
     stale_days: staleDays.toString(),
   });
-  const response = await fetch(`/api/admin/media?${params.toString()}`);
+  const response = await fetch(`${endpoint}?${params.toString()}`);
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
     const message =
@@ -26,14 +27,14 @@ export const fetchMediaPage = async ({
   return payload;
 };
 
-export const uploadMediaFile = async ({ file, productId } = {}) => {
+export const uploadMediaFile = async ({ file, productId, endpoint = '/api/admin/media/upload' } = {}) => {
   const { webpFile, filename } = await prepareWebpUpload(file);
   const formData = new FormData();
   formData.append('file', webpFile);
   if (productId) {
     formData.append('product_id', productId);
   }
-  const response = await fetch('/api/admin/media/upload', {
+  const response = await fetch(endpoint, {
     method: 'POST',
     body: formData,
   });

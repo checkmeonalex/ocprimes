@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { createPortal } from 'react-dom'
 
 export default function MobileGallery({
   images = [
@@ -17,18 +17,19 @@ export default function MobileGallery({
   productName = 'Premium Hoodie',
   badgeText = null,
 }) {
-  const router = useRouter()
   const [activeIndex, setActiveIndex] = useState(0)
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+  const [isClient, setIsClient] = useState(false)
   const [lightboxCurrentIndex, setLightboxCurrentIndex] = useState(0)
   const [isLightboxZooming, setIsLightboxZooming] = useState(false)
   const [lightboxZoomPosition, setLightboxZoomPosition] = useState({
     x: 50,
     y: 50,
   })
-  const activeImage = images[activeIndex] || images[0]
   const touchStartX = useRef(0)
   const touchEndX = useRef(0)
+  const lightboxTouchStartX = useRef(0)
+  const lightboxTouchEndX = useRef(0)
 
   const handleImageSelect = (index) => {
     setActiveIndex(index)
@@ -94,6 +95,20 @@ export default function MobileGallery({
     )
   }
 
+  const handleLightboxSwipe = () => {
+    if (isLightboxZooming) return
+    const delta = lightboxTouchStartX.current - lightboxTouchEndX.current
+    const threshold = 40
+    if (Math.abs(delta) < threshold) return
+
+    if (delta > 0) {
+      goToNext()
+      return
+    }
+
+    goToPrevious()
+  }
+
   const handleKeyDown = (e) => {
     if (e.key === 'ArrowLeft') {
       goToPrevious()
@@ -120,6 +135,10 @@ export default function MobileGallery({
   }, [activeIndex, currentImage, images, setCurrentImage])
 
   useEffect(() => {
+    setIsClient(true)
+  }, [])
+
+  useEffect(() => {
     if (isLightboxOpen) {
       document.addEventListener('keydown', handleKeyDown)
       document.body.style.overflow = 'hidden'
@@ -132,8 +151,8 @@ export default function MobileGallery({
 
   return (
     <>
-      <div className='w-full max-w-2xl mx-auto bg-white'>
-        <div className='relative w-full bg-gray-50 rounded-2xl overflow-hidden'>
+      <div className='w-full bg-white'>
+        <div className='relative w-full bg-gray-50 rounded-lg overflow-hidden'>
           <div
             className='w-full cursor-pointer'
             style={{ aspectRatio: '4 / 5' }}
@@ -146,36 +165,25 @@ export default function MobileGallery({
             }}
             onTouchEnd={handleSwipe}
           >
-            <img
-              src={activeImage}
-              alt={productName}
-              className='w-full h-full object-cover'
-            />
+            <div
+              className='flex h-full w-full transition-transform duration-300 ease-out'
+              style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+            >
+              {images.map((imageSrc, index) => (
+                <img
+                  key={`${imageSrc}-${index}`}
+                  src={imageSrc}
+                  alt={productName}
+                  className='h-full w-full shrink-0 object-cover'
+                  loading={index === activeIndex ? 'eager' : 'lazy'}
+                  decoding='async'
+                />
+              ))}
+            </div>
           </div>
 
-          <button
-            type='button'
-            onClick={() => router.back()}
-            className='absolute top-4 left-4 w-9 h-9 rounded-full bg-white/90 shadow-sm flex items-center justify-center'
-            aria-label='Back'
-          >
-            <svg
-              className='w-4 h-4'
-              fill='none'
-              stroke='currentColor'
-              viewBox='0 0 24 24'
-            >
-              <path
-                strokeLinecap='round'
-                strokeLinejoin='round'
-                strokeWidth={2}
-                d='M15 19l-7-7 7-7'
-              />
-            </svg>
-          </button>
-
           {badgeText && (
-            <div className='absolute bottom-4 left-4 bg-red-500 text-white text-xs font-semibold px-3 py-1 rounded-full'>
+            <div className='absolute top-4 left-4 bg-red-500 text-white text-xs font-semibold px-3 py-1 rounded-full'>
               {badgeText}
             </div>
           )}
@@ -199,10 +207,11 @@ export default function MobileGallery({
       </div>
 
       {/* Lightbox Modal */}
-      {isLightboxOpen && (
-        <div className='fixed inset-0 bg-black bg-opacity-95 z-50 flex flex-col'>
+      {isClient && isLightboxOpen
+        ? createPortal(
+        <div className='fixed inset-0 z-[2147483647] flex h-[100dvh] flex-col bg-black/95 pt-[env(safe-area-inset-top)]'>
           {/* Header */}
-          <div className='flex items-center justify-between p-4 text-white'>
+          <div className='flex shrink-0 items-center justify-between px-3 py-2 text-white'>
             <div className='flex items-center gap-3'>
               <button
                 onClick={() => setIsLightboxOpen(false)}
@@ -252,11 +261,11 @@ export default function MobileGallery({
           </div>
 
           {/* Main image area */}
-          <div className='flex-1 flex items-center justify-center relative px-4'>
+          <div className='relative min-h-0 flex-1 px-2 sm:px-4'>
             {/* Navigation arrows */}
             <button
               onClick={goToPrevious}
-              className='absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-3 z-10 hover:bg-opacity-70 transition-colors'
+              className='absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/20 p-2.5 text-white transition-colors hover:bg-black/35 sm:left-4 sm:p-3'
             >
               <svg
                 className='w-6 h-6'
@@ -275,7 +284,7 @@ export default function MobileGallery({
 
             <button
               onClick={goToNext}
-              className='absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 text-white rounded-full p-3 z-10 hover:bg-opacity-70 transition-colors'
+              className='absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/20 p-2.5 text-white transition-colors hover:bg-black/35 sm:right-4 sm:p-3'
             >
               <svg
                 className='w-6 h-6'
@@ -294,10 +303,20 @@ export default function MobileGallery({
 
             {/* Image container */}
             <div
-              className='w-full h-full flex items-center justify-center p-6'
+              className='flex h-full w-full items-center justify-center overflow-hidden py-1'
               onClick={() => setIsLightboxZooming(!isLightboxZooming)}
               onMouseMove={handleLightboxMouseMove}
               onTouchMove={handleTouchMove}
+              onTouchStart={(e) => {
+                if (isLightboxZooming) return
+                lightboxTouchStartX.current = e.touches[0].clientX
+                lightboxTouchEndX.current = e.touches[0].clientX
+              }}
+              onTouchEnd={handleLightboxSwipe}
+              onTouchMoveCapture={(e) => {
+                if (isLightboxZooming) return
+                lightboxTouchEndX.current = e.touches[0].clientX
+              }}
               style={{ cursor: isLightboxZooming ? 'zoom-out' : 'zoom-in' }}
             >
               <img
@@ -309,14 +328,14 @@ export default function MobileGallery({
                     ? {
                         transform: 'scale(2)',
                         transformOrigin: `${lightboxZoomPosition.x}% ${lightboxZoomPosition.y}%`,
-                        maxWidth: '90vw',
-                        maxHeight: '80vh',
+                        maxWidth: '100%',
+                        maxHeight: '100%',
                         margin: '0 auto',
                       }
                     : {
                         transform: 'scale(1)',
-                        maxWidth: '90vw',
-                        maxHeight: '80vh',
+                        maxWidth: '100%',
+                        maxHeight: '100%',
                         margin: '0 auto',
                       }
                 }
@@ -326,7 +345,7 @@ export default function MobileGallery({
           </div>
 
           {/* Bottom thumbnail strip */}
-          <div className='p-4 bg-black bg-opacity-30'>
+          <div className='shrink-0 bg-black/35 px-3 pb-[calc(env(safe-area-inset-bottom)+10px)] pt-2'>
             <div className='flex gap-2 overflow-x-auto scrollbar-hide'>
               {images.map((img, index) => (
                 <div
@@ -354,7 +373,10 @@ export default function MobileGallery({
             </div>
           </div>
         </div>
-      )}
+            ,
+            document.body
+          )
+        : null}
 
       <style jsx>{`
         .scrollbar-hide {

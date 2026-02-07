@@ -1,6 +1,8 @@
 // components/mobile/MobileNavbar.jsx
 'use client'
 import Link from 'next/link'
+import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { useSidebar } from '../../context/SidebarContext'
 import dynamic from 'next/dynamic'
@@ -13,12 +15,30 @@ const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
 })
 
 function MobileNavbar() {
+  const router = useRouter()
   const { isOpen, toggleSidebar } = useSidebar()
   const { summary } = useCart()
   const { locationLabel } = useIpLocation()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
+  const [searchValue, setSearchValue] = useState('')
+  const [recentSearches, setRecentSearches] = useState([])
   const searchRef = useRef(null)
+
+  const popularSearches = [
+    'high quality men clothes',
+    'men wears',
+    'mobile offer',
+    'joggers for men',
+    'trousers for men',
+    'cheap mobile phones',
+    'two piece for men',
+    'samsung galaxy mobile phones',
+    'headphones',
+    'shoes for men sale',
+  ]
+  const placeholderChipImage =
+    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="20" fill="%23e5e7eb"/></svg>'
 
   // Memoize callback to prevent recreating on every render
   const handleClickOutside = useCallback((event) => {
@@ -36,6 +56,99 @@ function MobileNavbar() {
       document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isSearchOpen, handleClickOutside])
+
+  useEffect(() => {
+    if (!isSearchOpen) return
+    try {
+      const stored = window.localStorage.getItem('ocp_recent_searches')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (Array.isArray(parsed)) {
+          const normalized = parsed
+            .map((item) => {
+              if (typeof item === 'string') {
+                return { term: item, image: '' }
+              }
+              if (item && typeof item.term === 'string') {
+                return { term: item.term, image: item.image || '' }
+              }
+              return null
+            })
+            .filter(Boolean)
+          setRecentSearches(normalized)
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [isSearchOpen])
+
+  useEffect(() => {
+    if (!isSearchOpen || !recentSearches.length) return
+    const missing = recentSearches.filter((item) => !item.image).slice(0, 6)
+    if (!missing.length) return
+    const fetchFirstSearchImage = async (term) => {
+      try {
+        const response = await fetch(
+          `/api/products?search=${encodeURIComponent(term)}&per_page=1&page=1`,
+        )
+        if (!response.ok) return ''
+        const payload = await response.json().catch(() => null)
+        const first = payload?.items?.[0]
+        return (
+          first?.image_url ||
+          first?.image ||
+          first?.images?.[0]?.url ||
+          ''
+        )
+      } catch {
+        return ''
+      }
+    }
+    Promise.all(
+      missing.map(async (item) => ({
+        term: item.term,
+        image: (await fetchFirstSearchImage(item.term)) || '',
+      })),
+    ).then((updates) => {
+      const next = recentSearches.map((item) => {
+        const match = updates.find((update) => update.term === item.term)
+        return match && match.image ? { ...item, image: match.image } : item
+      })
+      setRecentSearches(next)
+      try {
+        window.localStorage.setItem('ocp_recent_searches', JSON.stringify(next))
+      } catch {
+        // ignore storage errors
+      }
+    })
+  }, [isSearchOpen, recentSearches])
+
+  const persistRecentSearches = (next) => {
+    setRecentSearches(next)
+    try {
+      window.localStorage.setItem('ocp_recent_searches', JSON.stringify(next))
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  const handleSearchSubmit = async (value) => {
+    const trimmed = value.trim()
+    if (!trimmed) return
+    const existing = recentSearches.find((item) => item.term === trimmed)
+    const next = [
+      { term: trimmed, image: existing?.image || '' },
+      ...recentSearches.filter((item) => item.term !== trimmed),
+    ].slice(0, 8)
+    persistRecentSearches(next)
+    router.push(`/products?search=${encodeURIComponent(trimmed)}`)
+    setIsSearchOpen(false)
+  }
+
+  const clearRecentSearches = () => {
+    persistRecentSearches([])
+  }
 
   const handleCategoriesClick = useCallback(() => {
     setIsCategoriesOpen((prev) => !prev)
@@ -258,11 +371,23 @@ function MobileNavbar() {
                 <div className='flex-1 relative'>
                   <input
                     type='text'
-                    placeholder='Phone case with flip glass'
+                    placeholder='Search OCPRIMES'
                     className='w-full pl-4 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent'
                     autoFocus
+                    value={searchValue}
+                    onChange={(event) => setSearchValue(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        void handleSearchSubmit(searchValue)
+                      }
+                    }}
                   />
-                  <button className='absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400'>
+                  <button
+                    className='absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400'
+                    onClick={() => void handleSearchSubmit(searchValue)}
+                    aria-label='Search'
+                  >
                     <svg
                       className='h-6 w-6'
                       fill='none'
@@ -281,20 +406,104 @@ function MobileNavbar() {
               </div>
             </div>
 
-            {/* Search suggestions */}
+            {/* Search menu */}
             <div className='p-4'>
-              <div className='text-sm text-gray-500 mb-2'>Recent searches</div>
-              <div className='space-y-2'>
-                <div className='flex items-center space-x-2 text-gray-700'>
+              <div className='flex items-center justify-between'>
+                <span className='text-sm font-semibold text-gray-900'>
+                  Recently searched
+                </span>
+                <button
+                  type='button'
+                  className='text-gray-400 hover:text-gray-600'
+                  aria-label='Clear recent searches'
+                  onClick={clearRecentSearches}
+                >
                   <svg
                     className='h-4 w-4'
-                    fill='currentColor'
                     viewBox='0 0 24 24'
+                    fill='none'
+                    xmlns='http://www.w3.org/2000/svg'
                   >
-                    <path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z' />
+                    <path
+                      d='M20.5001 6H3.5'
+                      stroke='#000000'
+                      strokeWidth='1.5'
+                      strokeLinecap='round'
+                    />
+                    <path
+                      d='M9.5 11L10 16'
+                      stroke='#000000'
+                      strokeWidth='1.5'
+                      strokeLinecap='round'
+                    />
+                    <path
+                      d='M14.5 11L14 16'
+                      stroke='#000000'
+                      strokeWidth='1.5'
+                      strokeLinecap='round'
+                    />
+                    <path
+                      d='M6.5 6C6.55588 6 6.58382 6 6.60915 5.99936C7.43259 5.97849 8.15902 5.45491 8.43922 4.68032C8.44784 4.65649 8.45667 4.62999 8.47434 4.57697L8.57143 4.28571C8.65431 4.03708 8.69575 3.91276 8.75071 3.8072C8.97001 3.38607 9.37574 3.09364 9.84461 3.01877C9.96213 3 10.0932 3 10.3553 3H13.6447C13.9068 3 14.0379 3 14.1554 3.01877C14.6243 3.09364 15.03 3.38607 15.2493 3.8072C15.3043 3.91276 15.3457 4.03708 15.4286 4.28571L15.5257 4.57697C15.5433 4.62992 15.5522 4.65651 15.5608 4.68032C15.841 5.45491 16.5674 5.97849 17.3909 5.99936C17.4162 6 17.4441 6 17.5 6'
+                      stroke='#000000'
+                      strokeWidth='1.5'
+                    />
+                    <path
+                      d='M18.3735 15.3991C18.1965 18.054 18.108 19.3815 17.243 20.1907C16.378 21 15.0476 21 12.3868 21H11.6134C8.9526 21 7.6222 21 6.75719 20.1907C5.89218 19.3815 5.80368 18.054 5.62669 15.3991L5.16675 8.5M18.8334 8.5L18.6334 11.5'
+                      stroke='#000000'
+                      strokeWidth='1.5'
+                      strokeLinecap='round'
+                    />
                   </svg>
-                  <span>phone case with flip glass</span>
-                </div>
+                </button>
+              </div>
+              <div className='mt-3 flex flex-wrap gap-2'>
+                {recentSearches.length ? (
+                  recentSearches.map((item) => (
+                    <button
+                      key={item.term}
+                      type='button'
+                      onClick={() => setSearchValue(item.term)}
+                      className='rounded-full bg-gray-100 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-200 flex items-center gap-2'
+                    >
+                      <Image
+                        src={item.image || placeholderChipImage}
+                        alt=''
+                        width={20}
+                        height={20}
+                        className='h-5 w-5 rounded-full object-cover'
+                        unoptimized
+                      />
+                      {item.term}
+                    </button>
+                  ))
+                ) : (
+                  <span className='text-xs text-gray-400'>
+                    No recent searches
+                  </span>
+                )}
+              </div>
+              <div className='mt-4 text-sm font-semibold text-gray-900'>
+                Popular right now
+              </div>
+              <div className='mt-3 flex flex-wrap gap-2'>
+                {popularSearches.map((item) => (
+                  <button
+                    key={item}
+                    type='button'
+                    onClick={() => setSearchValue(item)}
+                    className='rounded-full bg-gray-100 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-200 flex items-center gap-2'
+                  >
+                    <Image
+                      src={placeholderChipImage}
+                      alt=''
+                      width={20}
+                      height={20}
+                      className='h-5 w-5 rounded-full object-cover'
+                      unoptimized
+                    />
+                    {item}
+                  </button>
+                ))}
               </div>
             </div>
           </div>

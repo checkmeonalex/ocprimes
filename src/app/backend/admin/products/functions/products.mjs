@@ -4,6 +4,9 @@ export const buildProductPayload = (form) => {
     sku: form.sku.trim() || undefined,
     description: form.description,
     short_description: form.short_description,
+    condition_check: form.condition_check,
+    packaging_style: form.packaging_style,
+    return_policy: form.return_policy,
   };
   if (form.status) {
     payload.status = form.status;
@@ -47,6 +50,14 @@ export const buildProductPayload = (form) => {
   return payload;
 };
 
+const resolveApiErrorMessage = (result, fallback) => {
+  const base = result?.message || result?.error || fallback;
+  const firstIssue = Array.isArray(result?.validation?.issues) ? result.validation.issues[0] : null;
+  if (!firstIssue?.message) return base;
+  const path = firstIssue.path ? `${firstIssue.path}: ` : '';
+  return `${base} ${path}${firstIssue.message}`;
+};
+
 export const createProduct = async ({ form }) => {
   const response = await fetch('/api/admin/products', {
     method: 'POST',
@@ -58,7 +69,7 @@ export const createProduct = async ({ form }) => {
   });
   const result = await response.json().catch(() => null);
   if (!response.ok) {
-    const message = result?.message || result?.error || 'Unable to save product.';
+    const message = resolveApiErrorMessage(result, 'Unable to save product.');
     throw new Error(message);
   }
   return result?.item || result?.product || result;
@@ -75,7 +86,7 @@ export const updateProduct = async ({ id, updates }) => {
   });
   const result = await response.json().catch(() => null);
   if (!response.ok) {
-    const message = result?.message || result?.error || 'Unable to update product.';
+    const message = resolveApiErrorMessage(result, 'Unable to update product.');
     throw new Error(message);
   }
   return result?.item || result?.product || result;

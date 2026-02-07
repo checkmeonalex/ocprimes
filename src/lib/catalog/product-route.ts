@@ -16,11 +16,98 @@ import {
 
 const PRODUCT_TABLE = 'products'
 const CATEGORY_TABLE = 'admin_categories'
+const TAG_TABLE = 'admin_tags'
 const CATEGORY_LINKS = 'product_category_links'
 const TAG_LINKS = 'product_tag_links'
 const BRAND_LINKS = 'product_brand_links'
 const IMAGE_TABLE = 'product_images'
 const VARIATIONS_TABLE = 'product_variations'
+const MAX_CATEGORY_BREADCRUMB_DEPTH = 8
+
+const toCategorySlug = (value = '') =>
+  String(value)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+
+const buildCategoryHref = (category) => {
+  const rawSlug = toCategorySlug(category?.slug || category?.name || '')
+  if (!rawSlug) return '/products'
+  return `/products/${encodeURIComponent(rawSlug)}`
+}
+
+const attachPrimaryCategoryPath = async (supabase, item) => {
+  if (!item) return item
+  const categories = Array.isArray(item.categories) ? item.categories : []
+  const primaryCategory = categories[0]
+
+  if (!primaryCategory?.id) {
+    return {
+      ...item,
+      primary_category_path: [],
+    }
+  }
+
+  const categoryMap = new Map()
+  categories.forEach((category) => {
+    if (!category?.id) return
+    categoryMap.set(category.id, {
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+      parent_id: category.parent_id || null,
+    })
+  })
+
+  let frontier = categories
+    .map((category) => category?.parent_id)
+    .filter(Boolean)
+
+  for (let depth = 0; depth < MAX_CATEGORY_BREADCRUMB_DEPTH && frontier.length; depth += 1) {
+    const missingIds = Array.from(
+      new Set(frontier.filter((id) => id && !categoryMap.has(id))),
+    )
+    if (!missingIds.length) break
+
+    const { data, error } = await supabase
+      .from(CATEGORY_TABLE)
+      .select('id, name, slug, parent_id')
+      .in('id', missingIds)
+
+    if (error) {
+      console.error('category ancestry lookup failed:', error.message)
+      break
+    }
+
+    ;(data || []).forEach((category) => {
+      if (!category?.id) return
+      categoryMap.set(category.id, category)
+    })
+
+    frontier = (data || []).map((category) => category?.parent_id).filter(Boolean)
+  }
+
+  const path = []
+  const visited = new Set()
+  let cursor = categoryMap.get(primaryCategory.id)
+
+  while (cursor && !visited.has(cursor.id) && path.length < MAX_CATEGORY_BREADCRUMB_DEPTH + 1) {
+    visited.add(cursor.id)
+    path.unshift({
+      id: cursor.id,
+      label: cursor.name || '',
+      slug: cursor.slug || '',
+      href: buildCategoryHref(cursor),
+    })
+    cursor = cursor.parent_id ? categoryMap.get(cursor.parent_id) : null
+  }
+
+  return {
+    ...item,
+    primary_category_path: path.filter((segment) => segment.label),
+  }
+}
 
 const attachRelations = async (supabase, items) => {
   if (!items.length) return items
@@ -28,7 +115,7 @@ const attachRelations = async (supabase, items) => {
   const [categoryRes, tagRes, brandRes, imageRes] = await Promise.all([
     supabase
       .from(CATEGORY_LINKS)
-      .select('product_id, admin_categories(id, name, slug)')
+      .select('product_id, admin_categories(id, name, slug, parent_id)')
       .in('product_id', ids),
     supabase
       .from(TAG_LINKS)
@@ -107,7 +194,7 @@ export async function listPublicProducts(request: NextRequest) {
     return jsonError('Invalid query.', 400)
   }
 
-  const { page, per_page, search, category } = parseResult.data
+  const { page, per_page, search, category, tag } = parseResult.data
 
   const signalParse = personalizationSignalsSchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -121,29 +208,57 @@ export async function listPublicProducts(request: NextRequest) {
 
   let productIds = null
   let skipDb = false
-  if (category) {
-    const { data: categoryData } = await supabase
-      .from(CATEGORY_TABLE)
-      .select('id')
-      .eq('slug', category)
-      .maybeSingle()
-    if (!categoryData?.id) {
-      skipDb = true
-    } else {
+  if (category || tag) {
+    let categoryProductIds: string[] | null = null
+    let tagProductIds: string[] | null = null
+
+    if (category) {
+      const { data: categoryBySlug } = await supabase
+        .from(CATEGORY_TABLE)
+        .select('id')
+        .eq('slug', category)
+        .maybeSingle()
+
+      const categoryId = categoryBySlug?.id || category
       const { data: linkData } = await supabase
         .from(CATEGORY_LINKS)
         .select('product_id')
-        .eq('category_id', categoryData.id)
-      productIds = Array.isArray(linkData) ? linkData.map((row) => row.product_id) : []
-      if (!productIds.length) {
-        skipDb = true
-      }
+        .eq('category_id', categoryId)
+      categoryProductIds = Array.isArray(linkData) ? linkData.map((row) => row.product_id) : []
+    }
+
+    if (tag) {
+      const { data: tagBySlug } = await supabase
+        .from(TAG_TABLE)
+        .select('id')
+        .eq('slug', tag)
+        .maybeSingle()
+
+      const tagId = tagBySlug?.id || tag
+      const { data: linkData } = await supabase
+        .from(TAG_LINKS)
+        .select('product_id')
+        .eq('tag_id', tagId)
+      tagProductIds = Array.isArray(linkData) ? linkData.map((row) => row.product_id) : []
+    }
+
+    if (categoryProductIds && tagProductIds) {
+      const tagSet = new Set(tagProductIds)
+      productIds = categoryProductIds.filter((id) => tagSet.has(id))
+    } else if (categoryProductIds) {
+      productIds = categoryProductIds
+    } else if (tagProductIds) {
+      productIds = tagProductIds
+    }
+
+    if (!Array.isArray(productIds) || !productIds.length) {
+      skipDb = true
     }
   }
 
   let query = supabase
     .from(PRODUCT_TABLE)
-    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, main_image_id, created_at, updated_at')
+    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at')
     .eq('status', 'publish')
     .order('created_at', { ascending: false })
     .range(from, to)
@@ -192,7 +307,7 @@ export async function listPublicProducts(request: NextRequest) {
   }
 
   const dbItems = await attachRelations(supabase, data ?? [])
-  const seedItems = filterSeedProducts({ search, category })
+  const seedItems = tag ? [] : filterSeedProducts({ search, category })
   const mergedItems = mergeSeedAndDbProducts(seedItems, dbItems, { dbFirst: true })
   const rankedItems = rankProductsWithSignals(mergedItems, personalizationSignals)
   const combinedCount = (totalCount || 0) + seedItems.length
@@ -232,7 +347,7 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
 
   let query = supabase
     .from(PRODUCT_TABLE)
-    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, main_image_id, created_at, updated_at')
+    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at')
     .eq('slug', parsed.data.slug)
 
   if (!previewRequested) {
@@ -257,7 +372,8 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
   }
 
   const [item] = await attachRelations(supabase, [data])
-  const response = jsonOk({ item })
+  const itemWithCategoryPath = await attachPrimaryCategoryPath(supabase, item)
+  const response = jsonOk({ item: itemWithCategoryPath })
   applyCookies(response)
   return response
 }

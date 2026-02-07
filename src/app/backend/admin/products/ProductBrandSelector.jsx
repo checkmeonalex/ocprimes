@@ -43,13 +43,10 @@ const ProductBrandSelector = ({
       <button
         type="button"
         onClick={() => {
-          setIsOpen((prev) => {
-            const next = !prev;
-            if (next) {
-              onOpen();
-            }
-            return next;
-          });
+          if (!isOpen) {
+            onOpen();
+          }
+          setIsOpen((prev) => !prev);
         }}
         className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
       >
