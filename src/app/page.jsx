@@ -20,7 +20,7 @@ export default function HomePage() {
       <div className='flex-1 min-w-0'>
         <main className='min-h-screen bg-gray-50 overflow-x-hidden w-full'>
           {/* Use main-container class instead of px-4 to avoid double padding */}
-          <div className='main-container py-2 mb-4 md:mb-2'>
+          <div className='main-container pt-0 pb-2 mb-4 md:mb-2'>
             <HomeHero />
 
             {/* BrowseCategories Section */}

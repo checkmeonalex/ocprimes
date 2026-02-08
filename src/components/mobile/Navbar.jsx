@@ -8,6 +8,7 @@ import { useSidebar } from '../../context/SidebarContext'
 import dynamic from 'next/dynamic'
 import { useCart } from '../../context/CartContext'
 import { useIpLocation } from '../../hooks/useIpLocation'
+import { fetchCategoriesData } from '../data/categoriesMenuData.ts'
 
 // Lazy load CategoriesMenu since it's not immediately visible
 const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
@@ -23,6 +24,7 @@ function MobileNavbar() {
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const [recentSearches, setRecentSearches] = useState([])
+  const [mobileCategories, setMobileCategories] = useState([])
   const searchRef = useRef(null)
 
   const popularSearches = [
@@ -123,6 +125,22 @@ function MobileNavbar() {
       }
     })
   }, [isSearchOpen, recentSearches])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadMobileCategories = async () => {
+      const data = await fetchCategoriesData()
+      if (cancelled) return
+      const categories = Array.isArray(data?.categories) ? data.categories : []
+      setMobileCategories(categories)
+    }
+
+    void loadMobileCategories()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const persistRecentSearches = (next) => {
     setRecentSearches(next)
@@ -303,13 +321,17 @@ function MobileNavbar() {
                   ></path>
                 </svg>
               </button>
-              {['Women', 'Men', 'Home', 'Sports', 'Jewelry'].map((item) => (
+              {mobileCategories.map((item) => (
                 <Link
-                  key={item}
-                  href='#'
+                  key={item.id}
+                  href={
+                    item.slug
+                      ? `/products/${encodeURIComponent(item.slug)}`
+                      : '/products'
+                  }
                   className='text-sm text-gray-600 hover:text-gray-900 pb-2 whitespace-nowrap'
                 >
-                  {item}
+                  {item.name}
                 </Link>
               ))}
             </div>

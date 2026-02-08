@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { fetchCategoriesData } from '../data/categoriesMenuData.ts'
 
-const CategoriesMenu = ({ isOpen, onClose }) => {
+const CategoriesMenu = ({ isOpen, onClose, initialActiveCategoryId = null }) => {
   const [categoriesData, setCategoriesData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [activeCategory, setActiveCategory] = useState(null)
@@ -20,11 +20,30 @@ const CategoriesMenu = ({ isOpen, onClose }) => {
     }
   }, [isOpen, categoriesData])
 
+  useEffect(() => {
+    if (!categoriesData?.categories?.length) return
+    if (!initialActiveCategoryId) return
+    const match = categoriesData.categories.find(
+      (category) => category.id === initialActiveCategoryId
+    )
+    if (match) {
+      setActiveCategory(match)
+    }
+  }, [categoriesData, initialActiveCategoryId])
+
   const loadCategoriesData = async () => {
     setLoading(true)
     try {
       const data = await fetchCategoriesData()
       setCategoriesData(data)
+      if (initialActiveCategoryId) {
+        const match = data?.categories?.find(
+          (category) => category.id === initialActiveCategoryId
+        )
+        if (match) {
+          setActiveCategory(match)
+        }
+      }
     } catch (error) {
       console.error('Error loading categories:', error)
     } finally {
