@@ -15,9 +15,7 @@ import {
   customerReviewsData,
 } from '../../../components/data/customerReviews'
 import { useCart } from '../../../context/CartContext'
-import { useWishlist } from '../../../context/WishlistContext'
 import RelatedProductsSection from '../../../components/product/RelatedProductsSection'
-import QuantityControl from '../../../components/cart/QuantityControl'
 import { findCartEntry } from '../../../lib/cart/cart-match'
 import RecentlyViewedSection from '../../../components/product/RecentlyViewedSection'
 import { addRecentlyViewed } from '../../../lib/recently-viewed/storage'
@@ -307,8 +305,8 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const [showAllTags, setShowAllTags] = useState(false)
   const [showConditionInfo, setShowConditionInfo] = useState(false)
   const [showReturnInfo, setShowReturnInfo] = useState(false)
+  const [pendingQuantity, setPendingQuantity] = useState(1)
   const { addItem, items, updateQuantity } = useCart()
-  const { openSaveModal, isRecentlySaved } = useWishlist()
   const searchParams = useSearchParams()
   const addToCartRef = useRef<HTMLDivElement | null>(null)
   const galleryMainRef = useRef<HTMLDivElement | null>(null)
@@ -393,7 +391,6 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     (!requiresColor || Boolean(selectedColor)) &&
       (!requiresSize || Boolean(selectedSize)) &&
       requiresExtras.every((key) => Boolean(selectionMap[key]))
-  const addToCartLabel = isSelectionComplete ? 'Add to Cart' : 'Select an option'
   const colorVariationCards = useMemo(() => {
     const map = new Map<string, any>()
     variationList.forEach((variation: any) => {
@@ -1077,6 +1074,20 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showReturnInfo])
 
+  useEffect(() => {
+    if (!product?.id) return
+    const entry = findCartEntry(items, {
+      id: product.id,
+      selectedVariationId: selectedVariation?.id,
+      selectedColor,
+      selectedSize,
+    })
+    const quantity = entry?.quantity || 0
+    if (quantity > 0) {
+      setPendingQuantity(quantity)
+    }
+  }, [items, product?.id, selectedVariation?.id, selectedColor, selectedSize])
+
   if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1095,7 +1106,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
         )
       : null
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (quantity = 1) => {
     if (!isSelectionComplete) {
       variationSectionRef.current?.scrollIntoView({
         behavior: 'smooth',
@@ -1118,32 +1129,8 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
         selectedVariationId: selectedVariation?.id,
         selectedVariationLabel: selectedVariation?.label,
       },
-      1
+      Math.max(1, Number(quantity) || 1)
     )
-  }
-
-  const handleIncrementQuantity = () => {
-    if (!isSelectionComplete) {
-      variationSectionRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      })
-      setShakeKeys(['__all__'])
-      setVariationError('Select a variation to continue.')
-      setTimeout(() => setShakeKeys([]), 650)
-      return
-    }
-    if (cartEntry?.key) {
-      updateQuantity(cartEntry.key, cartQuantity + 1)
-    } else {
-      handleAddToCart()
-    }
-  }
-
-  const handleDecrementQuantity = () => {
-    if (cartEntry?.key) {
-      updateQuantity(cartEntry.key, Math.max(0, cartQuantity - 1))
-    }
   }
 
   const shortDescription = product.shortDescription ?? ''
@@ -1214,6 +1201,15 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const hasRating = Number(product.rating) > 0
   const stockCount = Number(stockRemaining) || 0
   const quantitySelectorMax = Math.max(1, Math.min(10, stockCount > 0 ? stockCount : 10))
+  const isAddedToCart = cartQuantity > 0
+  const displayQuantity = cartQuantity > 0 ? cartQuantity : pendingQuantity
+  const ctaLabel =
+    isAddedToCart
+      ? `Added to cart (${cartQuantity})`
+      : isSelectionComplete
+        ? 'Add to Cart'
+        : 'Select an option'
+
   const handleSetQuantity = (nextQuantity: number) => {
     const safeQuantity = Math.max(1, Math.min(quantitySelectorMax, Number(nextQuantity) || 1))
     if (!isSelectionComplete) {
@@ -1245,6 +1241,23 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       safeQuantity
     )
   }
+  const handleQuantityIncrement = () => {
+    const next = Math.min(quantitySelectorMax, displayQuantity + 1)
+    if (cartQuantity > 0) {
+      handleSetQuantity(next)
+      return
+    }
+    setPendingQuantity(next)
+  }
+
+  const handleQuantityDecrement = () => {
+    const next = Math.max(1, displayQuantity - 1)
+    if (cartQuantity > 0) {
+      handleSetQuantity(next)
+      return
+    }
+    setPendingQuantity(next)
+  }
   const stockLabel =
     stockCount <= 0
       ? 'Out of stock'
@@ -1257,7 +1270,6 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     typeof window !== 'undefined'
       ? `${window.location.origin}/product/${product.slug}`
       : `/product/${product.slug}`
-  const wishlistSaved = isRecentlySaved(product?.id)
 
   const tabs = [
     {
@@ -1643,62 +1655,36 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     className='sticky bottom-0 bg-white/90 px-2 py-2 backdrop-blur border-t border-gray-100 shadow-[0_-8px_20px_rgba(0,0,0,0.05)]'
                   >
                     <div className='pointer-events-none absolute -top-4 left-0 right-0 h-4 bg-gradient-to-t from-white/90 to-transparent' />
-                    <div className='relative flex items-center gap-2'>
-                      {cartQuantity > 0 ? (
-                        <QuantityControl
-                          quantity={cartQuantity}
-                          onIncrement={handleIncrementQuantity}
-                          onDecrement={handleDecrementQuantity}
-                          onSetQuantity={handleSetQuantity}
-                          size='md'
-                          fullWidth
-                          isLoading={Boolean(cartEntry?.isSyncing)}
-                          appearance='solid'
-                          controlType='select'
-                          maxQuantity={quantitySelectorMax}
-                        />
-                      ) : (
+                    <div className='relative flex items-center gap-3'>
+                      <div className='inline-flex h-11 items-center overflow-hidden rounded-full border border-gray-300 bg-white'>
                         <button
-                          onClick={handleAddToCart}
-                          aria-disabled={!isSelectionComplete}
-                          className={`inline-flex h-10 flex-1 items-center justify-center rounded-full bg-amber-400 text-sm font-semibold text-gray-900 transition ${
-                            !isSelectionComplete
-                              ? 'opacity-80'
-                              : 'hover:bg-amber-300'
-                          }`}
+                          type='button'
+                          onClick={handleQuantityDecrement}
+                          className='grid h-full w-11 place-items-center border-r border-gray-200 text-gray-700 hover:bg-gray-50'
+                          aria-label='Decrease quantity'
                         >
-                          {addToCartLabel}
+                          <span className='text-lg leading-none'>-</span>
                         </button>
-                      )}
-                      <button
-                        type='button'
-                        aria-pressed={wishlistSaved}
-                        className={`grid h-10 w-10 shrink-0 place-items-center rounded-full border transition wishlist-heart-shell ${
-                          wishlistSaved ? 'wishlist-heart-shell--active' : ''
-                        }`}
-                        onClick={() =>
-                          openSaveModal({
-                            id: product.id,
-                            name: product.name,
-                            slug: product.slug,
-                            price: product.price,
-                            image: product.image,
-                          })
-                        }
-                      >
-                        <svg
-                          className={`block h-5 w-5 ${wishlistSaved ? 'wishlist-heart-pop' : ''}`}
-                          fill={wishlistSaved ? 'currentColor' : 'none'}
-                          stroke='currentColor'
-                          viewBox='0 0 24 24'
+                        <div className='grid h-full min-w-[52px] place-items-center text-sm font-medium text-gray-900'>
+                          {displayQuantity}
+                        </div>
+                        <button
+                          type='button'
+                          onClick={handleQuantityIncrement}
+                          className='grid h-full w-11 place-items-center border-l border-gray-200 text-gray-700 hover:bg-gray-50'
+                          aria-label='Increase quantity'
                         >
-                          <path
-                            strokeLinecap='round'
-                            strokeLinejoin='round'
-                            strokeWidth={1.8}
-                            d='M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z'
-                          />
-                        </svg>
+                          <span className='text-lg leading-none'>+</span>
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => handleAddToCart(displayQuantity)}
+                        disabled={!isSelectionComplete || isAddedToCart}
+                        className={`inline-flex h-11 flex-1 items-center justify-center rounded-full border border-gray-900 bg-white px-4 text-sm font-semibold text-gray-900 transition ${
+                          !isSelectionComplete || isAddedToCart ? 'opacity-60' : 'hover:bg-gray-50'
+                        }`}
+                      >
+                        {ctaLabel}
                       </button>
                     </div>
                     {variationError && (
@@ -1863,38 +1849,36 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       {showFloatingCart && (
         <div className='lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3 shadow-[0_-6px_20px_rgba(0,0,0,0.08)]'>
           <div className='flex items-center gap-3'>
-            <div className='text-sm text-gray-600'>
-              <div className='text-xs uppercase tracking-wide text-gray-400'>
-                Price
-              </div>
-              <div className='text-lg font-semibold text-gray-900'>
-                ${activePrice}
-              </div>
-            </div>
-            {cartQuantity > 0 ? (
-              <QuantityControl
-                quantity={cartQuantity}
-                onIncrement={handleIncrementQuantity}
-                onDecrement={handleDecrementQuantity}
-                onSetQuantity={handleSetQuantity}
-                size='md'
-                fullWidth
-                isLoading={Boolean(cartEntry?.isSyncing)}
-                appearance='solid'
-                controlType='select'
-                maxQuantity={quantitySelectorMax}
-              />
-            ) : (
+            <div className='inline-flex h-11 items-center overflow-hidden rounded-full border border-gray-300 bg-white'>
               <button
-                onClick={handleAddToCart}
-                aria-disabled={!isSelectionComplete}
-                className={`inline-flex h-11 flex-1 items-center justify-center rounded-full bg-amber-400 text-sm font-semibold text-gray-900 transition ${
-                  !isSelectionComplete ? 'opacity-80' : 'hover:bg-amber-300'
-                }`}
+                type='button'
+                onClick={handleQuantityDecrement}
+                className='grid h-full w-11 place-items-center border-r border-gray-200 text-gray-700 hover:bg-gray-50'
+                aria-label='Decrease quantity'
               >
-                {addToCartLabel}
+                <span className='text-lg leading-none'>-</span>
               </button>
-            )}
+              <div className='grid h-full min-w-[52px] place-items-center text-sm font-medium text-gray-900'>
+                {displayQuantity}
+              </div>
+              <button
+                type='button'
+                onClick={handleQuantityIncrement}
+                className='grid h-full w-11 place-items-center border-l border-gray-200 text-gray-700 hover:bg-gray-50'
+                aria-label='Increase quantity'
+              >
+                <span className='text-lg leading-none'>+</span>
+              </button>
+            </div>
+            <button
+              onClick={() => handleAddToCart(displayQuantity)}
+              disabled={!isSelectionComplete || isAddedToCart}
+              className={`inline-flex h-11 flex-1 items-center justify-center rounded-full border border-gray-900 bg-white px-4 text-sm font-semibold text-gray-900 transition ${
+                !isSelectionComplete || isAddedToCart ? 'opacity-60' : 'hover:bg-gray-50'
+              }`}
+            >
+              {ctaLabel}
+            </button>
           </div>
         </div>
       )}
