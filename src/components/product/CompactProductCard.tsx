@@ -3,7 +3,9 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { buildVendorHref } from '@/lib/catalog/vendor'
 
 type CompactProductCardProps = {
   product: {
@@ -29,6 +31,7 @@ export const CompactProductCard = ({
   product,
   variant = 'fixed',
 }: CompactProductCardProps) => {
+  const router = useRouter()
   const stock = Number(product.stock || 0)
   const lowStockLabel = stock > 0 && stock < 10 ? `Only ${stock} left in stock` : ''
   const isFluid = variant === 'fluid'
@@ -65,10 +68,16 @@ export const CompactProductCard = ({
             {product.vendor ? (
               <div className='absolute top-2 left-2 z-10'>
                 <span
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    router.push(buildVendorHref(product.vendor || ''))
+                  }}
                   className='text-black/80 font-light tracking-wide drop-shadow'
                   style={{
                     fontFamily: product.vendorFont || 'serif',
                     fontSize: '12px',
+                    cursor: 'pointer',
                   }}
                 >
                   {product.vendor}

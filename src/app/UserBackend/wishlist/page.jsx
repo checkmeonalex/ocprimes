@@ -3,13 +3,15 @@
 import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import ProductCard from '@/components/product/ProductCard'
+import WishlistListLabel from '@/components/wishlist/WishlistListLabel'
 import { useAlerts } from '@/context/AlertContext'
 import { useCart } from '@/context/CartContext'
 import { getSeedProducts } from '@/lib/catalog/seed-products'
+import { isDefaultWishlistName } from '@/lib/wishlist/list-name'
 
 const CARD_COLORS = [
   'bg-rose-100',
-  'bg-blue-100',
+  'bg-slate-200',
   'bg-emerald-100',
   'bg-amber-100',
   'bg-purple-100',
@@ -57,12 +59,12 @@ export default function WishlistPage() {
 
   const orderedLists = useMemo(() => {
     if (!lists.length) return []
-    const all = lists.find((item) => item.name === 'All wishlist')
-    const rest = lists.filter((item) => item.name !== 'All wishlist')
+    const all = lists.find((item) => isDefaultWishlistName(item.name))
+    const rest = lists.filter((item) => !isDefaultWishlistName(item.name))
     return all ? [all, ...rest] : lists
   }, [lists])
   const allListId = useMemo(
-    () => orderedLists.find((item) => item.name === 'All wishlist')?.id || '',
+    () => orderedLists.find((item) => isDefaultWishlistName(item.name))?.id || '',
     [orderedLists],
   )
   const isAllSelected = Boolean(selectedListId && allListId && selectedListId === allListId)
@@ -134,7 +136,7 @@ export default function WishlistPage() {
         }
         setLists(payload?.items || [])
         if (payload?.items?.length) {
-          const defaultList = payload.items.find((item) => item.name === 'All wishlist')
+          const defaultList = payload.items.find((item) => isDefaultWishlistName(item.name))
           setSelectedListId((defaultList || payload.items[0]).id)
         }
       } catch (error) {
@@ -440,7 +442,7 @@ export default function WishlistPage() {
 
   return (
     <>
-      <div className='space-y-6 lg:pl-16'>
+      <div className='space-y-6'>
       <div>
         <div className='flex items-center gap-3'>
           {!isAllSelected && allListId ? (
@@ -468,13 +470,20 @@ export default function WishlistPage() {
               </svg>
             </button>
           ) : null}
-          <h1 className='text-4xl font-semibold text-gray-900'>
-            {listDetail?.name || 'Wishlist'}
+          <h1 className='text-lg font-semibold text-gray-900'>
+            {listDetail?.name ? (
+              <WishlistListLabel
+                name={listDetail.name}
+                iconClassName='h-[18px] w-[18px]'
+              />
+            ) : (
+              'Wishlist'
+            )}
           </h1>
         </div>
-        {listDetail?.name === 'All wishlist' ? (
-          <p className='mt-1 text-sm text-gray-500'>
-            Curate a personal collection of items you’d like to purchase in the future.
+        {isDefaultWishlistName(listDetail?.name) ? (
+          <p className='mt-1 text-xs text-gray-500'>
+            Saved items you may want to purchase in the future.
           </p>
         ) : isEditingDescription ? (
           <div className='mt-1 flex max-w-xl items-center gap-2'>
@@ -555,7 +564,7 @@ export default function WishlistPage() {
 
       <div className='space-y-4'>
         {isAllSelected ? (
-          <section className='rounded-2xl border border-gray-200 bg-white p-4 shadow-sm'>
+          <section className='rounded-2xl bg-white shadow-sm'>
             <div className='flex flex-wrap items-start gap-3'>
               {orderedLists.map((list) => (
                 <button
@@ -592,7 +601,10 @@ export default function WishlistPage() {
                     ) : null}
                   </div>
                   <p className='mt-2 text-[10px] font-semibold uppercase text-gray-500'>
-                    {list.name}
+                    <WishlistListLabel
+                      name={list.name}
+                      iconClassName='h-3.5 w-3.5'
+                    />
                   </p>
                 </button>
               ))}
@@ -609,9 +621,8 @@ export default function WishlistPage() {
         ) : null}
 
         <section className='space-y-4'>
-          <div className='rounded-2xl border border-gray-200 bg-white p-4 shadow-sm'>
-            <div className='flex items-center justify-between'>
-              <h3 className='text-sm font-semibold text-gray-900'>Saved items</h3>
+          <div className='rounded-2xl bg-white shadow-sm'>
+            <div className='flex items-center justify-end'>
               {isLoading ? <span className='text-xs text-gray-500'>Loading...</span> : null}
             </div>
             {isAllSelected ? (
@@ -633,7 +644,12 @@ export default function WishlistPage() {
                         className='flex w-full items-center justify-between text-left'
                       >
                         <div>
-                          <p className='text-sm font-semibold text-gray-900'>{list.name}</p>
+                          <p className='text-sm font-semibold text-gray-900'>
+                            <WishlistListLabel
+                              name={list.name}
+                              iconClassName='h-3.5 w-3.5'
+                            />
+                          </p>
                           <p className='text-xs text-gray-500'>{listItems.length} items</p>
                         </div>
                         <svg

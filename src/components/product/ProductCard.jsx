@@ -6,11 +6,14 @@ import Image from 'next/image'
 import ColorOptions from './ColorOptions' // Import new component
 import ProductCardSkeleton from '../ProductCardSkeleton'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { buildSwatchImages, deriveOptionsFromVariations } from './variationUtils.mjs'
 import { useCart } from '../../context/CartContext'
 import QuantityControl from '../cart/QuantityControl'
 import { findCartEntry } from '../../lib/cart/cart-match'
 import { useWishlist } from '../../context/WishlistContext'
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
+import { buildVendorHref } from '@/lib/catalog/vendor'
 
 const ProductCard = ({
   product,
@@ -25,8 +28,10 @@ const ProductCard = ({
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0])
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [previewImage, setPreviewImage] = useState('')
+  const router = useRouter()
   const { items, updateQuantity } = useCart()
   const { openSaveModal, isRecentlySaved } = useWishlist()
+  const { formatMoney } = useUserI18n()
   const isFavorite = isRecentlySaved(product?.id)
   const availableColors = React.useMemo(() => {
     const fromVariations = deriveOptionsFromVariations(product.variations, ['color', 'colour'])
@@ -133,6 +138,12 @@ const ProductCard = ({
     })
   }
 
+  const handleVendorClick = (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    router.push(buildVendorHref(product.vendor))
+  }
+
   if (!product) {
     return <ProductCardSkeleton />
   }
@@ -223,7 +234,9 @@ const ProductCard = ({
 
               {/* Vendor Name - Top Left Overlay */}
               <div className='absolute top-3 left-3 z-20'>
-                <span
+                <button
+                  type='button'
+                  onClick={handleVendorClick}
                   className='text-black font-light tracking-wide drop-shadow-lg'
                   style={{
                     fontFamily: product.vendorFont || 'serif',
@@ -231,7 +244,7 @@ const ProductCard = ({
                   }}
                 >
                   {product.vendor}
-                </span>
+                </button>
               </div>
 
               {/* Color Options - Bottom Right of Image - Adjusted for portrait */}
@@ -284,9 +297,9 @@ const ProductCard = ({
                   >
                     <path d='M19.152,14a1,1,0,0,0,1-1V9.752a4.019,4.019,0,0,0,.3-.3,4,4,0,0,0,.732-3.456L20.121,1.758A1,1,0,0,0,19.152,1h-16a1,1,0,0,0-.97.757L1.122,5.994A4,4,0,0,0,1.855,9.45a3.838,3.838,0,0,0,.3.3V22a1,1,0,0,0,1,1H14.3a1,1,0,0,0,0-2H4.151V10.9A3.955,3.955,0,0,0,8.063,9.589c.03.035.051.076.082.11A4.04,4.04,0,0,0,11.11,11h.083a4.036,4.036,0,0,0,2.964-1.3c.032-.034.052-.076.082-.11A3.957,3.957,0,0,0,18.152,10.9V13A1,1,0,0,0,19.152,14ZM7.386,3.134l-.292,3.5v0l-.041.5A2.041,2.041,0,0,1,5.031,9A2.029,2.029,0,0,1,3.062,6.479L3.932,3H7.4Zm5.3,5.211A2.009,2.009,0,0,1,11.193,9H11.11A2.028,2.028,0,0,1,9.088,6.807L9.4,3H12.9l.317,3.8A2.013,2.013,0,0,1,12.686,8.345ZM17.272,9a2.042,2.042,0,0,1-2.023-1.86L14.9,3H18.37l.87,3.479A2.029,2.029,0,0,1,17.272,9Zm3.061,8.667L23,18.056l-2.222,1.833L21.472,23,19,21.222,16.528,23l.694-3.111L15,18.056l2.667-.389L19,15Z' />
                   </svg>
-                  <span className='text-xs font-medium text-green-600'>
+                  <button type='button' onClick={handleVendorClick} className='text-xs font-medium text-green-600 hover:underline'>
                     {product.vendor}
-                  </span>
+                  </button>
                 </div>
               </div>
 
@@ -330,11 +343,11 @@ const ProductCard = ({
               <div className='flex flex-col'>
                 <div className='flex items-center gap-2'>
                   <span className='text-lg font-bold text-gray-900'>
-                    ${product.price}
+                    {formatMoney(product.price)}
                   </span>
                   {product.originalPrice && (
                     <span className='text-sm text-gray-400 line-through'>
-                      ${product.originalPrice}
+                      {formatMoney(product.originalPrice)}
                     </span>
                   )}
                 </div>
@@ -343,7 +356,7 @@ const ProductCard = ({
               <div className='flex items-center justify-between gap-2 pt-0.5'>
                 {discountPercentage ? (
                   <span className='text-xs text-green-600 font-semibold'>
-                    Save ${(product.originalPrice - product.price).toFixed(2)}
+                    Save {formatMoney((product.originalPrice || 0) - (product.price || 0))}
                   </span>
                 ) : (
                   <span />

@@ -17,6 +17,7 @@ export default function ClientLayout({ children }) {
     pathname?.startsWith('/admin/login') ||
     pathname?.startsWith('/admin/signup')
   const isBackendAdmin = pathname?.startsWith('/backend/admin')
+  const isUserBackendRoute = pathname?.startsWith('/UserBackend')
 
   useEffect(() => {
     if (isMobile || isAuthRoute || isBackendAdmin) return undefined
@@ -52,8 +53,9 @@ export default function ClientLayout({ children }) {
 
   return (
     <>
-      {isMobile ? <MobileNavbar /> : <Navbar />}
-      <div className={`flex ${isMobile ? 'mt-5 pt-32' : 'pt-[106px]'}`}>
+      {!isUserBackendRoute ? <MobileNavbar /> : null}
+      {!isMobile ? <Navbar /> : null}
+      <div className={`flex ${isUserBackendRoute ? 'pt-0 lg:pt-[106px]' : 'pt-24 lg:pt-[106px]'}`}>
         <Sidebar />
         <main className={`flex-1 transition-all duration-300`}>
           {children}

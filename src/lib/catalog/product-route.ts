@@ -17,6 +17,7 @@ import {
 const PRODUCT_TABLE = 'products'
 const CATEGORY_TABLE = 'admin_categories'
 const TAG_TABLE = 'admin_tags'
+const BRAND_TABLE = 'admin_brands'
 const CATEGORY_LINKS = 'product_category_links'
 const TAG_LINKS = 'product_tag_links'
 const BRAND_LINKS = 'product_brand_links'
@@ -194,7 +195,7 @@ export async function listPublicProducts(request: NextRequest) {
     return jsonError('Invalid query.', 400)
   }
 
-  const { page, per_page, search, category, tag } = parseResult.data
+  const { page, per_page, search, category, tag, vendor } = parseResult.data
 
   const signalParse = personalizationSignalsSchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -208,9 +209,10 @@ export async function listPublicProducts(request: NextRequest) {
 
   let productIds = null
   let skipDb = false
-  if (category || tag) {
+  if (category || tag || vendor) {
     let categoryProductIds: string[] | null = null
     let tagProductIds: string[] | null = null
+    let vendorProductIds: string[] | null = null
 
     if (category) {
       const { data: categoryBySlug } = await supabase
@@ -242,13 +244,34 @@ export async function listPublicProducts(request: NextRequest) {
       tagProductIds = Array.isArray(linkData) ? linkData.map((row) => row.product_id) : []
     }
 
-    if (categoryProductIds && tagProductIds) {
-      const tagSet = new Set(tagProductIds)
-      productIds = categoryProductIds.filter((id) => tagSet.has(id))
-    } else if (categoryProductIds) {
-      productIds = categoryProductIds
-    } else if (tagProductIds) {
-      productIds = tagProductIds
+    if (vendor) {
+      const { data: brandBySlug } = await supabase
+        .from(BRAND_TABLE)
+        .select('id')
+        .eq('slug', vendor)
+        .maybeSingle()
+
+      const brandId = brandBySlug?.id || vendor
+      const { data: linkData } = await supabase
+        .from(BRAND_LINKS)
+        .select('product_id')
+        .eq('brand_id', brandId)
+      vendorProductIds = Array.isArray(linkData) ? linkData.map((row) => row.product_id) : []
+    }
+
+    const activeIdLists = [categoryProductIds, tagProductIds, vendorProductIds].filter(
+      (list): list is string[] => Array.isArray(list),
+    )
+
+    if (activeIdLists.length === 1) {
+      productIds = activeIdLists[0]
+    } else if (activeIdLists.length > 1) {
+      let intersection = activeIdLists[0]
+      for (let i = 1; i < activeIdLists.length; i += 1) {
+        const set = new Set(activeIdLists[i])
+        intersection = intersection.filter((id) => set.has(id))
+      }
+      productIds = intersection
     }
 
     if (!Array.isArray(productIds) || !productIds.length) {
@@ -307,7 +330,7 @@ export async function listPublicProducts(request: NextRequest) {
   }
 
   const dbItems = await attachRelations(supabase, data ?? [])
-  const seedItems = tag ? [] : filterSeedProducts({ search, category })
+  const seedItems = tag ? [] : filterSeedProducts({ search, category, vendor })
   const mergedItems = mergeSeedAndDbProducts(seedItems, dbItems, { dbFirst: true })
   const rankedItems = rankProductsWithSignals(mergedItems, personalizationSignals)
   const combinedCount = (totalCount || 0) + seedItems.length

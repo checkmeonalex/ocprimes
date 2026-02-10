@@ -72,7 +72,7 @@ const ProductCatalogPage = ({
     setLoadedProducts(initial)
     setCurrentPage(1)
     setHasMoreFromServer(initial.length >= PAGE_SIZE)
-  }, [products, listingQuery?.category, listingQuery?.tag, listingQuery?.search])
+  }, [products, listingQuery?.category, listingQuery?.tag, listingQuery?.search, listingQuery?.vendor])
 
   const source = useMemo(() => {
     const seedProducts = getSeedProducts()
@@ -294,6 +294,7 @@ const ProductCatalogPage = ({
         if (listingQuery?.category) params.set('category', String(listingQuery.category))
         if (listingQuery?.tag) params.set('tag', String(listingQuery.tag))
         if (listingQuery?.search) params.set('search', String(listingQuery.search))
+        if (listingQuery?.vendor) params.set('vendor', String(listingQuery.vendor))
 
         fetch(`/api/products?${params.toString()}`)
           .then((response) => response.json().catch(() => null))
@@ -343,6 +344,7 @@ const ProductCatalogPage = ({
     listingQuery?.category,
     listingQuery?.tag,
     listingQuery?.search,
+    listingQuery?.vendor,
   ])
 
   const handleClear = () => {

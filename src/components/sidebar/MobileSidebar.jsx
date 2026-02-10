@@ -35,6 +35,27 @@ const MobileSidebar = ({ isOpen, onClose, items, selectedItem, onSelect }) => {
           onClick={onClose}
         />
       )}
+      {isOpen && (
+        <button
+          type='button'
+          onClick={onClose}
+          className='lg:hidden fixed top-3 left-[calc(16rem+14px)] z-[80] inline-flex h-11 w-11 items-center justify-center rounded-md border border-white/45 bg-black/45 text-white shadow-lg backdrop-blur-md'
+          aria-label='Close menu'
+        >
+          <svg
+            className='h-6 w-6'
+            viewBox='0 0 24 24'
+            fill='none'
+            stroke='currentColor'
+            strokeWidth='2'
+            strokeLinecap='round'
+            strokeLinejoin='round'
+            aria-hidden='true'
+          >
+            <path d='M6 6l12 12M18 6l-12 12' />
+          </svg>
+        </button>
+      )}
     </>
   )
 }

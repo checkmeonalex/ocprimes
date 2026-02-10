@@ -1,7 +1,7 @@
-import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import UserBackendNav from '@/components/user-backend/UserBackendNav'
 import StickySidebar from '@/components/user-backend/StickySidebar'
+import UserBackendMobileHeader from '@/components/user-backend/UserBackendMobileHeader'
 
 const getDisplayName = (user) => {
   const metaName = user?.user_metadata?.full_name
@@ -14,23 +14,26 @@ const getDisplayName = (user) => {
 export default async function UserBackendLayout({ children }) {
   const supabase = await createServerSupabaseClient()
   const { data, error } = await supabase.auth.getUser()
-
-  if (error || !data?.user) {
-    redirect('/login?next=/UserBackend')
-  }
-
-  const displayName = getDisplayName(data.user)
+  const user = error ? null : data?.user || null
+  const displayName = getDisplayName(user)
 
   return (
-    <div className='max-w-6xl mx-auto px-4 py-8 min-h-screen'>
-      <div className='grid grid-cols-1 lg:grid-cols-[18rem_1fr] gap-6 overflow-visible'>
-        <StickySidebar>
-          <UserBackendNav
-            displayName={displayName}
-            email={data.user.email || ''}
-          />
-        </StickySidebar>
-        <main>{children}</main>
+    <div className='min-h-screen w-full bg-white pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-2'>
+      <UserBackendMobileHeader />
+      <div className='w-full'>
+        <div className='grid grid-cols-1 gap-4 lg:grid-cols-[18rem_1fr] lg:gap-0 overflow-visible'>
+          <div className='hidden lg:block'>
+            <StickySidebar topOffset={120} collapsedTopOffset={56} collapseAfter={20}>
+              <UserBackendNav
+                displayName={displayName}
+                email={user?.email || 'guest@ocprimes.com'}
+              />
+            </StickySidebar>
+          </div>
+          <main className='bg-transparent'>
+            <div className='p-3 md:p-4 lg:p-0'>{children}</div>
+          </main>
+        </div>
       </div>
     </div>
   )

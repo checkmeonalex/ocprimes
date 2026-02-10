@@ -8,6 +8,8 @@ import {
   readStoredSiteInfo,
 } from '../../../utils/connector';
 import AdminSidebar from '@/components/AdminSidebar';
+import { CURRENCY_OPTIONS } from '@/lib/i18n/locale-config';
+import { DEFAULT_UNIT_PER_USD } from '@/lib/i18n/exchange-rates';
 
 const JOB_TITLE_META_KEY = process.env.REACT_APP_WP_JOB_TITLE_META_KEY || 'job_title';
 const WHATSAPP_META_KEY = process.env.REACT_APP_WP_WHATSAPP_META_KEY || 'whatsapp_number';
@@ -120,6 +122,12 @@ const EMPTY_SITE = {
   icon_url: '',
 };
 
+const DEFAULT_RATE_ROWS = CURRENCY_OPTIONS.map((item) => ({
+  code: item.code,
+  label: `${item.code} (${item.symbol} ${item.label})`,
+  unitPerUsd: DEFAULT_UNIT_PER_USD[item.code] || 1,
+}));
+
 function WooCommerceSettingsPage() {
   const [siteInfo, setSiteInfo] = useState(() => readStoredSiteInfo());
   const [siteId, setSiteId] = useState(() => readStoredSiteId() || siteInfo?.siteId || '');
@@ -147,6 +155,14 @@ function WooCommerceSettingsPage() {
   }));
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [exchangeRates, setExchangeRates] = useState(DEFAULT_RATE_ROWS);
+  const [ratesMeta, setRatesMeta] = useState({ updatedAt: '', source: 'manual', useLiveSync: false });
+  const [ratesError, setRatesError] = useState('');
+  const [ratesSuccess, setRatesSuccess] = useState('');
+  const [isRatesLoading, setIsRatesLoading] = useState(false);
+  const [isRatesSaving, setIsRatesSaving] = useState(false);
+  const [isRatesSyncing, setIsRatesSyncing] = useState(false);
+  const [connectorWarning, setConnectorWarning] = useState('');
 
   useEffect(() => {
     const handleStorage = (event) => {
@@ -245,14 +261,35 @@ function WooCommerceSettingsPage() {
   const loadSettings = useCallback(async () => {
     setIsLoading(true);
     setError('');
+    setConnectorWarning('');
     try {
       const resolvedSiteId = siteId || (await resolveSiteId());
       if (!resolvedSiteId) {
-        throw new Error('Connect a store to load settings.');
+        setConnectorWarning('Store connector is not configured. Currency settings are still available.');
+        setSettings({
+          user: {},
+          socials: {},
+          billing: {},
+          shipping: {},
+          site: {},
+          application_passwords: { items: [] },
+          wp_version: '',
+        });
+        return;
       }
       const token = localStorage.getItem('agentic_auth_token');
       if (!token) {
-        throw new Error('Sign in to load settings.');
+        setConnectorWarning('Connector session missing. Currency settings are still available.');
+        setSettings({
+          user: {},
+          socials: {},
+          billing: {},
+          shipping: {},
+          site: {},
+          application_passwords: { items: [] },
+          wp_version: '',
+        });
+        return;
       }
       const params = new URLSearchParams({
         job_title_key: JOB_TITLE_META_KEY,
@@ -263,19 +300,146 @@ function WooCommerceSettingsPage() {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
-        throw new Error(payload?.error || 'Unable to load settings.');
+        setConnectorWarning(payload?.error || 'Unable to load connector-backed settings. Currency settings are still available.');
+        setSettings({
+          user: {},
+          socials: {},
+          billing: {},
+          shipping: {},
+          site: {},
+          application_passwords: { items: [] },
+          wp_version: '',
+        });
+        return;
       }
       setSettings(payload || null);
     } catch (err) {
-      setError(err?.message || 'Unable to load settings.');
+      setConnectorWarning(err?.message || 'Unable to load connector-backed settings. Currency settings are still available.');
+      setSettings({
+        user: {},
+        socials: {},
+        billing: {},
+        shipping: {},
+        site: {},
+        application_passwords: { items: [] },
+        wp_version: '',
+      });
     } finally {
       setIsLoading(false);
     }
   }, [resolveSiteId, siteId]);
 
+  const loadExchangeRates = useCallback(async () => {
+    setIsRatesLoading(true);
+    setRatesError('');
+    try {
+      const response = await fetch('/api/admin/exchange-rates', { method: 'GET' });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to load exchange rates.');
+      }
+
+      const nextRows = DEFAULT_RATE_ROWS.map((item) => ({
+        ...item,
+        unitPerUsd: Number(payload?.unitPerUsd?.[item.code]) > 0
+          ? Number(payload.unitPerUsd[item.code])
+          : item.unitPerUsd,
+      }));
+      setExchangeRates(nextRows);
+      setRatesMeta({
+        updatedAt: payload?.updatedAt || '',
+        source: payload?.source || 'manual',
+        useLiveSync: Boolean(payload?.useLiveSync),
+      });
+    } catch (err) {
+      setRatesError(err?.message || 'Unable to load exchange rates.');
+    } finally {
+      setIsRatesLoading(false);
+    }
+  }, []);
+
+  const saveExchangeRates = useCallback(async () => {
+    setIsRatesSaving(true);
+    setRatesError('');
+    setRatesSuccess('');
+    try {
+      const payload = {
+        useLiveSync: ratesMeta.useLiveSync,
+        rates: exchangeRates.map((item) => ({
+          code: item.code,
+          unitPerUsd: Number(item.unitPerUsd),
+        })),
+      };
+      const response = await fetch('/api/admin/exchange-rates', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error || 'Unable to save exchange rates.');
+      }
+      const nextRows = DEFAULT_RATE_ROWS.map((item) => ({
+        ...item,
+        unitPerUsd: Number(data?.unitPerUsd?.[item.code]) > 0
+          ? Number(data.unitPerUsd[item.code])
+          : item.unitPerUsd,
+      }));
+      setExchangeRates(nextRows);
+      setRatesMeta((prev) => ({
+        ...prev,
+        updatedAt: data?.updatedAt || prev.updatedAt,
+        source: data?.source || prev.source,
+        useLiveSync: Boolean(data?.useLiveSync),
+      }));
+      setRatesSuccess('Exchange rates saved.');
+    } catch (err) {
+      setRatesError(err?.message || 'Unable to save exchange rates.');
+    } finally {
+      setIsRatesSaving(false);
+    }
+  }, [exchangeRates, ratesMeta.useLiveSync]);
+
+  const syncExchangeRates = useCallback(async () => {
+    setIsRatesSyncing(true);
+    setRatesError('');
+    setRatesSuccess('');
+    try {
+      const response = await fetch('/api/admin/exchange-rates/sync', {
+        method: 'POST',
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(data?.error || 'Live sync failed.');
+      }
+      const nextRows = DEFAULT_RATE_ROWS.map((item) => ({
+        ...item,
+        unitPerUsd: Number(data?.unitPerUsd?.[item.code]) > 0
+          ? Number(data.unitPerUsd[item.code])
+          : item.unitPerUsd,
+      }));
+      setExchangeRates(nextRows);
+      setRatesMeta((prev) => ({
+        ...prev,
+        updatedAt: data?.updatedAt || prev.updatedAt,
+        source: data?.source || 'live_sync',
+        useLiveSync: true,
+      }));
+      setRatesSuccess('Live rates synced successfully.');
+    } catch (err) {
+      setRatesError(err?.message || 'Live sync failed.');
+    } finally {
+      setIsRatesSyncing(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  useEffect(() => {
+    loadExchangeRates();
+  }, [loadExchangeRates]);
 
   useEffect(() => {
     if (!settings) return;
@@ -399,6 +563,7 @@ function WooCommerceSettingsPage() {
   const settingsSections = useMemo(
     () => [
       { id: 'site-settings', label: 'Site' },
+      { id: 'currency-settings', label: 'Currency' },
       { id: 'profile-settings', label: 'Profile' },
       { id: 'contact-settings', label: 'Contact' },
       { id: 'about-settings', label: 'About' },
@@ -443,6 +608,7 @@ function WooCommerceSettingsPage() {
 
             {isLoading && <p className="mt-6 text-sm text-slate-400">Loading settings...</p>}
             {error && <p className="mt-6 text-sm text-rose-500">{error}</p>}
+            {connectorWarning && <p className="mt-6 text-sm text-amber-600">{connectorWarning}</p>}
 
             {!isLoading && !error && (
               <div className="mt-8 space-y-6">
@@ -558,6 +724,102 @@ function WooCommerceSettingsPage() {
                       value={site.store_time}
                       readOnly
                     />
+                  </div>
+                </section>
+
+                <section
+                  id="currency-settings"
+                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Currency & exchange rates</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Set manual rates (units per 1 USD) or sync live rates from provider.
+                      </p>
+                      <p className="mt-2 text-[11px] text-slate-400">
+                        Last update: {ratesMeta.updatedAt ? formatDate(ratesMeta.updatedAt) : '--'} · Source: {ratesMeta.source || 'manual'}
+                      </p>
+                    </div>
+
+                    <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={ratesMeta.useLiveSync}
+                        onChange={(event) =>
+                          setRatesMeta((prev) => ({ ...prev, useLiveSync: event.target.checked }))
+                        }
+                        className="h-4 w-4 rounded border-slate-300"
+                      />
+                      Use live sync
+                    </label>
+                  </div>
+
+                  {ratesError ? <p className="mt-3 text-xs text-rose-500">{ratesError}</p> : null}
+                  {ratesSuccess ? <p className="mt-3 text-xs text-emerald-600">{ratesSuccess}</p> : null}
+
+                  <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
+                    <div className="grid grid-cols-[minmax(180px,_2fr)_minmax(140px,_1fr)] gap-3 bg-slate-50 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                      <span>Currency</span>
+                      <span className="text-right">Unit / USD</span>
+                    </div>
+                    <div className="divide-y divide-slate-100">
+                      {exchangeRates.map((item) => (
+                        <div
+                          key={item.code}
+                          className="grid grid-cols-[minmax(180px,_2fr)_minmax(140px,_1fr)] items-center gap-3 px-4 py-3"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-slate-800">{item.code}</p>
+                            <p className="text-[11px] text-slate-500">{item.label}</p>
+                          </div>
+                          <input
+                            type="number"
+                            min="0.000001"
+                            step="0.0001"
+                            value={item.unitPerUsd}
+                            onChange={(event) => {
+                              const value = Number(event.target.value);
+                              setExchangeRates((prev) =>
+                                prev.map((row) =>
+                                  row.code === item.code
+                                    ? { ...row, unitPerUsd: Number.isFinite(value) ? value : row.unitPerUsd }
+                                    : row,
+                                ),
+                              );
+                            }}
+                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right text-sm text-slate-700"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={saveExchangeRates}
+                      disabled={isRatesSaving || isRatesLoading}
+                      className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isRatesSaving ? 'Saving...' : 'Save rates'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={syncExchangeRates}
+                      disabled={isRatesSyncing || isRatesLoading}
+                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isRatesSyncing ? 'Syncing...' : 'Sync live rates'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={loadExchangeRates}
+                      disabled={isRatesLoading}
+                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isRatesLoading ? 'Refreshing...' : 'Refresh'}
+                    </button>
                   </div>
                 </section>
 

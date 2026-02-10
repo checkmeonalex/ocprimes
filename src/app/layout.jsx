@@ -7,6 +7,7 @@ import { AlertProvider } from '../context/AlertContext'
 import AlertStack from '../components/alerts/AlertStack'
 import { WishlistProvider } from '../context/WishlistContext'
 import WishlistSaveModal from '../components/wishlist/WishlistSaveModal'
+import { UserLocaleProvider } from '../context/UserLocaleContext'
 
 export const metadata = {
   title: 'OcPrimes',
@@ -16,23 +17,23 @@ export default function RootLayout({ children }) {
   return (
     <html lang='en'>
       <body>
-        <AlertProvider>
-          <SidebarProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <ClientLayout>{children}</ClientLayout>
-                <WishlistSaveModal />
-              </WishlistProvider>
-            </CartProvider>
-          </SidebarProvider>
-          <AlertStack />
-        </AlertProvider>
+        <UserLocaleProvider>
+          <AlertProvider>
+            <SidebarProvider>
+              <CartProvider>
+                <WishlistProvider>
+                  <ClientLayout>{children}</ClientLayout>
+                  <WishlistSaveModal />
+                </WishlistProvider>
+              </CartProvider>
+            </SidebarProvider>
+            <AlertStack />
+          </AlertProvider>
+        </UserLocaleProvider>
       </body>
     </html>
   )
 }
-
-
 
 
 

@@ -3,74 +3,51 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { USER_MENU_ITEMS } from '@/lib/user/menu-items'
+import UserNavIcon from '@/components/user-backend/UserNavIcon'
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
+import { translateMenuLabel } from '@/lib/i18n/messages'
 
 export default function UserBackendNav({ displayName, email }) {
   const pathname = usePathname()
+  const { locale } = useUserI18n()
+  const initial = (displayName?.trim()?.[0] || 'U').toUpperCase()
 
   return (
-    <div className='rounded-xl border border-gray-200 bg-white p-3 shadow-sm'>
-      <div className='pb-3'>
+    <div className='no-scrollbar rounded-xl bg-white p-3 shadow-sm lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto'>
+      <div className='border-b border-slate-200 pb-3'>
         <div className='flex items-center gap-2'>
-          <span className='inline-flex h-6 w-6 items-center justify-center text-gray-400'>
-            <svg
-              className='h-4 w-4'
-              viewBox='0 0 24 24'
-              fill='none'
-              xmlns='http://www.w3.org/2000/svg'
-              aria-hidden='true'
-            >
-              <path
-                d='M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5Z'
-                stroke='currentColor'
-                strokeWidth='1.5'
-              />
-              <path
-                d='M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8'
-                stroke='currentColor'
-                strokeWidth='1.5'
-                strokeLinecap='round'
-              />
-            </svg>
+          <span className='inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-xs font-semibold text-white'>
+            {initial}
           </span>
-          <p className='text-xs font-semibold uppercase tracking-wide text-gray-400'>
-            Account
-          </p>
+          <div className='min-w-0'>
+            <p className='truncate text-sm font-semibold text-slate-900'>
+              {displayName || 'User'}
+            </p>
+            <p className='truncate text-[11px] text-slate-500'>{email}</p>
+          </div>
         </div>
-        <p className='mt-1 text-sm font-semibold text-gray-900'>
-          {displayName || 'User'}
-        </p>
-        <p className='text-[11px] text-gray-500'>{email}</p>
       </div>
-      <div className='space-y-0.5'>
+      <div className='mt-3 space-y-1'>
         {USER_MENU_ITEMS.map((item) => {
           const isActive = pathname === item.href
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-medium transition-colors ${
+                className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[15px] font-medium transition-colors ${
                 isActive
-                  ? 'bg-gray-100 text-gray-900'
-                  : 'text-gray-600 hover:bg-gray-50'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
-              <span className='inline-flex h-6 w-6 items-center justify-center text-gray-400'>
-                <svg
-                  className='h-4 w-4'
-                  viewBox='0 0 24 24'
-                  fill='none'
-                  xmlns='http://www.w3.org/2000/svg'
-                  aria-hidden='true'
-                >
-                  <path
-                    d='M7 7h10M7 12h10M7 17h10'
-                    stroke='currentColor'
-                    strokeWidth='1.5'
-                    strokeLinecap='round'
-                  />
-                </svg>
+              <span
+                className={`inline-flex h-7 w-7 items-center justify-center ${
+                  isActive ? 'text-white' : 'text-slate-400'
+                }`}
+              >
+                <UserNavIcon label={item.label} className='h-5 w-5' />
               </span>
-              {item.label}
+              {translateMenuLabel(item.label, locale.language)}
             </Link>
           )
         })}

@@ -1,3 +1,6 @@
+import Link from 'next/link'
+import { buildVendorHref } from '@/lib/catalog/vendor'
+
 const AboutStoreCard = ({
   vendor,
   rating,
@@ -8,6 +11,7 @@ const AboutStoreCard = ({
   avatarUrl,
 }) => {
   const initials = (vendor || 'V').slice(0, 2).toUpperCase()
+  const vendorHref = buildVendorHref(vendor)
   const followersLabel =
     typeof followers === 'number' ? followers.toLocaleString() : followers
 
@@ -28,9 +32,9 @@ const AboutStoreCard = ({
 
         <div className='flex-1'>
           <div className='flex flex-wrap items-center gap-2'>
-            <div className='text-base font-semibold text-gray-900'>
+            <Link href={vendorHref} className='text-base font-semibold text-gray-900 hover:underline'>
               {vendor}
-            </div>
+            </Link>
             {badge && (
               <span className='inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 border border-violet-200'>
                 ★ {badge}
@@ -57,9 +61,12 @@ const AboutStoreCard = ({
         <button className='border border-gray-300 rounded-full py-2 text-gray-800 hover:bg-gray-50 transition'>
           + Follow
         </button>
-        <button className='border border-gray-300 rounded-full py-2 text-gray-800 hover:bg-gray-50 transition'>
+        <Link
+          href={vendorHref}
+          className='border border-gray-300 rounded-full py-2 text-gray-800 hover:bg-gray-50 transition inline-flex items-center justify-center'
+        >
           Shop all items ({itemsCount})
-        </button>
+        </Link>
       </div>
     </div>
   )

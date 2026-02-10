@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useAuthUser } from '@/lib/auth/useAuthUser'
 import { buildKey, normalizeItem } from '@/lib/cart/utils'
 
@@ -8,6 +9,7 @@ const CartContext = createContext(null)
 const STORAGE_KEY = 'ocprimes_cart_items'
 const DEBOUNCE_MS = 0
 const RETRY_DELAYS = [200, 500, 1000]
+const BACKGROUND_REFRESH_COOLDOWN_MS = 10000
 
 const normalizeItems = (items) => {
   if (!Array.isArray(items)) return []
@@ -40,6 +42,7 @@ const initMeta = (quantity) => ({
 })
 
 export function CartProvider({ children }) {
+  const pathname = usePathname()
   const [items, setItems] = useState([])
   const [isReady, setIsReady] = useState(false)
   const [isServerReady, setIsServerReady] = useState(false)
@@ -50,6 +53,8 @@ export function CartProvider({ children }) {
   const pendingSyncRef = useRef(null)
   const cartVersionRef = useRef(cartVersion)
   const metaRef = useRef(new Map())
+  const refreshInFlightRef = useRef(false)
+  const lastRefreshAtRef = useRef(0)
 
   useEffect(() => {
     itemsRef.current = items
@@ -491,19 +496,29 @@ export function CartProvider({ children }) {
   }, [user, isServerReady])
 
   const refreshCartFromServer = async () => {
-    if (!user) return
-    const response = await fetch('/api/cart')
-    if (response.ok) {
+    if (!user || !isServerReady) return
+    const now = Date.now()
+    if (refreshInFlightRef.current) return
+    if (now - lastRefreshAtRef.current < BACKGROUND_REFRESH_COOLDOWN_MS) return
+
+    refreshInFlightRef.current = true
+    try {
+      const response = await fetch('/api/cart')
+      if (!response.ok) return
       const data = await response.json()
       const normalized = normalizeItems(data?.items)
       setItemsState(normalized)
       syncMetaFromItems(normalized)
       setCartVersion(data?.cartVersion ?? cartVersionRef.current ?? 1)
+      lastRefreshAtRef.current = Date.now()
+    } finally {
+      refreshInFlightRef.current = false
     }
   }
 
   useEffect(() => {
-    if (!user || !isServerReady) return
+    const isCartRoute = pathname?.startsWith('/cart')
+    if (!user || !isServerReady || !isCartRoute) return
     const handleFocus = () => {
       void refreshCartFromServer()
     }
@@ -518,7 +533,7 @@ export function CartProvider({ children }) {
       window.removeEventListener('focus', handleFocus)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [user, isServerReady])
+  }, [user, isServerReady, pathname])
 
   const summary = useMemo(() => {
     const subtotal = items.reduce(

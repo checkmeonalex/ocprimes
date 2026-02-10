@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
+import WishlistListLabel from '@/components/wishlist/WishlistListLabel'
 import { useWishlist } from '@/context/WishlistContext'
 import { useAlerts } from '@/context/AlertContext'
 import { useAuthUser } from '@/lib/auth/useAuthUser.ts'
@@ -78,7 +79,7 @@ export default function WishlistSaveModal() {
           pushAlert({
             type: 'success',
             title: 'Wishlist',
-            message: saveRes.status === 409 ? 'Already in wishlist.' : 'Saved to All wishlist.',
+            message: saveRes.status === 409 ? 'Already in wishlist.' : 'Saved to Saved Items.',
           })
           closeSaveModal()
         }
@@ -247,7 +248,10 @@ export default function WishlistSaveModal() {
                       ) : null}
                     </div>
                     <span className='mt-2 block text-[10px] font-semibold uppercase text-gray-500'>
-                      {list.name}
+                      <WishlistListLabel
+                        name={list.name}
+                        iconClassName='h-3.5 w-3.5'
+                      />
                     </span>
                   </button>
                 ))

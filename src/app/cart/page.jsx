@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { useCart } from '../../context/CartContext'
 import QuantityControl from '../../components/cart/QuantityControl'
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
 
-const formatMoney = (value) => `$${value.toFixed(2)}`
 const buildProductHref = (item) => {
   const params = new URLSearchParams()
   if (item.selectedVariationId && item.selectedVariationId !== 'default') {
@@ -23,6 +23,7 @@ const buildProductHref = (item) => {
 }
 
 export default function CartPage() {
+  const { formatMoney } = useUserI18n()
   const { items, summary, updateQuantity, removeItem, clearCart, retryItem } =
     useCart()
   const asideWrapRef = useRef(null)

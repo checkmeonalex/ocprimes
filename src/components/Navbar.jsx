@@ -3,15 +3,18 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useCart } from '../context/CartContext'
 import CategoriesMenu from './Catergories/CategoriesMenu'
 import { fetchCategoriesData } from './data/categoriesMenuData.ts'
 import { getRecentlyViewed } from '@/lib/recently-viewed/storage'
+import UserMenu from './auth/UserMenu'
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
 
 export default function Navbar() {
   const router = useRouter()
+  const pathname = usePathname()
   const { summary } = useCart()
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const [hoverTimeout, setHoverTimeout] = useState(null)
@@ -31,6 +34,7 @@ export default function Navbar() {
   const [historyItems, setHistoryItems] = useState([])
   const [isDesktopHeaderVisible, setIsDesktopHeaderVisible] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
+  const { formatMoney } = useUserI18n()
 
   const categoriesRef = useRef(null)
   const menuRef = useRef(null)
@@ -296,9 +300,11 @@ export default function Navbar() {
   }
 
   const cartCount = summary?.itemCount ?? 0
+  const isUserDashboard = pathname?.startsWith('/UserBackend')
+  const showDashboardPrimaryBar = lastScrollY < 20
   const formatPrice = (value) => {
     if (!Number.isFinite(Number(value))) return '--'
-    return Number(value).toFixed(2)
+    return formatMoney(Number(value))
   }
 
   const getDiscountPercent = (price, originalPrice) => {
@@ -322,11 +328,24 @@ export default function Navbar() {
 
   return (
     <nav
-      className={`fixed left-0 right-0 top-0 z-40 hidden border-b border-gray-200 bg-white transition-transform duration-300 lg:block ${
-        isDesktopHeaderVisible ? 'translate-y-0' : '-translate-y-full'
+      className={`fixed left-0 right-0 top-0 z-40 hidden border-b border-gray-200 bg-white lg:block ${
+        isUserDashboard
+          ? ''
+          : `transition-transform duration-300 ${
+              isDesktopHeaderVisible ? 'translate-y-0' : '-translate-y-full'
+            }`
       }`}
     >
-      <div className='mx-auto flex h-16 w-full max-w-[1400px] items-center gap-5 px-4 sm:px-6 lg:px-8'>
+      <div
+        className={`mx-auto w-full max-w-[1400px] overflow-visible px-4 transition-all duration-300 sm:px-6 lg:px-8 ${
+          isUserDashboard
+            ? showDashboardPrimaryBar
+              ? 'max-h-16 opacity-100'
+              : 'max-h-0 opacity-0'
+            : 'max-h-16 opacity-100'
+        }`}
+      >
+        <div className='flex h-16 items-center gap-5'>
         <div className='flex items-center gap-5'>
           <Link href='/' className='inline-flex items-center gap-3 text-gray-900'>
             <svg
@@ -590,22 +609,7 @@ export default function Navbar() {
             </svg>
           </HeaderAction>
 
-          <HeaderAction href='/login' label='Sign In'>
-            <svg
-              className='h-5 w-5'
-              fill='none'
-              stroke='currentColor'
-              viewBox='0 0 24 24'
-              strokeWidth={1.8}
-              aria-hidden='true'
-            >
-              <path
-                strokeLinecap='round'
-                strokeLinejoin='round'
-                d='M20 21a8 8 0 0 0-16 0m8-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'
-              />
-            </svg>
-          </HeaderAction>
+          <UserMenu />
 
           <Link
             href='/cart'
@@ -654,14 +658,64 @@ export default function Navbar() {
             <span>Cart</span>
           </Link>
         </div>
+        </div>
       </div>
 
       <div
         className={`border-y border-gray-200 bg-white ${
-          lastScrollY < 20 ? 'block' : 'hidden'
+          isUserDashboard || lastScrollY < 20 ? 'block' : 'hidden'
         }`}
       >
-        <div className='mx-auto flex h-10 w-full max-w-[1400px] items-center gap-4 px-4 sm:px-6 lg:px-8'>
+        {isUserDashboard ? (
+          <div className='flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 md:px-5'>
+            <h1 className='text-base font-semibold text-slate-900 md:text-lg'>
+              Account Center
+            </h1>
+            <div className='flex items-center gap-2'>
+              <Link
+                className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                aria-label='Notifications'
+                href='/UserBackend/notifications'
+              >
+                <svg
+                  className='h-[18px] w-[18px]'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='1.8'
+                  aria-hidden='true'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    d='M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V10a6 6 0 1 0-12 0v4.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0m6 0H9'
+                  />
+                </svg>
+              </Link>
+              <div className='hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500 md:inline-flex'>
+                <svg
+                  className='h-4 w-4'
+                  viewBox='0 0 24 24'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='1.8'
+                  aria-hidden='true'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    d='M21 21l-4.3-4.3m1.3-5.2a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0'
+                  />
+                </svg>
+                <span>Search account pages</span>
+              </div>
+              <span className='inline-flex h-8 w-8 items-center justify-center rounded-full bg-pink-500 text-sm font-semibold text-white'>
+                O
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className='mx-auto flex h-10 w-full max-w-[1400px] items-center gap-4 px-4 sm:px-6 lg:px-8'>
           <div className='flex shrink-0 items-center gap-2 text-xs text-gray-700'>
             <span className='leading-tight'>
               Your order is at your door in
@@ -751,7 +805,8 @@ export default function Navbar() {
               </svg>
             </button>
           </div>
-        </div>
+          </div>
+        )}
       </div>
 
       <div
@@ -858,11 +913,11 @@ export default function Navbar() {
                           </p>
                           <div className='mt-2 flex items-center gap-2'>
                             <span className='text-xl font-bold leading-none text-[#159a52]'>
-                              ${formatPrice(item.price)}
+                              {formatPrice(item.price)}
                             </span>
                             {item.originalPrice ? (
                               <span className='text-sm font-semibold text-gray-400 line-through'>
-                                ${formatPrice(item.originalPrice)}
+                                {formatPrice(item.originalPrice)}
                               </span>
                             ) : null}
                             {discount ? (

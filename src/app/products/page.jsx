@@ -14,7 +14,8 @@ export default async function ProductsPage({ searchParams }) {
   const search = String(resolvedParams?.search || '').trim()
   const tag = String(resolvedParams?.tag || '').trim()
   const category = String(resolvedParams?.category || '').trim()
-  const items = await fetchProductListing({ page: 1, perPage: 10, search, tag, category })
+  const vendor = String(resolvedParams?.vendor || '').trim()
+  const items = await fetchProductListing({ page: 1, perPage: 10, search, tag, category, vendor })
 
   let title = 'Products'
   let subtitle = ''
@@ -29,6 +30,9 @@ export default async function ProductsPage({ searchParams }) {
     const { parent } = await fetchCategoryWithChildren(category)
     title = String(parent?.name || toReadableName(category))
     subtitle = String(parent?.description || '').trim()
+  } else if (vendor) {
+    title = toReadableName(vendor)
+    subtitle = `Explore items from ${title}`
   }
 
   return (
@@ -36,7 +40,7 @@ export default async function ProductsPage({ searchParams }) {
       products={items}
       title={title}
       subtitle={subtitle}
-      listingQuery={{ category, tag, search }}
+      listingQuery={{ category, tag, search, vendor }}
     />
   )
 }

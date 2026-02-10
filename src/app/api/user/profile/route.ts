@@ -19,6 +19,9 @@ export async function GET(request: NextRequest) {
     profile,
     avatar_url: metadata.avatar_url || '',
     email: data.user.email || '',
+    linkedProviders: Array.isArray(data.user.app_metadata?.providers)
+      ? data.user.app_metadata.providers
+      : [],
     hasSecurityAnswer: Boolean(metadata.security_answer_hash),
   })
   applyCookies(response)
@@ -46,13 +49,35 @@ export async function PATCH(request: NextRequest) {
   }
 
   const metadata = data.user.user_metadata || {}
+  const existingProfile = metadata.profile || {}
   const nextProfile = {
     ...parsed.data,
-    contactInfo: parsed.data.contactInfo || {},
-    deliveryAddress: parsed.data.deliveryAddress || {},
+    contactInfo: parsed.data.contactInfo || existingProfile.contactInfo || {},
+    deliveryAddress:
+      parsed.data.deliveryAddress || existingProfile.deliveryAddress || {},
+    addresses: parsed.data.addresses || existingProfile.addresses || [],
     security: {
-      recoveryEmail: parsed.data.security?.recoveryEmail || '',
-      question: parsed.data.security?.question || '',
+      ...(existingProfile.security || {}),
+      recoveryEmail:
+        parsed.data.security?.recoveryEmail ??
+        existingProfile.security?.recoveryEmail ??
+        '',
+      question:
+        parsed.data.security?.question ??
+        existingProfile.security?.question ??
+        '',
+      phoneNumber:
+        parsed.data.security?.phoneNumber ??
+        existingProfile.security?.phoneNumber ??
+        '',
+      twoStepMethod:
+        parsed.data.security?.twoStepMethod ||
+        existingProfile.security?.twoStepMethod ||
+        'none',
+      recoveryCodesGeneratedAt:
+        parsed.data.security?.recoveryCodesGeneratedAt ??
+        existingProfile.security?.recoveryCodesGeneratedAt ??
+        '',
     },
   }
 

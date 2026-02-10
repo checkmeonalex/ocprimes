@@ -69,9 +69,10 @@ export const getSeedProducts = () => SEED_PRODUCTS
 export const findSeedProduct = (slug) =>
   SEED_PRODUCTS.find((item) => item.slug === slug)
 
-export const filterSeedProducts = ({ search = '', category = '' } = {}) => {
+export const filterSeedProducts = ({ search = '', category = '', vendor = '' } = {}) => {
   const searchTerm = search ? String(search).toLowerCase() : ''
   const categorySlug = category ? slugify(category) : ''
+  const vendorSlug = vendor ? slugify(vendor) : ''
 
   return SEED_PRODUCTS.filter((item) => {
     if (categorySlug) {
@@ -79,6 +80,10 @@ export const filterSeedProducts = ({ search = '', category = '' } = {}) => {
         (cat) => cat?.slug === categorySlug,
       )
       if (!matchesCategory) return false
+    }
+    if (vendorSlug) {
+      const matchesVendor = item.brands?.some((brand) => brand?.slug === vendorSlug)
+      if (!matchesVendor) return false
     }
     if (!searchTerm) return true
     return (

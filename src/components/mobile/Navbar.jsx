@@ -2,13 +2,13 @@
 'use client'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { useSidebar } from '../../context/SidebarContext'
 import dynamic from 'next/dynamic'
 import { useCart } from '../../context/CartContext'
-import { useIpLocation } from '../../hooks/useIpLocation'
 import { fetchCategoriesData } from '../data/categoriesMenuData.ts'
+import { useAuthUser } from '../../lib/auth/useAuthUser.ts'
 
 // Lazy load CategoriesMenu since it's not immediately visible
 const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
@@ -17,15 +17,22 @@ const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
 
 function MobileNavbar() {
   const router = useRouter()
+  const pathname = usePathname()
   const { isOpen, toggleSidebar } = useSidebar()
   const { summary } = useCart()
-  const { locationLabel } = useIpLocation()
+  const { user } = useAuthUser()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const [recentSearches, setRecentSearches] = useState([])
   const [mobileCategories, setMobileCategories] = useState([])
+  const [activeMobileCategoryId, setActiveMobileCategoryId] = useState(null)
+  const [isSecondBarVisible, setIsSecondBarVisible] = useState(true)
   const searchRef = useRef(null)
+  const accountMenuRef = useRef(null)
+  const lastScrollYRef = useRef(0)
+  const attemptedSearchImageTermsRef = useRef(new Set())
 
   const popularSearches = [
     'high quality men clothes',
@@ -61,6 +68,7 @@ function MobileNavbar() {
 
   useEffect(() => {
     if (!isSearchOpen) return
+    attemptedSearchImageTermsRef.current.clear()
     try {
       const stored = window.localStorage.getItem('ocp_recent_searches')
       if (stored) {
@@ -87,8 +95,18 @@ function MobileNavbar() {
 
   useEffect(() => {
     if (!isSearchOpen || !recentSearches.length) return
-    const missing = recentSearches.filter((item) => !item.image).slice(0, 6)
+    const missing = recentSearches
+      .filter(
+        (item) =>
+          !item.image &&
+          item.term &&
+          !attemptedSearchImageTermsRef.current.has(item.term),
+      )
+      .slice(0, 6)
     if (!missing.length) return
+
+    let cancelled = false
+
     const fetchFirstSearchImage = async (term) => {
       try {
         const response = await fetch(
@@ -113,10 +131,21 @@ function MobileNavbar() {
         image: (await fetchFirstSearchImage(item.term)) || '',
       })),
     ).then((updates) => {
-      const next = recentSearches.map((item) => {
-        const match = updates.find((update) => update.term === item.term)
-        return match && match.image ? { ...item, image: match.image } : item
+      if (cancelled) return
+      missing.forEach((item) => {
+        attemptedSearchImageTermsRef.current.add(item.term)
       })
+      const resolved = updates.filter((update) => update.image)
+      if (!resolved.length) return
+
+      const resolvedMap = new Map(resolved.map((item) => [item.term, item.image]))
+      const next = recentSearches.map((item) => {
+        const image = resolvedMap.get(item.term)
+        return image ? { ...item, image } : item
+      })
+      const changed = next.some((item, index) => item.image !== recentSearches[index]?.image)
+      if (!changed) return
+
       setRecentSearches(next)
       try {
         window.localStorage.setItem('ocp_recent_searches', JSON.stringify(next))
@@ -124,6 +153,9 @@ function MobileNavbar() {
         // ignore storage errors
       }
     })
+    return () => {
+      cancelled = true
+    }
   }, [isSearchOpen, recentSearches])
 
   useEffect(() => {
@@ -141,6 +173,68 @@ function MobileNavbar() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    const SHOW_AT_Y = 80
+    const HIDE_AFTER_Y = 140
+
+    const handleScroll = () => {
+      const rawY =
+        window.scrollY ||
+        window.pageYOffset ||
+        document.documentElement.scrollTop ||
+        0
+      const currentY = Math.max(0, rawY)
+      const scrollingUp = currentY < lastScrollYRef.current
+
+      if (currentY <= SHOW_AT_Y || scrollingUp) {
+        setIsSecondBarVisible(true)
+      } else if (currentY >= HIDE_AFTER_Y) {
+        setIsSecondBarVisible(false)
+      }
+
+      lastScrollYRef.current = currentY
+    }
+
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  useEffect(() => {
+    const rawY =
+      window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0
+    const currentY = Math.max(0, rawY)
+    lastScrollYRef.current = currentY
+    if (currentY <= 80) {
+      setIsSecondBarVisible(true)
+    }
+    setIsAccountMenuOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    if (!isAccountMenuOpen) return undefined
+
+    const handlePointerDown = (event) => {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target)) {
+        setIsAccountMenuOpen(false)
+      }
+    }
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setIsAccountMenuOpen(false)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isAccountMenuOpen])
 
   const persistRecentSearches = (next) => {
     setRecentSearches(next)
@@ -172,18 +266,32 @@ function MobileNavbar() {
     setIsCategoriesOpen((prev) => !prev)
   }, [])
 
+  const handleCategoryListClick = useCallback((categoryId) => {
+    setActiveMobileCategoryId(categoryId || null)
+    setIsCategoriesOpen(true)
+  }, [])
+
   const handleSearchToggle = useCallback(() => {
     setIsSearchOpen((prev) => !prev)
   }, [])
 
+  const closeAccountMenu = () => setIsAccountMenuOpen(false)
+
+  const handleAccountSignOut = async () => {
+    await fetch('/api/auth/signout', { method: 'POST' })
+    closeAccountMenu()
+    router.refresh()
+    router.push('/login')
+  }
+
   return (
     <>
       {/* Main Mobile Navbar */}
-      <nav className='fixed top-0 left-0 right-0 bg-white shadow-sm border-b border-gray-200 z-50 lg:hidden'>
+      <nav className='fixed top-0 left-0 right-0 isolate bg-white shadow-sm border-b border-gray-200 z-[2147483000] lg:hidden'>
         <div className='px-4'>
           <div className='flex items-center justify-between h-14'>
             {/* Updated hamburger button with active state */}
-            <div className='flex items-center space-x-3'>
+            <div className='flex items-center space-x-1'>
               <button
                 onClick={toggleSidebar}
                 className={`p-2 rounded-lg transition-all duration-200 ${
@@ -207,11 +315,11 @@ function MobileNavbar() {
                       d='M6 18L18 6M6 6l12 12'
                     />
                   ) : (
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      d='M4 6h16M4 12h16M4 18h16'
-                    />
+                    <>
+                      <path d='M4 7C4 6.44771 4.44772 6 5 6H24C24.5523 6 25 6.44771 25 7C25 7.55229 24.5523 8 24 8H5C4.44772 8 4 7.55229 4 7Z' fill='currentColor' stroke='none' />
+                      <path d='M4 13.9998C4 13.4475 4.44772 12.9997 5 12.9997L16 13C16.5523 13 17 13.4477 17 14C17 14.5523 16.5523 15 16 15L5 14.9998C4.44772 14.9998 4 14.552 4 13.9998Z' fill='currentColor' stroke='none' />
+                      <path d='M5 19.9998C4.44772 19.9998 4 20.4475 4 20.9998C4 21.552 4.44772 21.9997 5 21.9997H22C22.5523 21.9997 23 21.552 23 20.9998C23 20.4475 22.5523 19.9998 22 19.9998H5Z' fill='currentColor' stroke='none' />
+                    </>
                   )}
                 </svg>
               </button>
@@ -222,16 +330,44 @@ function MobileNavbar() {
               </Link>
             </div>
 
-            {/* Center section - Empty for spacing */}
-            <div className='flex-1'></div>
-
-            {/* Right section - Search and Cart */}
-            <div className='flex items-center space-x-2'>
-              {/* Search Button */}
+            {/* Center section - Search bar trigger */}
+            <div className='mx-2 min-w-0 flex-1 max-[374px]:hidden'>
               <button
+                type='button'
                 onClick={handleSearchToggle}
-                className='p-2 text-gray-700 hover:text-gray-900 transition-colors'
-                aria-label='Toggle search'
+                className='flex h-10 w-full items-center justify-between rounded-full border-2 border-gray-500 bg-white pl-3 pr-1'
+                aria-label='Open search'
+              >
+                <span className='truncate text-sm text-gray-500'>
+                  {searchValue?.trim() ? searchValue : 'Search everything...'}
+                </span>
+                <span className='inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-900 text-white'>
+                  <svg
+                    className='h-5 w-5'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                    strokeWidth={2}
+                    aria-hidden='true'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      d='M21 21l-4.3-4.3m1.3-5.2a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0'
+                    />
+                  </svg>
+                </span>
+              </button>
+            </div>
+
+            {/* Right section - Account and Cart */}
+            <div className='flex items-center space-x-1'>
+              {/* Search Button (extra-small screens) */}
+              <button
+                type='button'
+                onClick={handleSearchToggle}
+                className='hidden p-1 text-gray-700 transition-colors hover:text-gray-900 max-[374px]:inline-flex'
+                aria-label='Open search'
               >
                 <svg
                   className='h-6 w-6'
@@ -239,6 +375,7 @@ function MobileNavbar() {
                   stroke='currentColor'
                   viewBox='0 0 24 24'
                   strokeWidth={2}
+                  aria-hidden='true'
                 >
                   <path
                     strokeLinecap='round'
@@ -248,10 +385,142 @@ function MobileNavbar() {
                 </svg>
               </button>
 
+              {/* Account */}
+              <div className='relative' ref={accountMenuRef}>
+                <button
+                  type='button'
+                  onClick={() => setIsAccountMenuOpen((prev) => !prev)}
+                  className='p-2 text-gray-700 hover:text-gray-900 transition-colors'
+                  aria-label='Account'
+                  aria-haspopup='menu'
+                  aria-expanded={isAccountMenuOpen}
+                >
+                  <svg
+                    className='h-6 w-6'
+                    fill='none'
+                    stroke='currentColor'
+                    viewBox='0 0 24 24'
+                    strokeWidth={2}
+                    aria-hidden='true'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      d='M20 21a8 8 0 1 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z'
+                    />
+                  </svg>
+                </button>
+
+                {isAccountMenuOpen ? (
+                  <div className='absolute right-0 top-[calc(100%+0.6rem)] z-[2147483001] w-56 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg'>
+                    {user ? (
+                      <>
+                        <Link
+                          href='/UserBackend'
+                          onClick={closeAccountMenu}
+                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50'
+                        >
+                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M4 6h16v12H4z' />
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M9 11h6M9 15h4' />
+                          </svg>
+                          Account center
+                        </Link>
+                        <Link
+                          href='/UserBackend/profile'
+                          onClick={closeAccountMenu}
+                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                        >
+                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M20 21a8 8 0 1 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z' />
+                          </svg>
+                          Profile
+                        </Link>
+                        <Link
+                          href='/UserBackend/orders'
+                          onClick={closeAccountMenu}
+                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                        >
+                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                            <rect x='4' y='5' width='16' height='14' rx='2' />
+                            <path strokeLinecap='round' d='M8 9h8M8 13h5' />
+                          </svg>
+                          Orders
+                        </Link>
+                        <Link
+                          href='/UserBackend/wishlist'
+                          onClick={closeAccountMenu}
+                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                        >
+                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M12 20s-5.5-3.7-7.4-6.7C2.3 9.7 4.4 5.5 8 5.5c1.8 0 3 .9 4 2.2 1-1.3 2.2-2.2 4-2.2 3.6 0 5.7 4.2 3.4 7.8C17.5 16.3 12 20 12 20z' />
+                          </svg>
+                          Wishlist
+                        </Link>
+                        <Link
+                          href='/UserBackend/notifications'
+                          onClick={closeAccountMenu}
+                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                        >
+                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5' />
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M9 18v.5a3 3 0 0 0 6 0V18' />
+                          </svg>
+                          Help center
+                        </Link>
+                        <button
+                          type='button'
+                          onClick={handleAccountSignOut}
+                          className='mt-1 flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50'
+                        >
+                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M16 17l5-5-5-5M21 12H9M12 19H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6' />
+                          </svg>
+                          Sign out
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          href='/login'
+                          onClick={closeAccountMenu}
+                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50'
+                        >
+                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M16 17l5-5-5-5M21 12H9M12 19H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6' />
+                          </svg>
+                          Login
+                        </Link>
+                        <Link
+                          href='/signup'
+                          onClick={closeAccountMenu}
+                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                        >
+                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M12 5v14M5 12h14' />
+                          </svg>
+                          New customer
+                        </Link>
+                        <Link
+                          href='/UserBackend/notifications'
+                          onClick={closeAccountMenu}
+                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                        >
+                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M12 4v8m0 4h.01M5.5 20h13a1 1 0 0 0 .9-1.4L13.9 6.6a2 2 0 0 0-3.8 0L4.6 18.6a1 1 0 0 0 .9 1.4z' />
+                          </svg>
+                          Help center
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+
               {/* Cart */}
               <Link
                 href='/cart'
-                className='p-2 text-gray-700 hover:text-gray-900 transition-colors relative'
+                className='text-gray-700 hover:text-gray-900 transition-colors relative'
                 aria-label='Shopping cart'
               >
                 <svg
@@ -299,75 +568,92 @@ function MobileNavbar() {
         </div>
 
         {/* Top Navigation Bar */}
-        <div className='bg-white border-b border-gray-200'>
+        <div
+          className={`overflow-hidden border-b border-gray-200 bg-white transition-all duration-300 ${
+            isSecondBarVisible
+              ? 'max-h-16 translate-y-0 opacity-100'
+              : 'max-h-0 -translate-y-2 opacity-0'
+          }`}
+        >
           <div className='px-4 py-2'>
-            <div className='flex items-center space-x-6 overflow-x-auto'>
-              <button
-                onClick={handleCategoriesClick}
-                className='text-sm font-medium text-gray-900 border-b-2 border-red-500 pb-2 whitespace-nowrap flex items-center gap-2'
-                aria-label='Toggle categories'
+            <div className='flex items-center gap-3'>
+              <div className='min-w-0 flex-1 overflow-x-auto'>
+                <div className='flex items-center space-x-6'>
+                  <button
+                    onClick={handleCategoriesClick}
+                    className='text-sm font-medium text-gray-900 border-b-2 border-red-500 pb-2 whitespace-nowrap flex items-center gap-2'
+                    aria-label='Toggle categories'
+                  >
+                    <svg
+                      className='h-5 w-5'
+                      fill='none'
+                      stroke='currentColor'
+                      viewBox='0 0 24 24'
+                      strokeWidth='2'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        d='M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z'
+                      ></path>
+                    </svg>
+                  </button>
+                  {mobileCategories.map((item) => (
+                    <button
+                      key={item.id}
+                      type='button'
+                      onClick={() => handleCategoryListClick(item.id)}
+                      className='text-sm text-gray-600 hover:text-gray-900 pb-2 whitespace-nowrap'
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Link
+                href='/products'
+                className='inline-flex shrink-0 items-center gap-1 whitespace-nowrap pb-2 text-sm font-semibold text-gray-900 hover:text-gray-600'
               >
                 <svg
                   className='h-5 w-5'
-                  fill='none'
-                  stroke='currentColor'
                   viewBox='0 0 24 24'
-                  strokeWidth='2'
+                  fill='none'
+                  xmlns='http://www.w3.org/2000/svg'
+                  aria-hidden='true'
                 >
                   <path
+                    d='M19.5617 7C19.7904 5.69523 18.7863 4.5 17.4617 4.5H6.53788C5.21323 4.5 4.20922 5.69523 4.43784 7'
+                    stroke='#b80000'
+                    strokeWidth='1.5'
+                  />
+                  <path
+                    d='M17.4999 4.5C17.5283 4.24092 17.5425 4.11135 17.5427 4.00435C17.545 2.98072 16.7739 2.12064 15.7561 2.01142C15.6497 2 15.5194 2 15.2588 2H8.74099C8.48035 2 8.35002 2 8.24362 2.01142C7.22584 2.12064 6.45481 2.98072 6.45704 4.00434C6.45727 4.11135 6.47146 4.2409 6.49983 4.5'
+                    stroke='#b80000'
+                    strokeWidth='1.5'
+                  />
+                  <path
+                    d='M21.1935 16.793C20.8437 19.2739 20.6689 20.5143 19.7717 21.2572C18.8745 22 17.5512 22 14.9046 22H9.09536C6.44881 22 5.12553 22 4.22834 21.2572C3.33115 20.5143 3.15626 19.2739 2.80648 16.793L2.38351 13.793C1.93748 10.6294 1.71447 9.04765 2.66232 8.02383C3.61017 7 5.29758 7 8.67239 7H15.3276C18.7024 7 20.3898 7 21.3377 8.02383C22.0865 8.83268 22.1045 9.98979 21.8592 12'
+                    stroke='#b80000'
+                    strokeWidth='1.5'
                     strokeLinecap='round'
-                    strokeLinejoin='round'
-                    d='M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z'
-                  ></path>
+                  />
+                  <path
+                    d='M14.5812 13.6159C15.1396 13.9621 15.1396 14.8582 14.5812 15.2044L11.2096 17.2945C10.6669 17.6309 10 17.1931 10 16.5003L10 12.32C10 11.6273 10.6669 11.1894 11.2096 11.5258L14.5812 13.6159Z'
+                    stroke='#b80000'
+                    strokeWidth='1.5'
+                  />
                 </svg>
-              </button>
-              {mobileCategories.map((item) => (
-                <Link
-                  key={item.id}
-                  href={
-                    item.slug
-                      ? `/products/${encodeURIComponent(item.slug)}`
-                      : '/products'
-                  }
-                  className='text-sm text-gray-600 hover:text-gray-900 pb-2 whitespace-nowrap'
-                >
-                  {item.name}
-                </Link>
-              ))}
+                <span>PLAY</span>
+              </Link>
             </div>
           </div>
         </div>
 
-        {/* Location Bar */}
-        <div className='bg-gray-50 border-b border-gray-200'>
-          <div className='px-4 py-2'>
-            <div className='flex items-center gap-3 text-gray-700'>
-              <svg className='h-4 w-4' fill='currentColor' viewBox='0 0 24 24'>
-                <path d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z' />
-              </svg>
-              <div className='flex items-center justify-between w-full'>
-                <div className='flex flex-col leading-tight'>
-                  <span className='text-xs font-medium'>Shipping to</span>
-                  <span className='text-[11px] text-gray-500'>
-                    {locationLabel || 'Select a mode'}
-                  </span>
-                </div>
-                <svg
-                  className='h-4 w-4'
-                  fill='currentColor'
-                  viewBox='0 0 24 24'
-                >
-                  <path d='M7 10l5 5 5-5z' />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
       </nav>
 
       {/* Search Overlay - Only render when open */}
       {isSearchOpen && (
-        <div className='fixed inset-0 bg-black bg-opacity-50 z-50 lg:hidden'>
+        <div className='fixed inset-0 bg-black bg-opacity-50 z-[2147483100] lg:hidden'>
           <div className='bg-white'>
             <div className='px-4 py-3 border-b border-gray-200'>
               <div className='flex items-center space-x-3' ref={searchRef}>
@@ -390,11 +676,11 @@ function MobileNavbar() {
                     />
                   </svg>
                 </button>
-                <div className='flex-1 relative'>
+                <div className='relative flex-1'>
                   <input
                     type='text'
                     placeholder='Search OCPRIMES'
-                    className='w-full pl-4 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent'
+                    className='h-12 w-full rounded-xl border-2 border-gray-900 bg-white pl-4 pr-14 text-base text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-black'
                     autoFocus
                     value={searchValue}
                     onChange={(event) => setSearchValue(event.target.value)}
@@ -406,12 +692,12 @@ function MobileNavbar() {
                     }}
                   />
                   <button
-                    className='absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400'
+                    className='absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-gray-900 text-white'
                     onClick={() => void handleSearchSubmit(searchValue)}
                     aria-label='Search'
                   >
                     <svg
-                      className='h-6 w-6'
+                      className='h-5 w-5'
                       fill='none'
                       stroke='currentColor'
                       viewBox='0 0 24 24'
@@ -535,7 +821,7 @@ function MobileNavbar() {
       {/* Sidebar Overlay - Only render when open */}
       {isOpen && (
         <div
-          className='fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden'
+          className='fixed inset-0 bg-black bg-opacity-50 z-[2147482990] lg:hidden'
           onClick={toggleSidebar}
         />
       )}
@@ -545,6 +831,7 @@ function MobileNavbar() {
         <CategoriesMenu
           isOpen={isCategoriesOpen}
           onClose={() => setIsCategoriesOpen(false)}
+          initialActiveCategoryId={activeMobileCategoryId}
         />
       )}
     </>

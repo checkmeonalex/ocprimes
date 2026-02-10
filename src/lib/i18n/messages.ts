@@ -1,0 +1,149 @@
+import type { LanguageCode } from '@/lib/i18n/locale-config'
+
+export const MENU_LABEL_KEY_BY_LABEL: Record<string, MessageKey> = {
+  Notifications: 'menu.notifications',
+  'Your profile': 'menu.profile',
+  'Your orders': 'menu.orders',
+  Wishlist: 'menu.wishlist',
+  'Your reviews': 'menu.reviews',
+  'Browsing history': 'menu.history',
+  'Followed stores': 'menu.followedStores',
+  Addresses: 'menu.addresses',
+  'Account & security': 'menu.accountSecurity',
+}
+
+const EN_MESSAGES = {
+  'account.title': 'Account',
+  'account.center': 'Account Center',
+  'account.yourAccount': 'Your account',
+  'auth.signIn': 'Sign in',
+  'auth.createAccount': 'Create account',
+  'auth.notSignedIn': 'You are not signed in.',
+  'auth.logout': 'Logout',
+  'auth.requestAdmin': 'Request admin access',
+  'auth.submitting': 'Submitting...',
+  'menu.notifications': 'Notifications',
+  'menu.profile': 'Your profile',
+  'menu.orders': 'Your orders',
+  'menu.wishlist': 'Wishlist',
+  'menu.reviews': 'Your reviews',
+  'menu.history': 'Browsing history',
+  'menu.followedStores': 'Followed stores',
+  'menu.addresses': 'Addresses',
+  'menu.accountSecurity': 'Account & security',
+  'menu.savedItems': 'Saved Items',
+  'menu.editProfile': 'Edit Profile',
+  'menu.shopAccess': 'Shop Access',
+  'locale.shipTo': 'Ship to',
+  'locale.language': 'Language',
+  'locale.currency': 'Currency',
+  'locale.save': 'Save',
+  'locale.back': 'Back',
+  'locale.saving': 'Saving...',
+  'locale.preferencesUpdated': 'Preferences updated.',
+  'home.message': 'Message',
+  'home.orders': 'Orders',
+  'home.shop': 'Shop',
+  'home.locationNotSet': 'Location not set',
+  'profile.title': 'Profile',
+  'profile.manage': 'Manage your personal information.',
+  'common.loading': 'Loading...',
+  'common.saveChanges': 'Save changes',
+} as const
+
+const FR_MESSAGES: Partial<Record<MessageKey, string>> = {
+  'account.title': 'Compte',
+  'account.center': 'Centre de compte',
+  'account.yourAccount': 'Votre compte',
+  'auth.signIn': 'Se connecter',
+  'auth.createAccount': 'Créer un compte',
+  'auth.notSignedIn': 'Vous n\'êtes pas connecté.',
+  'auth.logout': 'Se déconnecter',
+  'auth.requestAdmin': 'Demander un accès administrateur',
+  'auth.submitting': 'Envoi...',
+  'menu.notifications': 'Notifications',
+  'menu.profile': 'Votre profil',
+  'menu.orders': 'Vos commandes',
+  'menu.wishlist': 'Liste de souhaits',
+  'menu.reviews': 'Vos avis',
+  'menu.history': 'Historique de navigation',
+  'menu.followedStores': 'Boutiques suivies',
+  'menu.addresses': 'Adresses',
+  'menu.accountSecurity': 'Compte et sécurité',
+  'menu.savedItems': 'Articles sauvegardés',
+  'menu.editProfile': 'Modifier le profil',
+  'menu.shopAccess': 'Accès boutique',
+  'locale.shipTo': 'Livrer à',
+  'locale.language': 'Langue',
+  'locale.currency': 'Devise',
+  'locale.save': 'Enregistrer',
+  'locale.back': 'Retour',
+  'locale.saving': 'Enregistrement...',
+  'locale.preferencesUpdated': 'Préférences mises à jour.',
+  'home.message': 'Messages',
+  'home.orders': 'Commandes',
+  'home.shop': 'Boutique',
+  'home.locationNotSet': 'Emplacement non défini',
+  'profile.title': 'Profil',
+  'profile.manage': 'Gérez vos informations personnelles.',
+  'common.loading': 'Chargement...',
+  'common.saveChanges': 'Enregistrer les modifications',
+}
+
+const AR_MESSAGES: Partial<Record<MessageKey, string>> = {
+  'account.title': 'الحساب',
+  'account.center': 'مركز الحساب',
+  'account.yourAccount': 'حسابك',
+  'auth.signIn': 'تسجيل الدخول',
+  'auth.createAccount': 'إنشاء حساب',
+  'auth.notSignedIn': 'أنت غير مسجّل الدخول.',
+  'auth.logout': 'تسجيل الخروج',
+  'auth.requestAdmin': 'طلب صلاحية مشرف',
+  'auth.submitting': 'جارٍ الإرسال...',
+  'menu.notifications': 'الإشعارات',
+  'menu.profile': 'ملفك الشخصي',
+  'menu.orders': 'طلباتك',
+  'menu.wishlist': 'المفضلة',
+  'menu.reviews': 'مراجعاتك',
+  'menu.history': 'سجل التصفح',
+  'menu.followedStores': 'المتاجر المتابعة',
+  'menu.addresses': 'العناوين',
+  'menu.accountSecurity': 'الحساب والأمان',
+  'menu.savedItems': 'العناصر المحفوظة',
+  'menu.editProfile': 'تعديل الملف',
+  'menu.shopAccess': 'دخول المتجر',
+  'locale.shipTo': 'الشحن إلى',
+  'locale.language': 'اللغة',
+  'locale.currency': 'العملة',
+  'locale.save': 'حفظ',
+  'locale.back': 'رجوع',
+  'locale.saving': 'جارٍ الحفظ...',
+  'locale.preferencesUpdated': 'تم تحديث التفضيلات.',
+  'home.message': 'الرسائل',
+  'home.orders': 'الطلبات',
+  'home.shop': 'المتجر',
+  'home.locationNotSet': 'الموقع غير محدد',
+  'profile.title': 'الملف الشخصي',
+  'profile.manage': 'إدارة معلوماتك الشخصية.',
+  'common.loading': 'جارٍ التحميل...',
+  'common.saveChanges': 'حفظ التغييرات',
+}
+
+export type MessageKey = keyof typeof EN_MESSAGES
+
+const MESSAGES_BY_LANGUAGE: Record<LanguageCode, Partial<Record<MessageKey, string>>> = {
+  EN: EN_MESSAGES,
+  FR: FR_MESSAGES,
+  AR: AR_MESSAGES,
+}
+
+export const translateMessage = (language: LanguageCode, key: MessageKey, fallback?: string) => {
+  const byLanguage = MESSAGES_BY_LANGUAGE[language]
+  return byLanguage[key] || EN_MESSAGES[key] || fallback || key
+}
+
+export const translateMenuLabel = (label: string, language: LanguageCode) => {
+  const key = MENU_LABEL_KEY_BY_LABEL[label]
+  if (!key) return label
+  return translateMessage(language, key, label)
+}

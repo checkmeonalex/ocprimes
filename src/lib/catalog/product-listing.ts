@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 
-const buildProductsUrl = async ({ category, tag, page, perPage, search }) => {
+const buildProductsUrl = async ({ category, tag, vendor, page, perPage, search }) => {
   const host = (await headers()).get('host') || 'localhost:3000'
   const protocol = host.includes('localhost') ? 'http' : 'https'
   const params = new URLSearchParams({
@@ -17,6 +17,9 @@ const buildProductsUrl = async ({ category, tag, page, perPage, search }) => {
   if (search) {
     params.set('search', search)
   }
+  if (vendor) {
+    params.set('vendor', vendor)
+  }
 
   return `${protocol}://${host}/api/products?${params.toString()}`
 }
@@ -24,12 +27,13 @@ const buildProductsUrl = async ({ category, tag, page, perPage, search }) => {
 export const fetchProductListing = async ({
   category = '',
   tag = '',
+  vendor = '',
   page = 1,
   perPage = 12,
   search = '',
 } = {}) => {
   const response = await fetch(
-    await buildProductsUrl({ category, tag, page, perPage, search }),
+    await buildProductsUrl({ category, tag, vendor, page, perPage, search }),
     {
     cache: 'no-store',
     },

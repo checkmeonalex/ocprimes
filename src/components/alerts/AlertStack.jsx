@@ -1,6 +1,7 @@
 'use client'
 
 import { useAlerts } from '@/context/AlertContext'
+import { usePathname } from 'next/navigation'
 
 const typeStyles = {
   success: 'ios-alert--success',
@@ -18,11 +19,19 @@ const dotStyles = {
 
 export default function AlertStack() {
   const { alerts, confirmations, removeAlert, resolveConfirm } = useAlerts()
+  const pathname = usePathname()
+  const isUserBackendRoute = pathname?.startsWith('/UserBackend')
 
   if (!alerts.length && !confirmations.length) return null
 
   return (
-    <div className='fixed top-3 left-1/2 z-[100] flex w-[min(94vw,420px)] -translate-x-1/2 flex-col gap-2.5'>
+    <div
+      className={`fixed left-1/2 z-[1300] flex w-[min(94vw,420px)] -translate-x-1/2 flex-col gap-2.5 ${
+        isUserBackendRoute
+          ? 'top-[calc(env(safe-area-inset-top)+4rem)] lg:top-3'
+          : 'top-3'
+      }`}
+    >
       {confirmations.map((item) => (
         <div
           key={item.id}
