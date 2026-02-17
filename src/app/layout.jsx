@@ -8,6 +8,7 @@ import AlertStack from '../components/alerts/AlertStack'
 import { WishlistProvider } from '../context/WishlistContext'
 import WishlistSaveModal from '../components/wishlist/WishlistSaveModal'
 import { UserLocaleProvider } from '../context/UserLocaleContext'
+import { Suspense } from 'react'
 
 export const metadata = {
   title: 'OcPrimes',
@@ -22,7 +23,9 @@ export default function RootLayout({ children }) {
             <SidebarProvider>
               <CartProvider>
                 <WishlistProvider>
-                  <ClientLayout>{children}</ClientLayout>
+                  <Suspense fallback={<main className='min-h-screen'>{children}</main>}>
+                    <ClientLayout>{children}</ClientLayout>
+                  </Suspense>
                   <WishlistSaveModal />
                 </WishlistProvider>
               </CartProvider>
@@ -34,7 +37,6 @@ export default function RootLayout({ children }) {
     </html>
   )
 }
-
 
 
 

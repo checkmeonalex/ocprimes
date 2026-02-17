@@ -22,6 +22,10 @@ export const updateTaxonomySchema = createTaxonomySchema.extend({
   id: z.string().uuid(),
 })
 
+export const deleteTaxonomySchema = z.object({
+  id: z.string().uuid(),
+})
+
 export const buildSlug = (value: string) => {
   const slug = value
     .trim()

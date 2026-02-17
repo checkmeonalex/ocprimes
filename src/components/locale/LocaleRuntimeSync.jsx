@@ -26,6 +26,9 @@ export default function LocaleRuntimeSync() {
     }
 
     const syncFromProfile = async () => {
+      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/backend/admin')) {
+        return
+      }
       try {
         const response = await fetch('/api/user/profile', { method: 'GET' })
         if (!response.ok) return

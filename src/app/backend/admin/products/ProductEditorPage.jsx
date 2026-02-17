@@ -2,6 +2,18 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import ProductPreviewModal from './ProductPreviewModal';
+import AdminSidebar from '@/components/AdminSidebar';
+
+function ProductEditorDesktopLayout({ children }) {
+  return (
+    <div className="min-h-screen bg-slate-50 lg:flex">
+      <div className="hidden lg:block">
+        <AdminSidebar />
+      </div>
+      <main className="min-w-0 flex-1">{children}</main>
+    </div>
+  );
+}
 
 function ProductEditorPage() {
   const params = useParams();
@@ -60,24 +72,26 @@ function ProductEditorPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-50 px-6 py-10">
-        <div className="mx-auto w-full max-w-3xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <h1 className="text-lg font-semibold text-slate-900">Product editor</h1>
-          <p className="mt-3 text-sm text-slate-500">{error}</p>
-          <button
-            type="button"
-            onClick={() => router.push('/backend/admin/products')}
-            className="mt-6 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500"
-          >
-            Back to products
-          </button>
+      <ProductEditorDesktopLayout>
+        <div className="px-6 py-10">
+          <div className="mx-auto w-full max-w-3xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+            <h1 className="text-lg font-semibold text-slate-900">Product editor</h1>
+            <p className="mt-3 text-sm text-slate-500">{error}</p>
+            <button
+              type="button"
+              onClick={() => router.push('/backend/admin/products')}
+              className="mt-6 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500"
+            >
+              Back to products
+            </button>
+          </div>
         </div>
-      </div>
+      </ProductEditorDesktopLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <ProductEditorDesktopLayout>
       {isLoading && (
         <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">
           Loading product...
@@ -93,7 +107,7 @@ function ProductEditorPage() {
           mode="page"
         />
       )}
-    </div>
+    </ProductEditorDesktopLayout>
   );
 }
 

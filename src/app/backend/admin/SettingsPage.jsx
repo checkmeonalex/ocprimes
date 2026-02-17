@@ -1,1258 +1,1271 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  fetchConnector,
-  getHostname,
-  normalizeWpUrl,
-  pickSiteForUrl,
-  readStoredSiteId,
-  readStoredSiteInfo,
-} from '../../../utils/connector';
-import AdminSidebar from '@/components/AdminSidebar';
-import { CURRENCY_OPTIONS } from '@/lib/i18n/locale-config';
-import { DEFAULT_UNIT_PER_USD } from '@/lib/i18n/exchange-rates';
+'use client'
 
-const JOB_TITLE_META_KEY = process.env.REACT_APP_WP_JOB_TITLE_META_KEY || 'job_title';
-const WHATSAPP_META_KEY = process.env.REACT_APP_WP_WHATSAPP_META_KEY || 'whatsapp_number';
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import AdminSidebar from '@/components/AdminSidebar'
+import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
+import { toProfileIdentity, writeProfileIdentityCache } from '@/lib/user/profile-identity-cache'
 
-const toInputValue = (value) => (typeof value === 'string' ? value : value ? String(value) : '');
+const navItems = [
+  { id: 'profile', label: 'Profile' },
+  { id: 'security', label: 'Security' },
+  { id: 'social', label: 'Social profile' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'delete', label: 'Delete account' },
+]
 
-const formatDisplayValue = (value) => {
-  if (value === null || value === undefined) return '--';
-  const text = String(value).trim();
-  return text ? text : '--';
-};
+const mobileMenuItems = [
+  { label: 'Notifications', href: '/backend/admin/notifications', icon: 'notifications' },
+  { label: 'Reviews', href: '/backend/admin/reviews', icon: 'reviews' },
+  { label: 'Store front', href: '/backend/admin/store-front', icon: 'storefront' },
+  { label: 'Attributes', href: '/backend/admin/attributes', icon: 'attributes' },
+  { label: 'Tags', href: '/backend/admin/tags', icon: 'tags' },
+  { label: 'Library', href: '/backend/admin/library', icon: 'library' },
+  { label: 'Shortcut', href: '/backend/admin/shortcut', icon: 'settings' },
+]
 
-const formatDate = (value) => {
-  if (!value) return '--';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return formatDisplayValue(value);
-  return parsed.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-};
+const mobileSupportItems = [
+  { label: 'Contact Us', href: '#', icon: 'contact' },
+  { label: 'Terms & condition', href: '#', icon: 'terms' },
+  { label: 'Privacy Policy', href: '#', icon: 'privacy' },
+  { label: 'Get Help', href: '#', icon: 'help' },
+]
 
-const Field = ({ label, value, hint, type = 'text', onChange, readOnly = false }) => (
-  <div>
-    <p className="text-xs font-semibold text-slate-500">{label}</p>
-    <input
-      type={type}
-      readOnly={readOnly}
-      value={toInputValue(value)}
-      onChange={onChange}
-      placeholder="--"
-      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
-    />
-    {hint && <p className="mt-1 text-[11px] text-slate-400">{hint}</p>}
-  </div>
-);
-
-const TextareaField = ({ label, value, hint, onChange }) => (
-  <div>
-    <p className="text-xs font-semibold text-slate-500">{label}</p>
-    <textarea
-      rows={5}
-      value={toInputValue(value)}
-      onChange={onChange}
-      placeholder="--"
-      className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
-    />
-    {hint && <p className="mt-1 text-[11px] text-slate-400">{hint}</p>}
-  </div>
-);
-
-const SelectField = ({ label, value, options, hint, onChange }) => (
-  <div>
-    <p className="text-xs font-semibold text-slate-500">{label}</p>
-    <select
-      value={toInputValue(value)}
-      onChange={onChange}
-      className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700"
-    >
-      {options.map((option) => (
-        <option key={`${option.value}-${option.label}`} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-    {hint && <p className="mt-1 text-[11px] text-slate-400">{hint}</p>}
-  </div>
-);
-
-const buildSelectOptions = (value, fallbackLabel = '--') => {
-  const normalized = toInputValue(value);
-  const list = [{ value: '', label: fallbackLabel }];
-  if (normalized) {
-    list.push({ value: normalized, label: normalized });
-  }
-  return list;
-};
-
-const EMPTY_ADDRESS = {
-  first_name: '',
-  last_name: '',
-  company: '',
-  address_1: '',
-  address_2: '',
-  city: '',
-  postcode: '',
-  country: '',
-  state: '',
-  phone: '',
-  email: '',
-};
-
-const EMPTY_SOCIALS = {
-  facebook: '',
-  twitter: '',
-  linkedin: '',
-  pinterest: '',
+const emptySocials = {
+  website: '',
+  x: '',
+  snapchat: '',
   instagram: '',
-};
+  threads: '',
+  facebook: '',
+}
 
-const EMPTY_SITE = {
-  title: '',
-  tagline: '',
-  url: '',
-  language: '',
-  timezone: '',
-  store_time: '',
-  store_time_gmt: '',
-  icon_url: '',
-};
+const emptyNotifications = {
+  emailUpdates: true,
+  productReviewAlerts: true,
+  securityAlerts: true,
+}
+const defaultCheckoutProgress = {
+  enabled: true,
+  freeShippingThreshold: 50,
+  cashbackThreshold: 85,
+  cashbackPercent: 3,
+}
 
-const DEFAULT_RATE_ROWS = CURRENCY_OPTIONS.map((item) => ({
-  code: item.code,
-  label: `${item.code} (${item.symbol} ${item.label})`,
-  unitPerUsd: DEFAULT_UNIT_PER_USD[item.code] || 1,
-}));
+const buildSafeProfilePayload = (profile, patch = {}) => {
+  const base = profile && typeof profile === 'object' ? profile : {}
+  const contactInfo = base.contactInfo && typeof base.contactInfo === 'object' ? base.contactInfo : {}
+  return {
+    ...base,
+    firstName: String(base.firstName || '').trim() || 'User',
+    country: String(base.country || base.location || 'USA').trim() || 'USA',
+    contactInfo,
+    ...patch,
+  }
+}
 
-function WooCommerceSettingsPage() {
-  const [siteInfo, setSiteInfo] = useState(() => readStoredSiteInfo());
-  const [siteId, setSiteId] = useState(() => readStoredSiteId() || siteInfo?.siteId || '');
-  const [settings, setSettings] = useState(null);
-  const [formData, setFormData] = useState(() => ({
-    user: {
-      username: '',
-      first_name: '',
-      last_name: '',
-      nickname: '',
-      display_name: '',
-      email: '',
-      website: '',
-      bio: '',
-      job_title: '',
-      whatsapp_number: '',
-      avatar_url: '',
-    },
-    socials: { ...EMPTY_SOCIALS },
-    billing: { ...EMPTY_ADDRESS },
-    shipping: { ...EMPTY_ADDRESS },
-    site: { ...EMPTY_SITE },
+const sectionTitleClass = 'text-3xl font-semibold tracking-tight text-slate-900'
+const blockTitleClass = 'text-[34px] font-semibold tracking-tight text-slate-900'
+const inputClass =
+  'h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-slate-500'
+const skeletonClass = 'animate-pulse rounded-xl bg-slate-200/85'
+
+export default function SettingsPage() {
+  const pathname = usePathname()
+  const router = useRouter()
+  const [activeTab, setActiveTab] = useState('profile')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+  const [isSavingProfile, setIsSavingProfile] = useState(false)
+  const [isSavingSocial, setIsSavingSocial] = useState(false)
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false)
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
+  const [isProfileQuickMenuOpen, setIsProfileQuickMenuOpen] = useState(false)
+  const [mobileSection, setMobileSection] = useState('menu')
+
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [avatarPreview, setAvatarPreview] = useState('')
+
+  const [profile, setProfile] = useState(null)
+  const [profileForm, setProfileForm] = useState({
+    displayName: '',
+    authorName: '',
+    slogan: '',
+    email: '',
+    location: '',
+  })
+  const [socialForm, setSocialForm] = useState({ ...emptySocials })
+  const [notificationsForm, setNotificationsForm] = useState({ ...emptyNotifications })
+  const [checkoutProgressForm, setCheckoutProgressForm] = useState({ ...defaultCheckoutProgress })
+  const [securityForm, setSecurityForm] = useState({
+    currentPassword: '',
     newPassword: '',
-    appPasswordName: '',
-  }));
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [exchangeRates, setExchangeRates] = useState(DEFAULT_RATE_ROWS);
-  const [ratesMeta, setRatesMeta] = useState({ updatedAt: '', source: 'manual', useLiveSync: false });
-  const [ratesError, setRatesError] = useState('');
-  const [ratesSuccess, setRatesSuccess] = useState('');
-  const [isRatesLoading, setIsRatesLoading] = useState(false);
-  const [isRatesSaving, setIsRatesSaving] = useState(false);
-  const [isRatesSyncing, setIsRatesSyncing] = useState(false);
-  const [connectorWarning, setConnectorWarning] = useState('');
+    confirmPassword: '',
+  })
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+
+  const locationOptions = useMemo(
+    () => [''].concat(ACCEPTED_COUNTRIES.map((item) => item.name)),
+    [],
+  )
+
+  const redirectToSignIn = () => {
+    if (typeof window === 'undefined') return
+    window.location.href = '/login?next=/backend/admin/settings'
+  }
+
+  const shouldRedirectForAuthFailure = (status) => status === 401 || status === 403
+
+  const loadProfile = async () => {
+    setIsLoading(true)
+    setError('')
+    try {
+      const response = await fetch('/api/user/profile', {
+        cache: 'no-store',
+        credentials: 'include',
+      })
+      if (shouldRedirectForAuthFailure(response.status)) {
+        redirectToSignIn()
+        return
+      }
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error || 'Unable to load account settings.')
+
+      const nextProfile = payload?.profile && typeof payload.profile === 'object' ? payload.profile : {}
+      const authorNameFallback = `${String(nextProfile?.firstName || '').trim()} ${String(nextProfile?.lastName || '').trim()}`.trim()
+      const nextEmail =
+        String(nextProfile?.contactInfo?.email || '').trim() || String(payload?.email || '').trim()
+
+      setProfile(nextProfile)
+      setAvatarUrl(String(payload?.avatar_url || '').trim())
+      writeProfileIdentityCache(toProfileIdentity(payload))
+      setProfileForm({
+        displayName:
+          String(nextProfile?.displayName || '').trim() ||
+          String(nextProfile?.nickname || '').trim() ||
+          authorNameFallback,
+        authorName: String(nextProfile?.authorName || '').trim() || authorNameFallback,
+        slogan: String(nextProfile?.slogan || '').trim(),
+        email: nextEmail,
+        location: String(nextProfile?.location || nextProfile?.country || '').trim(),
+      })
+      setSocialForm({
+        ...emptySocials,
+        ...(nextProfile?.socials && typeof nextProfile.socials === 'object' ? nextProfile.socials : {}),
+      })
+      setNotificationsForm({
+        ...emptyNotifications,
+        ...(nextProfile?.notifications && typeof nextProfile.notifications === 'object'
+          ? nextProfile.notifications
+          : {}),
+      })
+      const rawCheckoutProgress =
+        nextProfile?.shortcuts && typeof nextProfile.shortcuts === 'object'
+          ? nextProfile.shortcuts?.checkoutProgress
+          : null
+      setCheckoutProgressForm({
+        enabled:
+          rawCheckoutProgress && typeof rawCheckoutProgress.enabled === 'boolean'
+            ? rawCheckoutProgress.enabled
+            : defaultCheckoutProgress.enabled,
+        freeShippingThreshold:
+          Number(rawCheckoutProgress?.freeShippingThreshold) > 0
+            ? Number(rawCheckoutProgress.freeShippingThreshold)
+            : defaultCheckoutProgress.freeShippingThreshold,
+        cashbackThreshold:
+          Number(rawCheckoutProgress?.cashbackThreshold) > 0
+            ? Number(rawCheckoutProgress.cashbackThreshold)
+            : defaultCheckoutProgress.cashbackThreshold,
+        cashbackPercent:
+          Number(rawCheckoutProgress?.cashbackPercent) >= 0
+            ? Number(rawCheckoutProgress.cashbackPercent)
+            : defaultCheckoutProgress.cashbackPercent,
+      })
+    } catch (loadError) {
+      setError(loadError?.message || 'Unable to load account settings.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const handleStorage = (event) => {
-      if (event.key === 'agentic_wp_site') {
-        setSiteInfo(readStoredSiteInfo());
-      }
-      if (event.key === 'agentic_wp_site_id') {
-        setSiteId(readStoredSiteId());
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
+    loadProfile()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
-    if (siteInfo?.siteId) {
-      setSiteId(siteInfo.siteId);
-    }
-  }, [siteInfo]);
+    if (!avatarPreview) return undefined
+    return () => URL.revokeObjectURL(avatarPreview)
+  }, [avatarPreview])
 
-  const applySiteInfo = useCallback((site) => {
-    if (!site) return;
-    const resolvedSiteId =
-      typeof site.site_id === 'string'
-        ? site.site_id
-        : typeof site.id === 'string'
-          ? site.id
-          : '';
-    const siteUrl =
-      typeof site.site_url === 'string'
-        ? site.site_url
-        : typeof site.url === 'string'
-          ? site.url
-          : '';
-    const siteName =
-      typeof site.site_name === 'string'
-        ? site.site_name
-        : typeof site.name === 'string'
-          ? site.name
-          : '';
-    const logoUrl =
-      typeof site.site_logo_url === 'string'
-        ? site.site_logo_url
-        : typeof site.logoUrl === 'string'
-          ? site.logoUrl
-          : '';
-    const normalizedUrl = siteUrl ? normalizeWpUrl(siteUrl) : '';
-    const resolvedName = siteName.trim() || getHostname(normalizedUrl) || normalizedUrl;
-    const nextSiteInfo = {
-      name: resolvedName,
-      logoUrl: logoUrl || '',
-      url: normalizedUrl || siteUrl,
-      siteId: resolvedSiteId || '',
-    };
-    setSiteInfo(nextSiteInfo);
-    if (resolvedSiteId) {
-      setSiteId(resolvedSiteId);
+  const saveProfileSection = async () => {
+    setError('')
+    setSuccess('')
+    if (!String(profileForm.displayName || '').trim()) {
+      setError('Display name is required.')
+      return
     }
+
+    setIsSavingProfile(true)
     try {
-      localStorage.setItem('agentic_wp_site', JSON.stringify(nextSiteInfo));
-      if (resolvedSiteId) {
-        localStorage.setItem('agentic_wp_site_id', resolvedSiteId);
-      }
-    } catch (_error) {}
-  }, []);
+      const currentProfile = buildSafeProfilePayload(profile)
+      const authorName = String(profileForm.authorName || '').trim()
+      const nameParts = authorName.split(/\s+/).filter(Boolean)
+      const firstName = String(currentProfile.firstName || '').trim() || nameParts[0] || 'User'
+      const lastName = String(currentProfile.lastName || '').trim() || nameParts.slice(1).join(' ')
 
-  const resolveSiteId = useCallback(async () => {
-    const existingId = readStoredSiteId() || siteInfo?.siteId || siteId;
-    if (existingId) {
-      return existingId;
-    }
-    const token = localStorage.getItem('agentic_auth_token');
-    if (!token) {
-      return '';
-    }
-    const response = await fetchConnector('/sites', {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok || !payload?.sites?.length) {
-      return '';
-    }
-    const storedSite = readStoredSiteInfo();
-    const targetUrl = siteInfo?.url || storedSite?.url || '';
-    const selectedSite = pickSiteForUrl(payload.sites, targetUrl);
-    if (!selectedSite) {
-      return '';
-    }
-    applySiteInfo(selectedSite);
-    if (typeof selectedSite.id === 'string') {
-      return selectedSite.id;
-    }
-    return typeof selectedSite.site_id === 'string' ? selectedSite.site_id : '';
-  }, [applySiteInfo, siteId, siteInfo]);
+      const payload = buildSafeProfilePayload(currentProfile, {
+        firstName,
+        lastName,
+        displayName: String(profileForm.displayName || '').trim(),
+        authorName,
+        nickname: String(profileForm.displayName || '').trim(),
+        slogan: String(profileForm.slogan || '').trim(),
+        location: String(profileForm.location || '').trim(),
+        country: String(currentProfile.country || profileForm.location || 'USA').trim() || 'USA',
+        contactInfo: {
+          ...(currentProfile.contactInfo || {}),
+          email: String(profileForm.email || '').trim(),
+        },
+        shortcuts: {
+          ...(currentProfile.shortcuts && typeof currentProfile.shortcuts === 'object'
+            ? currentProfile.shortcuts
+            : {}),
+          checkoutProgress: {
+            enabled: Boolean(checkoutProgressForm.enabled),
+            freeShippingThreshold: Math.max(
+              1,
+              Number(checkoutProgressForm.freeShippingThreshold) || 50,
+            ),
+            cashbackThreshold: Math.max(
+              1,
+              Number(checkoutProgressForm.cashbackThreshold) || 85,
+            ),
+            cashbackPercent: Math.max(
+              0,
+              Math.min(100, Number(checkoutProgressForm.cashbackPercent) || 3),
+            ),
+          },
+        },
+      })
 
-  const loadSettings = useCallback(async () => {
-    setIsLoading(true);
-    setError('');
-    setConnectorWarning('');
-    try {
-      const resolvedSiteId = siteId || (await resolveSiteId());
-      if (!resolvedSiteId) {
-        setConnectorWarning('Store connector is not configured. Currency settings are still available.');
-        setSettings({
-          user: {},
-          socials: {},
-          billing: {},
-          shipping: {},
-          site: {},
-          application_passwords: { items: [] },
-          wp_version: '',
-        });
-        return;
-      }
-      const token = localStorage.getItem('agentic_auth_token');
-      if (!token) {
-        setConnectorWarning('Connector session missing. Currency settings are still available.');
-        setSettings({
-          user: {},
-          socials: {},
-          billing: {},
-          shipping: {},
-          site: {},
-          application_passwords: { items: [] },
-          wp_version: '',
-        });
-        return;
-      }
-      const params = new URLSearchParams({
-        job_title_key: JOB_TITLE_META_KEY,
-        whatsapp_key: WHATSAPP_META_KEY,
-      });
-      const response = await fetchConnector(`/sites/${resolvedSiteId}/settings?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        setConnectorWarning(payload?.error || 'Unable to load connector-backed settings. Currency settings are still available.');
-        setSettings({
-          user: {},
-          socials: {},
-          billing: {},
-          shipping: {},
-          site: {},
-          application_passwords: { items: [] },
-          wp_version: '',
-        });
-        return;
-      }
-      setSettings(payload || null);
-    } catch (err) {
-      setConnectorWarning(err?.message || 'Unable to load connector-backed settings. Currency settings are still available.');
-      setSettings({
-        user: {},
-        socials: {},
-        billing: {},
-        shipping: {},
-        site: {},
-        application_passwords: { items: [] },
-        wp_version: '',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [resolveSiteId, siteId]);
-
-  const loadExchangeRates = useCallback(async () => {
-    setIsRatesLoading(true);
-    setRatesError('');
-    try {
-      const response = await fetch('/api/admin/exchange-rates', { method: 'GET' });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Unable to load exchange rates.');
-      }
-
-      const nextRows = DEFAULT_RATE_ROWS.map((item) => ({
-        ...item,
-        unitPerUsd: Number(payload?.unitPerUsd?.[item.code]) > 0
-          ? Number(payload.unitPerUsd[item.code])
-          : item.unitPerUsd,
-      }));
-      setExchangeRates(nextRows);
-      setRatesMeta({
-        updatedAt: payload?.updatedAt || '',
-        source: payload?.source || 'manual',
-        useLiveSync: Boolean(payload?.useLiveSync),
-      });
-    } catch (err) {
-      setRatesError(err?.message || 'Unable to load exchange rates.');
-    } finally {
-      setIsRatesLoading(false);
-    }
-  }, []);
-
-  const saveExchangeRates = useCallback(async () => {
-    setIsRatesSaving(true);
-    setRatesError('');
-    setRatesSuccess('');
-    try {
-      const payload = {
-        useLiveSync: ratesMeta.useLiveSync,
-        rates: exchangeRates.map((item) => ({
-          code: item.code,
-          unitPerUsd: Number(item.unitPerUsd),
-        })),
-      };
-      const response = await fetch('/api/admin/exchange-rates', {
+      const response = await fetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(payload),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(data?.error || 'Unable to save exchange rates.');
+      })
+      if (shouldRedirectForAuthFailure(response.status)) {
+        redirectToSignIn()
+        return
       }
-      const nextRows = DEFAULT_RATE_ROWS.map((item) => ({
-        ...item,
-        unitPerUsd: Number(data?.unitPerUsd?.[item.code]) > 0
-          ? Number(data.unitPerUsd[item.code])
-          : item.unitPerUsd,
-      }));
-      setExchangeRates(nextRows);
-      setRatesMeta((prev) => ({
-        ...prev,
-        updatedAt: data?.updatedAt || prev.updatedAt,
-        source: data?.source || prev.source,
-        useLiveSync: Boolean(data?.useLiveSync),
-      }));
-      setRatesSuccess('Exchange rates saved.');
-    } catch (err) {
-      setRatesError(err?.message || 'Unable to save exchange rates.');
+      const result = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(result?.error || 'Unable to save profile settings.')
+      setProfile(result?.profile || payload)
+      writeProfileIdentityCache(
+        toProfileIdentity({
+          ...(result && typeof result === 'object' ? result : {}),
+          avatar_url: avatarUrl,
+        }),
+      )
+      setSuccess('Profile settings saved.')
+    } catch (saveError) {
+      setError(saveError?.message || 'Unable to save profile settings.')
     } finally {
-      setIsRatesSaving(false);
+      setIsSavingProfile(false)
     }
-  }, [exchangeRates, ratesMeta.useLiveSync]);
+  }
 
-  const syncExchangeRates = useCallback(async () => {
-    setIsRatesSyncing(true);
-    setRatesError('');
-    setRatesSuccess('');
+  const saveSocialSection = async () => {
+    setError('')
+    setSuccess('')
+    setIsSavingSocial(true)
     try {
-      const response = await fetch('/api/admin/exchange-rates/sync', {
-        method: 'POST',
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(data?.error || 'Live sync failed.');
+      const currentProfile = buildSafeProfilePayload(profile)
+      const payload = buildSafeProfilePayload(currentProfile, {
+        socials: { ...emptySocials, ...socialForm },
+      })
+      const response = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      })
+      if (shouldRedirectForAuthFailure(response.status)) {
+        redirectToSignIn()
+        return
       }
-      const nextRows = DEFAULT_RATE_ROWS.map((item) => ({
-        ...item,
-        unitPerUsd: Number(data?.unitPerUsd?.[item.code]) > 0
-          ? Number(data.unitPerUsd[item.code])
-          : item.unitPerUsd,
-      }));
-      setExchangeRates(nextRows);
-      setRatesMeta((prev) => ({
-        ...prev,
-        updatedAt: data?.updatedAt || prev.updatedAt,
-        source: data?.source || 'live_sync',
-        useLiveSync: true,
-      }));
-      setRatesSuccess('Live rates synced successfully.');
-    } catch (err) {
-      setRatesError(err?.message || 'Live sync failed.');
+      const result = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(result?.error || 'Unable to save social profiles.')
+      setProfile(result?.profile || payload)
+      setSuccess('Social profiles saved.')
+    } catch (saveError) {
+      setError(saveError?.message || 'Unable to save social profiles.')
     } finally {
-      setIsRatesSyncing(false);
+      setIsSavingSocial(false)
     }
-  }, []);
+  }
 
-  useEffect(() => {
-    loadSettings();
-  }, [loadSettings]);
-
-  useEffect(() => {
-    loadExchangeRates();
-  }, [loadExchangeRates]);
-
-  useEffect(() => {
-    if (!settings) return;
-    const sourceUser = settings?.user || {};
-    const nextUser = {
-      username: toInputValue(sourceUser.username),
-      first_name: toInputValue(sourceUser.first_name),
-      last_name: toInputValue(sourceUser.last_name),
-      nickname: toInputValue(sourceUser.nickname),
-      display_name: toInputValue(sourceUser.display_name),
-      email: toInputValue(sourceUser.email),
-      website: toInputValue(sourceUser.website),
-      bio: toInputValue(sourceUser.bio),
-      job_title: toInputValue(sourceUser.job_title),
-      whatsapp_number: toInputValue(sourceUser.whatsapp_number),
-      avatar_url: toInputValue(sourceUser.avatar_url),
-    };
-    const sourceSocials = settings?.socials || {};
-    const nextSocials = {
-      facebook: toInputValue(sourceSocials.facebook),
-      twitter: toInputValue(sourceSocials.twitter),
-      linkedin: toInputValue(sourceSocials.linkedin),
-      pinterest: toInputValue(sourceSocials.pinterest),
-      instagram: toInputValue(sourceSocials.instagram),
-    };
-    const sourceSite = settings?.site || {};
-    const nextSite = {
-      title: toInputValue(sourceSite.title),
-      tagline: toInputValue(sourceSite.tagline),
-      url: toInputValue(sourceSite.url),
-      language: toInputValue(sourceSite.language),
-      timezone: toInputValue(sourceSite.timezone),
-      store_time: toInputValue(sourceSite.store_time),
-      store_time_gmt: toInputValue(sourceSite.store_time_gmt),
-      icon_url: toInputValue(sourceSite.icon_url),
-    };
-    const buildAddress = (source) => ({
-      first_name: toInputValue(source?.first_name),
-      last_name: toInputValue(source?.last_name),
-      company: toInputValue(source?.company),
-      address_1: toInputValue(source?.address_1),
-      address_2: toInputValue(source?.address_2),
-      city: toInputValue(source?.city),
-      postcode: toInputValue(source?.postcode),
-      country: toInputValue(source?.country),
-      state: toInputValue(source?.state),
-      phone: toInputValue(source?.phone),
-      email: toInputValue(source?.email),
-    });
-
-    setFormData((prev) => ({
-      ...prev,
-      user: nextUser,
-      socials: nextSocials,
-      billing: buildAddress(settings?.billing || EMPTY_ADDRESS),
-      shipping: buildAddress(settings?.shipping || EMPTY_ADDRESS),
-      site: nextSite,
-    }));
-  }, [settings]);
-
-  const updateSectionField = useCallback(
-    (section, field) => (event) => {
-      const value = event.target.value;
-      setFormData((prev) => ({
-        ...prev,
-        [section]: {
-          ...prev[section],
-          [field]: value,
-        },
-      }));
-    },
-    [],
-  );
-
-  const updateRootField = useCallback((field) => (event) => {
-    const value = event.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  }, []);
-
-  const user = formData.user;
-  const socials = formData.socials;
-  const billing = formData.billing;
-  const shipping = formData.shipping;
-  const site = formData.site;
-  const applicationPasswords = settings?.application_passwords || {};
-  const appItems = Array.isArray(applicationPasswords.items) ? applicationPasswords.items : [];
-
-  const displayNameOptions = useMemo(() => {
-    const options = new Map();
-    const addOption = (value) => {
-      const text = toInputValue(value).trim();
-      if (text) {
-        options.set(text, text);
+  const saveNotificationsSection = async () => {
+    setError('')
+    setSuccess('')
+    setIsSavingNotifications(true)
+    try {
+      const currentProfile = buildSafeProfilePayload(profile)
+      const payload = buildSafeProfilePayload(currentProfile, {
+        notifications: { ...emptyNotifications, ...notificationsForm },
+      })
+      const response = await fetch('/api/user/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      })
+      if (shouldRedirectForAuthFailure(response.status)) {
+        redirectToSignIn()
+        return
       }
-    };
-    addOption(user.display_name);
-    addOption(user.username);
-    addOption(user.nickname);
-    const fullName = `${user.first_name} ${user.last_name}`.trim();
-    addOption(fullName);
-    addOption(user.first_name);
-    addOption(user.last_name);
-    if (!options.size) {
-      options.set('', '--');
+      const result = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(result?.error || 'Unable to save notifications.')
+      setProfile(result?.profile || payload)
+      setSuccess('Notification settings saved.')
+    } catch (saveError) {
+      setError(saveError?.message || 'Unable to save notifications.')
+    } finally {
+      setIsSavingNotifications(false)
     }
-    return Array.from(options.values()).map((value) => ({
-      value,
-      label: value || '--',
-    }));
-  }, [
-    user.display_name,
-    user.username,
-    user.nickname,
-    user.first_name,
-    user.last_name,
-  ]);
+  }
 
-  const settingsSections = useMemo(
-    () => [
-      { id: 'site-settings', label: 'Site' },
-      { id: 'currency-settings', label: 'Currency' },
-      { id: 'profile-settings', label: 'Profile' },
-      { id: 'contact-settings', label: 'Contact' },
-      { id: 'about-settings', label: 'About' },
-      { id: 'account-settings', label: 'Account' },
-      { id: 'app-passwords', label: 'App Passwords' },
-      { id: 'job-settings', label: 'Job' },
-      { id: 'whatsapp-settings', label: 'WhatsApp' },
-      { id: 'address-settings', label: 'Addresses' },
-      { id: 'wp-version', label: 'WordPress' },
-    ],
-    [],
-  );
+  const changePassword = async () => {
+    setError('')
+    setSuccess('')
+    if (!securityForm.currentPassword || !securityForm.newPassword || !securityForm.confirmPassword) {
+      setError('Fill all password fields.')
+      return
+    }
 
-  const siteName = siteInfo?.name || 'Store';
-  const siteLogo = siteInfo?.logoUrl || '';
-  const siteIcon = site.icon_url || siteLogo;
+    setIsChangingPassword(true)
+    try {
+      const response = await fetch('/api/user/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          current_password: securityForm.currentPassword,
+          new_password: securityForm.newPassword,
+          confirm_password: securityForm.confirmPassword,
+        }),
+      })
+      if (shouldRedirectForAuthFailure(response.status)) {
+        redirectToSignIn()
+        return
+      }
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error || 'Unable to update password.')
+      setSecurityForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+      setSuccess('Password updated successfully.')
+    } catch (passwordError) {
+      setError(passwordError?.message || 'Unable to update password.')
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setError('')
+    setSuccess('')
+    setIsUploadingAvatar(true)
+    setAvatarPreview(URL.createObjectURL(file))
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await fetch('/api/user/avatar/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      })
+      if (shouldRedirectForAuthFailure(response.status)) {
+        redirectToSignIn()
+        return
+      }
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error || 'Unable to upload avatar.')
+      setAvatarUrl(String(payload?.avatar_url || '').trim())
+      writeProfileIdentityCache(
+        toProfileIdentity({
+          profile,
+          avatar_url: String(payload?.avatar_url || '').trim(),
+          email: profileForm.email,
+        }),
+      )
+      setAvatarPreview('')
+      setSuccess('Avatar updated.')
+    } catch (uploadError) {
+      setError(uploadError?.message || 'Unable to upload avatar.')
+    } finally {
+      setIsUploadingAvatar(false)
+    }
+  }
+
+  const deleteAccount = async () => {
+    setError('')
+    setSuccess('')
+    if (String(deleteConfirmation || '').trim() !== 'DELETE') {
+      setError('Type DELETE to confirm account deletion.')
+      return
+    }
+
+    setIsDeletingAccount(true)
+    try {
+      const response = await fetch('/api/user/account', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ confirmation: deleteConfirmation.trim() }),
+      })
+      if (shouldRedirectForAuthFailure(response.status)) {
+        redirectToSignIn()
+        return
+      }
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(payload?.error || 'Unable to delete account.')
+      window.location.href = '/login'
+    } catch (deleteError) {
+      setError(deleteError?.message || 'Unable to delete account.')
+    } finally {
+      setIsDeletingAccount(false)
+    }
+  }
+
+  const jumpToSection = (id) => {
+    setActiveTab(id)
+    const node = document.getElementById(`settings-${id}`)
+    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const avatarSrc = avatarPreview || avatarUrl
+  const mobileDisplayName = String(profileForm.displayName || profileForm.authorName || '').trim()
+  const mobileSubtitle = String(profileForm.location || '').trim()
+
+  const handleSignOut = async () => {
+    await fetch('/api/auth/signout', { method: 'POST' })
+    setIsLogoutConfirmOpen(false)
+    router.push('/login')
+  }
+
+  const openSectionFromQuickMenu = (sectionId) => {
+    setIsProfileQuickMenuOpen(false)
+    setActiveTab(sectionId)
+    setMobileSection(sectionId)
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="flex min-h-screen">
+    <div className='min-h-screen bg-[#f6f7f9] text-slate-900'>
+      <div className='flex min-h-screen'>
         <AdminSidebar />
-
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-10">
-          <div className="mx-auto w-full max-w-6xl">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Settings</p>
-                <h1 className="mt-2 text-2xl font-semibold text-slate-900">Account settings</h1>
-                <p className="mt-2 text-sm text-slate-500">
-                  Manage your profile, security, and application access for this store.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
-                {siteLogo ? (
-                  <img src={siteLogo} alt={siteName} className="h-7 w-7 rounded-full object-cover" />
-                ) : (
-                  <span className="h-7 w-7 rounded-full bg-slate-200" />
-                )}
-                {siteName}
-              </div>
-            </div>
-
-            {isLoading && <p className="mt-6 text-sm text-slate-400">Loading settings...</p>}
-            {error && <p className="mt-6 text-sm text-rose-500">{error}</p>}
-            {connectorWarning && <p className="mt-6 text-sm text-amber-600">{connectorWarning}</p>}
-
-            {!isLoading && !error && (
-              <div className="mt-8 space-y-6">
-                <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-                    Settings Sections
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {settingsSections.map((section) => (
-                      <a
-                        key={section.id}
-                        href={`#${section.id}`}
-                        className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
-                      >
-                        {section.label}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-
-                <section
-                  id="site-settings"
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <p className="text-sm font-semibold text-slate-900">Site</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Site identity, icon, and localization settings.
-                  </p>
-
-                  <div className="mt-5 rounded-2xl border border-slate-200 p-4">
-                    <p className="text-xs font-semibold text-slate-500">Site Icon</p>
-                    <div className="mt-3 flex flex-wrap items-center gap-4">
-                      <div className="flex h-24 w-24 items-center justify-center rounded-2xl border border-slate-200 bg-white">
-                        {siteIcon ? (
-                          <img
-                            src={siteIcon}
-                            alt={site.title || siteName}
-                            className="h-16 w-16 rounded-2xl object-cover"
-                          />
-                        ) : (
-                          <span className="h-16 w-16 rounded-2xl bg-slate-200" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-900 px-4 py-3 text-white">
-                          {siteIcon ? (
-                            <img
-                              src={siteIcon}
-                              alt={site.title || siteName}
-                              className="h-8 w-8 rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="h-8 w-8 rounded-full bg-white/20" />
-                          )}
-                          <div>
-                            <p className="text-xs font-semibold">{site.title || siteName}</p>
-                            <p className="text-[11px] text-white/70">App icon preview</p>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-3">
-                          <button
-                            type="button"
-                            disabled
-                            className="rounded-full border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-500"
-                          >
-                            Change Site Icon
-                          </button>
-                          <button
-                            type="button"
-                            disabled
-                            className="rounded-full border border-transparent px-3 py-2 text-[11px] font-semibold text-rose-500"
-                          >
-                            Remove Site Icon
-                          </button>
-                        </div>
-                        <p className="mt-3 text-[11px] text-slate-400">
-                          The Site Icon is used in browser tabs and app icons (recommended 512x512).
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 grid gap-4 md:grid-cols-2">
-                    <Field
-                      label="Site Title"
-                      value={site.title}
-                      onChange={updateSectionField('site', 'title')}
-                    />
-                    <Field
-                      label="Tagline"
-                      value={site.tagline}
-                      onChange={updateSectionField('site', 'tagline')}
-                    />
-                    <Field
-                      label="Site URL"
-                      value={site.url}
-                      onChange={updateSectionField('site', 'url')}
-                    />
-                    <SelectField
-                      label="Site Language"
-                      value={site.language}
-                      options={buildSelectOptions(site.language)}
-                      onChange={updateSectionField('site', 'language')}
-                    />
-                    <SelectField
-                      label="Time Zone"
-                      value={site.timezone}
-                      options={buildSelectOptions(site.timezone)}
-                      onChange={updateSectionField('site', 'timezone')}
-                    />
-                    <Field
-                      label="Store Time"
-                      value={site.store_time}
-                      readOnly
-                    />
-                  </div>
-                </section>
-
-                <section
-                  id="currency-settings"
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">Currency & exchange rates</p>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Set manual rates (units per 1 USD) or sync live rates from provider.
-                      </p>
-                      <p className="mt-2 text-[11px] text-slate-400">
-                        Last update: {ratesMeta.updatedAt ? formatDate(ratesMeta.updatedAt) : '--'} · Source: {ratesMeta.source || 'manual'}
-                      </p>
-                    </div>
-
-                    <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={ratesMeta.useLiveSync}
-                        onChange={(event) =>
-                          setRatesMeta((prev) => ({ ...prev, useLiveSync: event.target.checked }))
-                        }
-                        className="h-4 w-4 rounded border-slate-300"
-                      />
-                      Use live sync
-                    </label>
-                  </div>
-
-                  {ratesError ? <p className="mt-3 text-xs text-rose-500">{ratesError}</p> : null}
-                  {ratesSuccess ? <p className="mt-3 text-xs text-emerald-600">{ratesSuccess}</p> : null}
-
-                  <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
-                    <div className="grid grid-cols-[minmax(180px,_2fr)_minmax(140px,_1fr)] gap-3 bg-slate-50 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                      <span>Currency</span>
-                      <span className="text-right">Unit / USD</span>
-                    </div>
-                    <div className="divide-y divide-slate-100">
-                      {exchangeRates.map((item) => (
-                        <div
-                          key={item.code}
-                          className="grid grid-cols-[minmax(180px,_2fr)_minmax(140px,_1fr)] items-center gap-3 px-4 py-3"
-                        >
-                          <div>
-                            <p className="text-sm font-medium text-slate-800">{item.code}</p>
-                            <p className="text-[11px] text-slate-500">{item.label}</p>
-                          </div>
-                          <input
-                            type="number"
-                            min="0.000001"
-                            step="0.0001"
-                            value={item.unitPerUsd}
-                            onChange={(event) => {
-                              const value = Number(event.target.value);
-                              setExchangeRates((prev) =>
-                                prev.map((row) =>
-                                  row.code === item.code
-                                    ? { ...row, unitPerUsd: Number.isFinite(value) ? value : row.unitPerUsd }
-                                    : row,
-                                ),
-                              );
-                            }}
-                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right text-sm text-slate-700"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap items-center gap-3">
+        <main className='flex-1 px-4 pb-6 sm:px-6 lg:px-10'>
+          <AdminDesktopHeader />
+          <div className='mx-auto w-full max-w-6xl'>
+            <section className='mb-6 space-y-4 lg:hidden'>
+              {mobileSection === 'menu' ? (
+                <>
+                  <div className='flex items-center justify-between'>
+                    <h1 className='text-xl font-semibold text-slate-900'>Profile</h1>
                     <button
-                      type="button"
-                      onClick={saveExchangeRates}
-                      disabled={isRatesSaving || isRatesLoading}
-                      className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                      type='button'
+                      className='inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500'
+                      aria-label='More'
                     >
-                      {isRatesSaving ? 'Saving...' : 'Save rates'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={syncExchangeRates}
-                      disabled={isRatesSyncing || isRatesLoading}
-                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isRatesSyncing ? 'Syncing...' : 'Sync live rates'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={loadExchangeRates}
-                      disabled={isRatesLoading}
-                      className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {isRatesLoading ? 'Refreshing...' : 'Refresh'}
+                      <svg viewBox='0 0 24 24' className='h-4 w-4' fill='currentColor'>
+                        <circle cx='6' cy='12' r='1.7' />
+                        <circle cx='12' cy='12' r='1.7' />
+                        <circle cx='18' cy='12' r='1.7' />
+                      </svg>
                     </button>
                   </div>
-                </section>
 
-                <section
-                  id="profile-settings"
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <p className="text-sm font-semibold text-slate-900">Name</p>
-                  <p className="mt-1 text-xs text-slate-500">Usernames cannot be changed.</p>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    <Field label="Username" value={user.username} readOnly />
-                    <Field
-                      label="First Name"
-                      value={user.first_name}
-                      onChange={updateSectionField('user', 'first_name')}
-                    />
-                    <Field
-                      label="Last Name"
-                      value={user.last_name}
-                      onChange={updateSectionField('user', 'last_name')}
-                    />
-                    <Field
-                      label="Nickname (required)"
-                      value={user.nickname}
-                      onChange={updateSectionField('user', 'nickname')}
-                    />
-                    <div className="md:col-span-2">
-                      <SelectField
-                        label="Display name publicly as"
-                        value={user.display_name}
-                        options={displayNameOptions}
-                        onChange={updateSectionField('user', 'display_name')}
-                      />
-                    </div>
-                  </div>
-                </section>
-
-                <section
-                  id="contact-settings"
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <p className="text-sm font-semibold text-slate-900">Contact Info</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    If you change your email, a confirmation message will be sent to the new address.
-                  </p>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    <Field
-                      label="Email (required)"
-                      value={user.email}
-                      type="email"
-                      onChange={updateSectionField('user', 'email')}
-                    />
-                    <Field
-                      label="Website"
-                      value={user.website}
-                      onChange={updateSectionField('user', 'website')}
-                    />
-                    <Field
-                      label="Facebook"
-                      value={socials.facebook}
-                      onChange={updateSectionField('socials', 'facebook')}
-                    />
-                    <Field
-                      label="Twitter"
-                      value={socials.twitter}
-                      onChange={updateSectionField('socials', 'twitter')}
-                    />
-                    <Field
-                      label="Linkedin"
-                      value={socials.linkedin}
-                      onChange={updateSectionField('socials', 'linkedin')}
-                    />
-                    <Field
-                      label="Pinterest"
-                      value={socials.pinterest}
-                      onChange={updateSectionField('socials', 'pinterest')}
-                    />
-                    <Field
-                      label="Instagram"
-                      value={socials.instagram}
-                      onChange={updateSectionField('socials', 'instagram')}
-                    />
-                  </div>
-                </section>
-
-                <section
-                  id="about-settings"
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <p className="text-sm font-semibold text-slate-900">About Yourself</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Share a little biographical information to fill out your profile.
-                  </p>
-                  <div className="mt-5 grid gap-6 lg:grid-cols-[2fr_1fr]">
-                    <TextareaField
-                      label="Biographical Info"
-                      value={user.bio}
-                      onChange={updateSectionField('user', 'bio')}
-                    />
-                    <div>
-                      <p className="text-xs font-semibold text-slate-500">Profile Picture</p>
-                      <div className="mt-3 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        {user.avatar_url ? (
-                          <img
-                            src={user.avatar_url}
-                            alt={user.display_name || 'Profile'}
-                            className="h-12 w-12 rounded-full object-cover"
-                          />
-                        ) : (
-                          <span className="h-12 w-12 rounded-full bg-slate-200" />
-                        )}
-                        <div>
-                          <p className="text-xs font-semibold text-slate-700">
-                            {formatDisplayValue(user.display_name)}
-                          </p>
-                          <p className="text-[11px] text-slate-400">
-                            You can change your profile picture on Gravatar.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                <section
-                  id="account-settings"
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <p className="text-sm font-semibold text-slate-900">Account Management</p>
-                  <div className="mt-5 grid gap-4 lg:grid-cols-[2fr_1fr]">
-                    <div className="rounded-2xl border border-slate-200 p-4">
-                      <Field
-                        label="New Password"
-                        value={formData.newPassword}
-                        type="password"
-                        onChange={updateRootField('newPassword')}
-                        hint="Set a new password for this account."
-                      />
-                      <button
-                        type="button"
-                        disabled
-                        className="mt-3 rounded-full bg-slate-100 px-4 py-2 text-[11px] font-semibold text-slate-500"
-                      >
-                        Set New Password
-                      </button>
-                    </div>
-                    <div className="flex flex-col justify-between rounded-2xl border border-slate-200 p-4">
-                      <div>
-                        <p className="text-xs font-semibold text-slate-700">Sessions</p>
-                        <p className="text-[11px] text-slate-400">
-                          Log out everywhere else without affecting this session.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled
-                        className="mt-4 rounded-full bg-slate-100 px-4 py-2 text-[11px] font-semibold text-slate-500"
-                      >
-                        Log Out Everywhere Else
-                      </button>
-                    </div>
-                  </div>
-                </section>
-
-                <section
-                  id="app-passwords"
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <p className="text-sm font-semibold text-slate-900">Application Passwords</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Application passwords allow authentication via non-interactive systems without
-                    sharing your primary password.
-                  </p>
-                  {applicationPasswords.enabled === false && (
-                    <p className="mt-2 text-xs text-amber-600">
-                      Application passwords are disabled on this site.
-                    </p>
-                  )}
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    <Field
-                      label="New Application Password Name"
-                      value={formData.appPasswordName}
-                      onChange={updateRootField('appPasswordName')}
-                    />
-                    <div className="flex items-end">
-                      <button
-                        type="button"
-                        disabled
-                        className="w-full rounded-2xl bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-500"
-                      >
-                        Add Application Password
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
-                    <div className="grid grid-cols-[minmax(160px,_2fr)_minmax(140px,_1.2fr)_minmax(140px,_1.2fr)_minmax(120px,_1fr)_minmax(80px,_0.6fr)] gap-3 bg-slate-50 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                      <span>Name</span>
-                      <span>Created</span>
-                      <span>Last Used</span>
-                      <span>Last IP</span>
-                      <span className="text-right">Revoke</span>
-                    </div>
-                    <div className="divide-y divide-slate-100">
-                      {appItems.map((item) => (
-                        <div
-                          key={item.uuid || item.name}
-                          className="grid grid-cols-[minmax(160px,_2fr)_minmax(140px,_1.2fr)_minmax(140px,_1.2fr)_minmax(120px,_1fr)_minmax(80px,_0.6fr)] items-center gap-3 px-4 py-3 text-xs text-slate-600"
-                        >
-                          <span className="font-semibold text-slate-700">{formatDisplayValue(item.name)}</span>
-                          <span>{formatDate(item.created)}</span>
-                          <span>{formatDate(item.last_used)}</span>
-                          <span>{formatDisplayValue(item.last_ip)}</span>
-                          <div className="text-right">
-                            <button
-                              type="button"
-                              disabled
-                              className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500"
-                            >
-                              Revoke
-                            </button>
+                  <div className='flex items-center justify-between rounded-2xl bg-white px-3 py-3'>
+                    <div className='flex min-w-0 items-center gap-3'>
+                      {isLoading ? (
+                        <>
+                          <div className='h-10 w-10 animate-pulse rounded-full bg-slate-200/85' />
+                          <div className='min-w-0 space-y-2'>
+                            <div className='h-3.5 w-28 animate-pulse rounded-md bg-slate-200/85' />
+                            <div className='h-3 w-20 animate-pulse rounded-md bg-slate-200/80' />
                           </div>
-                        </div>
-                      ))}
-                      {!appItems.length && (
-                        <div className="px-4 py-4 text-xs text-slate-400">No application passwords yet.</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className='h-10 w-10 overflow-hidden rounded-full bg-slate-200'>
+                            {avatarSrc ? <img src={avatarSrc} alt='Profile avatar' className='h-full w-full object-cover' /> : null}
+                          </div>
+                          <div className='min-w-0'>
+                            <p className='truncate text-sm font-semibold text-slate-900'>{mobileDisplayName || '--'}</p>
+                            <p className='truncate text-xs text-slate-500'>{mobileSubtitle || '--'}</p>
+                          </div>
+                        </>
                       )}
                     </div>
+                    <button
+                      type='button'
+                      onClick={() => setIsProfileQuickMenuOpen(true)}
+                      disabled={isLoading}
+                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-600'
+                      aria-label='Edit profile'
+                    >
+                      <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                        <path d='m4 20 4.5-1 9-9-3.5-3.5-9 9L4 20Z' />
+                        <path d='m13.5 6.5 3.5 3.5' />
+                      </svg>
+                    </button>
                   </div>
 
+                  <div className='overflow-hidden rounded-2xl bg-white'>
+                    {mobileMenuItems.map((item) => {
+                      const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
+                      const rowClass = `flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 ${
+                        isActive ? 'bg-slate-50 text-slate-900' : 'text-slate-700'
+                      }`
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={rowClass}
+                        >
+                          <span className='font-medium'>{item.label}</span>
+                          <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                            <path d='m9 6 6 6-6 6' />
+                          </svg>
+                        </Link>
+                      )
+                    })}
+                  </div>
+
+                  <div className='overflow-hidden rounded-2xl bg-white'>
+                    {mobileSupportItems.map((item) => (
+                      <Link
+                        key={item.label}
+                        href={item.href}
+                        className='flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm text-slate-700 last:border-b-0'
+                      >
+                        <span className='font-medium'>{item.label}</span>
+                        <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                          <path d='m9 6 6 6-6 6' />
+                        </svg>
+                      </Link>
+                    ))}
+                    <button
+                      type='button'
+                      onClick={() => setIsLogoutConfirmOpen(true)}
+                      className='flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-slate-700'
+                    >
+                      <span>Log out</span>
+                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                        <path d='m9 6 6 6-6 6' />
+                      </svg>
+                    </button>
+                  </div>
+                </>
+              ) : null}
+
+              {mobileSection === 'profile' ? (
+                <div className='space-y-5'>
+                  <div className='flex items-center gap-2'>
+                    <button
+                      type='button'
+                      onClick={() => setMobileSection('menu')}
+                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600'
+                      aria-label='Back'
+                    >
+                      <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                        <path d='m15 6-6 6 6 6' />
+                      </svg>
+                    </button>
+                    <h2 className='text-3xl font-semibold tracking-tight text-slate-900'>Profile</h2>
+                  </div>
+
+                  {isLoading ? (
+                    <div className='space-y-4'>
+                      <div className='flex items-center gap-3'>
+                        <div className='h-14 w-14 animate-pulse rounded-full bg-slate-200/85' />
+                        <div className='flex-1 space-y-2'>
+                          <div className={`h-3.5 w-3/4 ${skeletonClass}`} />
+                          <div className={`h-3 w-1/2 ${skeletonClass}`} />
+                          <div className={`h-8 w-28 ${skeletonClass}`} />
+                        </div>
+                      </div>
+                      <div className={`h-12 w-full ${skeletonClass}`} />
+                      <div className={`h-12 w-full ${skeletonClass}`} />
+                      <div className={`h-12 w-full ${skeletonClass}`} />
+                      <div className='grid grid-cols-2 gap-3'>
+                        <div className={`h-12 w-full ${skeletonClass}`} />
+                        <div className={`h-12 w-full ${skeletonClass}`} />
+                      </div>
+                      <div className={`h-10 w-32 ${skeletonClass}`} />
+                    </div>
+                  ) : (
+                    <>
+                      <div className='flex items-center gap-3'>
+                        <div className='h-14 w-14 overflow-hidden rounded-full bg-slate-200'>
+                          {avatarSrc ? <img src={avatarSrc} alt='Profile avatar' className='h-full w-full object-cover' /> : null}
+                        </div>
+                        <div>
+                          <p className='text-xs text-slate-500'>
+                            Update your avatar by clicking the image 288x288 px size recommended in PNG or JPG format only.
+                          </p>
+                          <label className='mt-2 inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50'>
+                            {isUploadingAvatar ? 'Uploading...' : 'Upload avatar'}
+                            <input
+                              type='file'
+                              accept='image/png,image/jpeg,image/jpg,image/webp'
+                              onChange={handleAvatarUpload}
+                              className='hidden'
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={labelClass}>Display name</label>
+                        <input
+                          className={inputClass}
+                          value={profileForm.displayName}
+                          onChange={(event) => setProfileForm((prev) => ({ ...prev, displayName: event.target.value }))}
+                          placeholder='Author Name'
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Author Name</label>
+                        <input
+                          className={inputClass}
+                          value={profileForm.authorName}
+                          onChange={(event) => setProfileForm((prev) => ({ ...prev, authorName: event.target.value }))}
+                          placeholder='Author Name'
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Slogan</label>
+                        <input
+                          className={inputClass}
+                          value={profileForm.slogan}
+                          onChange={(event) => setProfileForm((prev) => ({ ...prev, slogan: event.target.value }))}
+                          placeholder='i.e. Daily curated premium assets for startups and creators.'
+                        />
+                      </div>
+                      <div className='grid grid-cols-2 gap-3'>
+                        <div>
+                          <label className={labelClass}>Email</label>
+                          <input
+                            className={inputClass}
+                            type='email'
+                            value={profileForm.email}
+                            onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
+                            placeholder='designer@example.com'
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Location</label>
+                          <select
+                            className={inputClass}
+                            value={profileForm.location}
+                            onChange={(event) => setProfileForm((prev) => ({ ...prev, location: event.target.value }))}
+                          >
+                            <option value=''>Select location</option>
+                            {locationOptions.filter(Boolean).map((item) => (
+                              <option key={item} value={item}>
+                                {item}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                      <button
+                        type='button'
+                        onClick={saveProfileSection}
+                        disabled={isSavingProfile}
+                        className='rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60'
+                      >
+                        {isSavingProfile ? 'Saving...' : 'Save profile'}
+                      </button>
+                      <div className='space-y-3 rounded-2xl border border-rose-200 bg-rose-50/70 p-4'>
+                        <h3 className='text-sm font-semibold text-rose-700'>Delete account</h3>
+                        <p className='text-xs text-rose-600'>
+                          This is permanent. It removes your account and related data from this platform.
+                        </p>
+                        <div>
+                          <label className={labelClass}>Type DELETE to confirm</label>
+                          <input
+                            className={inputClass}
+                            value={deleteConfirmation}
+                            onChange={(event) => setDeleteConfirmation(event.target.value)}
+                            placeholder='DELETE'
+                          />
+                        </div>
+                        <button
+                          type='button'
+                          onClick={deleteAccount}
+                          disabled={isDeletingAccount || deleteConfirmation.trim() !== 'DELETE'}
+                          className='rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-60'
+                        >
+                          {isDeletingAccount ? 'Deleting...' : 'Delete account'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : null}
+
+              {mobileSection === 'security' ? (
+                <div className='space-y-4'>
+                  <div className='flex items-center gap-2'>
+                    <button
+                      type='button'
+                      onClick={() => setMobileSection('menu')}
+                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600'
+                      aria-label='Back'
+                    >
+                      <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                        <path d='m15 6-6 6 6 6' />
+                      </svg>
+                    </button>
+                    <h2 className='text-3xl font-semibold tracking-tight text-slate-900'>Security</h2>
+                  </div>
+
+                  <div>
+                    <label className={labelClass}>Current password</label>
+                    <input
+                      className={inputClass}
+                      type='password'
+                      value={securityForm.currentPassword}
+                      onChange={(event) => setSecurityForm((prev) => ({ ...prev, currentPassword: event.target.value }))}
+                      placeholder='••••••••'
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>New password</label>
+                    <input
+                      className={inputClass}
+                      type='password'
+                      value={securityForm.newPassword}
+                      onChange={(event) => setSecurityForm((prev) => ({ ...prev, newPassword: event.target.value }))}
+                      placeholder='••••••••'
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Confirm new password</label>
+                    <input
+                      className={inputClass}
+                      type='password'
+                      value={securityForm.confirmPassword}
+                      onChange={(event) => setSecurityForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
+                      placeholder='••••••••'
+                    />
+                  </div>
                   <button
-                    type="button"
-                    disabled
-                    className="mt-4 rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-500"
+                    type='button'
+                    onClick={changePassword}
+                    disabled={isChangingPassword}
+                    className='rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60'
                   >
-                    Revoke all application passwords
+                    {isChangingPassword ? 'Updating...' : 'Update password'}
+                  </button>
+                </div>
+              ) : null}
+
+              {mobileSection === 'social' ? (
+                <div className='space-y-4'>
+                  <div className='flex items-center gap-2'>
+                    <button
+                      type='button'
+                      onClick={() => setMobileSection('menu')}
+                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600'
+                      aria-label='Back'
+                    >
+                      <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                        <path d='m15 6-6 6 6 6' />
+                      </svg>
+                    </button>
+                    <h2 className='text-3xl font-semibold tracking-tight text-slate-900'>Social profiles</h2>
+                  </div>
+                  <div className='grid gap-4 sm:grid-cols-2'>
+                    <div>
+                      <label className={labelClass}>Website</label>
+                      <input className={inputClass} value={socialForm.website} onChange={(event) => setSocialForm((prev) => ({ ...prev, website: event.target.value }))} placeholder='https://yoursite.com' />
+                    </div>
+                    <div>
+                      <label className={labelClass}>X</label>
+                      <input className={inputClass} value={socialForm.x} onChange={(event) => setSocialForm((prev) => ({ ...prev, x: event.target.value }))} placeholder='x.com/username' />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Snapchat</label>
+                      <input className={inputClass} value={socialForm.snapchat} onChange={(event) => setSocialForm((prev) => ({ ...prev, snapchat: event.target.value }))} placeholder='snapchat.com/add/username' />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Instagram</label>
+                      <input className={inputClass} value={socialForm.instagram} onChange={(event) => setSocialForm((prev) => ({ ...prev, instagram: event.target.value }))} placeholder='instagram.com/username' />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Threads</label>
+                      <input className={inputClass} value={socialForm.threads} onChange={(event) => setSocialForm((prev) => ({ ...prev, threads: event.target.value }))} placeholder='threads.net/username' />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Facebook</label>
+                      <input className={inputClass} value={socialForm.facebook} onChange={(event) => setSocialForm((prev) => ({ ...prev, facebook: event.target.value }))} placeholder='facebook.com/username' />
+                    </div>
+                  </div>
+                  <button
+                    type='button'
+                    onClick={saveSocialSection}
+                    disabled={isSavingSocial}
+                    className='rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60'
+                  >
+                    {isSavingSocial ? 'Saving...' : 'Save social profiles'}
+                  </button>
+                </div>
+              ) : null}
+            </section>
+            {isProfileQuickMenuOpen ? (
+              <div className='fixed inset-0 z-[72] flex items-end bg-slate-900/40 lg:hidden'>
+                <div className='w-full rounded-t-3xl bg-white px-5 pb-6 pt-4 shadow-[0_-10px_30px_rgba(15,23,42,0.2)]'>
+                  <h3 className='text-center text-lg font-semibold text-slate-900'>Edit profile</h3>
+                  <div className='mt-4 space-y-2'>
+                    <button
+                      type='button'
+                      onClick={() => openSectionFromQuickMenu('profile')}
+                      className='flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-800'
+                    >
+                      <span>Profile</span>
+                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                        <path d='m9 6 6 6-6 6' />
+                      </svg>
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => openSectionFromQuickMenu('security')}
+                      className='flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-800'
+                    >
+                      <span>Security</span>
+                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                        <path d='m9 6 6 6-6 6' />
+                      </svg>
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => openSectionFromQuickMenu('social')}
+                      className='flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-800'
+                    >
+                      <span>Social profile</span>
+                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                        <path d='m9 6 6 6-6 6' />
+                      </svg>
+                    </button>
+                  </div>
+                  <button
+                    type='button'
+                    onClick={() => setIsProfileQuickMenuOpen(false)}
+                    className='mt-4 h-11 w-full rounded-full border border-slate-300 text-sm font-semibold text-slate-700'
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            {isLogoutConfirmOpen ? (
+              <div className='fixed inset-0 z-[70] flex items-end bg-slate-900/40 lg:hidden'>
+                <div className='w-full rounded-t-3xl bg-white px-5 pb-6 pt-4 shadow-[0_-10px_30px_rgba(15,23,42,0.2)]'>
+                  <h3 className='text-center text-lg font-semibold text-slate-900'>Logout</h3>
+                  <div className='my-3 border-t border-slate-200' />
+                  <p className='text-center text-sm text-slate-500'>Are you sure you want to log out?</p>
+                  <div className='mt-5 grid grid-cols-2 gap-3'>
+                    <button
+                      type='button'
+                      onClick={() => setIsLogoutConfirmOpen(false)}
+                      className='h-11 rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700'
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type='button'
+                      onClick={handleSignOut}
+                      className='h-11 rounded-full bg-lime-300 text-sm font-semibold text-slate-900'
+                    >
+                      Yes, Logout
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            <div className='hidden gap-6 lg:grid lg:grid-cols-[220px_minmax(0,1fr)]'>
+              <aside className='lg:sticky lg:top-6 lg:self-start'>
+                <div className='space-y-2 rounded-3xl border border-slate-200 bg-white p-3'>
+                  {navItems.map((item) => (
+                    <button
+                      key={item.id}
+                      type='button'
+                      onClick={() => jumpToSection(item.id)}
+                      className={`w-full rounded-full border px-4 py-2 text-left text-sm font-medium transition ${
+                        activeTab === item.id
+                          ? 'border-sky-500 bg-sky-50 text-sky-700'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </aside>
+
+              <div className='space-y-12'>
+                <div>
+                  <h1 className={blockTitleClass}>Account settings</h1>
+                  <p className='mt-2 text-sm text-slate-500'>Manage your profile, security, social links, and notifications.</p>
+                </div>
+
+                {error ? <p className='rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>{error}</p> : null}
+                {success ? <p className='rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700'>{success}</p> : null}
+
+                <section id='settings-profile' className='space-y-5'>
+                  <h2 className={sectionTitleClass}>Profile</h2>
+
+                {isLoading ? (
+                    <div className='space-y-4'>
+                      <div className='flex items-center gap-3'>
+                        <div className='h-16 w-16 animate-pulse rounded-full bg-slate-200/85' />
+                        <div className='flex-1 space-y-2'>
+                          <div className={`h-3.5 w-3/5 ${skeletonClass}`} />
+                          <div className={`h-3 w-2/5 ${skeletonClass}`} />
+                          <div className={`h-8 w-32 ${skeletonClass}`} />
+                        </div>
+                      </div>
+                      <div className={`h-12 w-full ${skeletonClass}`} />
+                      <div className={`h-12 w-full ${skeletonClass}`} />
+                      <div className={`h-12 w-full ${skeletonClass}`} />
+                      <div className='grid gap-4 sm:grid-cols-2'>
+                        <div className={`h-12 w-full ${skeletonClass}`} />
+                        <div className={`h-12 w-full ${skeletonClass}`} />
+                      </div>
+                      <div className={`h-10 w-32 ${skeletonClass}`} />
+                    </div>
+                  ) : (
+                    <>
+                      <div className='flex flex-col gap-4 sm:flex-row sm:items-center'>
+                        <div className='h-16 w-16 overflow-hidden rounded-full bg-slate-200'>
+                          {avatarSrc ? (
+                            <img src={avatarSrc} alt='Profile avatar' className='h-full w-full object-cover' />
+                          ) : null}
+                        </div>
+                        <div>
+                          <p className='text-xs text-slate-500'>Update your avatar by clicking the image 288x288 px size recommended in PNG or JPG format only.</p>
+                          <label className='mt-2 inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50'>
+                            {isUploadingAvatar ? 'Uploading...' : 'Upload avatar'}
+                            <input
+                              type='file'
+                              accept='image/png,image/jpeg,image/jpg,image/webp'
+                              onChange={handleAvatarUpload}
+                              className='hidden'
+                            />
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className='grid gap-4'>
+                        <div>
+                          <label className={labelClass}>Display name</label>
+                          <input
+                            className={inputClass}
+                            value={profileForm.displayName}
+                            onChange={(event) => setProfileForm((prev) => ({ ...prev, displayName: event.target.value }))}
+                            placeholder='Author Name'
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Author Name</label>
+                          <input
+                            className={inputClass}
+                            value={profileForm.authorName}
+                            onChange={(event) => setProfileForm((prev) => ({ ...prev, authorName: event.target.value }))}
+                            placeholder='Author Name'
+                          />
+                        </div>
+                        <div>
+                          <label className={labelClass}>Slogan</label>
+                          <input
+                            className={inputClass}
+                            value={profileForm.slogan}
+                            onChange={(event) => setProfileForm((prev) => ({ ...prev, slogan: event.target.value }))}
+                            placeholder='i.e. Daily curated premium assets for startups and creators.'
+                          />
+                        </div>
+                        <div className='grid gap-4 sm:grid-cols-2'>
+                          <div>
+                            <label className={labelClass}>Email</label>
+                            <input
+                              className={inputClass}
+                              type='email'
+                              value={profileForm.email}
+                              onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
+                              placeholder='designer@example.com'
+                            />
+                          </div>
+                          <div>
+                            <label className={labelClass}>Location</label>
+                            <select
+                              className={inputClass}
+                              value={profileForm.location}
+                              onChange={(event) => setProfileForm((prev) => ({ ...prev, location: event.target.value }))}
+                            >
+                              <option value=''>Select location</option>
+                              {locationOptions.filter(Boolean).map((item) => (
+                                <option key={item} value={item}>
+                                  {item}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div className='rounded-xl border border-slate-200 bg-slate-50 p-4'>
+                          <p className='text-sm font-semibold text-slate-900'>Cart shipping & cashback progress</p>
+                          <p className='mt-1 text-xs text-slate-500'>
+                            Configure the cart progress bar shown to shoppers at checkout.
+                          </p>
+                          <div className='mt-3 grid gap-4 sm:grid-cols-3'>
+                            <div>
+                              <label className={labelClass}>Free shipping threshold</label>
+                              <input
+                                className={inputClass}
+                                type='number'
+                                min='1'
+                                value={checkoutProgressForm.freeShippingThreshold}
+                                onChange={(event) =>
+                                  setCheckoutProgressForm((prev) => ({
+                                    ...prev,
+                                    freeShippingThreshold: event.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div>
+                              <label className={labelClass}>Cashback threshold</label>
+                              <input
+                                className={inputClass}
+                                type='number'
+                                min='1'
+                                value={checkoutProgressForm.cashbackThreshold}
+                                onChange={(event) =>
+                                  setCheckoutProgressForm((prev) => ({
+                                    ...prev,
+                                    cashbackThreshold: event.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div>
+                              <label className={labelClass}>Cashback percent</label>
+                              <input
+                                className={inputClass}
+                                type='number'
+                                min='0'
+                                max='100'
+                                value={checkoutProgressForm.cashbackPercent}
+                                onChange={(event) =>
+                                  setCheckoutProgressForm((prev) => ({
+                                    ...prev,
+                                    cashbackPercent: event.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                          </div>
+                          <label className='mt-3 inline-flex items-center gap-2 text-sm text-slate-700'>
+                            <input
+                              type='checkbox'
+                              checked={Boolean(checkoutProgressForm.enabled)}
+                              onChange={(event) =>
+                                setCheckoutProgressForm((prev) => ({
+                                  ...prev,
+                                  enabled: event.target.checked,
+                                }))
+                              }
+                              className='h-4 w-4 rounded border-slate-300 text-slate-900'
+                            />
+                            Enable progress bar in cart
+                          </label>
+                        </div>
+                        <div>
+                          <button
+                            type='button'
+                            onClick={saveProfileSection}
+                            disabled={isSavingProfile}
+                            className='rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60'
+                          >
+                            {isSavingProfile ? 'Saving...' : 'Save profile'}
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </section>
+
+                <section id='settings-security' className='space-y-4'>
+                  <h2 className={sectionTitleClass}>Security</h2>
+                  <div>
+                    <label className={labelClass}>Current password</label>
+                    <input
+                      className={inputClass}
+                      type='password'
+                      value={securityForm.currentPassword}
+                      onChange={(event) => setSecurityForm((prev) => ({ ...prev, currentPassword: event.target.value }))}
+                      placeholder='••••••••'
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>New password</label>
+                    <input
+                      className={inputClass}
+                      type='password'
+                      value={securityForm.newPassword}
+                      onChange={(event) => setSecurityForm((prev) => ({ ...prev, newPassword: event.target.value }))}
+                      placeholder='••••••••'
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Confirm new password</label>
+                    <input
+                      className={inputClass}
+                      type='password'
+                      value={securityForm.confirmPassword}
+                      onChange={(event) => setSecurityForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
+                      placeholder='••••••••'
+                    />
+                  </div>
+                  <button
+                    type='button'
+                    onClick={changePassword}
+                    disabled={isChangingPassword}
+                    className='rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60'
+                  >
+                    {isChangingPassword ? 'Updating...' : 'Update password'}
                   </button>
                 </section>
 
-                <section
-                  id="job-settings"
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <p className="text-sm font-semibold text-slate-900">Job</p>
-                  <div className="mt-4">
-                    <Field
-                      label="Job"
-                      value={user.job_title}
-                      onChange={updateSectionField('user', 'job_title')}
-                    />
-                  </div>
-                </section>
-
-                <section
-                  id="whatsapp-settings"
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <p className="text-sm font-semibold text-slate-900">WhatsApp Information</p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Customer WhatsApp number for order tracking.
-                  </p>
-                  <div className="mt-4">
-                    <Field
-                      label="WhatsApp Number"
-                      value={user.whatsapp_number}
-                      onChange={updateSectionField('user', 'whatsapp_number')}
-                    />
-                  </div>
-                </section>
-
-                <section
-                  id="address-settings"
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <p className="text-sm font-semibold text-slate-900">Customer billing address</p>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    <Field
-                      label="First name"
-                      value={billing.first_name}
-                      onChange={updateSectionField('billing', 'first_name')}
-                    />
-                    <Field
-                      label="Last name"
-                      value={billing.last_name}
-                      onChange={updateSectionField('billing', 'last_name')}
-                    />
-                    <Field
-                      label="Company"
-                      value={billing.company}
-                      onChange={updateSectionField('billing', 'company')}
-                    />
-                    <Field
-                      label="Address line 1"
-                      value={billing.address_1}
-                      onChange={updateSectionField('billing', 'address_1')}
-                    />
-                    <Field
-                      label="Address line 2"
-                      value={billing.address_2}
-                      onChange={updateSectionField('billing', 'address_2')}
-                    />
-                    <Field
-                      label="City"
-                      value={billing.city}
-                      onChange={updateSectionField('billing', 'city')}
-                    />
-                    <Field
-                      label="Postcode / ZIP"
-                      value={billing.postcode}
-                      onChange={updateSectionField('billing', 'postcode')}
-                    />
-                    <SelectField
-                      label="Country / Region"
-                      value={billing.country}
-                      options={buildSelectOptions(billing.country)}
-                      onChange={updateSectionField('billing', 'country')}
-                    />
-                    <Field
-                      label="State / County"
-                      value={billing.state}
-                      onChange={updateSectionField('billing', 'state')}
-                    />
-                    <SelectField
-                      label="State / County or state code"
-                      value={billing.state}
-                      options={buildSelectOptions(billing.state)}
-                      onChange={updateSectionField('billing', 'state')}
-                    />
-                    <Field
-                      label="Phone"
-                      value={billing.phone}
-                      onChange={updateSectionField('billing', 'phone')}
-                    />
-                    <Field
-                      label="Email address"
-                      value={billing.email}
-                      type="email"
-                      onChange={updateSectionField('billing', 'email')}
-                    />
-                  </div>
-                </section>
-
-                <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                <section id='settings-social' className='space-y-4'>
+                  <h2 className={sectionTitleClass}>Social profiles</h2>
+                  <div className='grid gap-4 sm:grid-cols-2'>
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">Customer shipping address</p>
-                      <p className="mt-1 text-xs text-slate-500">Copy from billing address</p>
+                      <label className={labelClass}>Website</label>
+                      <input className={inputClass} value={socialForm.website} onChange={(event) => setSocialForm((prev) => ({ ...prev, website: event.target.value }))} placeholder='https://yoursite.com' />
                     </div>
-                    <button
-                      type="button"
-                      disabled
-                      className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500"
-                    >
-                      Copy
-                    </button>
+                    <div>
+                      <label className={labelClass}>X</label>
+                      <input className={inputClass} value={socialForm.x} onChange={(event) => setSocialForm((prev) => ({ ...prev, x: event.target.value }))} placeholder='x.com/username' />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Snapchat</label>
+                      <input className={inputClass} value={socialForm.snapchat} onChange={(event) => setSocialForm((prev) => ({ ...prev, snapchat: event.target.value }))} placeholder='snapchat.com/add/username' />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Instagram</label>
+                      <input className={inputClass} value={socialForm.instagram} onChange={(event) => setSocialForm((prev) => ({ ...prev, instagram: event.target.value }))} placeholder='instagram.com/username' />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Threads</label>
+                      <input className={inputClass} value={socialForm.threads} onChange={(event) => setSocialForm((prev) => ({ ...prev, threads: event.target.value }))} placeholder='threads.net/username' />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Facebook</label>
+                      <input className={inputClass} value={socialForm.facebook} onChange={(event) => setSocialForm((prev) => ({ ...prev, facebook: event.target.value }))} placeholder='facebook.com/username' />
+                    </div>
                   </div>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    <Field
-                      label="First name"
-                      value={shipping.first_name}
-                      onChange={updateSectionField('shipping', 'first_name')}
-                    />
-                    <Field
-                      label="Last name"
-                      value={shipping.last_name}
-                      onChange={updateSectionField('shipping', 'last_name')}
-                    />
-                    <Field
-                      label="Company"
-                      value={shipping.company}
-                      onChange={updateSectionField('shipping', 'company')}
-                    />
-                    <Field
-                      label="Address line 1"
-                      value={shipping.address_1}
-                      onChange={updateSectionField('shipping', 'address_1')}
-                    />
-                    <Field
-                      label="Address line 2"
-                      value={shipping.address_2}
-                      onChange={updateSectionField('shipping', 'address_2')}
-                    />
-                    <Field
-                      label="City"
-                      value={shipping.city}
-                      onChange={updateSectionField('shipping', 'city')}
-                    />
-                    <Field
-                      label="Postcode / ZIP"
-                      value={shipping.postcode}
-                      onChange={updateSectionField('shipping', 'postcode')}
-                    />
-                    <SelectField
-                      label="Country / Region"
-                      value={shipping.country}
-                      options={buildSelectOptions(shipping.country)}
-                      onChange={updateSectionField('shipping', 'country')}
-                    />
-                    <Field
-                      label="State / County"
-                      value={shipping.state}
-                      onChange={updateSectionField('shipping', 'state')}
-                    />
-                    <SelectField
-                      label="State / County or state code"
-                      value={shipping.state}
-                      options={buildSelectOptions(shipping.state)}
-                      onChange={updateSectionField('shipping', 'state')}
-                    />
-                    <Field
-                      label="Phone"
-                      value={shipping.phone}
-                      onChange={updateSectionField('shipping', 'phone')}
-                    />
-                  </div>
+                  <button
+                    type='button'
+                    onClick={saveSocialSection}
+                    disabled={isSavingSocial}
+                    className='rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60'
+                  >
+                    {isSavingSocial ? 'Saving...' : 'Save social profiles'}
+                  </button>
                 </section>
 
-                <section
-                  id="wp-version"
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <p className="text-sm font-semibold text-slate-900">WordPress Version</p>
-                  <div className="mt-4">
-                    <Field label="Version" value={settings?.wp_version} readOnly />
+                <section id='settings-notifications' className='space-y-4'>
+                  <h2 className={sectionTitleClass}>Notifications</h2>
+                  <div className='space-y-3'>
+                    <label className='flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3'>
+                      <span className='text-sm font-medium text-slate-700'>Email updates</span>
+                      <input
+                        type='checkbox'
+                        checked={Boolean(notificationsForm.emailUpdates)}
+                        onChange={(event) =>
+                          setNotificationsForm((prev) => ({ ...prev, emailUpdates: event.target.checked }))
+                        }
+                      />
+                    </label>
+                    <label className='flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3'>
+                      <span className='text-sm font-medium text-slate-700'>Product review alerts</span>
+                      <input
+                        type='checkbox'
+                        checked={Boolean(notificationsForm.productReviewAlerts)}
+                        onChange={(event) =>
+                          setNotificationsForm((prev) => ({ ...prev, productReviewAlerts: event.target.checked }))
+                        }
+                      />
+                    </label>
+                    <label className='flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3'>
+                      <span className='text-sm font-medium text-slate-700'>Security alerts</span>
+                      <input
+                        type='checkbox'
+                        checked={Boolean(notificationsForm.securityAlerts)}
+                        onChange={(event) =>
+                          setNotificationsForm((prev) => ({ ...prev, securityAlerts: event.target.checked }))
+                        }
+                      />
+                    </label>
                   </div>
+                  <button
+                    type='button'
+                    onClick={saveNotificationsSection}
+                    disabled={isSavingNotifications}
+                    className='rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60'
+                  >
+                    {isSavingNotifications ? 'Saving...' : 'Save notifications'}
+                  </button>
+                </section>
+
+                <section id='settings-delete' className='space-y-4 pb-8'>
+                  <h2 className={sectionTitleClass}>Delete account</h2>
+                  <p className='text-sm text-slate-500'>This is permanent. It removes your account and related data from this platform.</p>
+                  <div className='max-w-sm'>
+                    <label className={labelClass}>Type DELETE to confirm</label>
+                    <input
+                      className={inputClass}
+                      value={deleteConfirmation}
+                      onChange={(event) => setDeleteConfirmation(event.target.value)}
+                      placeholder='DELETE'
+                    />
+                  </div>
+                  <button
+                    type='button'
+                    onClick={deleteAccount}
+                    disabled={isDeletingAccount || deleteConfirmation.trim() !== 'DELETE'}
+                    className='rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-60'
+                  >
+                    {isDeletingAccount ? 'Deleting...' : 'Delete account'}
+                  </button>
                 </section>
               </div>
-            )}
+            </div>
           </div>
         </main>
       </div>
     </div>
-  );
+  )
 }
-
-export default WooCommerceSettingsPage;

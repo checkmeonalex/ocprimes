@@ -1,7 +1,8 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AdminSidebar from '@/components/AdminSidebar';
+import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
 import BouncingDotsLoader from './components/BouncingDotsLoader';
 import DateRangePopover from './components/DateRangePopover';
 import {
@@ -177,6 +178,8 @@ const getRangeBounds = (range, customStart, customEnd) => {
 
 function OrdersPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialCustomerSearch = useMemo(() => searchParams?.get('customer') || '', [searchParams]);
   const [siteInfo, setSiteInfo] = useState(() => readStoredSiteInfo());
   const [siteId, setSiteId] = useState(() => readStoredSiteId() || siteInfo?.siteId || '');
   const [orders, setOrders] = useState([]);
@@ -188,7 +191,7 @@ function OrdersPage() {
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(initialCustomerSearch);
   const [range, setRange] = useState('lifetime');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
@@ -211,6 +214,10 @@ function OrdersPage() {
       if (storedEnd) setCustomEnd(storedEnd);
     } catch (_error) {}
   }, []);
+
+  useEffect(() => {
+    setSearchTerm(initialCustomerSearch);
+  }, [initialCustomerSearch]);
 
   useEffect(() => {
     const handleStorage = (event) => {
@@ -640,7 +647,8 @@ function OrdersPage() {
           <AdminSidebar />
         </div>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-10">
+        <main className="flex-1 px-4 pb-6 sm:px-6 lg:px-10">
+                  <AdminDesktopHeader />
           <div className="mx-auto w-full max-w-6xl">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>

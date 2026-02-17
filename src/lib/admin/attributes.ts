@@ -21,6 +21,7 @@ export const createAttributeSchema = z.object({
   slug: z.preprocess(normalizeBlank, z.string().max(120).optional()),
   description: z.preprocess(normalizeBlank, z.string().max(500).optional()),
   type_id: z.string().uuid(),
+  visibility: z.enum(['public', 'private']).optional(),
 })
 
 export const updateAttributeSchema = z.object({
@@ -29,6 +30,7 @@ export const updateAttributeSchema = z.object({
   slug: z.preprocess(normalizeBlank, z.string().max(120).optional()),
   description: z.preprocess(normalizeBlank, z.string().max(500).optional()),
   type_id: z.string().uuid(),
+  visibility: z.enum(['public', 'private']).optional(),
 })
 
 export const deleteAttributeSchema = z.object({

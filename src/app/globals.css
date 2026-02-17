@@ -4,6 +4,8 @@
   --glass-spinner-border: rgba(0, 0, 0, 0.35);
   --glass-spinner-top: rgba(0, 0, 0, 0.7);
   --app-sidebar-width: 4rem;
+  --ocp-glass-base: #ffffff;
+  --ocp-ink: #000000;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -52,6 +54,8 @@ body {
   /* Remove default margins/padding that can cause gaps */
   margin: 0;
   padding: 0;
+  background: var(--ocp-glass-base);
+  color: var(--ocp-ink);
 }
 
 /* Global horizontal clamp to prevent overflow on wide layouts */

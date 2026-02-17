@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
-import { getUserRole } from '@/lib/auth/roles'
+import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 
 export async function requireAdmin(request: NextRequest) {
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
@@ -10,12 +10,12 @@ export async function requireAdmin(request: NextRequest) {
     return { supabase, applyCookies, user: null, isAdmin: false }
   }
 
-  const role = await getUserRole(supabase, data.user.id)
+  const roleInfo = await getUserRoleInfoSafe(supabase, data.user.id, data.user.email || '')
 
   return {
     supabase,
     applyCookies,
     user: data.user,
-    isAdmin: role === 'admin',
+    isAdmin: roleInfo.isAdmin,
   }
 }

@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { createTaxonomy, listTaxonomy, updateTaxonomy } from '@/lib/admin/taxonomy-route'
+import { createTaxonomy, deleteTaxonomy, listTaxonomy, updateTaxonomy } from '@/lib/admin/taxonomy-route'
 
 const config = {
   table: 'admin_tags',
@@ -17,4 +17,8 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   return updateTaxonomy(request, config)
+}
+
+export async function DELETE(request: NextRequest) {
+  return deleteTaxonomy(request, config)
 }

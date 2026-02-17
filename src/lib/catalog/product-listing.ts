@@ -35,9 +35,32 @@ export const fetchProductListing = async ({
   const response = await fetch(
     await buildProductsUrl({ category, tag, vendor, page, perPage, search }),
     {
-    cache: 'no-store',
+      cache: 'no-store',
     },
   )
   const payload = await response.json().catch(() => null)
   return Array.isArray(payload?.items) ? payload.items : []
+}
+
+export const fetchProductListingPayload = async ({
+  category = '',
+  tag = '',
+  vendor = '',
+  page = 1,
+  perPage = 12,
+  search = '',
+} = {}) => {
+  const response = await fetch(
+    await buildProductsUrl({ category, tag, vendor, page, perPage, search }),
+    {
+      cache: 'no-store',
+    },
+  )
+  const payload = await response.json().catch(() => null)
+  return {
+    items: Array.isArray(payload?.items) ? payload.items : [],
+    totalCount: Number(payload?.total_count) || 0,
+    page: Number(payload?.page) || 1,
+    pages: Number(payload?.pages) || 1,
+  }
 }

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 
 export default function ShopAccessPage() {
@@ -57,14 +58,28 @@ export default function ShopAccessPage() {
           </div>
         ) : null}
 
-        <button
-          type='button'
-          onClick={handleRequestAccess}
-          disabled={isRequesting}
-          className='mt-5 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60'
-        >
-          {isRequesting ? 'Submitting...' : 'Request shop access'}
-        </button>
+        <div className='mt-5 flex flex-wrap gap-3'>
+          <Link
+            href='/vendor/signup'
+            className='rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800'
+          >
+            Become a seller
+          </Link>
+          <Link
+            href='/vendor/login'
+            className='rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50'
+          >
+            Seller sign in
+          </Link>
+          <button
+            type='button'
+            onClick={handleRequestAccess}
+            disabled={isRequesting}
+            className='rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60'
+          >
+            {isRequesting ? 'Submitting...' : 'Request admin access'}
+          </button>
+        </div>
       </section>
     </div>
   )

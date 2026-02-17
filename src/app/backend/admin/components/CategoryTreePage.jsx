@@ -1,5 +1,6 @@
 'use client';
 import AdminSidebar from '@/components/AdminSidebar';
+import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
 import CategoryTreeManager from './CategoryTreeManager';
 
 function CategoryTreePage() {
@@ -11,6 +12,7 @@ function CategoryTreePage() {
         </div>
 
         <main className="flex-1 px-4 py-8 sm:px-6 lg:px-10">
+                  <AdminDesktopHeader />
           <CategoryTreeManager />
         </main>
       </div>

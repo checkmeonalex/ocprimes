@@ -1,356 +1,402 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import {
-  fetchConnector,
-  getHostname,
-  normalizeWpUrl,
-  pickSiteForUrl,
-  readStoredSiteId,
-  readStoredSiteInfo,
-} from '../../../../utils/connector';
-import BouncingDotsLoader from '../components/BouncingDotsLoader';
-import LazyImage from '../components/LazyImage';
-import CustomerRowSkeleton from './components/CustomerRowSkeleton';
-import AdminSidebar from '@/components/AdminSidebar';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import BouncingDotsLoader from '../components/BouncingDotsLoader'
+import CustomerRowSkeleton from './components/CustomerRowSkeleton'
+import AdminSidebar from '@/components/AdminSidebar'
+import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+import CreateAccountModal from '../brands/components/CreateAccountModal'
+import { fetchCustomerStats, fetchCustomers } from './lib/customerApi.mjs'
 
-const CUSTOMERS_PAGE_SIZE = 10;
-const JOB_TITLE_META_KEY = process.env.REACT_APP_WP_JOB_TITLE_META_KEY || 'job_title';
+const CUSTOMERS_PAGE_SIZE = 10
 
 const buildInitials = (name) => {
-  if (!name) return 'U';
+  if (!name) return 'U'
   return name
     .split(' ')
     .slice(0, 2)
     .map((part) => part.charAt(0).toUpperCase())
-    .join('');
-};
+    .join('')
+}
 
-function WooCommerceCustomersPage() {
-  const router = useRouter();
-  const [siteInfo, setSiteInfo] = useState(() => readStoredSiteInfo());
-  const [siteId, setSiteId] = useState(() => readStoredSiteId() || siteInfo?.siteId || '');
-  const [customers, setCustomers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const isLoadingRef = useRef(false);
-  const loadMoreRef = useRef(null);
-  const [hasUserScrolled, setHasUserScrolled] = useState(false);
+const formatCompanyFromEmail = (email) => {
+  const value = String(email || '').trim().toLowerCase()
+  if (!value.includes('@')) return '--'
+  const domain = value.split('@')[1] || ''
+  const base = domain.split('.')[0] || ''
+  if (!base) return '--'
+  return base.charAt(0).toUpperCase() + base.slice(1)
+}
 
-  useEffect(() => {
-    const handleStorage = (event) => {
-      if (event.key === 'agentic_wp_site') {
-        setSiteInfo(readStoredSiteInfo());
-      }
-      if (event.key === 'agentic_wp_site_id') {
-        setSiteId(readStoredSiteId());
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
+const formatTrend = (trend) => {
+  const direction = trend?.direction === 'down' ? 'down' : trend?.direction === 'flat' ? 'flat' : 'up'
+  const percent = Number(trend?.percent || 0)
+  return {
+    direction,
+    label: direction === 'flat' ? '0%' : `${direction === 'up' ? '+' : '-'}${percent}%`,
+  }
+}
 
+function CustomersPage() {
+  const router = useRouter()
+  const [customers, setCustomers] = useState([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [totalCount, setTotalCount] = useState(0)
+  const isLoadingRef = useRef(false)
+  const loadMoreRef = useRef(null)
+  const [hasUserScrolled, setHasUserScrolled] = useState(false)
+  const [sortBy, setSortBy] = useState('newest')
+  const [statsLoading, setStatsLoading] = useState(false)
+  const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [createSaving, setCreateSaving] = useState(false)
+  const [createError, setCreateError] = useState('')
+  const [stats, setStats] = useState({
+    total_customers: 0,
+    customers_this_month: 0,
+    customers_last_month: 0,
+    customers_trend: { direction: 'flat', percent: 0 },
+    total_orders: 0,
+    orders_this_month: 0,
+    orders_last_month: 0,
+    orders_trend: { direction: 'flat', percent: 0 },
+    orders_source: 'fallback',
+    active_today_count: 0,
+    active_today_users: [],
+  })
 
-  useEffect(() => {
-    if (siteInfo?.siteId) {
-      setSiteId(siteInfo.siteId);
-    }
-  }, [siteInfo]);
+  const loadCustomers = useCallback(async (requestedPage, replace = false) => {
+    if (isLoadingRef.current) return
+    isLoadingRef.current = true
+    setIsLoading(true)
+    setError('')
 
-  const applySiteInfo = useCallback((site) => {
-    if (!site) return;
-    const resolvedSiteId =
-      typeof site.site_id === 'string'
-        ? site.site_id
-        : typeof site.id === 'string'
-          ? site.id
-          : '';
-    const siteUrl =
-      typeof site.site_url === 'string'
-        ? site.site_url
-        : typeof site.url === 'string'
-          ? site.url
-          : '';
-    const siteName =
-      typeof site.site_name === 'string'
-        ? site.site_name
-        : typeof site.name === 'string'
-          ? site.name
-          : '';
-    const logoUrl =
-      typeof site.site_logo_url === 'string'
-        ? site.site_logo_url
-        : typeof site.logoUrl === 'string'
-          ? site.logoUrl
-          : '';
-    const normalizedUrl = siteUrl ? normalizeWpUrl(siteUrl) : '';
-    const resolvedName = siteName.trim() || getHostname(normalizedUrl) || normalizedUrl;
-    const nextSiteInfo = {
-      name: resolvedName,
-      logoUrl: logoUrl || '',
-      url: normalizedUrl || siteUrl,
-      siteId: resolvedSiteId || '',
-    };
-    setSiteInfo(nextSiteInfo);
-    if (resolvedSiteId) {
-      setSiteId(resolvedSiteId);
-    }
     try {
-      localStorage.setItem('agentic_wp_site', JSON.stringify(nextSiteInfo));
-      if (resolvedSiteId) {
-        localStorage.setItem('agentic_wp_site_id', resolvedSiteId);
-      }
-    } catch (_error) {}
-  }, []);
+      const payload = await fetchCustomers({
+        page: requestedPage,
+        perPage: CUSTOMERS_PAGE_SIZE,
+        q: searchTerm,
+      })
 
-  const resolveSiteId = useCallback(async () => {
-    const existingId = readStoredSiteId() || siteInfo?.siteId || siteId;
-    if (existingId) {
-      return existingId;
-    }
-    const token = localStorage.getItem('agentic_auth_token');
-    if (!token) {
-      return '';
-    }
-    const response = await fetchConnector('/sites', {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok || !payload?.sites?.length) {
-      return '';
-    }
-    const storedSite = readStoredSiteInfo();
-    const targetUrl = siteInfo?.url || storedSite?.url || '';
-    const selectedSite = pickSiteForUrl(payload.sites, targetUrl);
-    if (!selectedSite) {
-      return '';
-    }
-    applySiteInfo(selectedSite);
-    if (typeof selectedSite.id === 'string') {
-      return selectedSite.id;
-    }
-    return typeof selectedSite.site_id === 'string' ? selectedSite.site_id : '';
-  }, [applySiteInfo, siteId, siteInfo]);
+      const nextItems = Array.isArray(payload?.items) ? payload.items : []
+      const total = Number(payload?.total_count || 0)
+      const pages = Number(payload?.pages || 1)
 
-  const loadCustomers = useCallback(
-    async (requestedPage, replace = false) => {
-      if (isLoadingRef.current) return;
-      isLoadingRef.current = true;
-      setIsLoading(true);
-      setError('');
-      try {
-        const resolvedSiteId = siteId || (await resolveSiteId());
-        if (!resolvedSiteId) {
-          throw new Error('Connect a store to load customers.');
-        }
-        const token = localStorage.getItem('agentic_auth_token');
-        if (!token) {
-          throw new Error('Sign in to load customers.');
-        }
-        const params = new URLSearchParams({
-          per_page: CUSTOMERS_PAGE_SIZE.toString(),
-          page: requestedPage.toString(),
-          job_title_key: JOB_TITLE_META_KEY,
-        });
-        params.set('roles', 'all');
-        if (searchTerm.trim()) {
-          params.set('search', searchTerm.trim());
-        }
-        const response = await fetchConnector(
-          `/sites/${resolvedSiteId}/customers?${params.toString()}`,
-          { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } },
-        );
-        const payload = await response.json().catch(() => null);
-        if (!response.ok) {
-          const message = payload?.error || 'Unable to load customers.';
-          throw new Error(message);
-        }
-        const nextItems = Array.isArray(payload?.items) ? payload.items : [];
-        setCustomers((prev) => (replace ? nextItems : [...prev, ...nextItems]));
-        setPage(requestedPage);
-        const nextHasMore = nextItems.length > 0;
-        setHasMore(nextHasMore);
-      } catch (err) {
-        setError(err?.message || 'Unable to load customers.');
-      } finally {
-        isLoadingRef.current = false;
-        setIsLoading(false);
+      setCustomers((prev) => (replace ? nextItems : [...prev, ...nextItems]))
+      setPage(requestedPage)
+      setTotalCount(total)
+      setHasMore(requestedPage < pages)
+    } catch (err) {
+      setError(err?.message || 'Unable to load customers.')
+      if (replace) {
+        setCustomers([])
+        setHasMore(false)
       }
-    },
-    [resolveSiteId, searchTerm, siteId],
-  );
+    } finally {
+      isLoadingRef.current = false
+      setIsLoading(false)
+    }
+  }, [searchTerm])
 
   useEffect(() => {
     const handle = setTimeout(() => {
-      setCustomers([]);
-      setPage(1);
-      setHasMore(true);
-      setHasUserScrolled(false);
-      loadCustomers(1, true);
-    }, 300);
-    return () => clearTimeout(handle);
-  }, [loadCustomers, searchTerm]);
+      setCustomers([])
+      setPage(1)
+      setHasMore(true)
+      setHasUserScrolled(false)
+      loadCustomers(1, true)
+    }, 300)
+    return () => clearTimeout(handle)
+  }, [loadCustomers, searchTerm])
 
   useEffect(() => {
-    if (hasUserScrolled) {
-      return;
+    let active = true
+    const loadStats = async () => {
+      setStatsLoading(true)
+      try {
+        const payload = await fetchCustomerStats()
+        if (!active) return
+        setStats((prev) => ({
+          ...prev,
+          ...payload,
+          active_today_users: Array.isArray(payload?.active_today_users) ? payload.active_today_users : [],
+        }))
+      } catch (_error) {
+      } finally {
+        if (active) setStatsLoading(false)
+      }
     }
-    const markScrolled = () => {
-      setHasUserScrolled(true);
-    };
-    window.addEventListener('scroll', markScrolled, { passive: true });
-    window.addEventListener('wheel', markScrolled, { passive: true });
-    window.addEventListener('touchmove', markScrolled, { passive: true });
+    loadStats()
     return () => {
-      window.removeEventListener('scroll', markScrolled);
-      window.removeEventListener('wheel', markScrolled);
-      window.removeEventListener('touchmove', markScrolled);
-    };
-  }, []);
+      active = false
+    }
+  }, [])
 
   useEffect(() => {
-    const node = loadMoreRef.current;
-    if (!node) return;
+    if (hasUserScrolled) return
+    const markScrolled = () => setHasUserScrolled(true)
+    window.addEventListener('scroll', markScrolled, { passive: true })
+    window.addEventListener('wheel', markScrolled, { passive: true })
+    window.addEventListener('touchmove', markScrolled, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', markScrolled)
+      window.removeEventListener('wheel', markScrolled)
+      window.removeEventListener('touchmove', markScrolled)
+    }
+  }, [hasUserScrolled])
+
+  useEffect(() => {
+    const node = loadMoreRef.current
+    if (!node) return
     const observer = new IntersectionObserver(
       (entries) => {
-        const entry = entries[0];
-        if (!entry?.isIntersecting) return;
-        if (!hasUserScrolled) return;
-        if (!customers.length || !hasMore || isLoadingRef.current) return;
-        loadCustomers(page + 1);
+        const entry = entries[0]
+        if (!entry?.isIntersecting) return
+        if (!hasUserScrolled) return
+        if (!customers.length || !hasMore || isLoadingRef.current) return
+        loadCustomers(page + 1)
       },
       { rootMargin: '200px' },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [customers.length, hasMore, hasUserScrolled, loadCustomers, page]);
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [customers.length, hasMore, hasUserScrolled, loadCustomers, page])
 
+  const rows = useMemo(() => {
+    const mapped = customers.map((customer) => {
+      const status = String(customer?.status || '').toLowerCase() === 'inactive' ? 'inactive' : 'active'
+      return {
+        ...customer,
+        company: String(customer?.company || '').trim() || formatCompanyFromEmail(customer?.email),
+        country: String(customer?.country || '').trim() || 'Unknown',
+        status,
+      }
+    })
 
-  const siteName = siteInfo?.name || 'Store';
-  const siteLogo = siteInfo?.logoUrl || '';
+    if (sortBy === 'oldest') {
+      return [...mapped].sort((a, b) => {
+        const left = new Date(a?.created_at || 0).getTime()
+        const right = new Date(b?.created_at || 0).getTime()
+        return left - right
+      })
+    }
+
+    if (sortBy === 'name') {
+      return [...mapped].sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')))
+    }
+
+    return [...mapped].sort((a, b) => {
+      const left = new Date(a?.created_at || 0).getTime()
+      const right = new Date(b?.created_at || 0).getTime()
+      return right - left
+    })
+  }, [customers, sortBy])
+
+  const customerTrend = useMemo(() => formatTrend(stats.customers_trend), [stats.customers_trend])
+  const ordersTrend = useMemo(() => formatTrend(stats.orders_trend), [stats.orders_trend])
+
+  const handleCreateCustomer = async (payload) => {
+    setCreateSaving(true)
+    setCreateError('')
+    try {
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ ...payload, role: 'customer' }),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) throw new Error(data?.error || 'Unable to create customer.')
+      setCreateModalOpen(false)
+      await loadCustomers(1, true)
+    } catch (saveError) {
+      setCreateError(saveError?.message || 'Unable to create customer.')
+    } finally {
+      setCreateSaving(false)
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
       <div className="flex min-h-screen">
         <AdminSidebar />
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-10">
+        <main className="flex-1 px-4 pb-6 sm:px-6 lg:px-10">
+          <AdminDesktopHeader />
           <div className="mx-auto w-full max-w-6xl">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Customers</p>
-                <h1 className="mt-2 text-2xl font-semibold text-slate-900">Contacts</h1>
-                <p className="mt-2 text-sm text-slate-500">Review the latest WooCommerce customers and shoppers.</p>
+                <h1 className="text-[26px] font-semibold text-slate-900">All Customers</h1>
               </div>
-              <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-                <div className="flex w-full max-w-md items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-500 shadow-sm sm:w-auto">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="6" />
-                    <path d="m15.5 15.5 4 4" />
+              <button
+                type="button"
+                onClick={() => setCreateModalOpen(true)}
+                className="inline-flex h-10 items-center gap-2 rounded-full bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-700"
+              >
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/20">
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                   </svg>
-                  <input
-                    className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none sm:w-56"
-                    placeholder="Search customers"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                  />
-                </div>
-                <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
-                  {siteLogo ? (
-                    <img src={siteLogo} alt={siteName} className="h-7 w-7 rounded-full object-cover" />
-                  ) : (
-                    <span className="h-7 w-7 rounded-full bg-slate-200" />
-                  )}
-                  {siteName}
-                </div>
-              </div>
+                </span>
+                Add Customer
+              </button>
             </div>
 
-            <div className="mt-8">
-              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Customers</p>
-                    <p className="text-sm font-semibold text-slate-700">{customers.length} loaded</p>
+            <div className="mt-5">
+              <div className="mobile-full-bleed mb-4 overflow-hidden rounded-none border-y border-slate-200 bg-white sm:rounded-2xl sm:border sm:border-slate-200">
+                <div className="grid sm:grid-cols-3">
+                  <div className="flex items-center gap-3 px-5 py-5">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#4d9cff]">
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <circle cx="9" cy="8" r="3.2" />
+                        <path d="M3.8 18.2a5.2 5.2 0 0 1 10.4 0" />
+                        <circle cx="17" cy="9" r="2.2" />
+                      </svg>
+                    </span>
+                    <div>
+                      <p className="text-[11px] text-slate-400">Total Customers</p>
+                      <p className="text-[35px] font-semibold leading-none text-slate-900">{Number(stats.total_customers || totalCount || rows.length).toLocaleString()}</p>
+                      <p className={`mt-1 text-[11px] ${customerTrend.direction === 'down' ? 'text-rose-500' : customerTrend.direction === 'flat' ? 'text-slate-500' : 'text-emerald-600'}`}>
+                        {statsLoading ? 'Loading...' : `${customerTrend.direction === 'down' ? '↓' : customerTrend.direction === 'flat' ? '→' : '↑'} ${customerTrend.label.replace('+', '')} this month`}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                  <div className="hidden grid-cols-[minmax(180px,_2fr)_minmax(120px,_1.2fr)_minmax(120px,_1fr)_minmax(180px,_2fr)_minmax(80px,_0.8fr)] gap-4 sm:grid">
-                    <span>Name</span>
-                    <span>Job title</span>
-                    <span>Phone</span>
-                    <span>Email</span>
-                    <span className="text-right">User ID</span>
+                  <div className="flex items-center gap-3 border-t border-slate-100 px-5 py-5 sm:border-l sm:border-t-0">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#4d9cff]">
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <circle cx="12" cy="8.5" r="3" />
+                        <path d="M6 18a6 6 0 0 1 12 0" />
+                      </svg>
+                    </span>
+                    <div>
+                      <p className="text-[11px] text-slate-400">Total Orders</p>
+                      <p className="text-[35px] font-semibold leading-none text-slate-900">{Number(stats.total_orders || 0).toLocaleString()}</p>
+                      <p className={`mt-1 text-[11px] ${ordersTrend.direction === 'down' ? 'text-rose-500' : ordersTrend.direction === 'flat' ? 'text-slate-500' : 'text-emerald-600'}`}>
+                        {statsLoading ? 'Loading...' : `${ordersTrend.direction === 'down' ? '↓' : ordersTrend.direction === 'flat' ? '→' : '↑'} ${ordersTrend.label.replace('+', '')} this month`}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between sm:hidden">
-                    <span>Name</span>
-                    <span>User ID</span>
-                  </div>
-                </div>
-                <div className="divide-y divide-slate-100">
-                  {!customers.length && isLoading &&
-                    Array.from({ length: 6 }).map((_, index) => (
-                      <CustomerRowSkeleton key={`customer-skeleton-${index}`} />
-                    ))}
-                  {customers.map((customer) => (
-                    <div
-                      key={customer.id}
-                      className="relative flex w-full flex-col gap-3 overflow-visible px-6 py-3 text-left text-sm transition hover:bg-slate-50 sm:grid sm:grid-cols-[minmax(180px,_2fr)_minmax(120px,_1.2fr)_minmax(120px,_1fr)_minmax(180px,_2fr)_minmax(80px,_0.8fr)] sm:items-center sm:gap-4"
-                    >
-                      <div className="flex w-full items-center justify-between sm:w-auto">
-                        <div className="flex items-center gap-3">
-                          {customer.avatar_url ? (
-                            <div className="relative h-10 w-10 overflow-hidden rounded-full bg-slate-200">
-                              <LazyImage
-                                src={customer.avatar_url}
-                                alt={customer.name || 'Customer'}
-                                className="rounded-full"
-                              />
-                            </div>
-                          ) : (
-                            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-500">
-                              {buildInitials(customer.name)}
+                  <div className="flex items-center gap-3 border-t border-slate-100 px-5 py-5 sm:border-l sm:border-t-0">
+                    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#4d9cff]">
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <rect x="4" y="5" width="16" height="11" rx="2" />
+                        <path d="M9 19h6" />
+                      </svg>
+                    </span>
+                    <div>
+                      <p className="text-[11px] text-slate-400">Active Now</p>
+                      <p className="text-[35px] font-semibold leading-none text-slate-900">{Number(stats.active_today_count || 0).toLocaleString()}</p>
+                      <div className="mt-1 flex -space-x-1.5">
+                        {Array.isArray(stats.active_today_users) &&
+                          stats.active_today_users.slice(0, 5).map((user) => (
+                            <span
+                              key={user.id}
+                              className="inline-flex h-5 w-5 items-center justify-center overflow-hidden rounded-full border border-white bg-slate-200 text-[9px] font-semibold text-slate-600"
+                              title={user.name}
+                            >
+                              {user.avatar_url ? (
+                                <img src={user.avatar_url} alt={user.name} className="h-full w-full object-cover" />
+                              ) : (
+                                buildInitials(user.name || '')
+                              )}
                             </span>
-                          )}
+                          ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mobile-full-bleed rounded-none border-y border-slate-200 bg-white sm:rounded-2xl sm:border sm:border-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-5">
+                  <p className="text-lg font-semibold text-slate-900">All Customers</p>
+                  <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+                    <label className="flex h-9 w-full items-center gap-2 rounded-full border border-slate-200 bg-white px-3 text-sm text-slate-500 sm:w-64">
+                      <svg viewBox="0 0 24 24" className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="11" cy="11" r="6" />
+                        <path d="m15.5 15.5 4 4" />
+                      </svg>
+                      <input
+                        className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
+                        placeholder="Search"
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                      />
+                    </label>
+                    <span className="text-xs text-slate-400">Sort by:</span>
+                    <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="h-8 border-0 bg-transparent pr-6 text-xs font-semibold text-slate-700 outline-none">
+                      <option value="newest">Newest</option>
+                      <option value="oldest">Oldest</option>
+                      <option value="name">Name</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <div className="min-w-[860px]">
+                    <div className="grid grid-cols-[210px_230px_160px_130px_110px_60px] gap-4 border-t border-slate-100 px-5 py-3 text-[11px] text-slate-400">
+                      <span>Name</span>
+                      <span>Email</span>
+                      <span>Phone</span>
+                      <span>Location</span>
+                      <span>Total Order</span>
+                      <span>Action</span>
+                    </div>
+
+                    <div className="divide-y divide-slate-100">
+                      {!rows.length && isLoading &&
+                        Array.from({ length: 6 }).map((_, index) => (
+                          <CustomerRowSkeleton key={`customer-skeleton-${index}`} />
+                        ))}
+
+                      {rows.map((customer) => (
+                        <div
+                          key={customer.id}
+                          className="grid grid-cols-[210px_230px_160px_130px_110px_60px] items-center gap-4 px-5 py-4 text-sm transition hover:bg-slate-50"
+                        >
                           <button
                             type="button"
                             onClick={() => router.push(`/backend/admin/customers/${customer.id}`)}
-                            className="text-left focus:outline-none"
+                            className="truncate text-left text-[13px] font-medium text-slate-800 hover:underline"
                           >
-                            <p className="text-sm font-semibold text-slate-700">
-                              {customer.name || 'Unknown'}
-                            </p>
-                            <p className="text-xs text-slate-500 sm:hidden">
-                              {customer.email || '--'}
-                            </p>
-                            <p className="hidden text-xs text-slate-400 sm:block">#{customer.id}</p>
+                            {customer.name || 'Unknown'}
+                          </button>
+
+                          <p className="truncate text-[13px] text-slate-700">{customer.email || '--'}</p>
+                          <p className="truncate text-[13px] text-slate-700">{customer.phone || '--'}</p>
+                          <p className="truncate text-[13px] text-slate-700">{customer.country || 'Unknown'}</p>
+                          <p className="text-[13px] font-medium text-slate-800">{Number(customer.total_orders || 0)}</p>
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/backend/admin/customers/${customer.id}`)}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100"
+                            aria-label="Open customer"
+                          >
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                              <circle cx="6" cy="12" r="1.7" />
+                              <circle cx="12" cy="12" r="1.7" />
+                              <circle cx="18" cy="12" r="1.7" />
+                            </svg>
                           </button>
                         </div>
-                        <span className="ml-3 shrink-0 text-xs font-semibold text-slate-500 sm:hidden">
-                          #{customer.id}
-                        </span>
-                      </div>
-                      <p className="hidden text-xs font-semibold text-slate-600 sm:block">
-                        {customer.job_title || '--'}
-                      </p>
-                      <p className="hidden text-xs text-slate-500 sm:block">{customer.phone || '--'}</p>
-                      <p className="hidden text-xs text-slate-500 sm:block">{customer.email || '--'}</p>
-                      <p className="hidden text-xs font-semibold text-slate-500 text-right sm:block">
-                        {customer.id}
-                      </p>
+                      ))}
+
+                      {!rows.length && !isLoading && (
+                        <div className="px-6 py-8 text-center text-sm text-slate-400">No customers yet.</div>
+                      )}
                     </div>
-                  ))}
-                  {!customers.length && !isLoading && (
-                    <div className="px-6 py-8 text-center text-sm text-slate-400">No customers yet.</div>
-                  )}
+                  </div>
                 </div>
+
                 <div ref={loadMoreRef} className="h-6" />
-                <div className="flex items-center justify-center px-6 pb-4">
-                  {isLoading && (
-                    <BouncingDotsLoader className="text-slate-400" dotClassName="bg-slate-400" />
-                  )}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-5 pb-4 pt-3">
+                  <p className="text-[11px] text-slate-400">
+                    Showing {rows.length ? 1 : 0} to {rows.length} of {totalCount || rows.length} entries
+                  </p>
+                  {isLoading && <BouncingDotsLoader className="text-slate-400" dotClassName="bg-slate-400" />}
+
                   {!isLoading && hasMore && (
                     <button
                       type="button"
@@ -360,18 +406,32 @@ function WooCommerceCustomersPage() {
                       Load next
                     </button>
                   )}
+
                   {!isLoading && !hasMore && customers.length > 0 && (
                     <p className="text-xs text-slate-400">No more customers.</p>
                   )}
                 </div>
+
                 {error && <p className="px-6 py-3 text-xs text-rose-500">{error}</p>}
               </div>
             </div>
           </div>
         </main>
       </div>
+      <CreateAccountModal
+        open={createModalOpen}
+        role="customer"
+        isSaving={createSaving}
+        error={createError}
+        onClose={() => {
+          if (createSaving) return
+          setCreateModalOpen(false)
+          setCreateError('')
+        }}
+        onSubmit={handleCreateCustomer}
+      />
     </div>
-  );
+  )
 }
 
-export default WooCommerceCustomersPage;
+export default CustomersPage

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import AdminSidebar from '@/components/AdminSidebar';
+import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
 import BouncingDotsLoader from './components/BouncingDotsLoader';
 import {
   fetchConnector,
@@ -404,7 +405,8 @@ function OrderDetailPage() {
           <AdminSidebar />
         </div>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-10">
+        <main className="flex-1 px-4 pb-6 sm:px-6 lg:px-10">
+                  <AdminDesktopHeader />
           <div className="mx-auto w-full max-w-6xl">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">

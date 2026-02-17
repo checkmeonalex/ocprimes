@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { loginSchema } from '@/lib/auth/validation'
 import { jsonError } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
-import { getUserRole } from '@/lib/auth/roles'
+import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
@@ -29,9 +29,9 @@ export async function POST(request: NextRequest) {
     return jsonError('Unable to sign in.', 401)
   }
 
-  const role = await getUserRole(supabase, userId)
-  console.error('Admin login role check:', { userId, role })
-  if (role !== 'admin') {
+  const roleInfo = await getUserRoleInfoSafe(supabase, userId, data.user?.email || '')
+  console.error('Admin login role check:', { userId, role: roleInfo.role, roles: roleInfo.roles })
+  if (!roleInfo.isAdmin) {
     await supabase.auth.signOut()
     return jsonError('Admin access not approved.', 403)
   }

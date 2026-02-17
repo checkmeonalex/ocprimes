@@ -75,14 +75,15 @@ const ProductBrandSelector = ({
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 py-6">
+        <div className="fixed inset-0 z-[80] flex items-end justify-center px-0 py-0 sm:items-center sm:px-4 sm:py-6">
           <button
             type="button"
             onClick={() => setIsOpen(false)}
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             aria-label="Close brands"
           />
-          <div className="relative z-10 w-full max-w-2xl max-h-[calc(100vh-48px)] overflow-y-auto rounded-[28px] border border-slate-200 bg-white p-5 shadow-2xl">
+          <div className="relative z-10 w-full max-h-[86vh] overflow-y-auto rounded-t-3xl border border-slate-200 bg-white p-4 shadow-2xl sm:max-h-[calc(100vh-48px)] sm:max-w-2xl sm:rounded-[28px] sm:p-5">
+            <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-slate-200 sm:hidden" />
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
@@ -106,9 +107,9 @@ const ProductBrandSelector = ({
                   placeholder="Search brands..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
+                  className="w-full rounded-2xl border border-slate-200 py-2 pl-8 pr-3 text-xs text-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-emerald-500"
                 />
-                <div className="absolute inset-y-0 left-0 flex items-center pl-2">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                   <svg
                     className="h-4 w-4 text-slate-400"
                     xmlns="http://www.w3.org/2000/svg"

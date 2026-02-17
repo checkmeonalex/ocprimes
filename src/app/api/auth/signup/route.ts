@@ -52,16 +52,29 @@ export async function POST(request: NextRequest) {
       return response
     }
 
-    const { data, error } = await supabase.auth.signUp({ email, password })
+    const adminClient = createAdminSupabaseClient()
+    const { data, error } = await adminClient.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    })
 
-    if (error) {
+    if (error && !error.message?.toLowerCase().includes('already registered')) {
       console.error('Signup failed:', error.message)
       return jsonError('Unable to sign up.', 400)
     }
 
-    const response = NextResponse.json({
-      requiresEmailConfirmation: !data.user?.email_confirmed_at,
-    })
+    if (!error && data?.user?.id) {
+      await adminClient.from('user_roles').upsert({ user_id: data.user.id, role: 'customer' })
+    }
+
+    const { error: loginError } = await supabase.auth.signInWithPassword({ email, password })
+    if (loginError) {
+      console.error('Signup auto-login failed:', loginError.message)
+      return jsonError('Unable to complete sign up.', 400)
+    }
+
+    const response = NextResponse.json({ requiresEmailConfirmation: false })
     applyCookies(response)
     return response
   } catch (error) {

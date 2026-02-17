@@ -300,8 +300,30 @@ export default function Navbar() {
   }
 
   const cartCount = summary?.itemCount ?? 0
+  const isCartRoute = pathname?.startsWith('/cart')
+  const isCheckoutRoute = pathname?.startsWith('/checkout')
+  const isCheckoutFlow = isCartRoute || isCheckoutRoute
   const isUserDashboard = pathname?.startsWith('/UserBackend')
   const showDashboardPrimaryBar = lastScrollY < 20
+  const checkoutCurrentStep = isCartRoute
+    ? 'account'
+    : pathname?.startsWith('/checkout/review')
+      ? 'review'
+      : pathname?.startsWith('/checkout/payment')
+        ? 'payment'
+        : 'delivery'
+  const checkoutStepOrder = ['account', 'delivery', 'payment', 'review']
+  const checkoutCurrentStepIndex = Math.max(
+    0,
+    checkoutStepOrder.indexOf(checkoutCurrentStep),
+  )
+  const checkoutBackHref = isCartRoute
+    ? '/'
+    : pathname?.startsWith('/checkout/review')
+      ? '/checkout/payment'
+      : pathname?.startsWith('/checkout/payment')
+        ? '/checkout/shipping'
+        : '/cart'
   const formatPrice = (value) => {
     if (!Number.isFinite(Number(value))) return '--'
     return formatMoney(Number(value))
@@ -326,9 +348,103 @@ export default function Navbar() {
     )
   }
 
+  if (isCheckoutFlow) {
+    return (
+      <nav className='fixed left-0 right-0 top-0 z-40 hidden border-b border-gray-200 bg-[#f3f4f6] lg:block'>
+        <div className='mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8'>
+          <div className='relative flex h-16 items-center'>
+            <div className='absolute left-0 top-1/2 -translate-y-1/2'>
+              <Link
+                href={checkoutBackHref}
+                className='inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-[#eef0f2] px-4 py-2 text-sm font-medium text-slate-900 hover:bg-[#e6e8ea]'
+              >
+                <svg
+                  viewBox='0 0 20 20'
+                  className='h-4 w-4'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='2'
+                  aria-hidden='true'
+                >
+                  <path d='m12.5 4.5-5 5 5 5' strokeLinecap='round' strokeLinejoin='round' />
+                </svg>
+                Back
+              </Link>
+            </div>
+
+            <div className='mx-auto min-w-0 px-32'>
+              <ol className='flex items-center justify-center gap-3 overflow-x-auto'>
+              {checkoutStepOrder.map((stepKey, index) => {
+                const isDone = index < checkoutCurrentStepIndex
+                const isCurrent = index === checkoutCurrentStepIndex
+                const label =
+                  stepKey === 'account'
+                    ? 'Cart'
+                    : stepKey === 'delivery'
+                      ? 'Shipping'
+                      : stepKey === 'payment'
+                        ? 'Pay'
+                        : 'Review'
+                return (
+                  <li key={stepKey} className='flex items-center gap-2.5'>
+                    <span
+                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${
+                        isDone
+                          ? 'border-white/85 bg-white/40 text-slate-700 backdrop-blur-xl'
+                          : isCurrent
+                            ? 'border-slate-800 bg-gradient-to-b from-slate-700 to-slate-900 text-white'
+                            : 'border-slate-300 bg-[#f8f8f8] text-slate-500'
+                      }`}
+                    >
+                      {isDone ? (
+                        <svg
+                          viewBox='0 0 20 20'
+                          className='h-5 w-5'
+                          fill='none'
+                          stroke='currentColor'
+                          strokeWidth='2.4'
+                          aria-hidden='true'
+                        >
+                          <path
+                            d='M4.8 10.5 8.1 13.8l7-7'
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                          />
+                        </svg>
+                      ) : (
+                        index + 1
+                      )}
+                    </span>
+                    <span
+                      className={`whitespace-nowrap text-base font-medium ${
+                        isDone || isCurrent ? 'text-slate-900' : 'text-slate-500'
+                      }`}
+                    >
+                      {label}
+                    </span>
+                    {index < checkoutStepOrder.length - 1 ? (
+                      <span className='mx-1 h-px w-10 bg-slate-400/70' aria-hidden='true' />
+                    ) : null}
+                  </li>
+                )
+              })}
+              </ol>
+            </div>
+
+            <div className='absolute right-0 top-1/2 -translate-y-1/2'>
+              <UserMenu variant='compactChip' />
+            </div>
+          </div>
+        </div>
+      </nav>
+    )
+  }
+
   return (
     <nav
-      className={`fixed left-0 right-0 top-0 z-40 hidden border-b border-gray-200 bg-white lg:block ${
+      className={`fixed left-0 right-0 top-0 z-40 hidden border-b border-gray-200 ${
+        isCheckoutFlow ? 'bg-[#f3f4f6]' : 'bg-white'
+      } lg:block ${
         isUserDashboard
           ? ''
           : `transition-transform duration-300 ${
@@ -673,24 +789,22 @@ export default function Navbar() {
             </h1>
             <div className='flex items-center gap-2'>
               <Link
-                className='inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                className='relative flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200'
                 aria-label='Notifications'
                 href='/UserBackend/notifications'
               >
                 <svg
-                  className='h-[18px] w-[18px]'
+                  className='h-5 w-5'
                   viewBox='0 0 24 24'
                   fill='none'
                   stroke='currentColor'
                   strokeWidth='1.8'
                   aria-hidden='true'
                 >
-                  <path
-                    strokeLinecap='round'
-                    strokeLinejoin='round'
-                    d='M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V10a6 6 0 1 0-12 0v4.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0m6 0H9'
-                  />
+                  <path d='M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5' />
+                  <path d='M10 17a2 2 0 0 0 4 0' />
                 </svg>
+                <span className='absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500' />
               </Link>
               <div className='hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500 md:inline-flex'>
                 <svg

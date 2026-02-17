@@ -1,17 +1,19 @@
 import type { NextRequest } from 'next/server'
-import { requireAdmin } from '@/lib/auth/require-admin'
+import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { jsonError, jsonOk } from '@/lib/http/response'
 
 const TABLE = 'admin_attribute_types'
 
 export async function GET(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { applyCookies, canManageCatalog } = await requireDashboardUser(request)
+  const db = createAdminSupabaseClient()
 
-  if (!isAdmin) {
+  if (!canManageCatalog) {
     return jsonError('Forbidden.', 403)
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from(TABLE)
     .select('id, name, slug, description, created_at')
     .order('created_at', { ascending: true })

@@ -1,10 +1,5 @@
-import UserBackendSection from '@/components/user-backend/UserBackendSection'
+import FollowedStoresPanel from '@/components/user-backend/FollowedStoresPanel'
 
 export default function FollowedStoresPage() {
-  return (
-    <UserBackendSection
-      title='Followed stores'
-      description='Manage the stores you follow.'
-    />
-  )
+  return <FollowedStoresPanel />
 }

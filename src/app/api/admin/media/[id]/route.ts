@@ -1,7 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3'
-import { requireAdmin } from '@/lib/auth/require-admin'
+import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { jsonError, jsonOk } from '@/lib/http/response'
 
 const paramsSchema = z.object({
@@ -25,11 +26,13 @@ export async function DELETE(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(_request)
+  const { supabase, applyCookies, canManageCatalog, isAdmin, isVendor, user } =
+    await requireDashboardUser(_request)
 
-  if (!isAdmin) {
+  if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
+  const db = isAdmin ? supabase : createAdminSupabaseClient()
 
   const params = await context.params
   const parsed = paramsSchema.safeParse(params)
@@ -37,14 +40,21 @@ export async function DELETE(
     return jsonError('Invalid media id.', 400)
   }
 
-  const { data, error } = await supabase
+  let lookupQuery = db
     .from('product_images')
-    .select('id, r2_key')
+    .select('id, r2_key, created_by')
     .eq('id', parsed.data.id)
-    .maybeSingle()
+  if (isVendor) {
+    lookupQuery = lookupQuery.eq('created_by', user.id)
+  }
+  const { data, error } = await lookupQuery.maybeSingle()
 
   if (error) {
     console.error('Media lookup failed:', error.message)
+    const errorCode = (error as { code?: string })?.code
+    if (errorCode === '42703') {
+      return jsonError('Media ownership column missing. Run migration 042_vendor_access.sql.', 500)
+    }
     return jsonError('Unable to delete media.', 500)
   }
 
@@ -83,7 +93,7 @@ export async function DELETE(
     }
   }
 
-  const { error: deleteError } = await supabase
+  const { error: deleteError } = await db
     .from('product_images')
     .delete()
     .eq('id', data.id)

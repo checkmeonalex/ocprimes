@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef, use } from 'react';
 import Link from 'next/link';
 import AdminSidebar from '@/components/AdminSidebar';
+import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
 import ProductImageLibraryModal from '../../products/ProductImageLibraryModal.jsx';
 import ProductPickerModal from '../../components/ProductPickerModal.jsx';
 import ColorPicker from '../../components/ColorPicker.jsx';
@@ -1202,6 +1203,7 @@ function CategoryDetailPage({ params }) {
         </div>
 
         <main className="flex-1 px-4 py-8 sm:px-6 lg:px-10 space-y-6">
+                  <AdminDesktopHeader />
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">

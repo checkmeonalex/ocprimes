@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import LazyImage from '../components/LazyImage';
 import LibrarySkeletonCard from '../components/LibrarySkeletonCard';
 import BouncingDotsLoader from '../components/BouncingDotsLoader';
@@ -6,6 +7,8 @@ import { fetchMediaPage, uploadMediaFile } from './functions/media';
 import LoadingButton from '../../../../components/LoadingButton';
 
 const MEDIA_PAGE_SIZE = 20;
+const MOBILE_MEDIA_PAGE_SIZE = 8;
+const IMAGE_LIBRARY_CACHE = new Map();
 
 function ProductImageLibraryModal({
   isOpen,
@@ -19,6 +22,7 @@ function ProductImageLibraryModal({
   title = 'Image Library',
   maxSelection = 7,
   zIndexClass = 'z-[60]',
+  zIndex = 999,
 }) {
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
@@ -32,9 +36,24 @@ function ProductImageLibraryModal({
   const [deletingId, setDeletingId] = useState('');
   const [selectedMap, setSelectedMap] = useState({});
   const [selectedOrder, setSelectedOrder] = useState([]);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const inputRef = useRef(null);
   const loadMoreRef = useRef(null);
   const isLoadingRef = useRef(false);
+  const perPage = isMobile ? MOBILE_MEDIA_PAGE_SIZE : MEDIA_PAGE_SIZE;
+  const cacheKey = useMemo(() => `${listEndpoint}::${perPage}`, [listEndpoint, perPage]);
+
+  const writeCache = useCallback(
+    (nextItems, nextPage, nextHasMore) => {
+      IMAGE_LIBRARY_CACHE.set(cacheKey, {
+        items: Array.isArray(nextItems) ? nextItems : [],
+        page: Number(nextPage) || 1,
+        hasMore: Boolean(nextHasMore),
+      });
+    },
+    [cacheKey],
+  );
 
   const loadImages = useCallback(
     async (requestedPage, replace = false) => {
@@ -45,17 +64,20 @@ function ProductImageLibraryModal({
       try {
         const payload = await fetchMediaPage({
           page: requestedPage,
-          perPage: MEDIA_PAGE_SIZE,
+          perPage,
           endpoint: listEndpoint,
         });
         const nextItems = Array.isArray(payload?.items) ? payload.items : [];
-        setItems((prev) => (replace ? nextItems : [...prev, ...nextItems]));
+        const nextHasMore = payload?.pages
+          ? requestedPage < Number(payload.pages)
+          : nextItems.length === perPage;
+        setItems((prev) => {
+          const merged = replace ? nextItems : [...prev, ...nextItems];
+          writeCache(merged, requestedPage, nextHasMore);
+          return merged;
+        });
         setPage(requestedPage);
-        if (payload?.pages) {
-          setHasMore(requestedPage < Number(payload.pages));
-        } else {
-          setHasMore(nextItems.length === MEDIA_PAGE_SIZE);
-        }
+        setHasMore(nextHasMore);
       } catch (err) {
         setError(err?.message || 'Unable to load images.');
       } finally {
@@ -63,14 +85,34 @@ function ProductImageLibraryModal({
         setIsLoading(false);
       }
     },
-    [listEndpoint],
+    [listEndpoint, perPage, writeCache],
   );
 
   useEffect(() => {
+    if (!isOpen) {
+      setIsVisible(false);
+      return;
+    }
+    const timer = setTimeout(() => setIsVisible(true), 10);
+    return () => clearTimeout(timer);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 767px)');
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    const onChange = () => sync();
+    if (typeof mq.addEventListener === 'function') {
+      mq.addEventListener('change', onChange);
+      return () => mq.removeEventListener('change', onChange);
+    }
+    mq.addListener(onChange);
+    return () => mq.removeListener(onChange);
+  }, []);
+
+  useEffect(() => {
     if (!isOpen) return;
-    setItems([]);
-    setPage(1);
-    setHasMore(true);
     const seeded = {};
     const nextOrder = [];
     selectedIds.forEach((id) => {
@@ -79,10 +121,18 @@ function ProductImageLibraryModal({
     });
     setSelectedMap(seeded);
     setSelectedOrder(nextOrder);
+    const cached = IMAGE_LIBRARY_CACHE.get(cacheKey);
+    if (cached) {
+      setItems(Array.isArray(cached.items) ? cached.items : []);
+      setPage(Number(cached.page) || 1);
+      setHasMore(Boolean(cached.hasMore));
+      return;
+    }
+    setItems([]);
+    setPage(1);
+    setHasMore(true);
     loadImages(1, true);
-    // run only when opening
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [cacheKey, isOpen, loadImages, selectedIds]);
 
   const handleDeleteImage = useCallback(
     async (media) => {
@@ -96,7 +146,11 @@ function ProductImageLibraryModal({
         if (!response.ok) {
           throw new Error(payload?.error || 'Unable to delete image.');
         }
-        setItems((prev) => prev.filter((item) => String(item?.id || '') !== id));
+        setItems((prev) => {
+          const next = prev.filter((item) => String(item?.id || '') !== id);
+          writeCache(next, page, hasMore);
+          return next;
+        });
         setSelectedMap((prev) => {
           const next = { ...prev };
           delete next[id];
@@ -109,7 +163,7 @@ function ProductImageLibraryModal({
         setDeletingId('');
       }
     },
-    [deleteEndpointBase, deletingId],
+    [deleteEndpointBase, deletingId, hasMore, page, writeCache],
   );
 
   useEffect(() => {
@@ -151,7 +205,11 @@ function ProductImageLibraryModal({
         }
       }
       if (uploadedItems.length) {
-        setItems((prev) => [...uploadedItems, ...prev]);
+        setItems((prev) => {
+          const next = [...uploadedItems, ...prev];
+          writeCache(next, page, hasMore);
+          return next;
+        });
       }
       if (failed.length) {
         const preview = failed.slice(0, 2).join(', ');
@@ -162,7 +220,7 @@ function ProductImageLibraryModal({
       }
       setIsUploading(false);
     },
-    [uploadEndpoint],
+    [hasMore, page, uploadEndpoint, writeCache],
   );
 
   const skeletons = useMemo(() => Array.from({ length: 8 }, (_, idx) => idx), []);
@@ -199,16 +257,23 @@ function ProductImageLibraryModal({
 
   if (!isOpen) return null;
 
-  return (
-    <div className={`fixed inset-0 ${zIndexClass} flex items-center justify-center px-4 py-6`}>
+  const modalContent = (
+    <div
+      className={`fixed inset-0 ${zIndexClass} flex items-end justify-center px-0 py-0`}
+      style={{ zIndex }}
+    >
       <button
         type="button"
         onClick={onClose}
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
         aria-label="Close image library"
       />
-      <div className="relative z-10 flex w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 px-5 py-4">
+      <div
+        className={`relative z-10 flex h-[100dvh] w-full max-w-none flex-col overflow-hidden rounded-none border-0 bg-white shadow-2xl transition-transform duration-200 ease-out ${
+          isVisible ? 'translate-y-0' : 'translate-y-2'
+        }`}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200/70 px-4 py-3 sm:px-5 sm:py-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
               Image Library
@@ -242,58 +307,55 @@ function ProductImageLibraryModal({
             >
               Upload image(s)
             </LoadingButton>
-            <LoadingButton
-              type="button"
-              onClick={handleApply}
-              className="rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-              disabled={!Object.keys(selectedMap).length}
-            >
-              Apply
-            </LoadingButton>
             <button
               type="button"
               onClick={onClose}
-              className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+              className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 sm:rounded-full sm:px-4"
             >
               Close
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-5" style={{ maxHeight: '70vh' }}>
-          <div
-            onDragOver={(event) => {
-              event.preventDefault();
-              setIsDragOver(true);
-            }}
-            onDragEnter={(event) => {
-              event.preventDefault();
-              setIsDragOver(true);
-            }}
-            onDragLeave={(event) => {
-              event.preventDefault();
-              if (event.currentTarget.contains(event.relatedTarget)) return;
-              setIsDragOver(false);
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              setIsDragOver(false);
-              handleUploadFiles(event.dataTransfer?.files || []);
-            }}
-            className={`mb-4 rounded-2xl border-2 border-dashed px-4 py-4 text-center text-xs transition ${
-              isDragOver
-                ? 'border-blue-400 bg-blue-50 text-blue-700'
-                : 'border-slate-200 bg-slate-50 text-slate-500'
-            }`}
-          >
-            Drag and drop image(s) here, or use Upload image(s)
-          </div>
+        <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 sm:px-5 sm:py-5 sm:pb-24">
+          {!isMobile && (
+            <div
+              onDragOver={(event) => {
+                event.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setIsDragOver(true);
+              }}
+              onDragLeave={(event) => {
+                event.preventDefault();
+                if (event.currentTarget.contains(event.relatedTarget)) return;
+                setIsDragOver(false);
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                setIsDragOver(false);
+                handleUploadFiles(event.dataTransfer?.files || []);
+              }}
+              className={`mb-4 rounded-2xl border-2 border-dashed px-4 py-4 text-center text-xs transition ${
+                isDragOver
+                  ? 'border-blue-400 bg-blue-50 text-blue-700'
+                  : 'border-slate-200 bg-slate-50 text-slate-500'
+              }`}
+            >
+              Drag and drop image(s) here, or use Upload image(s)
+            </div>
+          )}
+          {isMobile && (
+            <p className="mb-3 text-xs text-slate-500">Use Upload image(s) to add files.</p>
+          )}
           {error && <p className="mb-4 text-xs text-rose-500">{error}</p>}
           {uploadError && <p className="mb-4 text-xs text-rose-500">{uploadError}</p>}
           {deleteError && <p className="mb-4 text-xs text-rose-500">{deleteError}</p>}
 
           {!items.length && isLoading && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
               {skeletons.map((item) => (
                 <LibrarySkeletonCard key={item} compact />
               ))}
@@ -301,11 +363,11 @@ function ProductImageLibraryModal({
           )}
 
           {items.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
               {items.map((media) => (
                 <div
                   key={`${media.id}-${media.url}`}
-                  className={`group relative overflow-hidden rounded-2xl border text-left shadow-sm transition ${
+                  className={`group relative overflow-hidden rounded-xl border text-left shadow-sm transition sm:rounded-2xl ${
                     selectedMap[String(media.id)]
                       ? 'border-blue-500 ring-1 ring-blue-200'
                       : 'border-slate-200'
@@ -374,9 +436,29 @@ function ProductImageLibraryModal({
 
           <div ref={loadMoreRef} className="h-10" />
         </div>
+        <div className="fixed bottom-[max(0.9rem,env(safe-area-inset-bottom))] right-4 z-[61] flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm"
+          >
+            Cancel
+          </button>
+          <LoadingButton
+            type="button"
+            onClick={handleApply}
+            className="rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300"
+            disabled={!Object.keys(selectedMap).length}
+          >
+            Done
+          </LoadingButton>
+        </div>
       </div>
     </div>
   );
+
+  if (typeof document === 'undefined') return null;
+  return createPortal(modalContent, document.body);
 }
 
 export default ProductImageLibraryModal;

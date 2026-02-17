@@ -21,6 +21,38 @@ const getDisplayName = (email) => {
   return local || email
 }
 
+const getProfileInitials = (value) => {
+  const normalized = String(value || '').trim()
+  if (!normalized) return 'GU'
+  const words = normalized.split(/\s+/).filter(Boolean)
+  if (words.length >= 2) {
+    return `${words[0][0] || ''}${words[1][0] || ''}`.toUpperCase()
+  }
+  const lettersOnly = normalized.replace(/[^a-zA-Z0-9]/g, '')
+  return lettersOnly.slice(0, 2).toUpperCase() || 'GU'
+}
+
+const PROFILE_BADGE_COLORS = [
+  '#0f766e',
+  '#0369a1',
+  '#b45309',
+  '#7c3aed',
+  '#be123c',
+  '#1d4ed8',
+  '#166534',
+  '#9a3412',
+]
+
+const getProfileBadgeColor = (seed) => {
+  const normalized = String(seed || '').trim().toLowerCase()
+  if (!normalized) return PROFILE_BADGE_COLORS[0]
+  let hash = 0
+  for (let index = 0; index < normalized.length; index += 1) {
+    hash = (hash * 31 + normalized.charCodeAt(index)) >>> 0
+  }
+  return PROFILE_BADGE_COLORS[hash % PROFILE_BADGE_COLORS.length]
+}
+
 const renderMenuItemIcon = (label) => {
   const iconProps = {
     className: 'h-[18px] w-[18px]',
@@ -120,7 +152,7 @@ const renderMenuItemIcon = (label) => {
   )
 }
 
-export default function UserMenu() {
+export default function UserMenu({ variant = 'default' }) {
   const router = useRouter()
   const { user, isLoading } = useAuthUser()
   const { locale, setLocale, t, languageOptions, currencyOptions } = useUserI18n()
@@ -177,7 +209,13 @@ export default function UserMenu() {
   }
 
   const displayName = getDisplayName(user?.email)
+  const profileInitials = getProfileInitials(displayName)
+  const profileBadgeColor = getProfileBadgeColor(displayName)
   const isSignedIn = Boolean(user)
+  const isCompactChip = variant === 'compactChip'
+  const avatarUrl = typeof user?.user_metadata?.avatar_url === 'string'
+    ? user.user_metadata.avatar_url.trim()
+    : ''
   const defaultCountryPrefs = useMemo(() => getCountryLocaleDefaults(localeCountry), [localeCountry])
   const localCurrencyCode = defaultCountryPrefs.currency
   const allowedCurrencyCodes = useMemo(() => getAllowedCurrencyCodes(localeCountry), [localeCountry])
@@ -311,42 +349,72 @@ export default function UserMenu() {
         }
         className={
           isSignedIn
-            ? 'flex items-center space-x-2'
+            ? isCompactChip
+              ? 'inline-flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-[#eef0f2] px-2 py-1'
+              : 'flex items-center space-x-2'
             : 'flex items-center space-x-3 rounded-md px-3 py-2 text-gray-900'
         }
         aria-expanded={isOpen}
         aria-haspopup='menu'
       >
         {isSignedIn ? (
-          <>
-            <div className='w-8 h-8 bg-pink-400 rounded-full flex items-center justify-center'>
+          isCompactChip ? (
+            <>
+              <span className='inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-200'>
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={displayName}
+                    className='h-full w-full object-cover'
+                  />
+                ) : (
+                  <span
+                    className='inline-flex h-full w-full items-center justify-center text-[11px] font-semibold uppercase tracking-[0.03em] text-white'
+                    style={{ backgroundColor: profileBadgeColor }}
+                    aria-hidden='true'
+                  >
+                    {profileInitials}
+                  </span>
+                )}
+              </span>
               <svg
-                className='h-4 w-4 text-white'
-                viewBox='0 0 24 24'
+                viewBox='0 0 20 20'
+                className='h-4 w-4 text-slate-500'
                 fill='none'
-                xmlns='http://www.w3.org/2000/svg'
+                stroke='currentColor'
+                strokeWidth='2'
                 aria-hidden='true'
               >
-                <path
-                  d='M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5Z'
-                  stroke='currentColor'
-                  strokeWidth='1.5'
-                />
-                <path
-                  d='M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8'
-                  stroke='currentColor'
-                  strokeWidth='1.5'
-                  strokeLinecap='round'
-                />
+                <path d='m6 8 4 4 4-4' strokeLinecap='round' strokeLinejoin='round' />
               </svg>
-            </div>
-            <span className='flex flex-col leading-none text-gray-700'>
-              <span className='text-xs font-medium'>
-                {isLoading ? 'Hi' : `Hi ${displayName}`}
+            </>
+          ) : (
+            <>
+              <div className='w-8 h-8 bg-pink-400 rounded-full flex items-center justify-center overflow-hidden'>
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={displayName}
+                    className='h-full w-full object-cover'
+                  />
+                ) : (
+                  <span
+                    className='inline-flex h-full w-full items-center justify-center text-[11px] font-semibold uppercase tracking-[0.03em] text-white'
+                    style={{ backgroundColor: profileBadgeColor }}
+                    aria-hidden='true'
+                  >
+                    {profileInitials}
+                  </span>
+                )}
+              </div>
+              <span className='flex flex-col leading-none text-gray-700'>
+                <span className='text-xs font-medium'>
+                  {isLoading ? 'Hi' : `Hi ${displayName}`}
+                </span>
+                <span className='text-sm font-semibold'>{t('account.yourAccount', 'Your account')}</span>
               </span>
-              <span className='text-sm font-semibold'>{t('account.yourAccount', 'Your account')}</span>
-            </span>
-          </>
+            </>
+          )
         ) : (
           <>
             <svg
@@ -385,26 +453,22 @@ export default function UserMenu() {
             <>
               <div className='-mx-3 flex items-center justify-between gap-3 border-b border-gray-100 bg-white px-5 py-2'>
                 <div className='flex min-w-0 items-center gap-3'>
-                  <div className='w-9 h-9 bg-pink-400 rounded-full flex items-center justify-center'>
-                    <svg
-                      className='h-4 w-4 text-white'
-                      viewBox='0 0 24 24'
-                      fill='none'
-                      xmlns='http://www.w3.org/2000/svg'
-                      aria-hidden='true'
-                    >
-                      <path
-                        d='M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5Z'
-                        stroke='currentColor'
-                        strokeWidth='1.5'
+                  <div className='w-9 h-9 bg-pink-400 rounded-full flex items-center justify-center overflow-hidden'>
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={displayName}
+                        className='h-full w-full object-cover'
                       />
-                      <path
-                        d='M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8'
-                        stroke='currentColor'
-                        strokeWidth='1.5'
-                        strokeLinecap='round'
-                      />
-                    </svg>
+                    ) : (
+                      <span
+                        className='inline-flex h-full w-full items-center justify-center text-[11px] font-semibold uppercase tracking-[0.03em] text-white'
+                        style={{ backgroundColor: profileBadgeColor }}
+                        aria-hidden='true'
+                      >
+                        {profileInitials}
+                      </span>
+                    )}
                   </div>
                   <div className='min-w-0'>
                     <p className='truncate text-sm font-semibold text-gray-900'>

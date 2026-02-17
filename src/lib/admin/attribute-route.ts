@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server'
-import { requireAdmin } from '@/lib/auth/require-admin'
+import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { buildSlug } from '@/lib/admin/taxonomy'
 import {
@@ -46,6 +47,18 @@ type AttributeOptionRow = {
 type AttributeItem = Omit<AttributeRow, 'admin_attribute_types'> & {
   type: AttributeTypeRow[] | null
   options?: AttributeOptionRow[]
+  visibility?: 'shared' | 'private'
+  can_edit?: boolean
+  can_change_visibility?: boolean
+}
+
+const applyVendorVisibilityFilter = (query: any, userId: string) =>
+  query.or(`created_by.eq.${userId},created_by.is.null`)
+
+const getVisibilityState = (createdBy: string | null, userId: string) => {
+  if (createdBy && createdBy === userId) return { visibility: 'private' as const, can_edit: true }
+  if (!createdBy) return { visibility: 'shared' as const, can_edit: false }
+  return { visibility: 'private' as const, can_edit: false }
 }
 
 const resolveType = async (supabase, typeId) => {
@@ -59,9 +72,11 @@ const resolveType = async (supabase, typeId) => {
 }
 
 export async function listAttributes(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { applyCookies, canManageCatalog, isAdmin, isVendor, user } =
+    await requireDashboardUser(request)
+  const db = createAdminSupabaseClient()
 
-  if (!isAdmin) {
+  if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
 
@@ -76,11 +91,15 @@ export async function listAttributes(request: NextRequest) {
   const from = (page - 1) * per_page
   const to = from + per_page - 1
 
-  let query = supabase
+  let query = db
     .from(ATTRIBUTE_TABLE)
     .select('id, name, slug, description, type_id, created_at, created_by, admin_attribute_types(id, name, slug)')
     .order('created_at', { ascending: false })
     .range(from, to)
+
+  if (isVendor) {
+    query = applyVendorVisibilityFilter(query, user.id)
+  }
 
   if (search) {
     const term = `%${search}%`
@@ -99,9 +118,12 @@ export async function listAttributes(request: NextRequest) {
 
   let totalCount = 0
   try {
-    let countQuery = supabase
+    let countQuery = db
       .from(ATTRIBUTE_TABLE)
       .select('id', { count: 'exact', head: true })
+    if (isVendor) {
+      countQuery = applyVendorVisibilityFilter(countQuery, user.id)
+    }
     if (search) {
       const term = `%${search}%`
       countQuery = countQuery.or(`name.ilike.${term},slug.ilike.${term}`)
@@ -119,11 +141,18 @@ export async function listAttributes(request: NextRequest) {
   const items: AttributeItem[] = ((data ?? []) as AttributeRow[]).map((row) => ({
     ...row,
     type: row.admin_attribute_types || null,
+    ...(isAdmin
+      ? {
+          visibility: row?.created_by ? ('private' as const) : ('shared' as const),
+          can_edit: true,
+          can_change_visibility: !row?.created_by || String(row?.created_by) === user.id,
+        }
+      : getVisibilityState(row?.created_by || null, user.id)),
   }))
 
   if (include_options && items.length) {
     const ids = items.map((item) => item.id)
-    const { data: optionRows, error: optionError } = await supabase
+    const { data: optionRows, error: optionError } = await db
       .from(OPTIONS_TABLE)
       .select('id, attribute_id, name, slug, color_hex, sort_order, created_at')
       .in('attribute_id', ids)
@@ -153,15 +182,26 @@ export async function listAttributes(request: NextRequest) {
       ? page + 1
       : page
 
-  const response = jsonOk({ items, pages, page, total_count: totalCount || null })
+  const response = jsonOk({
+    items,
+    pages,
+    page,
+    total_count: totalCount || null,
+    permissions: {
+      is_admin: Boolean(isAdmin),
+      is_vendor: Boolean(isVendor),
+    },
+  })
   applyCookies(response)
   return response
 }
 
 export async function createAttribute(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin, user } = await requireAdmin(request)
+  const { applyCookies, canManageCatalog, isAdmin, user } =
+    await requireDashboardUser(request)
+  const db = createAdminSupabaseClient()
 
-  if (!isAdmin) {
+  if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
 
@@ -178,7 +218,7 @@ export async function createAttribute(request: NextRequest) {
     return jsonError('Invalid attribute details.', 400)
   }
 
-  const type = await resolveType(supabase, parsed.data.type_id)
+  const type = await resolveType(db, parsed.data.type_id)
   if (!type) {
     return jsonError('Invalid attribute type.', 400)
   }
@@ -189,14 +229,19 @@ export async function createAttribute(request: NextRequest) {
     return jsonError('Invalid slug.', 400)
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from(ATTRIBUTE_TABLE)
     .insert({
       name: parsed.data.name,
       slug,
       description: parsed.data.description || null,
       type_id: parsed.data.type_id,
-      created_by: user?.id || null,
+      created_by:
+        isAdmin && parsed.data.visibility === 'private'
+          ? user.id
+          : isAdmin
+            ? null
+            : user.id,
     })
     .select('id, name, slug, description, type_id, created_at, created_by')
     .single()
@@ -219,9 +264,11 @@ export async function createAttribute(request: NextRequest) {
 }
 
 export async function updateAttribute(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { applyCookies, canManageCatalog, isAdmin, isVendor, user } =
+    await requireDashboardUser(request)
+  const db = createAdminSupabaseClient()
 
-  if (!isAdmin) {
+  if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
 
@@ -238,7 +285,28 @@ export async function updateAttribute(request: NextRequest) {
     return jsonError('Invalid attribute details.', 400)
   }
 
-  const type = await resolveType(supabase, parsed.data.type_id)
+  const { data: existing, error: existingError } = await db
+    .from(ATTRIBUTE_TABLE)
+    .select('id, created_by')
+    .eq('id', parsed.data.id)
+    .maybeSingle()
+
+  if (existingError) {
+    const errorCode = (existingError as { code?: string })?.code
+    console.error('attribute update lookup failed:', existingError.message)
+    if (errorCode === '42P01') {
+      return jsonError(buildMissingTableMessage(), 500)
+    }
+    return jsonError('Unable to update attribute.', 500)
+  }
+  if (!existing?.id) {
+    return jsonError('Attribute not found.', 404)
+  }
+  if (isVendor && !isAdmin && String(existing?.created_by || '') !== user.id) {
+    return jsonError('You can only edit attributes you created.', 403)
+  }
+
+  const type = await resolveType(db, parsed.data.type_id)
   if (!type) {
     return jsonError('Invalid attribute type.', 400)
   }
@@ -249,13 +317,18 @@ export async function updateAttribute(request: NextRequest) {
     return jsonError('Invalid slug.', 400)
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from(ATTRIBUTE_TABLE)
     .update({
       name: parsed.data.name,
       slug,
       description: parsed.data.description || null,
       type_id: parsed.data.type_id,
+      ...(isAdmin &&
+      parsed.data.visibility &&
+      (!existing?.created_by || String(existing?.created_by) === user.id)
+        ? { created_by: parsed.data.visibility === 'public' ? null : user.id }
+        : {}),
     })
     .eq('id', parsed.data.id)
     .select('id, name, slug, description, type_id, created_at, created_by')
@@ -279,9 +352,11 @@ export async function updateAttribute(request: NextRequest) {
 }
 
 export async function deleteAttribute(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { applyCookies, canManageCatalog, isAdmin, isVendor, user } =
+    await requireDashboardUser(request)
+  const db = createAdminSupabaseClient()
 
-  if (!isAdmin) {
+  if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
 
@@ -298,7 +373,30 @@ export async function deleteAttribute(request: NextRequest) {
     return jsonError('Invalid attribute id.', 400)
   }
 
-  const { error } = await supabase
+  if (isVendor && !isAdmin) {
+    const { data: existing, error: existingError } = await db
+      .from(ATTRIBUTE_TABLE)
+      .select('id, created_by')
+      .eq('id', parsed.data.id)
+      .maybeSingle()
+
+    if (existingError) {
+      const errorCode = (existingError as { code?: string })?.code
+      console.error('attribute delete lookup failed:', existingError.message)
+      if (errorCode === '42P01') {
+        return jsonError(buildMissingTableMessage(), 500)
+      }
+      return jsonError('Unable to delete attribute.', 500)
+    }
+    if (!existing?.id) {
+      return jsonError('Attribute not found.', 404)
+    }
+    if (String(existing?.created_by || '') !== user.id) {
+      return jsonError('You can only delete attributes you created.', 403)
+    }
+  }
+
+  const { error } = await db
     .from(ATTRIBUTE_TABLE)
     .delete()
     .eq('id', parsed.data.id)

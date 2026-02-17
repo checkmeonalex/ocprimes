@@ -66,6 +66,10 @@ export function WishlistProvider({ children }) {
   )
 
   const refreshWishlistStatus = useCallback(async () => {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/backend/admin')) {
+      setIsWishlistStatusLoaded(true)
+      return
+    }
     try {
       const response = await fetch('/api/wishlist/items/status', { method: 'GET' })
       if (!response.ok) {

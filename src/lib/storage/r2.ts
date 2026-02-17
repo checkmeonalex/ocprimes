@@ -4,6 +4,12 @@ import { Agent as HttpsAgent } from 'https'
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 export const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
+export const MAX_VIDEO_UPLOAD_BYTES = 5 * 1024 * 1024
+export const ALLOWED_VIDEO_TYPES = new Set([
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+])
 
 const getR2Config = () => {
   const accountId = process.env.R2_ACCOUNT_ID

@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth/require-admin'
+import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { jsonError, jsonOk } from '@/lib/http/response'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import {
   buildSlug,
   categoryTreeQuerySchema,
@@ -17,11 +19,12 @@ const buildMissingTableMessage = () =>
   'categories table not found. Run migration 010_admin_taxonomies.sql.'
 
 export async function listCategories(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { supabase, applyCookies, canManageCatalog, isAdmin } = await requireDashboardUser(request)
 
-  if (!isAdmin) {
+  if (!canManageCatalog) {
     return jsonError('Forbidden.', 403)
   }
+  const db = isAdmin ? supabase : createAdminSupabaseClient()
 
   const parseResult = listCategoriesQuerySchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -34,7 +37,7 @@ export async function listCategories(request: NextRequest) {
   const from = (page - 1) * per_page
   const to = from + per_page - 1
 
-  let query = supabase
+  let query = db
     .from(TABLE)
     .select(
       'id, name, slug, description, parent_id, sort_order, image_url, image_alt, image_key, banner_image_url, banner_image_key, banner_image_secondary_url, banner_image_secondary_key, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, banner_title, banner_subtitle, banner_cta_text, banner_cta_link, featured_strip_image_url, featured_strip_image_key, featured_strip_tag_id, featured_strip_category_id, hotspot_title_main, featured_strip_title_main, browse_categories_title, home_catalog_title, home_catalog_description, home_catalog_filter_mode, home_catalog_category_id, home_catalog_tag_id, home_catalog_limit, layout_order, is_active, created_at, created_by',
@@ -60,7 +63,7 @@ export async function listCategories(request: NextRequest) {
 
   let totalCount = 0
   try {
-    let countQuery = supabase
+    let countQuery = db
       .from(TABLE)
       .select('id', { count: 'exact', head: true })
     if (search) {
@@ -89,11 +92,12 @@ export async function listCategories(request: NextRequest) {
 }
 
 export async function listCategoryTree(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { supabase, applyCookies, canManageCatalog, isAdmin } = await requireDashboardUser(request)
 
-  if (!isAdmin) {
+  if (!canManageCatalog) {
     return jsonError('Forbidden.', 403)
   }
+  const db = isAdmin ? supabase : createAdminSupabaseClient()
 
   const parseResult = categoryTreeQuerySchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -104,7 +108,7 @@ export async function listCategoryTree(request: NextRequest) {
 
   const { limit, search } = parseResult.data
 
-  let query = supabase
+  let query = db
     .from(TABLE)
     .select(
       'id, name, slug, description, parent_id, sort_order, image_url, image_alt, image_key, banner_image_url, banner_image_key, banner_image_secondary_url, banner_image_secondary_key, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, banner_title, banner_subtitle, banner_cta_text, banner_cta_link, featured_strip_image_url, featured_strip_image_key, featured_strip_tag_id, featured_strip_category_id, hotspot_title_main, featured_strip_title_main, browse_categories_title, home_catalog_title, home_catalog_description, home_catalog_filter_mode, home_catalog_category_id, home_catalog_tag_id, home_catalog_limit, layout_order, is_active, created_at, created_by',

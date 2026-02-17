@@ -56,6 +56,11 @@ export async function PATCH(request: NextRequest) {
     deliveryAddress:
       parsed.data.deliveryAddress || existingProfile.deliveryAddress || {},
     addresses: parsed.data.addresses || existingProfile.addresses || [],
+    billingAddress:
+      parsed.data.billingAddress || existingProfile.billingAddress || {},
+    billingAddresses:
+      parsed.data.billingAddresses || existingProfile.billingAddresses || [],
+    shortcuts: parsed.data.shortcuts || existingProfile.shortcuts || {},
     security: {
       ...(existingProfile.security || {}),
       recoveryEmail:

@@ -8,7 +8,7 @@ import ProductCardSkeleton from '../ProductCardSkeleton'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { buildSwatchImages, deriveOptionsFromVariations } from './variationUtils.mjs'
-import { useCart } from '../../context/CartContext'
+import { useOptionalCart } from '../../context/CartContext'
 import QuantityControl from '../cart/QuantityControl'
 import { findCartEntry } from '../../lib/cart/cart-match'
 import { useWishlist } from '../../context/WishlistContext'
@@ -29,7 +29,9 @@ const ProductCard = ({
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [previewImage, setPreviewImage] = useState('')
   const router = useRouter()
-  const { items, updateQuantity } = useCart()
+  const cart = useOptionalCart()
+  const items = cart?.items || []
+  const updateQuantity = cart?.updateQuantity || (() => {})
   const { openSaveModal, isRecentlySaved } = useWishlist()
   const { formatMoney } = useUserI18n()
   const isFavorite = isRecentlySaved(product?.id)

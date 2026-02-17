@@ -51,13 +51,37 @@ const readStoredSiteInfo = () => {
 
 const readStoredSiteId = () => safeGetLocalStorage('agentic_wp_site_id') || '';
 
+const getAuthToken = () => safeGetLocalStorage('agentic_auth_token') || '';
+
+const shouldEnforceDashboardAuth = () => {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname.startsWith('/backend/admin');
+};
+
+const redirectToLogin = () => {
+  if (typeof window === 'undefined') return;
+  const nextPath = `${window.location.pathname}${window.location.search || ''}`;
+  const loginUrl = `/login?next=${encodeURIComponent(nextPath)}`;
+  window.location.replace(loginUrl);
+};
+
 const fetchConnector = async (path, options = {}) => {
   const base = CONNECTOR_BASE_URL.replace(/\/+$/, '');
   const endpoint = path?.startsWith('http') ? path : `${base}${path || ''}`;
   if (!endpoint) {
     throw new Error('Connector base URL is not configured.');
   }
-  return fetch(endpoint, options);
+
+  if (shouldEnforceDashboardAuth() && !getAuthToken()) {
+    redirectToLogin();
+    throw new Error('Unauthorized. Redirecting to sign in.');
+  }
+
+  const response = await fetch(endpoint, options);
+  if (shouldEnforceDashboardAuth() && (response.status === 401 || response.status === 403)) {
+    redirectToLogin();
+  }
+  return response;
 };
 
 export {

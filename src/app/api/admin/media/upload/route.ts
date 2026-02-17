@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { z } from 'zod'
-import { requireAdmin } from '@/lib/auth/require-admin'
+import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import {
   ALLOWED_IMAGE_TYPES,
@@ -19,11 +20,12 @@ const formSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { supabase, applyCookies, canManageCatalog, isAdmin, user } = await requireDashboardUser(request)
 
-  if (!isAdmin) {
+  if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
+  const db = isAdmin ? supabase : createAdminSupabaseClient()
 
   let formData: FormData
   try {
@@ -67,7 +69,7 @@ export async function POST(request: NextRequest) {
 
   const url = uploaded?.url || ''
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from('product_images')
     .insert({
       product_id: parsed.data.product_id || null,
@@ -75,11 +77,16 @@ export async function POST(request: NextRequest) {
       url: url,
       alt_text: parsed.data.alt_text || null,
       sort_order: parsed.data.sort_order ?? 0,
+      created_by: user.id,
     })
     .select('id, r2_key, url, alt_text, sort_order, product_id')
     .single()
   if (error) {
     console.error('DB insert failed:', error.message)
+    const errorCode = (error as { code?: string })?.code
+    if (errorCode === '42703') {
+      return jsonError('Media ownership column missing. Run migration 042_vendor_access.sql.', 500)
+    }
     return jsonError('Saved file, but DB insert failed.', 500)
   }
 

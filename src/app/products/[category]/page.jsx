@@ -11,7 +11,8 @@ const toReadableName = (value = '') =>
     .replace(/\s+/g, ' ')
 
 export default async function ProductCategoryPage({ params }) {
-  const category = params?.category || ''
+  const resolvedParams = await params
+  const category = resolvedParams?.category || ''
   const items = await fetchProductListing({ category, page: 1, perPage: 10 })
   const { parent, children } = await fetchCategoryWithChildren(category)
   const hotspotLayouts = parent?.id

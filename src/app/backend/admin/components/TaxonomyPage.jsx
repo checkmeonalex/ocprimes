@@ -1,5 +1,6 @@
 'use client';
 import AdminSidebar from '@/components/AdminSidebar';
+import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
 import TaxonomyManager from './TaxonomyManager';
 
 function TaxonomyPage({ title, description, endpoint, singularLabel, pluralLabel, optionsEndpoint }) {
@@ -10,7 +11,8 @@ function TaxonomyPage({ title, description, endpoint, singularLabel, pluralLabel
           <AdminSidebar />
         </div>
 
-        <main className="flex-1 px-4 py-8 sm:px-6 lg:px-10">
+        <main className="flex-1 px-4 py-8 sm:px-6 lg:px-10 lg:pt-0">
+                  <AdminDesktopHeader />
           <TaxonomyManager
             title={title}
             description={description}

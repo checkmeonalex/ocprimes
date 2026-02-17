@@ -42,7 +42,10 @@ export default function LoginForm({
         return
       }
 
-      const role = payload?.role === 'admin' ? 'admin' : 'customer'
+      const role =
+        payload?.role === 'admin' || payload?.role === 'vendor'
+          ? payload.role
+          : 'customer'
       if (adminOnly && role !== 'admin') {
         await fetch('/api/auth/signout', { method: 'POST' })
         setError('This account is not approved for admin access.')
@@ -54,6 +57,8 @@ export default function LoginForm({
         typeof successRedirect === 'string'
           ? successRedirect
           : role === 'admin'
+            ? '/backend/admin/dashboard'
+            : role === 'vendor'
             ? '/backend/admin/dashboard'
             : '/'
 
@@ -101,7 +106,7 @@ export default function LoginForm({
           />
           Remember me
         </label>
-        <Link href='/' className='font-semibold text-slate-700 hover:text-slate-900'>
+        <Link href='/forgot-password' className='font-semibold text-slate-700 hover:text-slate-900'>
           Forgot password?
         </Link>
       </div>

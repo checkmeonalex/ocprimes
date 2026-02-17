@@ -21,10 +21,15 @@ export const buildProductPayload = (form) => {
   if (form.sale_price !== undefined && form.sale_price !== '') {
     payload.discount_price = Number(form.sale_price);
   }
-  if (Array.isArray(form.category_ids) && form.category_ids.length) {
+  if (Array.isArray(form.category_ids)) {
     payload.category_ids = form.category_ids;
-  } else if (Array.isArray(form.categories) && form.categories.length) {
+  } else if (Array.isArray(form.categories)) {
     payload.category_ids = form.categories;
+  } else {
+    payload.category_ids = [];
+  }
+  if (Array.isArray(form.pending_category_request_ids) && form.pending_category_request_ids.length) {
+    payload.pending_category_request_ids = form.pending_category_request_ids;
   }
   if (Array.isArray(form.tag_ids) && form.tag_ids.length) {
     payload.tag_ids = form.tag_ids;

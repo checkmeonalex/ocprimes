@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
-import { getUserRole } from '@/lib/auth/roles'
+import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 
 export async function POST(request: NextRequest) {
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
@@ -11,8 +11,8 @@ export async function POST(request: NextRequest) {
     return jsonError('You must be signed in.', 401)
   }
 
-  const role = await getUserRole(supabase, data.user.id)
-  if (role === 'admin') {
+  const roleInfo = await getUserRoleInfoSafe(supabase, data.user.id, data.user.email || '')
+  if (roleInfo.isAdmin) {
     return jsonError('You already have admin access.', 409)
   }
 

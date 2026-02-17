@@ -1,6 +1,7 @@
-'use client';
-import AdminLandingPage from './AdminLandingPage';
+import { requireDashboardAccess } from '@/lib/auth/dashboard-access'
+import { redirect } from 'next/navigation'
 
-export default function DashboardDemoLandingPage() {
-  return <AdminLandingPage />;
+export default async function DashboardDemoLandingPage() {
+  await requireDashboardAccess('/backend/admin')
+  redirect('/backend/admin/dashboard')
 }

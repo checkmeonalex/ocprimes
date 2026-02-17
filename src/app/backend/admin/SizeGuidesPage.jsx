@@ -6,6 +6,7 @@ import ProductCategorySelector from './products/ProductCategorySelector';
 import { uploadMediaFile } from './products/functions/media';
 import LoadingButton from '../../../components/LoadingButton';
 import AdminSidebar from '@/components/AdminSidebar';
+import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
 import { useAlerts } from '@/context/AlertContext';
 
 const buildTableHtml = (columns, rows) => {
@@ -236,6 +237,7 @@ function WooCommerceSizeGuidesPage() {
         <AdminSidebar />
 
         <main className="flex-1 px-6 py-8">
+                  <AdminDesktopHeader />
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">

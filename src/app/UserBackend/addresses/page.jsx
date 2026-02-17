@@ -65,12 +65,14 @@ const getRandomAddressLabelSuggestion = (existingLabels = []) => {
 }
 
 export default function AddressesPage() {
+  const [addressType, setAddressType] = useState('shipping')
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [profile, setProfile] = useState(null)
   const [addresses, setAddresses] = useState([])
+  const [billingAddresses, setBillingAddresses] = useState([])
 
   const [isEditorOpen, setIsEditorOpen] = useState(false)
   const [editingId, setEditingId] = useState('')
@@ -78,10 +80,11 @@ export default function AddressesPage() {
   const [draftLabelSuggestion, setDraftLabelSuggestion] = useState('My home')
   const { pushAlert } = useAlerts()
 
-  const hasAnyAddress = addresses.length > 0
+  const managedAddresses = addressType === 'billing' ? billingAddresses : addresses
+  const hasAnyAddress = managedAddresses.length > 0
   const defaultAddress = useMemo(
-    () => addresses.find((item) => item.isDefault) || addresses[0] || null,
-    [addresses],
+    () => managedAddresses.find((item) => item.isDefault) || managedAddresses[0] || null,
+    [managedAddresses],
   )
 
   useEffect(() => {
@@ -102,6 +105,9 @@ export default function AddressesPage() {
         const profileAddresses = Array.isArray(nextProfile?.addresses)
           ? nextProfile.addresses
           : []
+        const profileBillingAddresses = Array.isArray(nextProfile?.billingAddresses)
+          ? nextProfile.billingAddresses
+          : []
 
         if (profileAddresses.length > 0) {
           const normalized = profileAddresses
@@ -121,23 +127,44 @@ export default function AddressesPage() {
                   isDefault: index === 0,
                 })),
           )
-          return
+        } else {
+          const legacy = nextProfile?.deliveryAddress || {}
+          const legacyHasValue = Object.values(legacy).some(Boolean)
+          if (legacyHasValue) {
+            setAddresses([
+              {
+                ...emptyAddress,
+                ...legacy,
+                id: createAddressId(),
+                label: 'Address 1',
+                isDefault: true,
+              },
+            ])
+          } else {
+            setAddresses([])
+          }
         }
 
-        const legacy = nextProfile?.deliveryAddress || {}
-        const legacyHasValue = Object.values(legacy).some(Boolean)
-        if (legacyHasValue) {
-          setAddresses([
-            {
+        if (profileBillingAddresses.length > 0) {
+          const normalizedBilling = profileBillingAddresses
+            .slice(0, 5)
+            .map((item, index) => ({
               ...emptyAddress,
-              ...legacy,
-              id: createAddressId(),
-              label: 'Address 1',
-              isDefault: true,
-            },
-          ])
+              ...item,
+              id: item.id || createAddressId(),
+              label: item.label || `Billing ${index + 1}`,
+            }))
+          const hasBillingDefault = normalizedBilling.some((item) => item.isDefault)
+          setBillingAddresses(
+            hasBillingDefault
+              ? normalizedBilling
+              : normalizedBilling.map((item, index) => ({
+                  ...item,
+                  isDefault: index === 0,
+                })),
+          )
         } else {
-          setAddresses([])
+          setBillingAddresses([])
         }
       } catch (err) {
         if (!isMounted) return
@@ -155,15 +182,8 @@ export default function AddressesPage() {
     }
   }, [pushAlert])
 
-  const persistAddresses = async (nextAddresses) => {
+  const persistAddresses = async (nextAddresses, type = addressType) => {
     if (!profile) return
-    if (!profile?.firstName?.trim() || !profile?.country?.trim()) {
-      const message =
-        'Complete your basic profile (first name and country) before saving addresses.'
-      setError(message)
-      pushAlert({ type: 'error', title: 'Addresses', message })
-      return
-    }
 
     const normalized = nextAddresses.map((item, index) => ({
       ...emptyAddress,
@@ -175,7 +195,17 @@ export default function AddressesPage() {
       ? normalized
       : normalized.map((item, index) => ({ ...item, isDefault: index === 0 }))
 
-    const defaultItem = withDefault.find((item) => item.isDefault) || withDefault[0]
+    const defaultItem = withDefault.find((item) => item.isDefault) || withDefault[0] || null
+    const nextShippingAddresses = type === 'shipping' ? withDefault : addresses
+    const nextBillingAddresses = type === 'billing' ? withDefault : billingAddresses
+    const defaultShippingAddress =
+      nextShippingAddresses.find((item) => item.isDefault) || nextShippingAddresses[0] || null
+    const defaultBillingAddress =
+      nextBillingAddresses.find((item) => item.isDefault) || nextBillingAddresses[0] || null
+    const profileFirstName = String(profile?.firstName || profile?.displayName || 'Customer').trim() || 'Customer'
+    const profileCountry =
+      String(profile?.country || defaultItem?.country || defaultShippingAddress?.country || 'Unknown').trim() ||
+      'Unknown'
 
     setIsSaving(true)
     setError('')
@@ -186,15 +216,35 @@ export default function AddressesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...profile,
-          addresses: withDefault,
-          deliveryAddress: defaultItem
+          firstName: profileFirstName,
+          country: profileCountry,
+          addresses: nextShippingAddresses,
+          deliveryAddress: defaultShippingAddress
             ? {
-                line1: defaultItem.line1 || '',
-                line2: defaultItem.line2 || '',
-                city: defaultItem.city || '',
-                state: defaultItem.state || '',
-                postalCode: defaultItem.postalCode || '',
-                country: defaultItem.country || '',
+                line1: defaultShippingAddress.line1 || '',
+                line2: defaultShippingAddress.line2 || '',
+                city: defaultShippingAddress.city || '',
+                state: defaultShippingAddress.state || '',
+                postalCode: defaultShippingAddress.postalCode || '',
+                country: defaultShippingAddress.country || '',
+              }
+            : {
+                line1: '',
+                line2: '',
+                city: '',
+                state: '',
+                postalCode: '',
+                country: '',
+              },
+          billingAddresses: nextBillingAddresses,
+          billingAddress: defaultBillingAddress
+            ? {
+                line1: defaultBillingAddress.line1 || '',
+                line2: defaultBillingAddress.line2 || '',
+                city: defaultBillingAddress.city || '',
+                state: defaultBillingAddress.state || '',
+                postalCode: defaultBillingAddress.postalCode || '',
+                country: defaultBillingAddress.country || '',
               }
             : {
                 line1: '',
@@ -210,18 +260,37 @@ export default function AddressesPage() {
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to save addresses.')
       }
-      setAddresses(withDefault)
+      setAddresses(nextShippingAddresses)
+      setBillingAddresses(nextBillingAddresses)
       setProfile((prev) => ({
         ...(prev || {}),
-        addresses: withDefault,
-        deliveryAddress: defaultItem
+        addresses: nextShippingAddresses,
+        deliveryAddress: defaultShippingAddress
           ? {
-              line1: defaultItem.line1 || '',
-              line2: defaultItem.line2 || '',
-              city: defaultItem.city || '',
-              state: defaultItem.state || '',
-              postalCode: defaultItem.postalCode || '',
-              country: defaultItem.country || '',
+              line1: defaultShippingAddress.line1 || '',
+              line2: defaultShippingAddress.line2 || '',
+              city: defaultShippingAddress.city || '',
+              state: defaultShippingAddress.state || '',
+              postalCode: defaultShippingAddress.postalCode || '',
+              country: defaultShippingAddress.country || '',
+            }
+          : {
+              line1: '',
+              line2: '',
+              city: '',
+              state: '',
+              postalCode: '',
+              country: '',
+            },
+        billingAddresses: nextBillingAddresses,
+        billingAddress: defaultBillingAddress
+          ? {
+              line1: defaultBillingAddress.line1 || '',
+              line2: defaultBillingAddress.line2 || '',
+              city: defaultBillingAddress.city || '',
+              state: defaultBillingAddress.state || '',
+              postalCode: defaultBillingAddress.postalCode || '',
+              country: defaultBillingAddress.country || '',
             }
           : {
               line1: '',
@@ -232,14 +301,18 @@ export default function AddressesPage() {
               country: '',
             },
       }))
-      setSuccess('Address book updated.')
+      setSuccess(
+        type === 'billing' ? 'Billing addresses updated.' : 'Shipping addresses updated.',
+      )
       pushAlert({
         type: 'success',
         title: 'Addresses',
-        message: 'Address book updated.',
+        message: type === 'billing' ? 'Billing addresses updated.' : 'Shipping addresses updated.',
       })
     } catch (err) {
-      const message = err?.message || 'Unable to save addresses.'
+      const message =
+        err?.message ||
+        (type === 'billing' ? 'Unable to save billing addresses.' : 'Unable to save addresses.')
       setError(message)
       pushAlert({ type: 'error', title: 'Addresses', message })
     } finally {
@@ -250,20 +323,20 @@ export default function AddressesPage() {
   const openNewAddressEditor = () => {
     setError('')
     setSuccess('')
-    if (addresses.length >= 5) {
+    if (managedAddresses.length >= 5) {
       const message = 'You can only save up to 5 addresses. Remove one to add another.'
       setError(message)
       pushAlert({ type: 'error', title: 'Addresses', message })
       return
     }
     setEditingId('')
-    const suggestion = getRandomAddressLabelSuggestion(addresses.map((item) => item.label))
+    const suggestion = getRandomAddressLabelSuggestion(managedAddresses.map((item) => item.label))
     setDraftLabelSuggestion(suggestion)
     setDraft({
       ...emptyAddress,
       id: createAddressId(),
       label: '',
-      isDefault: addresses.length === 0,
+      isDefault: managedAddresses.length === 0,
     })
     setIsEditorOpen(true)
   }
@@ -304,27 +377,27 @@ export default function AddressesPage() {
     const draftToSave = { ...draft, label: draft.label.trim() }
 
     const next = editingId
-      ? addresses.map((item) => (item.id === editingId ? draftToSave : item))
-      : [...addresses, draftToSave]
+      ? managedAddresses.map((item) => (item.id === editingId ? draftToSave : item))
+      : [...managedAddresses, draftToSave]
 
     const ensureDefault = draftToSave.isDefault
       ? next.map((item) => ({ ...item, isDefault: item.id === draftToSave.id }))
       : next
-    await persistAddresses(ensureDefault)
+    await persistAddresses(ensureDefault, addressType)
     closeEditor()
   }
 
   const handleDeleteAddress = async (id) => {
-    const next = addresses.filter((item) => item.id !== id)
-    await persistAddresses(next)
+    const next = managedAddresses.filter((item) => item.id !== id)
+    await persistAddresses(next, addressType)
   }
 
   const setDefaultAddress = async (id) => {
-    const next = addresses.map((item) => ({
+    const next = managedAddresses.map((item) => ({
       ...item,
       isDefault: item.id === id,
     }))
-    await persistAddresses(next)
+    await persistAddresses(next, addressType)
   }
 
   if (isLoading) {
@@ -341,10 +414,34 @@ export default function AddressesPage() {
           <div>
             <h1 className='text-xl font-semibold text-slate-900'>Address book</h1>
             <p className='mt-1 text-sm text-slate-600'>
-              Choose your default delivery location and manage saved addresses.
+              Manage shipping and billing addresses for checkout.
             </p>
+            <div className='mt-3 inline-flex rounded-xl border border-slate-200 bg-white p-1 text-xs font-semibold'>
+              <button
+                type='button'
+                onClick={() => setAddressType('shipping')}
+                className={`rounded-lg px-3 py-1.5 transition ${
+                  addressType === 'shipping'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Shipping
+              </button>
+              <button
+                type='button'
+                onClick={() => setAddressType('billing')}
+                className={`rounded-lg px-3 py-1.5 transition ${
+                  addressType === 'billing'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                Billing
+              </button>
+            </div>
             <div className='mt-3 inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600'>
-              Saved: {addresses.length} {addresses.length === 1 ? 'address' : 'addresses'}
+              Saved: {managedAddresses.length} {managedAddresses.length === 1 ? 'address' : 'addresses'}
             </div>
           </div>
           <button
@@ -362,7 +459,7 @@ export default function AddressesPage() {
             >
               <path strokeLinecap='round' strokeLinejoin='round' d='M12 5v14M5 12h14' />
             </svg>
-            Add new address
+            {addressType === 'billing' ? 'Add billing address' : 'Add new address'}
           </button>
         </div>
       </section>
@@ -399,7 +496,9 @@ export default function AddressesPage() {
           </div>
           <h2 className='mt-4 text-lg font-semibold text-slate-900'>No address yet</h2>
           <p className='mt-1 text-sm text-slate-600'>
-            Add your first delivery address to speed up checkout.
+            {addressType === 'billing'
+              ? 'Add your first billing address for payment details.'
+              : 'Add your first delivery address to speed up checkout.'}
           </p>
           <button
             type='button'
@@ -411,7 +510,7 @@ export default function AddressesPage() {
         </section>
       ) : (
         <section className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
-          {addresses.map((item, index) => {
+          {managedAddresses.map((item, index) => {
             const summary = formatAddressSummary(item)
             return (
               <article
@@ -494,7 +593,13 @@ export default function AddressesPage() {
           <div className='mx-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl transition duration-300 max-h-[calc(100vh-6rem)] overflow-y-auto'>
             <div className='flex items-center justify-between gap-3'>
               <h2 className='text-lg font-semibold text-slate-900'>
-                {editingId ? 'Edit address' : 'Add new address'}
+                {editingId
+                  ? addressType === 'billing'
+                    ? 'Edit billing address'
+                    : 'Edit address'
+                  : addressType === 'billing'
+                    ? 'Add billing address'
+                    : 'Add new address'}
               </h2>
               <button
                 type='button'
@@ -635,7 +740,13 @@ export default function AddressesPage() {
                 onClick={handleSaveDraft}
                 className='rounded-xl bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition duration-200 hover:bg-slate-800'
               >
-                {editingId ? 'Update address' : 'Save address'}
+                {editingId
+                  ? addressType === 'billing'
+                    ? 'Update billing address'
+                    : 'Update address'
+                  : addressType === 'billing'
+                    ? 'Save billing address'
+                    : 'Save address'}
               </button>
             </div>
           </div>
@@ -644,7 +755,8 @@ export default function AddressesPage() {
 
       {defaultAddress ? (
         <div className='rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-600'>
-          Default for checkout: <span className='font-semibold text-slate-800'>{defaultAddress.label}</span>
+          {addressType === 'billing' ? 'Default billing address:' : 'Default for checkout:'}{' '}
+          <span className='font-semibold text-slate-800'>{defaultAddress.label}</span>
         </div>
       ) : null}
     </div>

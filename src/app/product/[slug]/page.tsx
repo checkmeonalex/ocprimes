@@ -10,10 +10,6 @@ import Breadcrumb from '../../../components/Breadcrumb'
 import ShippingInfoCard from '../../../components/product/ShippingInfoCard'
 import AboutStoreCard from '../../../components/product/AboutStoreCard'
 import CustomerReviews from '../../../components/product/CustomerReviews'
-import {
-  customerReviewsByProductId,
-  customerReviewsData,
-} from '../../../components/data/customerReviews'
 import { useCart } from '../../../context/CartContext'
 import RelatedProductsSection from '../../../components/product/RelatedProductsSection'
 import { findCartEntry } from '../../../lib/cart/cart-match'
@@ -166,6 +162,14 @@ const buildAttributeSignals = (variations: any[], limit = 20) => {
   return buildSignalCsv(pairs, limit)
 }
 
+const hasMeaningfulRichText = (input: string) =>
+  String(input || '')
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .trim().length > 0
+
 const fetchRelatedBatch = async (params: URLSearchParams) => {
   const response = await fetch(`/api/products?${params.toString()}`, {
     cache: 'no-store',
@@ -173,6 +177,24 @@ const fetchRelatedBatch = async (params: URLSearchParams) => {
   const payload = await response.json().catch(() => null)
   return Array.isArray(payload?.items) ? payload.items : []
 }
+
+const createEmptyReviewData = () => ({
+  summary: {
+    rating: 0,
+    totalReviews: 0,
+    wouldRecommendPercent: 0,
+    wouldRecommendCount: 0,
+    verifiedBy: 'OCPRIMES',
+  },
+  breakdown: [
+    { stars: 5, count: 0 },
+    { stars: 4, count: 0 },
+    { stars: 3, count: 0 },
+    { stars: 2, count: 0 },
+    { stars: 1, count: 0 },
+  ],
+  reviews: [],
+})
 
 const extractAttributeValue = (
   attributes: Record<string, string> | null | undefined,
@@ -306,6 +328,8 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const [showConditionInfo, setShowConditionInfo] = useState(false)
   const [showReturnInfo, setShowReturnInfo] = useState(false)
   const [pendingQuantity, setPendingQuantity] = useState(1)
+  const [reviewData, setReviewData] = useState<any>(createEmptyReviewData())
+  const [reviewReloadKey, setReviewReloadKey] = useState(0)
   const { addItem, items, updateQuantity } = useCart()
   const searchParams = useSearchParams()
   const addToCartRef = useRef<HTMLDivElement | null>(null)
@@ -320,6 +344,9 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const descriptionRef = useRef<HTMLDivElement | null>(null)
   const variationSectionRef = useRef<HTMLDivElement | null>(null)
   const cartSelectionHydratedRef = useRef<string | null>(null)
+  const handleReviewSubmitted = useCallback(() => {
+    setReviewReloadKey((prev) => prev + 1)
+  }, [])
 
   const variationList = useMemo(() => product?.variations || [], [product?.variations])
   const normalizedVariations = useMemo(() => {
@@ -493,6 +520,54 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       isActive = false
     }
   }, [resolvedParams.slug, searchParams])
+
+  useEffect(() => {
+    let isActive = true
+    const loadReviews = async () => {
+      if (!resolvedParams.slug) {
+        setReviewData(createEmptyReviewData())
+        return
+      }
+      try {
+        const response = await fetch(
+          `/api/products/${encodeURIComponent(resolvedParams.slug)}/reviews?per_page=40`,
+          {
+            method: 'GET',
+            cache: 'no-store',
+          },
+        )
+        const payload = await response.json().catch(() => null)
+        if (!isActive) return
+        if (!response.ok) {
+          setReviewData(createEmptyReviewData())
+          return
+        }
+        const summary = payload?.summary || {}
+        const breakdown = Array.isArray(payload?.breakdown)
+          ? payload.breakdown
+          : createEmptyReviewData().breakdown
+        const reviews = Array.isArray(payload?.reviews) ? payload.reviews : []
+        setReviewData({
+          summary: {
+            rating: Number(summary?.rating) || 0,
+            totalReviews: Number(summary?.totalReviews) || 0,
+            wouldRecommendPercent: Number(summary?.wouldRecommendPercent) || 0,
+            wouldRecommendCount: Number(summary?.wouldRecommendCount) || 0,
+            verifiedBy: String(summary?.verifiedBy || 'OCPRIMES'),
+          },
+          breakdown,
+          reviews,
+        })
+      } catch (_error) {
+        if (!isActive) return
+        setReviewData(createEmptyReviewData())
+      }
+    }
+    loadReviews()
+    return () => {
+      isActive = false
+    }
+  }, [resolvedParams.slug, reviewReloadKey])
 
   useEffect(() => {
     if (!product?.id) return
@@ -1051,6 +1126,14 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }, [isSelectionComplete, shakeKeys.length])
 
   useEffect(() => {
+    if (!product) return
+    const hasDetails = hasMeaningfulRichText(product.fullDescription || '')
+    if (!hasDetails && activeTab === 'details') {
+      setActiveTab('packaging')
+    }
+  }, [activeTab, product])
+
+  useEffect(() => {
     if (!showConditionInfo) return
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node | null
@@ -1142,6 +1225,8 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       .replace(/\son\w+="[^"]*"/gi, '')
       .replace(/\son\w+='[^']*'/gi, '')
       .replace(/javascript:/gi, '')
+  const sanitizedFullDescription = sanitizeRichHtml(fullDescription)
+  const hasDetailsDescription = hasMeaningfulRichText(sanitizedFullDescription)
   const stockRemaining = product.stockRemaining ?? product.stock ?? 0
   const sku = product.sku || 'N/A'
   const shippingEstimate = product.shippingEstimate || 'Ships in 3-5 business days'
@@ -1197,8 +1282,16 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }
   const cartEntry = findCartEntry(items, cartSelection)
   const cartQuantity = cartEntry?.quantity || 0
-  const hasReviews = Number(product.reviews) > 0
-  const hasRating = Number(product.rating) > 0
+  const totalReviewsCount =
+    Number(reviewData?.summary?.totalReviews) > 0
+      ? Number(reviewData.summary.totalReviews)
+      : Number(product.reviews) || 0
+  const displayRating =
+    Number(reviewData?.summary?.rating) > 0
+      ? Number(reviewData.summary.rating)
+      : Number(product.rating) || 0
+  const hasReviews = totalReviewsCount > 0
+  const hasRating = displayRating > 0
   const stockCount = Number(stockRemaining) || 0
   const quantitySelectorMax = Math.max(1, Math.min(10, stockCount > 0 ? stockCount : 10))
   const isAddedToCart = cartQuantity > 0
@@ -1272,11 +1365,15 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       : `/product/${product.slug}`
 
   const tabs = [
-    {
-      id: 'details',
-      label: 'Product Details',
-      content: fullDescription,
-    },
+    ...(hasDetailsDescription
+      ? [
+          {
+            id: 'details',
+            label: 'Product Details',
+            content: sanitizedFullDescription,
+          },
+        ]
+      : []),
     {
       id: 'packaging',
       label: 'Packaging',
@@ -1292,7 +1389,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       content: `${shippingEstimate}. Express options available at checkout.`,
     },
   ]
-  const activeTabData = tabs.find((tab) => tab.id === activeTab)
+  const activeTabData = tabs.find((tab) => tab.id === activeTab) || tabs[0]
   const activeTabHtml = sanitizeRichHtml(String(activeTabData?.content || ''))
 
   return (
@@ -1326,10 +1423,9 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                   {!isMobile && (
                     <div id='reviews-section'>
                       <CustomerReviews
-                        data={
-                          customerReviewsByProductId[product.id] ||
-                          customerReviewsData
-                        }
+                        data={reviewData}
+                        productSlug={product.slug}
+                        onReviewSubmitted={handleReviewSubmitted}
                       />
                     </div>
                   )}
@@ -1389,9 +1485,9 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     <div className='flex items-center gap-3 text-sm text-gray-600'>
                       {hasRating && (
                         <div className='flex items-center gap-2'>
-                          <StarRating rating={product.rating} />
+                          <StarRating rating={displayRating} />
                           <span className='font-medium text-gray-800'>
-                            {product.rating}
+                            {displayRating.toFixed(1)}
                           </span>
                         </div>
                       )}
@@ -1404,7 +1500,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                         }}
                         className='text-xs underline underline-offset-2 decoration-gray-300 hover:text-gray-800 hover:decoration-gray-500 transition'
                       >
-                        {hasReviews ? `${product.reviews} reviews` : 'No reviews yet'}
+                        {hasReviews ? `${totalReviewsCount} reviews` : 'No reviews yet'}
                       </button>
                       <span className={stockTextClass}>{stockLabel}</span>
                     </div>
@@ -1816,10 +1912,9 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                   {isMobile && (
                     <div id='reviews-section'>
                       <CustomerReviews
-                        data={
-                          customerReviewsByProductId[product.id] ||
-                          customerReviewsData
-                        }
+                        data={reviewData}
+                        productSlug={product.slug}
+                        onReviewSubmitted={handleReviewSubmitted}
                       />
                     </div>
                   )}

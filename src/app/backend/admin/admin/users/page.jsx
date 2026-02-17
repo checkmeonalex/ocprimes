@@ -1,7 +1,9 @@
 'use client';
 import AdminUsersPanel from '@/components/admin/AdminUsersPanel';
 import AdminRequestsPanel from '@/components/admin/AdminRequestsPanel';
+import VendorRequestsPanel from '@/components/admin/VendorRequestsPanel';
 import AdminSidebar from '@/components/AdminSidebar';
+import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
 
 export default function DashboardDemoAdminUsersPage() {
   return (
@@ -10,7 +12,8 @@ export default function DashboardDemoAdminUsersPage() {
         <div className="sticky top-0 self-start h-screen">
           <AdminSidebar />
         </div>
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-10">
+        <main className="flex-1 px-4 pb-6 sm:px-6 lg:px-10">
+                  <AdminDesktopHeader />
           <div className="mx-auto w-full max-w-6xl">
             <div className="mb-6">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
@@ -26,6 +29,7 @@ export default function DashboardDemoAdminUsersPage() {
             <div className="space-y-6">
               <AdminUsersPanel />
               <AdminRequestsPanel />
+              <VendorRequestsPanel />
             </div>
           </div>
         </main>

@@ -5,7 +5,7 @@ function LibrarySkeletonCard({ compact = false }) {
         compact ? 'rounded-2xl' : 'rounded-3xl'
       }`}
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
+      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-slate-100">
         <div className="absolute inset-0 animate-pulse bg-slate-200/70" />
       </div>
       {!compact && (

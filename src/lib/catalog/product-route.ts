@@ -1,11 +1,10 @@
 import type { NextRequest } from 'next/server'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { publicProductListSchema, publicProductSlugSchema } from '@/lib/catalog/products'
 import {
-  filterSeedProducts,
   findSeedProduct,
-  mergeSeedAndDbProducts,
 } from '@/lib/catalog/seed-products'
 import { getUserRole } from '@/lib/auth/roles'
 import { personalizationSignalsSchema } from '@/lib/personalization/signal-schema'
@@ -31,6 +30,71 @@ const toCategorySlug = (value = '') =>
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
+
+const toVendorSlug = (value = '') =>
+  String(value)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+
+const toVendorReadableName = (value = '') =>
+  String(value || '')
+    .trim()
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+
+const resolveVendorBrandIds = async (supabase, vendorValue) => {
+  const rawVendor = String(vendorValue || '').trim()
+  if (!rawVendor) return []
+
+  let lookupDb = supabase
+  try {
+    lookupDb = createAdminSupabaseClient()
+  } catch (_error) {
+    lookupDb = supabase
+  }
+
+  const normalizedSlug = toVendorSlug(rawVendor)
+  const readableName = toVendorReadableName(rawVendor)
+  const ids = new Set()
+
+  const appendBrandIds = (rows = []) => {
+    rows.forEach((row) => {
+      if (row?.id) ids.add(row.id)
+    })
+  }
+
+  const { data: byExactSlug } = await lookupDb
+    .from(BRAND_TABLE)
+    .select('id')
+    .eq('slug', rawVendor)
+  appendBrandIds(byExactSlug || [])
+
+  if (normalizedSlug && normalizedSlug !== rawVendor) {
+    const { data: byNormalizedSlug } = await lookupDb
+      .from(BRAND_TABLE)
+      .select('id')
+      .eq('slug', normalizedSlug)
+    appendBrandIds(byNormalizedSlug || [])
+  }
+
+  const { data: byId } = await lookupDb
+    .from(BRAND_TABLE)
+    .select('id')
+    .eq('id', rawVendor)
+  appendBrandIds(byId || [])
+
+  if (readableName) {
+    const { data: byName } = await lookupDb
+      .from(BRAND_TABLE)
+      .select('id')
+      .ilike('name', readableName)
+    appendBrandIds(byName || [])
+  }
+
+  return Array.from(ids)
+}
 
 const buildCategoryHref = (category) => {
   const rawSlug = toCategorySlug(category?.slug || category?.name || '')
@@ -245,18 +309,16 @@ export async function listPublicProducts(request: NextRequest) {
     }
 
     if (vendor) {
-      const { data: brandBySlug } = await supabase
-        .from(BRAND_TABLE)
-        .select('id')
-        .eq('slug', vendor)
-        .maybeSingle()
-
-      const brandId = brandBySlug?.id || vendor
-      const { data: linkData } = await supabase
-        .from(BRAND_LINKS)
-        .select('product_id')
-        .eq('brand_id', brandId)
-      vendorProductIds = Array.isArray(linkData) ? linkData.map((row) => row.product_id) : []
+      const brandIds = await resolveVendorBrandIds(supabase, vendor)
+      if (!brandIds.length) {
+        vendorProductIds = []
+      } else {
+        const { data: linkData } = await supabase
+          .from(BRAND_LINKS)
+          .select('product_id')
+          .in('brand_id', brandIds)
+        vendorProductIds = Array.isArray(linkData) ? linkData.map((row) => row.product_id) : []
+      }
     }
 
     const activeIdLists = [categoryProductIds, tagProductIds, vendorProductIds].filter(
@@ -330,16 +392,13 @@ export async function listPublicProducts(request: NextRequest) {
   }
 
   const dbItems = await attachRelations(supabase, data ?? [])
-  const seedItems = tag ? [] : filterSeedProducts({ search, category, vendor })
-  const mergedItems = mergeSeedAndDbProducts(seedItems, dbItems, { dbFirst: true })
-  const rankedItems = rankProductsWithSignals(mergedItems, personalizationSignals)
-  const combinedCount = (totalCount || 0) + seedItems.length
+  const rankedItems = rankProductsWithSignals(dbItems, personalizationSignals)
 
   const response = jsonOk({
     items: rankedItems,
     pages: 1,
     page: 1,
-    total_count: combinedCount || null,
+    total_count: totalCount || null,
   })
   applyCookies(response)
   return response
