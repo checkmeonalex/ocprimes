@@ -296,10 +296,14 @@ export default function NotificationsPage() {
                   const metadata = item?.metadata && typeof item.metadata === 'object' ? item.metadata : {};
                   const actionUrl = String(metadata?.action_url || '').trim();
                   const requestId = String(metadata?.request_id || '').trim();
+                  const requesterBrandName = String(metadata?.requester_brand_name || '').trim();
+                  const requesterUserId = String(metadata?.requester_user_id || '').trim();
+                  const requestSlug = String(metadata?.request_slug || '').trim();
+                  const isCategoryRequest = String(item?.type || '') === 'category_request_created';
                   const canOpenAction = actionUrl.startsWith('/backend/admin');
                   const canReviewCategoryRequest =
                     Boolean(permissions?.can_review_category_requests) &&
-                    String(item?.type || '') === 'category_request_created' &&
+                    isCategoryRequest &&
                     Boolean(requestId);
                   const isReviewingThis = reviewingRequestId && reviewingRequestId === requestId;
 
@@ -310,8 +314,38 @@ export default function NotificationsPage() {
                           <NotificationSeverityIcon severity={severity} />
                         </div>
                         <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] ${
+                                severity === 'success'
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : severity === 'warning'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : severity === 'error'
+                                      ? 'bg-rose-100 text-rose-700'
+                                      : 'bg-sky-100 text-sky-700'
+                              }`}
+                            >
+                              {severity}
+                            </span>
+                            {isCategoryRequest ? (
+                              <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-indigo-700">
+                                Category request
+                              </span>
+                            ) : null}
+                          </div>
                           <h3 className="text-base font-semibold text-slate-900">{item?.title || 'Notification'}</h3>
                           <p className="mt-1 text-sm text-slate-700">{item?.message || ''}</p>
+                          {isCategoryRequest ? (
+                            <p className="mt-1 text-xs text-slate-500">
+                              {requesterBrandName
+                                ? `From brand: ${requesterBrandName}`
+                                : requesterUserId
+                                  ? `From seller: ${requesterUserId}`
+                                  : 'From seller'}
+                              {requestSlug ? ` · /${requestSlug}` : ''}
+                            </p>
+                          ) : null}
                           <p className="mt-1 text-sm text-slate-500">{formatDateOnly(item?.created_at)}</p>
 
                           <div className="mt-3 flex flex-wrap items-center gap-2">

@@ -1,7 +1,7 @@
 import { fromRow, normalizeValue } from '@/lib/cart/utils'
 
 export const CART_ITEM_FIELDS =
-  'id,cart_id,product_id,name,slug,price,original_price,image,selected_variation_id,selected_variation_label,selected_color,selected_size,quantity'
+  'id,cart_id,product_id,name,slug,price,original_price,image,selected_variation_id,selected_variation_label,selected_color,selected_size,is_protected,quantity'
 
 export const getCartForUser = async (supabase, userId) =>
   supabase.from('carts').select('id, cart_version').eq('user_id', userId).maybeSingle()

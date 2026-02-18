@@ -5,7 +5,7 @@ import { cartItemsSchema } from '@/lib/cart/schema'
 import { fromRow, normalizeItem, normalizeValue } from '@/lib/cart/utils'
 
 const selectFields =
-  'id,cart_id,product_id,name,slug,price,original_price,image,selected_variation_id,selected_variation_label,selected_color,selected_size,quantity'
+  'id,cart_id,product_id,name,slug,price,original_price,image,selected_variation_id,selected_variation_label,selected_color,selected_size,is_protected,quantity'
 
 export async function POST(request: NextRequest) {
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
@@ -88,6 +88,9 @@ export async function POST(request: NextRequest) {
     const quantity = match
       ? Math.max(Number(match.quantity || 0), incoming.quantity)
       : incoming.quantity
+    const isProtected = match
+      ? Boolean(match.is_protected) || Boolean(incoming.isProtected)
+      : Boolean(incoming.isProtected)
 
     return {
       cart_id: cartId,
@@ -101,6 +104,7 @@ export async function POST(request: NextRequest) {
       selected_variation_label: incoming.selectedVariationLabel,
       selected_color: incoming.selectedColor,
       selected_size: incoming.selectedSize,
+      is_protected: isProtected,
       quantity,
     }
   })

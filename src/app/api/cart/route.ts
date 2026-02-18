@@ -4,7 +4,7 @@ import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { fromRow } from '@/lib/cart/utils'
 
 const selectFields =
-  'id,cart_id,product_id,name,slug,price,original_price,image,selected_variation_id,selected_variation_label,selected_color,selected_size,quantity'
+  'id,cart_id,product_id,name,slug,price,original_price,image,selected_variation_id,selected_variation_label,selected_color,selected_size,is_protected,quantity'
 
 export async function GET(request: NextRequest) {
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)

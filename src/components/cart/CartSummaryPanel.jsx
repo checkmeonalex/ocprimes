@@ -1,60 +1,68 @@
 'use client'
 
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import OrderProtectionInfoButton from '@/components/cart/OrderProtectionInfoButton'
 
-const CartSummaryPanel = ({ summary, formatMoney }) => {
+const CartSummaryPanel = ({ summary, formatMoney, setAllProtection }) => {
   const router = useRouter()
-  const [insuranceEnabled, setInsuranceEnabled] = useState(true)
 
   const amounts = useMemo(() => {
-    const shipping = summary.itemCount > 0 ? 10 : 0
+    const shipping = 0
     const tax = Math.round(summary.subtotal * 0.1 * 100) / 100
-    const insurance = insuranceEnabled && summary.itemCount > 0 ? 15 : 0
-    const total = summary.subtotal + shipping + tax + insurance
+    const protection = Number(summary.protectionFee || 0)
+    const total = summary.subtotal + shipping + tax + protection
 
     return {
       shipping,
       tax,
-      insurance,
+      protection,
       total,
     }
-  }, [insuranceEnabled, summary.itemCount, summary.subtotal])
+  }, [summary.itemCount, summary.protectionFee, summary.subtotal])
 
   return (
     <div className='space-y-3'>
       <section className='rounded-xl border border-[#b8d4cd] bg-[#edf7f4] p-3'>
         <div className='flex items-start justify-between gap-3'>
           <div>
-            <p className='text-sm font-semibold text-slate-900'>Shipping Insurance</p>
-            <p className='mt-1 text-[11px] leading-4 text-slate-600'>
-              Against loss, theft, or damage in transit and instant resolution.
+            <p className='flex items-center gap-1 text-sm font-semibold text-slate-900'>
+              Order Protection
+              <OrderProtectionInfoButton className='text-slate-500 hover:text-slate-700' />
             </p>
-            <Link href='/' className='text-[11px] font-semibold text-slate-700 underline'>
-              Learn More
-            </Link>
-          </div>
-          <div className='flex items-center gap-2'>
-            <button
-              type='button'
-              role='switch'
-              aria-checked={insuranceEnabled}
-              onClick={() => setInsuranceEnabled((value) => !value)}
-              className={`relative inline-flex h-5 w-10 rounded-full transition ${
-                insuranceEnabled ? 'bg-[#0f172a]' : 'bg-slate-300'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                  insuranceEnabled ? 'translate-x-5' : 'translate-x-0.5'
-                } mt-0.5`}
-              />
+            <p className='mt-1 text-[11px] leading-5 text-slate-600'>
+              Protect selected items against damage, defects, or items not as described. Claim
+              requests are reviewed within the policy window.
+            </p>
+            <button type='button' className='mt-1 text-[11px] font-semibold text-slate-700'>
+              Learn more
+              <span className='ml-1' aria-hidden='true'>
+                ›
+              </span>
             </button>
-            <span className='text-sm font-semibold text-slate-900'>
-              {formatMoney(amounts.insurance || 15)}
-            </span>
           </div>
+          <span className='text-sm font-semibold text-slate-900'>
+            {amounts.protection > 0 ? formatMoney(amounts.protection) : formatMoney(0)}
+          </span>
+        </div>
+        <div className='mt-2 flex items-center justify-between gap-3'>
+          <span className='text-[11px] text-slate-600'>Protect all eligible items</span>
+          <button
+            type='button'
+            role='switch'
+            aria-checked={Boolean(summary.protectionBulkEnabled)}
+            disabled={Number(summary.protectedEligibleLineCount || 0) <= 0}
+            onClick={() => setAllProtection(!summary.protectionBulkEnabled)}
+            className={`relative inline-flex h-5 w-10 rounded-full transition ${
+              summary.protectionBulkEnabled ? 'bg-[#0f172a]' : 'bg-slate-300'
+            } disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            <span
+              className={`mt-0.5 inline-block h-4 w-4 rounded-full bg-white transition ${
+                summary.protectionBulkEnabled ? 'translate-x-5' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
         </div>
       </section>
 
@@ -68,16 +76,22 @@ const CartSummaryPanel = ({ summary, formatMoney }) => {
           </div>
           <div className='flex items-center justify-between'>
             <span className='text-slate-600'>Shipping :</span>
-            <span className='font-semibold text-slate-900'>{formatMoney(amounts.shipping)}</span>
+            <span className='font-semibold text-slate-500'>Calculated at checkout</span>
           </div>
           <div className='flex items-center justify-between'>
             <span className='text-slate-600'>Tax :</span>
             <span className='font-semibold text-slate-900'>{formatMoney(amounts.tax)}</span>
           </div>
+          {amounts.protection > 0 ? (
+            <div className='flex items-center justify-between'>
+              <span className='text-slate-600'>Order Protection :</span>
+              <span className='font-semibold text-slate-900'>{formatMoney(amounts.protection)}</span>
+            </div>
+          ) : null}
         </div>
 
         <div className='mt-3 flex items-center justify-between'>
-          <span className='text-sm text-slate-600'>Total Payable</span>
+          <span className='text-sm text-slate-600'>Estimated Total Payable</span>
           <span className='text-xl font-semibold text-slate-900'>{formatMoney(amounts.total)}</span>
         </div>
 
@@ -90,27 +104,43 @@ const CartSummaryPanel = ({ summary, formatMoney }) => {
           Proceed to Secure Checkout
         </button>
 
-        <div className='mt-3 rounded-md border border-slate-200 bg-slate-50 p-2'>
-          <div className='flex flex-wrap items-center justify-center gap-2 text-[10px] font-semibold text-slate-500'>
-            <span>FDA</span>
-            <span>SSL</span>
-            <span>VISA</span>
-            <span>Razorpay</span>
-            <span>PayPal</span>
-          </div>
-        </div>
       </section>
 
       <section className='rounded-xl border border-slate-200 bg-white p-4'>
-        <h4 className='text-sm font-semibold uppercase tracking-wide text-slate-900'>
-          Your Satisfaction Is Guaranteed
-        </h4>
-        <p className='mt-2 text-xs leading-5 text-slate-600'>
-          We&apos;re confident we design and sell the very best Red Light equipment available at an affordable
-          price, and we want you to share our confidence. That&apos;s why we back every sale with a 60-day money
-          back guarantee.
-        </p>
+        <p className='text-lg font-semibold text-slate-900'>We Accept</p>
+        <div className='mt-3 flex flex-wrap items-center gap-3'>
+          <span className='text-2xl font-extrabold tracking-tight text-[#1A1F71]'>VISA</span>
+          <svg
+            viewBox='0 -222 2000 2000'
+            className='h-10 w-16'
+            xmlns='http://www.w3.org/2000/svg'
+            aria-label='Mastercard'
+            role='img'
+          >
+            <path fill='#ff5f00' d='M1270.57 1104.15H729.71v-972h540.87Z' />
+            <path
+              fill='#eb001b'
+              d='M764 618.17c0-197.17 92.32-372.81 236.08-486A615.46 615.46 0 0 0 618.09 0C276.72 0 0 276.76 0 618.17s276.72 618.17 618.09 618.17a615.46 615.46 0 0 0 382-132.17C856.34 991 764 815.35 764 618.17'
+            />
+            <path
+              fill='#f79e1b'
+              d='M2000.25 618.17c0 341.41-276.72 618.17-618.09 618.17a615.65 615.65 0 0 1-382.05-132.17c143.8-113.19 236.12-288.82 236.12-486s-92.32-372.81-236.12-486A615.65 615.65 0 0 1 1382.15 0c341.37 0 618.09 276.76 618.09 618.17'
+            />
+          </svg>
+          <span className='rounded bg-[#2E77BC] px-2.5 py-1.5 text-xs font-bold text-white'>AMEX</span>
+          <span className='rounded bg-[#0b1d4d] px-2.5 py-1.5 text-xs font-bold text-white'>VERVE</span>
+          <span className='inline-flex h-8 items-center justify-center rounded border border-slate-300 bg-white px-2.5 text-xs font-bold text-slate-700'>
+            BANK
+          </span>
+          <span className='inline-flex h-8 items-center justify-center rounded border border-emerald-300 bg-emerald-50 px-2.5 text-xs font-bold text-emerald-700'>
+            *737#
+          </span>
+          <span className='inline-flex h-8 items-center justify-center rounded border border-slate-300 bg-white px-2.5 text-xs font-bold text-slate-700'>
+            BANK TRANSFER
+          </span>
+        </div>
       </section>
+
     </div>
   )
 }

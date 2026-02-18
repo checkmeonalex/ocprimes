@@ -11,8 +11,8 @@ function CategoryTreePage() {
           <AdminSidebar />
         </div>
 
-        <main className="flex-1 px-4 py-8 sm:px-6 lg:px-10">
-                  <AdminDesktopHeader />
+        <main className="flex-1 px-4 pb-8 sm:px-6 lg:px-10">
+          <AdminDesktopHeader />
           <CategoryTreeManager />
         </main>
       </div>

@@ -34,7 +34,7 @@ const DELIVERY_OPTIONS = [
     id: 'standard',
     label: 'Standard Delivery',
     estimate: '30 - 40 min',
-    fee: 0,
+    fee: 5,
     badge: '',
     note: '',
   },
@@ -42,7 +42,7 @@ const DELIVERY_OPTIONS = [
     id: 'economical',
     label: 'Economical Delivery',
     estimate: '50 - 60 min',
-    fee: 0,
+    fee: 3,
     badge: '',
     note: '',
   },
@@ -80,6 +80,11 @@ const ShippingDetailsPage = () => {
   const [draftAddress, setDraftAddress] = useState(emptyAddressDraft)
   const [addressError, setAddressError] = useState('')
   const [isSavingAddress, setIsSavingAddress] = useState(false)
+  const [shippingProgressConfig, setShippingProgressConfig] = useState({
+    enabled: true,
+    standardFreeShippingThreshold: 50,
+    expressFreeShippingThreshold: 100,
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -120,14 +125,58 @@ const ShippingDetailsPage = () => {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    const loadShippingProgressSettings = async () => {
+      try {
+        const response = await fetch('/api/settings/cart-shipping-progress', { cache: 'no-store' })
+        if (!response.ok) return
+        const payload = await response.json().catch(() => null)
+        if (cancelled || !payload) return
+        setShippingProgressConfig({
+          enabled: payload.enabled !== false,
+          standardFreeShippingThreshold:
+            Number(payload.standardFreeShippingThreshold) >= 0
+              ? Number(payload.standardFreeShippingThreshold)
+              : 50,
+          expressFreeShippingThreshold:
+            Number(payload.expressFreeShippingThreshold) >= 0
+              ? Number(payload.expressFreeShippingThreshold)
+              : 100,
+        })
+      } catch {
+        // keep defaults
+      }
+    }
+    void loadShippingProgressSettings()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const hasCartItems = items.length > 0
   const hasSelectedAddress = Boolean(selectedAddressId)
   const selectedDeliveryOption =
     DELIVERY_OPTIONS.find((option) => option.id === selectedDeliveryOptionId) ||
     DELIVERY_OPTIONS[0]
-  const shippingFee = checkoutMode === 'pickup' ? 0 : selectedDeliveryOption.fee
+  const standardThreshold = Number(shippingProgressConfig.standardFreeShippingThreshold || 50)
+  const expressThreshold = Number(shippingProgressConfig.expressFreeShippingThreshold || 100)
+  const subtotalValue = Number(summary.subtotal || 0)
+  const isStandardFreeUnlocked = subtotalValue >= standardThreshold
+  const isExpressFreeUnlocked = subtotalValue >= expressThreshold
+  const shippingFee =
+    checkoutMode === 'pickup'
+      ? 0
+      : selectedDeliveryOption.id === 'express'
+        ? isExpressFreeUnlocked
+          ? 0
+          : selectedDeliveryOption.fee
+        : isStandardFreeUnlocked
+          ? 0
+          : selectedDeliveryOption.fee
   const taxAmount = Math.round(summary.subtotal * TAX_RATE * 100) / 100
-  const totalAmount = summary.subtotal + shippingFee + taxAmount
+  const protectionFee = Number(summary.protectionFee || 0)
+  const totalAmount = summary.subtotal + shippingFee + taxAmount + protectionFee
 
   const selectedAddress = useMemo(
     () => addresses.find((entry) => entry.id === selectedAddressId) || null,
@@ -589,6 +638,12 @@ const ShippingDetailsPage = () => {
                   <span>Tax ({Math.round(TAX_RATE * 100)}%)</span>
                   <span className='font-semibold text-slate-900'>{formatMoney(taxAmount)}</span>
                 </div>
+                {protectionFee > 0 ? (
+                  <div className='flex items-center justify-between text-slate-600'>
+                    <span>Order Protection</span>
+                    <span className='font-semibold text-slate-900'>{formatMoney(protectionFee)}</span>
+                  </div>
+                ) : null}
                 <div className='border-t border-slate-200 pt-2 flex items-center justify-between text-base font-semibold'>
                   <span className='text-slate-900'>Total</span>
                   <span className='text-sky-600'>{formatMoney(totalAmount)}</span>
@@ -596,9 +651,32 @@ const ShippingDetailsPage = () => {
               </div>
             </div>
 
-            <div className='mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900'>
-              Welcome to our checkout. By proceeding you agree to our terms and secure delivery policy.
-            </div>
+            <section className='mt-3 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2'>
+              <div className='flex items-center gap-2'>
+                <svg
+                  viewBox='0 0 20 20'
+                  className='h-4 w-4 text-emerald-600'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='1.8'
+                  aria-hidden='true'
+                >
+                  <rect x='5.4' y='9' width='9.2' height='7' rx='1.2' />
+                  <path d='M7.3 9V7.3a2.7 2.7 0 1 1 5.4 0V9' />
+                </svg>
+                <p className='text-sm font-semibold text-slate-900'>Secure privacy</p>
+              </div>
+              <p className='mt-1 text-xs leading-5 text-slate-600'>
+                Your shipping details are encrypted and protected. We only use your information to
+                process delivery, support your order, and improve service quality.
+              </p>
+              <button type='button' className='mt-1 text-[11px] font-semibold text-slate-700'>
+                Learn more
+                <span className='ml-1' aria-hidden='true'>
+                  ›
+                </span>
+              </button>
+            </section>
 
             {!isReady || !isServerReady ? (
               <p className='mt-3 text-xs text-slate-500'>Refreshing cart details...</p>

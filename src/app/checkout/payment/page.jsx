@@ -54,6 +54,7 @@ const PAYMENT_METHOD_GROUPS = [
     methods: [
       { id: 'visa', label: 'Visa Card', logo: 'visa' },
       { id: 'mastercard', label: 'MasterCard', logo: 'mastercard' },
+      { id: 'verve', label: 'Verve Card', logo: 'verve' },
     ],
   },
   {
@@ -73,6 +74,7 @@ const PAYMENT_METHOD_GROUPS = [
 const METHOD_TO_PAYSTACK_CHANNEL = {
   visa: 'card',
   mastercard: 'card',
+  verve: 'card',
   amex: 'card',
   'bank-transfer': 'bank_transfer',
   ussd: 'ussd',
@@ -166,6 +168,11 @@ export default function CheckoutPaymentPage() {
   const [isStartingPayment, setIsStartingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState('')
   const [isPaystackReady, setIsPaystackReady] = useState(false)
+  const [shippingProgressConfig, setShippingProgressConfig] = useState({
+    enabled: true,
+    standardFreeShippingThreshold: 50,
+    expressFreeShippingThreshold: 100,
+  })
 
   const [profile, setProfile] = useState(null)
   const [billingAddresses, setBillingAddresses] = useState([])
@@ -186,7 +193,12 @@ export default function CheckoutPaymentPage() {
     () => Math.round(summary.subtotal * TAX_RATE * 100) / 100,
     [summary.subtotal],
   )
-  const totalAmount = summary.subtotal + SHIPPING_FEE + taxAmount
+  const protectionFee = Number(summary.protectionFee || 0)
+  const shippingFee =
+    Number(summary.subtotal || 0) >= Number(shippingProgressConfig.standardFreeShippingThreshold || 50)
+      ? 0
+      : SHIPPING_FEE
+  const totalAmount = summary.subtotal + shippingFee + taxAmount + protectionFee
   const selectedPhoneCountry = phoneCountry || profile?.country || user?.country || 'United States'
   const selectedDialCode = useMemo(
     () => getDialCodeByCountry(selectedPhoneCountry),
@@ -259,6 +271,36 @@ export default function CheckoutPaymentPage() {
     return () => {
       script.onload = null
       script.onerror = null
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadShippingProgressSettings = async () => {
+      try {
+        const response = await fetch('/api/settings/cart-shipping-progress', { cache: 'no-store' })
+        if (!response.ok) return
+        const payload = await response.json().catch(() => null)
+        if (cancelled || !payload) return
+        setShippingProgressConfig({
+          enabled: payload.enabled !== false,
+          standardFreeShippingThreshold:
+            Number(payload.standardFreeShippingThreshold) >= 0
+              ? Number(payload.standardFreeShippingThreshold)
+              : 50,
+          expressFreeShippingThreshold:
+            Number(payload.expressFreeShippingThreshold) >= 0
+              ? Number(payload.expressFreeShippingThreshold)
+              : 100,
+        })
+      } catch {
+        // keep defaults when settings are unavailable
+      }
+    }
+
+    void loadShippingProgressSettings()
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -590,6 +632,8 @@ export default function CheckoutPaymentPage() {
         metadata: {
           source: 'checkout_payment_page',
           item_count: items.length,
+          protection_item_count: Number(summary.protectedItemCount || 0),
+          protection_fee: protectionFee,
           promo_code: promoCode.trim(),
           selected_payment_method: selectedPaymentMethodId,
           selected_payment_channel: selectedPaystackChannels[0] || '',
@@ -801,6 +845,11 @@ export default function CheckoutPaymentPage() {
                           {method.logo === 'amex' ? (
                             <span className='rounded bg-[#2E77BC] px-2.5 py-1.5 text-[11px] font-bold text-white'>
                               AMEX
+                            </span>
+                          ) : null}
+                          {method.logo === 'verve' ? (
+                            <span className='rounded bg-[#0b1d4d] px-2.5 py-1.5 text-xs font-bold text-white'>
+                              VERVE
                             </span>
                           ) : null}
                           <span className='text-sm text-slate-900'>{method.label}</span>
@@ -1031,12 +1080,18 @@ export default function CheckoutPaymentPage() {
                 </div>
                 <div className='flex items-center justify-between text-slate-600'>
                   <span>Shipping</span>
-                  <span className='font-semibold text-slate-900'>{formatMoney(SHIPPING_FEE)}</span>
+                  <span className='font-semibold text-slate-900'>{formatMoney(shippingFee)}</span>
                 </div>
                 <div className='flex items-center justify-between text-slate-600'>
                   <span>Tax ({Math.round(TAX_RATE * 100)}%)</span>
                   <span className='font-semibold text-slate-900'>{formatMoney(taxAmount)}</span>
                 </div>
+                {protectionFee > 0 ? (
+                  <div className='flex items-center justify-between text-slate-600'>
+                    <span>Order Protection</span>
+                    <span className='font-semibold text-slate-900'>{formatMoney(protectionFee)}</span>
+                  </div>
+                ) : null}
                 <div className='flex items-center justify-between border-t border-slate-200 pt-2 text-base font-semibold'>
                   <span className='text-slate-900'>Total</span>
                   <span className='text-sky-600'>{formatMoney(totalAmount)}</span>
@@ -1044,9 +1099,87 @@ export default function CheckoutPaymentPage() {
               </div>
             </div>
 
-            <div className='mt-5 rounded-xl border border-[#d9e5bf] bg-[#f2f8de] px-3 py-2 text-xs text-[#55603d]'>
-              Welcome to our app. By accessing this app, you agree to the terms and conditions.
-              Enjoy delicious meals.
+            <div className='mt-5 space-y-3'>
+              <section className='rounded-xl border border-slate-200 bg-slate-100 px-3 py-2'>
+                <div className='flex items-center gap-2'>
+                  <svg
+                    viewBox='0 0 20 20'
+                    className='h-4 w-4 text-emerald-600'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='1.8'
+                    aria-hidden='true'
+                  >
+                    <rect x='5.4' y='9' width='9.2' height='7' rx='1.2' />
+                    <path d='M7.3 9V7.3a2.7 2.7 0 1 1 5.4 0V9' />
+                  </svg>
+                  <p className='text-sm font-semibold text-slate-900'>Payment Security</p>
+                </div>
+                <p className='mt-1 text-xs leading-5 text-slate-600'>
+                  Your payment details are encrypted and securely processed. We never store your
+                  full card details on OCPRIMES.
+                </p>
+                <button type='button' className='mt-1 text-[11px] font-semibold text-slate-700'>
+                  Learn more
+                  <span className='ml-1' aria-hidden='true'>
+                    ›
+                  </span>
+                </button>
+              </section>
+
+              <section className='rounded-xl border border-slate-200 bg-slate-100 px-3 py-2'>
+                <div className='flex items-center gap-2'>
+                  <svg
+                    viewBox='0 0 20 20'
+                    className='h-4 w-4 text-blue-600'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='1.8'
+                    aria-hidden='true'
+                  >
+                    <path d='M4.5 5.5h11v9h-11z' />
+                    <path d='M6.7 9.3h6.6M6.7 12h4.2' />
+                  </svg>
+                  <p className='text-sm font-semibold text-slate-900'>Return Policy</p>
+                </div>
+                <p className='mt-1 text-xs leading-5 text-slate-600'>
+                  Eligible products can be returned based on seller policy. Order Protection can
+                  override no-return items for covered issues.
+                </p>
+                <button type='button' className='mt-1 text-[11px] font-semibold text-slate-700'>
+                  Learn more
+                  <span className='ml-1' aria-hidden='true'>
+                    ›
+                  </span>
+                </button>
+              </section>
+
+              <section className='rounded-xl border border-slate-200 bg-slate-100 px-3 py-2'>
+                <div className='flex items-center gap-2'>
+                  <svg
+                    viewBox='0 0 20 20'
+                    className='h-4 w-4 text-violet-600'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='1.8'
+                    aria-hidden='true'
+                  >
+                    <rect x='3.8' y='5.5' width='12.4' height='9' rx='1.4' />
+                    <path d='M3.8 8.7h12.4' />
+                  </svg>
+                  <p className='text-sm font-semibold text-slate-900'>Save Payment Options</p>
+                </div>
+                <p className='mt-1 text-xs leading-5 text-slate-600'>
+                  Save your preferred payment method for faster future checkout. You can manage
+                  saved options anytime in your account settings.
+                </p>
+                <button type='button' className='mt-1 text-[11px] font-semibold text-slate-700'>
+                  Learn more
+                  <span className='ml-1' aria-hidden='true'>
+                    ›
+                  </span>
+                </button>
+              </section>
             </div>
 
             {!isReady || !isServerReady ? (

@@ -6,9 +6,9 @@ import { useCart } from '@/context/CartContext'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 
 const defaultCheckoutProgressConfig = {
-  freeShippingThreshold: 50,
-  cashbackThreshold: 85,
-  cashbackPercent: 3,
+  enabled: true,
+  standardFreeShippingThreshold: 50,
+  expressFreeShippingThreshold: 100,
 }
 
 export default function CartPage() {
@@ -21,6 +21,8 @@ export default function CartPage() {
     summary,
     addItem,
     updateQuantity,
+    setItemProtection,
+    setAllProtection,
     removeItem,
     clearCart,
     retryItem,
@@ -33,24 +35,20 @@ export default function CartPage() {
 
     const loadCheckoutProgressConfig = async () => {
       try {
-        const response = await fetch('/api/user/profile', { cache: 'no-store' })
+        const response = await fetch('/api/settings/cart-shipping-progress', { cache: 'no-store' })
         if (!response.ok) return
         const payload = await response.json().catch(() => null)
-        const fromProfile = payload?.profile?.shortcuts?.checkoutProgress
-        if (!fromProfile || cancelled) return
+        if (!payload || cancelled) return
         const next = {
-          freeShippingThreshold:
-            Number(fromProfile.freeShippingThreshold) > 0
-              ? Number(fromProfile.freeShippingThreshold)
-              : defaultCheckoutProgressConfig.freeShippingThreshold,
-          cashbackThreshold:
-            Number(fromProfile.cashbackThreshold) > 0
-              ? Number(fromProfile.cashbackThreshold)
-              : defaultCheckoutProgressConfig.cashbackThreshold,
-          cashbackPercent:
-            Number(fromProfile.cashbackPercent) >= 0
-              ? Number(fromProfile.cashbackPercent)
-              : defaultCheckoutProgressConfig.cashbackPercent,
+          enabled: payload?.enabled !== false,
+          standardFreeShippingThreshold:
+            Number(payload?.standardFreeShippingThreshold) >= 0
+              ? Number(payload.standardFreeShippingThreshold)
+              : defaultCheckoutProgressConfig.standardFreeShippingThreshold,
+          expressFreeShippingThreshold:
+            Number(payload?.expressFreeShippingThreshold) >= 0
+              ? Number(payload.expressFreeShippingThreshold)
+              : defaultCheckoutProgressConfig.expressFreeShippingThreshold,
         }
         setCheckoutProgressConfig(next)
       } catch {
@@ -71,6 +69,8 @@ export default function CartPage() {
       formatMoney={formatMoney}
       addItem={addItem}
       updateQuantity={updateQuantity}
+      setItemProtection={setItemProtection}
+      setAllProtection={setAllProtection}
       removeItem={removeItem}
       clearCart={clearCart}
       retryItem={retryItem}

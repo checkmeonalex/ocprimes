@@ -26,8 +26,97 @@ const isDescendant = (items, parentId, childId) => {
   return false;
 };
 
+const filterTree = (nodes, query) => {
+  const q = query.trim().toLowerCase();
+  if (!q) return nodes;
+  return nodes
+    .map((node) => {
+      const children = filterTree(node.children || [], q);
+      const matches = String(node.name || '').toLowerCase().includes(q);
+      if (!matches && children.length === 0) return null;
+      return { ...node, children };
+    })
+    .filter(Boolean);
+};
+
+function Sheet({ open, title, onClose, children, forceBottom = false }) {
+  if (!open) return null;
+  return (
+    <div
+      className={`fixed inset-0 z-[90] bg-slate-900/40 [animation:cat-sheet-fade_220ms_ease-out] ${
+        forceBottom ? 'p-0 sm:p-4' : 'p-3 sm:p-4'
+      }`}
+    >
+      <div className={`mx-auto flex h-full w-full max-w-md items-end ${forceBottom ? '' : 'sm:items-center'}`}>
+        <div
+          className={`w-full overflow-hidden bg-white shadow-[0_30px_80px_rgba(15,23,42,0.26)] ${
+            forceBottom
+              ? 'h-[60dvh] rounded-t-3xl rounded-b-none [animation:cat-sheet-up_260ms_cubic-bezier(0.22,1,0.36,1)] sm:h-auto sm:rounded-3xl sm:[animation:cat-sheet-pop_220ms_ease-out]'
+              : 'rounded-3xl [animation:cat-sheet-pop_220ms_ease-out]'
+          }`}
+        >
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+            <p className="text-sm font-semibold text-slate-900">{title}</p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100"
+              aria-label="Close"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+          <div
+            className={`${
+              forceBottom ? 'max-h-[calc(60dvh-57px)] sm:max-h-[70vh]' : 'max-h-[70vh]'
+            } overflow-y-auto px-4 py-4`}
+          >
+            {children}
+          </div>
+        </div>
+      </div>
+      <style jsx>{`
+        @keyframes cat-sheet-fade {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        @keyframes cat-sheet-up {
+          from {
+            transform: translateY(44px);
+            opacity: 0.9;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+        @keyframes cat-sheet-pop {
+          from {
+            transform: translateY(10px) scale(0.985);
+            opacity: 0.9;
+          }
+          to {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 function CategoryTreeManager() {
   const [items, setItems] = useState([]);
+  const [categoryRequests, setCategoryRequests] = useState([]);
+  const [isRequestsLoading, setIsRequestsLoading] = useState(false);
+  const [requestsError, setRequestsError] = useState('');
+  const [canReviewRequests, setCanReviewRequests] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [saveError, setSaveError] = useState('');
@@ -41,6 +130,9 @@ function CategoryTreeManager() {
   const [editingName, setEditingName] = useState('');
   const [renamingId, setRenamingId] = useState('');
   const [openRoots, setOpenRoots] = useState(new Set());
+  const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({
     name: '',
     slug: '',
@@ -49,6 +141,7 @@ function CategoryTreeManager() {
   });
 
   const tree = useMemo(() => buildCategoryTree(items), [items]);
+  const filteredTree = useMemo(() => filterTree(tree, query), [tree, query]);
   const parentOptions = useMemo(() => buildOptionList(tree), [tree]);
 
   const loadCategories = useCallback(async () => {
@@ -73,6 +166,31 @@ function CategoryTreeManager() {
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+
+  const loadCategoryRequests = useCallback(async () => {
+    setIsRequestsLoading(true);
+    setRequestsError('');
+    try {
+      const response = await fetch('/api/admin/categories/requests?status=pending&page=1&per_page=50', {
+        credentials: 'include',
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to load category requests.');
+      }
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      setCategoryRequests(items);
+      setCanReviewRequests(Boolean(payload?.permissions?.can_review_request));
+    } catch (err) {
+      setRequestsError(err?.message || 'Unable to load category requests.');
+    } finally {
+      setIsRequestsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCategoryRequests();
+  }, [loadCategoryRequests]);
 
   const updateItem = useCallback((id, updates) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
@@ -104,12 +222,17 @@ function CategoryTreeManager() {
         setItems((prev) => [...prev, created]);
       }
       setForm({ name: '', slug: '', description: '', parent_id: '' });
+      setCreateOpen(false);
     } catch (err) {
       setSaveError(err?.message || 'Unable to create category.');
     } finally {
       setIsSaving(false);
     }
   };
+
+  const onSearch = useCallback(() => {
+    setQuery(search.trim());
+  }, [search]);
 
   const handleToggleActive = async (node) => {
     if (!node?.id || toggleLoadingId) return;
@@ -387,8 +510,10 @@ function CategoryTreeManager() {
     return (
       <div key={node.id} className="space-y-2">
         <div
-          className={`rounded-2xl border px-4 py-3 text-xs shadow-sm transition ${
-            isDragged ? 'border-emerald-400 bg-emerald-50/70' : 'border-slate-200 bg-white'
+          className={`rounded-none border-x-0 border-b px-2 py-3 text-xs shadow-none transition sm:rounded-2xl sm:border sm:px-4 sm:shadow-sm ${
+            isDragged
+              ? 'border-emerald-300 bg-emerald-50/60 sm:border-emerald-400 sm:bg-emerald-50/70'
+              : 'border-slate-200 bg-transparent sm:bg-white'
           }`}
         >
           <div
@@ -463,7 +588,7 @@ function CategoryTreeManager() {
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  {isRoot && (
+                  {isRoot && node.children.length > 0 && (
                     <button
                       type="button"
                       aria-label={isExpanded ? 'Collapse root' : 'Expand root'}
@@ -614,51 +739,154 @@ function CategoryTreeManager() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
-      <div className="rounded-[32px] border border-slate-200 bg-gradient-to-r from-white via-slate-50 to-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">
-              Category Tree
-            </p>
-            <h1 className="mt-3 text-2xl font-semibold text-slate-900">Categories</h1>
-            <p className="mt-2 text-sm text-slate-500">
-              Drag categories to nest or reorder them.
-            </p>
-          </div>
-          <LoadingButton
-            type="button"
-            isLoading={isLoading}
-            onClick={loadCategories}
-            className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
-          >
-            Refresh tree
-          </LoadingButton>
+    <div className="mx-auto w-full max-w-5xl">
+      <div className="flex items-center justify-between py-2">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Categories</h1>
+          <p className="mt-1 text-sm text-slate-500">Organize category tree, nesting, visibility, and requests.</p>
+          <p className="mt-1 text-xs text-slate-500">{items.length} total · {tree.length} roots</p>
         </div>
-        {error && <p className="mt-4 text-sm text-rose-500">{error}</p>}
-        {saveError && <p className="mt-2 text-xs text-rose-500">{saveError}</p>}
+        <button
+          type="button"
+          onClick={() => setCreateOpen(true)}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white shadow-[0_10px_24px_rgba(15,23,42,0.24)] transition hover:brightness-110"
+          aria-label="Add category"
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="mt-3 flex items-center gap-2">
+        <label className="inline-flex h-11 flex-1 items-center rounded-full border border-slate-200 bg-white px-3 text-sm text-slate-700">
+          <svg className="mr-2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                onSearch();
+              }
+            }}
+            placeholder="Search categories"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={onSearch}
+          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+        >
+          Go
+        </button>
+        <LoadingButton
+          type="button"
+          isLoading={isLoading}
+          onClick={loadCategories}
+          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+        >
+          Refresh
+        </LoadingButton>
+      </div>
+
+      {error ? <p className="mt-3 text-sm text-rose-600">{error}</p> : null}
+      {saveError ? <p className="mt-2 text-xs text-rose-500">{saveError}</p> : null}
+
+      <div className="mt-4 rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-3xl sm:border sm:border-slate-200 sm:bg-white sm:p-5 sm:shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-              Create category
-            </p>
-            <p className="mt-2 text-sm font-semibold text-slate-800">
-              Add a new category to the tree
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Category requests</p>
+            <p className="mt-2 text-sm font-semibold text-slate-800">Seller requests waiting for admin review</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700">
+              {categoryRequests.length} pending
+            </span>
+            <LoadingButton
+              type="button"
+              isLoading={isRequestsLoading}
+              onClick={loadCategoryRequests}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600"
+            >
+              Refresh
+            </LoadingButton>
+          </div>
+        </div>
+        {requestsError ? <p className="mt-3 text-xs text-rose-500">{requestsError}</p> : null}
+        {!requestsError && canReviewRequests && (
+          <div className="mt-4 space-y-2">
+            {!isRequestsLoading && categoryRequests.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-xs text-slate-500">
+                No pending category requests.
+              </div>
+            ) : null}
+            {categoryRequests.map((request) => {
+              const requesterBrand = String(request?.requester_brand_name || '').trim();
+              const requesterId = String(request?.requester_user_id || '').trim();
+              const requesterLabel = requesterBrand || requesterId || 'Unknown requester';
+              const requestedAt = request?.requested_at
+                ? new Date(request.requested_at).toLocaleString()
+                : 'Unknown date';
+              return (
+                <div
+                  key={request.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{request.name}</p>
+                    <p className="mt-1 text-xs text-slate-500">/{request.slug} · Requested by {requesterLabel}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">{requestedAt}</p>
+                  </div>
+                  <Link
+                    href="/backend/admin/categories"
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600"
+                  >
+                    Review
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 rounded-none border-0 bg-transparent p-0 shadow-none sm:rounded-3xl sm:border sm:border-slate-200 sm:bg-white sm:p-5 sm:shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Category tree</p>
+            <p className="mt-2 text-sm font-semibold text-slate-800">Drag to reorder, drop on a category to nest</p>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
-            {items.length} total
+            {filteredTree.length} roots in view
           </span>
         </div>
 
-        <form onSubmit={handleCreate} className="mt-4 grid gap-4 md:grid-cols-[1.4fr_1fr]">
+        <div className="mt-4 space-y-3">
+          {isLoading ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-500">
+              <span className="inline-flex items-center gap-2">
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
+                Loading categories...
+              </span>
+            </div>
+          ) : null}
+          {!isLoading && filteredTree.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-500">
+              {query ? 'No categories match your search.' : 'No categories yet.'}
+            </div>
+          ) : null}
+          {!isLoading && filteredTree.map((node) => renderNode(node))}
+        </div>
+      </div>
+
+      <Sheet open={createOpen} title="Create category" onClose={() => setCreateOpen(false)} forceBottom>
+        <form onSubmit={handleCreate} className="space-y-3">
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              Category name
-            </label>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">Category name</label>
             <input
               value={form.name}
               onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
@@ -666,18 +894,18 @@ function CategoryTreeManager() {
               className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
               required
             />
-            <label className="mt-4 block text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              slug (optional)
-            </label>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">Slug (optional)</label>
             <input
               value={form.slug}
               onChange={(event) => setForm((prev) => ({ ...prev, slug: event.target.value }))}
               placeholder="auto-generated if empty"
               className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
             />
-            <label className="mt-4 block text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              parent category
-            </label>
+          </div>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">Parent category</label>
             <select
               value={form.parent_id}
               onChange={(event) => setForm((prev) => ({ ...prev, parent_id: event.target.value }))}
@@ -691,62 +919,25 @@ function CategoryTreeManager() {
               ))}
             </select>
           </div>
-          <div className="flex flex-col">
-            <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              description (optional)
-            </label>
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">Description (optional)</label>
             <textarea
               value={form.description}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, description: event.target.value }))
-              }
+              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
               placeholder="Add a short description"
-              className="mt-2 min-h-[140px] flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+              className="mt-2 min-h-[120px] w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
             />
-            <LoadingButton
-              type="submit"
-              isLoading={isSaving}
-              className="mt-4 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
-            >
-              Create category
-            </LoadingButton>
-            {saveError && <p className="mt-2 text-xs text-rose-500">{saveError}</p>}
           </div>
+          <LoadingButton
+            type="submit"
+            isLoading={isSaving}
+            className="w-full rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+          >
+            Create category
+          </LoadingButton>
+          {saveError ? <p className="text-xs text-rose-500">{saveError}</p> : null}
         </form>
-      </div>
-
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-              Category tree
-            </p>
-            <p className="mt-2 text-sm font-semibold text-slate-800">
-              Drag to reorder, drop on a category to nest
-            </p>
-          </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
-            {tree.length} roots
-          </span>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          {isLoading && (
-            <div className="rounded-2xl border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-500">
-              <span className="inline-flex items-center gap-2">
-                <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
-                Loading categories...
-              </span>
-            </div>
-          )}
-          {!isLoading && tree.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-500">
-              No categories yet.
-            </div>
-          )}
-          {!isLoading && tree.map((node) => renderNode(node))}
-        </div>
-      </div>
+      </Sheet>
     </div>
   );
 }

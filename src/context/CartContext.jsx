@@ -3,6 +3,12 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuthUser } from '@/lib/auth/useAuthUser'
 import { buildKey, normalizeItem } from '@/lib/cart/utils'
+import {
+  calculateOrderProtectionFee,
+  isDigitalProductLike,
+  normalizeOrderProtectionConfig,
+  ORDER_PROTECTION_DEFAULTS,
+} from '@/lib/order-protection/config'
 
 const CartContext = createContext(null)
 const STORAGE_KEY = 'ocprimes_cart_items'
@@ -36,6 +42,7 @@ export function CartProvider({ children }) {
   const [isServerReady, setIsServerReady] = useState(false)
   const [cartVersion, setCartVersion] = useState(null)
   const [syncRevision, setSyncRevision] = useState(0)
+  const [orderProtectionConfig, setOrderProtectionConfig] = useState(ORDER_PROTECTION_DEFAULTS)
   const { user, isLoading } = useAuthUser()
 
   const itemsRef = useRef(items)
@@ -234,6 +241,9 @@ export function CartProvider({ children }) {
           selectedVariationLabel: intent.item.selectedVariationLabel,
           selectedColor: intent.item.selectedColor,
           selectedSize: intent.item.selectedSize,
+          productType: intent.item.productType,
+          isDigital: intent.item.isDigital,
+          isProtected: intent.item.isProtected,
           quantity: desiredQty,
         }
 
@@ -336,6 +346,29 @@ export function CartProvider({ children }) {
       refreshInFlightRef.current = false
     }
   }
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadOrderProtectionConfig = async () => {
+      try {
+        const response = await fetch('/api/settings/order-protection', { cache: 'no-store' })
+        if (!response.ok) return
+        const data = await response.json().catch(() => null)
+        if (cancelled) return
+        setOrderProtectionConfig(normalizeOrderProtectionConfig(data))
+      } catch {
+        if (!cancelled) {
+          setOrderProtectionConfig(ORDER_PROTECTION_DEFAULTS)
+        }
+      }
+    }
+
+    void loadOrderProtectionConfig()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (isLoading) return
@@ -524,6 +557,75 @@ export function CartProvider({ children }) {
     updateQuantity(key, 0)
   }
 
+  const setItemProtection = (key, enabled) => {
+    const existing = (itemsRef.current || []).find((entry) => entry.key === key)
+    if (!existing) return
+    if (isDigitalProductLike(existing) && enabled) return
+
+    const normalized = normalizeItem({
+      ...existing,
+      isProtected: Boolean(enabled),
+      quantity: 1,
+    })
+
+    if (!user) {
+      optimisticSetQuantity(normalized, Math.max(1, Number(existing.quantity || 1)))
+      return
+    }
+
+    setMeta(key, { isSyncing: true, syncError: null })
+    queueIntent(normalized, Math.max(1, Number(existing.quantity || 1)))
+    optimisticSetQuantity(normalized, Math.max(1, Number(existing.quantity || 1)))
+
+    if (user && isServerReady) {
+      void flushQueue()
+    }
+  }
+
+  const setAllProtection = (enabled) => {
+    const snapshot = [...(itemsRef.current || [])]
+    const eligibleItems = snapshot.filter((entry) => !isDigitalProductLike(entry))
+    if (eligibleItems.length <= 0) return
+
+    if (!user) {
+      const next = snapshot.map((entry) => {
+        if (isDigitalProductLike(entry)) return entry
+        return { ...entry, isProtected: Boolean(enabled) }
+      })
+      setItemsState(next)
+      return
+    }
+
+    eligibleItems.forEach((entry) => {
+      const key = entry.key
+      const meta = metaRef.current.get(key) || { isSyncing: false, syncError: null }
+      metaRef.current.set(key, {
+        ...meta,
+        isSyncing: true,
+        syncError: null,
+      })
+      queueIntent(
+        normalizeItem({
+          ...entry,
+          isProtected: Boolean(enabled),
+          quantity: 1,
+        }),
+        Math.max(1, Number(entry.quantity || 1)),
+      )
+    })
+
+    const next = snapshot.map((entry) => {
+      if (isDigitalProductLike(entry)) return entry
+      return { ...entry, isProtected: Boolean(enabled) }
+    })
+    setItemsState(next)
+    notifySyncStateChanged()
+
+    if (isServerReady) {
+      void flushQueue()
+    }
+  }
+
   const clearCart = () => {
     if (!user) {
       setItemsState([])
@@ -568,9 +670,45 @@ export function CartProvider({ children }) {
     }, 0)
     const savings = Math.max(0, originalTotal - subtotal)
     const itemCount = items.reduce((sum, entry) => sum + entry.quantity, 0)
+    const protectedSubtotal = items.reduce((sum, entry) => {
+      if (!entry.isProtected) return sum
+      if (isDigitalProductLike(entry)) return sum
+      return sum + Number(entry.price || 0) * Number(entry.quantity || 0)
+    }, 0)
+    const protectedItemCount = items.reduce((sum, entry) => {
+      if (!entry.isProtected || isDigitalProductLike(entry)) return sum
+      return sum + Number(entry.quantity || 0)
+    }, 0)
+    const protectedEligibleLineCount = items.reduce((sum, entry) => {
+      if (isDigitalProductLike(entry)) return sum
+      return sum + 1
+    }, 0)
+    const protectedSelectedLineCount = items.reduce((sum, entry) => {
+      if (isDigitalProductLike(entry)) return sum
+      if (!entry.isProtected) return sum
+      return sum + 1
+    }, 0)
+    const protectionFee = calculateOrderProtectionFee(
+      protectedSubtotal,
+      orderProtectionConfig,
+    )
 
-    return { subtotal, originalTotal, savings, itemCount }
-  }, [items])
+    return {
+      subtotal,
+      originalTotal,
+      savings,
+      itemCount,
+      protectedSubtotal,
+      protectedItemCount,
+      protectedEligibleLineCount,
+      protectedSelectedLineCount,
+      protectionBulkEnabled:
+        protectedEligibleLineCount > 0 &&
+        protectedSelectedLineCount === protectedEligibleLineCount,
+      protectionFee,
+      protectionConfig: orderProtectionConfig,
+    }
+  }, [items, orderProtectionConfig])
 
   const isUpdating = useMemo(
     () => syncInFlightRef.current || items.some((entry) => entry.isSyncing),
@@ -585,13 +723,24 @@ export function CartProvider({ children }) {
       isUpdating,
       addItem,
       updateQuantity,
+      setItemProtection,
+      setAllProtection,
       removeItem,
       clearCart,
       retryItem,
       summary,
       cartVersion,
+      orderProtectionConfig,
     }),
-    [items, isReady, isServerReady, isUpdating, summary, cartVersion],
+    [
+      items,
+      isReady,
+      isServerReady,
+      isUpdating,
+      summary,
+      cartVersion,
+      orderProtectionConfig,
+    ],
   )
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

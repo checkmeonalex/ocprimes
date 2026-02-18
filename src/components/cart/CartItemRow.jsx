@@ -3,10 +3,12 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import CartQuantitySelect from '@/components/cart/CartQuantitySelect'
+import OrderProtectionInfoButton from '@/components/cart/OrderProtectionInfoButton'
 import SellerIcon from '@/components/cart/SellerIcon'
 import { isReturnPolicyDisabled, normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
 import { getSelectionSummary } from '@/lib/cart/selection-summary'
 import { buildVendorHref } from '@/lib/cart/vendor-link'
+import { isDigitalProductLike } from '@/lib/order-protection/config'
 
 const buildProductHref = (item) => {
   const params = new URLSearchParams()
@@ -29,6 +31,8 @@ const CartItemRow = ({
   updateQuantity,
   removeItem,
   retryItem,
+  setItemProtection,
+  orderProtectionConfig,
   returnPolicyBySlug,
 }) => {
   const selectionSummary = getSelectionSummary(item)
@@ -42,6 +46,7 @@ const CartItemRow = ({
     slug: item?.sourceSlug || item?.vendorSlug || item?.storeSlug,
     name: sourceName,
   })
+  const isProtectionEligible = !isDigitalProductLike(item)
 
   return (
     <article className='grid grid-cols-1 gap-4 border-b border-slate-200 px-4 py-5 last:border-b-0 sm:grid-cols-[1.7fr_0.6fr_0.5fr_0.1fr] sm:items-center'>
@@ -95,6 +100,24 @@ const CartItemRow = ({
               {item.syncError}
             </button>
           ) : null}
+          <div className='mt-2 inline-flex rounded-sm bg-slate-100 px-2 py-1.5'>
+            <label className='inline-flex items-center gap-2 text-[14px] text-slate-800'>
+              <input
+                type='checkbox'
+                className='h-4 w-4 rounded-sm border-slate-400'
+                checked={Boolean(item.isProtected)}
+                disabled={!isProtectionEligible || Boolean(item.isSyncing)}
+                onChange={(event) => setItemProtection(item.key, event.target.checked)}
+              />
+              <span className='leading-none'>
+                Add Order Protection{' '}
+                <OrderProtectionInfoButton
+                  label='Learn more'
+                  className='text-[13px] text-blue-700 hover:underline'
+                />
+              </span>
+            </label>
+          </div>
         </div>
       </div>
 

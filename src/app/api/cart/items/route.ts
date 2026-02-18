@@ -100,6 +100,7 @@ export async function POST(request: NextRequest) {
         selected_variation_label: normalized.selectedVariationLabel,
         selected_color: selection.selected_color,
         selected_size: selection.selected_size,
+        is_protected: normalized.isProtected,
         quantity: normalized.quantity,
       }
 

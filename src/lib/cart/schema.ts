@@ -11,6 +11,9 @@ export const cartItemSchema = z.object({
   selectedVariationLabel: z.string().optional().nullable(),
   selectedColor: z.string().optional().nullable(),
   selectedSize: z.string().optional().nullable(),
+  productType: z.string().optional().nullable(),
+  isDigital: z.boolean().optional().nullable(),
+  isProtected: z.boolean().optional().default(false),
   quantity: z.number().int().min(1),
 })
 

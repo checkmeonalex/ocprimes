@@ -7,10 +7,15 @@ import { useRouter } from 'next/navigation'
 import QuantityControl from '@/components/cart/QuantityControl'
 import CartCheckoutProgressBar from '@/components/cart/CartCheckoutProgressBar'
 import CartItemSkeletonRow from '@/components/cart/CartItemSkeletonRow'
+import OrderProtectionInfoButton from '@/components/cart/OrderProtectionInfoButton'
 import SellerIcon from '@/components/cart/SellerIcon'
 import { isReturnPolicyDisabled, normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
 import { getSelectionSummary } from '@/lib/cart/selection-summary'
 import { buildVendorHref } from '@/lib/cart/vendor-link'
+import {
+  calculateOrderProtectionFee,
+  isDigitalProductLike,
+} from '@/lib/order-protection/config'
 
 const toSet = (keys) => {
   const next = new Set()
@@ -26,10 +31,12 @@ const CartMobileExperience = ({
   updateQuantity,
   removeItem,
   retryItem,
+  setItemProtection,
   clearCart,
   isLoadingCart = false,
   checkoutProgressConfig,
   subtotal = 0,
+  orderProtectionConfig,
   returnPolicyBySlug,
 }) => {
   const router = useRouter()
@@ -69,11 +76,21 @@ const CartMobileExperience = ({
   }, 0)
   const selectedSavings = Math.max(0, selectedOriginalTotal - selectedSubtotal)
   const freeShippingThreshold = Math.max(
-    1,
-    Number(checkoutProgressConfig?.freeShippingThreshold || 50),
+    0,
+    Number(checkoutProgressConfig?.standardFreeShippingThreshold || 50),
   )
-  const deliveryFee = selectedSubtotal > 0 && selectedSubtotal < freeShippingThreshold ? 5 : 0
+  const deliveryFee =
+    selectedSubtotal > 0 && selectedSubtotal < freeShippingThreshold ? 5 : 0
   const selectedTotal = selectedSubtotal + deliveryFee
+  const selectedProtectedSubtotal = selectedItems.reduce((sum, item) => {
+    if (!item.isProtected || isDigitalProductLike(item)) return sum
+    return sum + Number(item.price || 0) * Number(item.quantity || 0)
+  }, 0)
+  const selectedProtectionFee = calculateOrderProtectionFee(
+    selectedProtectedSubtotal,
+    orderProtectionConfig,
+  )
+  const selectedGrandTotal = selectedTotal + selectedProtectionFee
 
   const toggleAll = () => {
     if (isAllSelected) {
@@ -115,8 +132,13 @@ const CartMobileExperience = ({
     <div className='mx-auto w-full max-w-7xl rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur'>
       <div className='mb-2 flex items-center justify-between text-sm font-semibold text-slate-900'>
         <span>Total ({selectedCount})</span>
-        <span>{formatMoney(selectedTotal)}</span>
+        <span>{formatMoney(selectedGrandTotal)}</span>
       </div>
+      {selectedProtectionFee > 0 ? (
+        <p className='mb-1 text-[11px] text-slate-600'>
+          Includes Order Protection {formatMoney(selectedProtectionFee)}
+        </p>
+      ) : null}
       {selectedSavings > 0 ? (
         <p className='mb-2 text-[11px] font-semibold text-emerald-700'>
           You save {formatMoney(selectedSavings)}
@@ -228,6 +250,7 @@ const CartMobileExperience = ({
                 slug: item?.sourceSlug || item?.vendorSlug || item?.storeSlug,
                 name: sourceName,
               })
+              const isProtectionEligible = !isDigitalProductLike(item)
               return (
                 <article key={item.key} className='border-b border-slate-200 px-3 py-3 last:border-b-0'>
                   <div className='grid grid-cols-[auto_1fr] gap-2'>
@@ -318,6 +341,26 @@ const CartMobileExperience = ({
                             {item.syncError}
                           </button>
                         ) : null}
+                        <div className='mt-2 inline-flex rounded-sm bg-slate-100 px-2 py-1.5'>
+                          <label className='inline-flex items-center gap-2 text-[14px] text-slate-800'>
+                            <input
+                              type='checkbox'
+                              className='h-4 w-4 rounded-sm border-slate-400'
+                              checked={Boolean(item.isProtected)}
+                              disabled={!isProtectionEligible || Boolean(item.isSyncing)}
+                              onChange={(event) =>
+                                setItemProtection(item.key, event.target.checked)
+                              }
+                            />
+                            <span className='leading-none'>
+                              Add Order Protection{' '}
+                              <OrderProtectionInfoButton
+                                label='Learn more'
+                                className='text-[13px] text-blue-700 hover:underline'
+                              />
+                            </span>
+                          </label>
+                        </div>
                       </div>
                     </div>
                   </div>

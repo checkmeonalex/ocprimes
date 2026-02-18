@@ -127,9 +127,45 @@ export async function GET(request: NextRequest) {
     return jsonError('Unable to load category requests.', 500)
   }
 
+  let items = Array.isArray(data) ? data : []
+  if (isAdmin && items.length) {
+    const requesterIds = Array.from(
+      new Set(
+        items
+          .map((item: any) => String(item?.requester_user_id || '').trim())
+          .filter(Boolean),
+      ),
+    )
+    if (requesterIds.length) {
+      const { data: brandRows, error: brandLookupError } = await db
+        .from('admin_brands')
+        .select('created_by, name, created_at')
+        .in('created_by', requesterIds)
+        .order('created_at', { ascending: true })
+      if (brandLookupError) {
+        console.error('category requests requester brand lookup failed:', brandLookupError.message)
+      } else if (Array.isArray(brandRows)) {
+        const brandByOwner = new Map<string, string>()
+        brandRows.forEach((row: any) => {
+          const ownerId = String(row?.created_by || '').trim()
+          const brandName = String(row?.name || '').trim()
+          if (!ownerId || !brandName || brandByOwner.has(ownerId)) return
+          brandByOwner.set(ownerId, brandName)
+        })
+        items = items.map((item: any) => {
+          const requesterId = String(item?.requester_user_id || '').trim()
+          return {
+            ...item,
+            requester_brand_name: requesterId ? brandByOwner.get(requesterId) || '' : '',
+          }
+        })
+      }
+    }
+  }
+
   const total = Number(count) || 0
   const response = jsonOk({
-    items: Array.isArray(data) ? data : [],
+    items,
     pagination: {
       page,
       per_page: perPage,

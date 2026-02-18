@@ -35,6 +35,9 @@ export const normalizeItem = (item) => ({
   selectedVariationLabel: item.selectedVariationLabel || null,
   selectedColor: normalizeValue(item.selectedColor),
   selectedSize: normalizeValue(item.selectedSize),
+  productType: item.productType || null,
+  isDigital: Boolean(item.isDigital),
+  isProtected: Boolean(item.isProtected),
   quantity: Number(item.quantity || 1),
 })
 
@@ -53,6 +56,9 @@ export const normalizeUpsertItem = (item) => ({
   selectedVariationLabel: item.selectedVariationLabel || null,
   selectedColor: normalizeValue(item.selectedColor),
   selectedSize: normalizeValue(item.selectedSize),
+  productType: item.productType || null,
+  isDigital: Boolean(item.isDigital),
+  isProtected: Boolean(item.isProtected),
   quantity: Math.max(0, Number(item.quantity || 0)),
 })
 
@@ -74,5 +80,6 @@ export const fromRow = (row) => ({
   selectedVariationLabel: row.selected_variation_label,
   selectedColor: normalizeValue(row.selected_color),
   selectedSize: normalizeValue(row.selected_size),
+  isProtected: Boolean(row.is_protected),
   quantity: row.quantity,
 })

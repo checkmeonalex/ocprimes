@@ -19,6 +19,8 @@ const CartCheckoutExperience = ({
   formatMoney,
   addItem,
   updateQuantity,
+  setItemProtection,
+  setAllProtection,
   removeItem,
   clearCart,
   retryItem,
@@ -240,16 +242,20 @@ const CartCheckoutExperience = ({
           isLoadingCart={isLoadingCart}
           checkoutProgressConfig={checkoutProgressConfig}
           subtotal={summary.subtotal}
+          setItemProtection={setItemProtection}
+          orderProtectionConfig={summary.protectionConfig}
           returnPolicyBySlug={returnPolicyBySlug}
         />
 
-        <div className='mt-3 hidden gap-5 lg:grid lg:grid-cols-[1.65fr_0.95fr]'>
-          <main className='space-y-4 overflow-visible'>
-            <CartCheckoutProgressBar
-              subtotal={summary.subtotal}
-              formatMoney={formatMoney}
-              config={checkoutProgressConfig}
-            />
+        <div className='mt-3 hidden lg:block'>
+          <CartCheckoutProgressBar
+            subtotal={summary.subtotal}
+            formatMoney={formatMoney}
+            config={checkoutProgressConfig}
+          />
+
+          <div className='mt-4 grid gap-5 lg:grid-cols-[1.65fr_0.95fr]'>
+            <main className='space-y-4 overflow-visible'>
             <section
               className='rounded-xl border border-slate-200 bg-white overflow-visible'
               style={{ overflowY: 'visible', maxHeight: 'none' }}
@@ -299,6 +305,8 @@ const CartCheckoutExperience = ({
                         updateQuantity={updateQuantity}
                         removeItem={removeItem}
                         retryItem={retryItem}
+                        setItemProtection={setItemProtection}
+                        orderProtectionConfig={summary.protectionConfig}
                         returnPolicyBySlug={returnPolicyBySlug}
                       />
                     ))}
@@ -403,13 +411,18 @@ const CartCheckoutExperience = ({
                 </div>
               </section>
             ) : null}
-          </main>
+            </main>
 
-          <aside>
-            <div>
-              <CartSummaryPanel summary={summary} formatMoney={formatMoney} />
-            </div>
-          </aside>
+            <aside>
+              <div>
+                <CartSummaryPanel
+                  summary={summary}
+                  formatMoney={formatMoney}
+                  setAllProtection={setAllProtection}
+                />
+              </div>
+            </aside>
+          </div>
         </div>
       </div>
     </div>
