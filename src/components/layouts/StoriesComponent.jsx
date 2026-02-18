@@ -256,26 +256,26 @@ useEffect(() => {
                 style={{
                   width:
                     windowWidth < 640
-                      ? '31%'
+                      ? 'min(42vw, 170px)'
                       : windowWidth < 768
-                        ? '29%'
+                        ? 'min(30vw, 210px)'
                         : windowWidth < 1024
-                          ? '27%'
-                          : '24.5%',
+                          ? 'min(27vw, 230px)'
+                          : 'min(24.5vw, 250px)',
                   minWidth:
                     windowWidth < 640
-                      ? '31%'
+                      ? '132px'
                       : windowWidth < 768
-                        ? '29%'
+                        ? '170px'
                         : windowWidth < 1024
-                          ? '27%'
-                          : '24.5%',
+                          ? '190px'
+                          : '210px',
                   scrollSnapAlign: 'start',
                 }}
               >
                 <div className='group cursor-pointer px-0 transition-all duration-300'>
                   {story.isCreateStory ? (
-                    <div className='flex h-[320px] md:h-[380px] lg:h-[430px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm'>
+                    <div className='flex h-[250px] md:h-[380px] lg:h-[430px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm'>
                       <div className='relative min-h-0 flex-1 overflow-hidden bg-slate-200'>
                         <img
                           src={storiesData[0]?.image || ''}
@@ -292,12 +292,12 @@ useEffect(() => {
                           +
                         </button>
                       </div>
-                      <div className='flex h-[56px] items-center justify-center px-1 text-center text-sm font-semibold text-slate-900'>
+                      <div className='flex h-[44px] md:h-[56px] items-center justify-center px-1 text-center text-xs md:text-sm font-semibold text-slate-900'>
                         Create story
                       </div>
                     </div>
                   ) : (
-                    <div className='relative h-[320px] md:h-[380px] lg:h-[430px] overflow-hidden rounded-2xl bg-gray-100 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl'>
+                    <div className='relative h-[250px] md:h-[380px] lg:h-[430px] overflow-hidden rounded-2xl bg-gray-100 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl'>
                       <img
                         src={story.image}
                         alt={`${story.username}'s story`}
