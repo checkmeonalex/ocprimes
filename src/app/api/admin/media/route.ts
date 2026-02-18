@@ -4,6 +4,87 @@ import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { jsonError, jsonOk } from '@/lib/http/response'
 
+const toSlug = (value: unknown) =>
+  String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+const resolveUserBrandSlugFallback = (user: any) => {
+  const metadata = user?.user_metadata && typeof user.user_metadata === 'object'
+    ? user.user_metadata
+    : {}
+  const profile = metadata?.profile && typeof metadata.profile === 'object'
+    ? metadata.profile
+    : {}
+  return toSlug(
+    metadata?.brand_slug ||
+      metadata?.brand_name ||
+      profile?.brand_slug ||
+      profile?.brand_name ||
+      '',
+  )
+}
+
+const resolveVendorBrandIds = async (db: any, userId: string, user: any) => {
+  const { data, error } = await db.from('admin_brands').select('id').eq('created_by', userId)
+  if (!error && Array.isArray(data) && data.length) {
+    return data.map((item: any) => String(item?.id || '')).filter(Boolean)
+  }
+  if (error) {
+    console.error('vendor brand lookup failed:', error.message)
+  }
+
+  const fallbackSlug = resolveUserBrandSlugFallback(user)
+  if (!fallbackSlug) return []
+
+  const { data: bySlug, error: slugError } = await db
+    .from('admin_brands')
+    .select('id')
+    .eq('slug', fallbackSlug)
+    .limit(1)
+  if (slugError) {
+    console.error('vendor brand fallback lookup failed:', slugError.message)
+    return []
+  }
+  return Array.isArray(bySlug)
+    ? bySlug.map((item: any) => String(item?.id || '')).filter(Boolean)
+    : []
+}
+
+const resolveVendorAccessibleProductIds = async (db: any, userId: string, user: any) => {
+  const [brandIds, ownProductsResult] = await Promise.all([
+    resolveVendorBrandIds(db, userId, user),
+    db.from('products').select('id').eq('created_by', userId),
+  ])
+
+  const ownProductIds = ownProductsResult.error
+    ? []
+    : Array.isArray(ownProductsResult.data)
+      ? ownProductsResult.data.map((item: any) => String(item?.id || '')).filter(Boolean)
+      : []
+
+  if (!brandIds.length) {
+    return ownProductIds
+  }
+
+  const { data: brandProductLinks, error: linkError } = await db
+    .from('product_brand_links')
+    .select('product_id')
+    .in('brand_id', brandIds)
+  if (linkError) {
+    console.error('vendor brand linked products lookup failed:', linkError.message)
+    return ownProductIds
+  }
+
+  const brandProductIds = Array.isArray(brandProductLinks)
+    ? brandProductLinks.map((item: any) => String(item?.product_id || '')).filter(Boolean)
+    : []
+
+  return Array.from(new Set([...ownProductIds, ...brandProductIds]))
+}
+
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   per_page: z.coerce.number().int().min(1).max(100).default(20),
@@ -30,6 +111,10 @@ export async function GET(request: NextRequest) {
   const { page, per_page, filter, stale_days } = parseResult.data
   const from = (page - 1) * per_page
   const to = from + per_page - 1
+  let vendorAccessibleProductIds: string[] = []
+  if (isVendor && user?.id) {
+    vendorAccessibleProductIds = await resolveVendorAccessibleProductIds(db, user.id, user)
+  }
 
   let query = db
     .from('product_images')
@@ -37,7 +122,17 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false })
     .range(from, to)
   if (isVendor) {
-    query = query.eq('created_by', user.id)
+    if (vendorAccessibleProductIds.length) {
+      const safeIds = vendorAccessibleProductIds
+        .filter((id) => /^[0-9a-fA-F-]{16,}$/.test(String(id)))
+      if (safeIds.length) {
+        query = query.or(`created_by.eq.${user.id},product_id.in.(${safeIds.join(',')})`)
+      } else {
+        query = query.eq('created_by', user.id)
+      }
+    } else {
+      query = query.eq('created_by', user.id)
+    }
   }
 
   if (filter === 'unattached') {
@@ -72,7 +167,17 @@ export async function GET(request: NextRequest) {
     .from('product_images')
     .select('id', { count: 'exact', head: true })
   if (isVendor) {
-    countQuery = countQuery.eq('created_by', user.id)
+    if (vendorAccessibleProductIds.length) {
+      const safeIds = vendorAccessibleProductIds
+        .filter((id) => /^[0-9a-fA-F-]{16,}$/.test(String(id)))
+      if (safeIds.length) {
+        countQuery = countQuery.or(`created_by.eq.${user.id},product_id.in.(${safeIds.join(',')})`)
+      } else {
+        countQuery = countQuery.eq('created_by', user.id)
+      }
+    } else {
+      countQuery = countQuery.eq('created_by', user.id)
+    }
   }
 
   if (filter === 'unattached') {

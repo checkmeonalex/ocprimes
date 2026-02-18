@@ -111,6 +111,59 @@ const uniqueIds = (values: unknown[] = []) =>
     ),
   )
 
+const toSlug = (value: unknown) =>
+  String(value || '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+const resolveUserBrandSlugFallback = (user: any) => {
+  const metadata = user?.user_metadata && typeof user.user_metadata === 'object'
+    ? user.user_metadata
+    : {}
+  const profile = metadata?.profile && typeof metadata.profile === 'object'
+    ? metadata.profile
+    : {}
+  return toSlug(
+    metadata?.brand_slug ||
+      metadata?.brand_name ||
+      profile?.brand_slug ||
+      profile?.brand_name ||
+      '',
+  )
+}
+
+const loadBrandForUser = async (
+  db: any,
+  user: any,
+  columns: string,
+  allowLegacy = false,
+) => {
+  const byOwner = await db
+    .from('admin_brands')
+    .select(columns)
+    .eq('created_by', user.id)
+    .maybeSingle()
+  if (byOwner.data?.id) return byOwner
+  if (byOwner.error && !(allowLegacy && isMissingColumnError(byOwner.error))) {
+    return byOwner
+  }
+
+  const fallbackSlug = resolveUserBrandSlugFallback(user)
+  if (!fallbackSlug) {
+    return byOwner
+  }
+
+  const bySlug = await db
+    .from('admin_brands')
+    .select(columns)
+    .eq('slug', fallbackSlug)
+    .maybeSingle()
+  if (bySlug.data?.id) return bySlug
+  return byOwner
+}
+
 const fetchStoreFrontFilterOptions = async (db: any, brandId: string) => {
   if (!brandId) {
     return { categories: [], tags: [] }
@@ -251,11 +304,7 @@ export async function GET(request: NextRequest) {
   }
   const db = isAdmin ? supabase : createAdminSupabaseClient()
 
-  const { data, error } = await db
-    .from('admin_brands')
-    .select(selectColumns)
-    .eq('created_by', user.id)
-    .maybeSingle()
+  const { data, error } = await loadBrandForUser(db, user, selectColumns, true)
 
   if (error && !isMissingColumnError(error)) {
     console.error('store-front load failed:', error.message)
@@ -263,11 +312,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (error && isMissingColumnError(error)) {
-    const { data: legacyData, error: legacyError } = await db
-      .from('admin_brands')
-      .select(selectColumnsLegacy)
-      .eq('created_by', user.id)
-      .maybeSingle()
+    const { data: legacyData, error: legacyError } = await loadBrandForUser(
+      db,
+      user,
+      selectColumnsLegacy,
+      true,
+    )
 
     if (legacyError) {
       console.error('store-front load fallback failed:', legacyError.message)
@@ -369,11 +419,12 @@ export async function PATCH(request: NextRequest) {
     parsed.data.banner_slider_keys !== undefined
 
   if (requiresAssetCleanup) {
-    const { data: currentData, error: currentError } = await db
-      .from('admin_brands')
-      .select(selectColumns)
-      .eq('created_by', user.id)
-      .maybeSingle()
+    const { data: currentData, error: currentError } = await loadBrandForUser(
+      db,
+      user,
+      selectColumns,
+      true,
+    )
     if (currentError && !isMissingColumnError(currentError)) {
       console.error('store-front current load failed:', currentError.message)
     } else {
@@ -389,10 +440,15 @@ export async function PATCH(request: NextRequest) {
     'banner_slider_links',
   ].some((key) => key in updates)
 
+  const { data: brandToUpdate } = await loadBrandForUser(db, user, 'id', true)
+  if (!brandToUpdate?.id) {
+    return jsonError('No brand linked to this account.', 404)
+  }
+
   const { data, error } = await db
     .from('admin_brands')
     .update(updates)
-    .eq('created_by', user.id)
+    .eq('id', brandToUpdate.id)
     .select(selectColumns)
     .maybeSingle()
 
@@ -409,10 +465,15 @@ export async function PATCH(request: NextRequest) {
       return jsonError('This storefront update requires the latest database migration.', 400)
     }
 
+    const { data: legacyTarget } = await loadBrandForUser(db, user, 'id', true)
+    if (!legacyTarget?.id) {
+      return jsonError('No brand linked to this account.', 404)
+    }
+
     const { data: legacyData, error: legacyError } = await db
       .from('admin_brands')
       .update(legacyUpdates)
-      .eq('created_by', user.id)
+      .eq('id', legacyTarget.id)
       .select(selectColumnsLegacy)
       .maybeSingle()
 

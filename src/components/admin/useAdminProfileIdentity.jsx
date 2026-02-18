@@ -17,7 +17,8 @@ const fallbackIdentity = {
 }
 
 export default function useAdminProfileIdentity() {
-  const [identity, setIdentity] = useState(() => readProfileIdentityCache() || fallbackIdentity)
+  // Keep first render deterministic between server and client to avoid hydration mismatch.
+  const [identity, setIdentity] = useState(fallbackIdentity)
 
   useEffect(() => {
     let cancelled = false

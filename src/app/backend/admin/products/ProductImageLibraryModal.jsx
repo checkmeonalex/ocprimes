@@ -8,7 +8,9 @@ import LoadingButton from '../../../../components/LoadingButton';
 
 const MEDIA_PAGE_SIZE = 20;
 const MOBILE_MEDIA_PAGE_SIZE = 8;
+const MAX_BATCH_UPLOADS = 8;
 const IMAGE_LIBRARY_CACHE = new Map();
+const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i;
 
 function ProductImageLibraryModal({
   isOpen,
@@ -185,15 +187,22 @@ function ProductImageLibraryModal({
 
   const handleUploadFiles = useCallback(
     async (incomingFiles) => {
-      const files = Array.from(incomingFiles || []).filter((file) =>
-        String(file?.type || '').startsWith('image/'),
-      );
+      const selected = Array.from(incomingFiles || []);
+      const capped = selected.slice(0, MAX_BATCH_UPLOADS);
+      const files = capped.filter((file) => {
+        const mime = String(file?.type || '').toLowerCase();
+        const name = String(file?.name || '');
+        return mime.startsWith('image/') || IMAGE_EXT_RE.test(name);
+      });
       if (!files.length) {
         setUploadError('Please select valid image file(s).');
         return;
       }
+      if (selected.length > MAX_BATCH_UPLOADS) {
+        setUploadError(`Only ${MAX_BATCH_UPLOADS} images can be uploaded at once. First ${MAX_BATCH_UPLOADS} selected.`);
+      }
       setIsUploading(true);
-      setUploadError('');
+      if (selected.length <= MAX_BATCH_UPLOADS) setUploadError('');
       const uploadedItems = [];
       const failed = [];
       for (const file of files) {
@@ -344,7 +353,7 @@ function ProductImageLibraryModal({
                   : 'border-slate-200 bg-slate-50 text-slate-500'
               }`}
             >
-              Drag and drop image(s) here, or use Upload image(s)
+              Drag and drop image(s) here, or use Upload image(s) (max {MAX_BATCH_UPLOADS})
             </div>
           )}
           {isMobile && (

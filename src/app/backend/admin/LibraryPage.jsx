@@ -22,6 +22,7 @@ const COMPONENT_FILTERS = [
   { label: 'Stale', value: 'stale' },
 ];
 const GRID_OPTIONS = [2, 4, 5, 7, 9];
+const MAX_BATCH_UPLOADS = 8;
 const GRID_CLASS_MAP = {
   2: 'grid-cols-2',
   4: 'grid-cols-4',
@@ -83,7 +84,8 @@ function WooCommerceLibraryPage({
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
-  const [uploadPreview, setUploadPreview] = useState('');
+  const [uploadPreviews, setUploadPreviews] = useState([]);
+  const [uploadStatus, setUploadStatus] = useState('');
   const [activeMenuId, setActiveMenuId] = useState('');
   const loadMoreRef = useRef(null);
 
@@ -105,39 +107,77 @@ function WooCommerceLibraryPage({
     return () => document.removeEventListener('click', handleClick);
   }, [activeMenuId]);
 
-  const handleUploadFile = useCallback(
-    async (file) => {
-      if (!file) return;
+  useEffect(() => {
+    return () => {
+      uploadPreviews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [uploadPreviews]);
+
+  const handleUploadFiles = useCallback(
+    async (files) => {
+      const selectedFiles = Array.isArray(files) ? files : [];
+      if (!selectedFiles.length) return;
+      const queue = selectedFiles.slice(0, MAX_BATCH_UPLOADS);
       setIsUploading(true);
       setUploadError('');
+      setUploadStatus(`Uploading 0/${queue.length}...`);
       try {
-        const { webpFile, filename } = await prepareWebpUpload(file);
-        const formData = new FormData();
-        formData.append('file', webpFile);
-        const response = await fetch(uploadEndpoint, {
-          method: 'POST',
-          body: formData,
-        });
-        const payload = await response.json().catch(() => null);
-        if (!response.ok) {
-          throw new Error(payload?.message || payload?.error || 'Unable to upload image.');
+        const uploadedItems = [];
+        const failedUploads = [];
+
+        for (let index = 0; index < queue.length; index += 1) {
+          const file = queue[index];
+          setUploadStatus(`Uploading ${index + 1}/${queue.length}...`);
+          try {
+            const { webpFile, filename } = await prepareWebpUpload(file);
+            const formData = new FormData();
+            formData.append('file', webpFile);
+            const response = await fetch(uploadEndpoint, {
+              method: 'POST',
+              body: formData,
+            });
+            const payload = await response.json().catch(() => null);
+            if (!response.ok) {
+              throw new Error(payload?.message || payload?.error || 'Unable to upload image.');
+            }
+            uploadedItems.push({
+              id: payload?.id || payload?.key || `${Date.now()}-${index}`,
+              url: payload?.url || '',
+              title: filename,
+              unattached: true,
+            });
+          } catch (fileError) {
+            failedUploads.push(file?.name || fileError?.message || `File ${index + 1}`);
+          }
         }
-        const newItem = {
-          id: payload?.id || payload?.key || `${Date.now()}`,
-          url: payload?.url || '',
-          title: filename,
-          unattached: true,
-        };
-        setMediaItems((prev) => [newItem, ...prev]);
-        setIsUploadOpen(false);
-        setUploadPreview('');
+
+        if (uploadedItems.length) {
+          setMediaItems((prev) => [...uploadedItems, ...prev]);
+          setIsUploadOpen(false);
+          setUploadPreviews([]);
+        }
+
+        if (failedUploads.length) {
+          const preview = failedUploads.slice(0, 3).join(', ');
+          const suffix = failedUploads.length > 3 ? ` +${failedUploads.length - 3} more` : '';
+          setUploadError(`Failed: ${preview}${suffix}`);
+        }
+
+        if (uploadedItems.length && !failedUploads.length) {
+          setUploadStatus(`Uploaded ${uploadedItems.length} image${uploadedItems.length > 1 ? 's' : ''}.`);
+        } else if (uploadedItems.length) {
+          setUploadStatus(`Uploaded ${uploadedItems.length}/${queue.length}.`);
+        } else {
+          setUploadStatus('');
+        }
       } catch (uploadErr) {
         setUploadError(uploadErr?.message || 'Unable to upload image.');
+        setUploadStatus('');
       } finally {
         setIsUploading(false);
       }
     },
-    [],
+    [uploadEndpoint],
   );
 
   const handleDelete = useCallback(async (item) => {
@@ -493,31 +533,42 @@ function WooCommerceLibraryPage({
               <input
                 type="file"
                 accept="image/*"
+                multiple
                 className="hidden"
                 onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (!file) return;
-                  const reader = new FileReader();
-                  reader.onloadend = () => {
-                    if (typeof reader.result === 'string') {
-                      setUploadPreview(reader.result);
-                    }
-                  };
-                  reader.readAsDataURL(file);
-                  handleUploadFile(file);
+                  const files = Array.from(event.target.files || []);
+                  if (!files.length) return;
+                  setUploadError('');
+                  setUploadStatus('');
+                  setUploadPreviews((prev) => {
+                    prev.forEach((url) => URL.revokeObjectURL(url));
+                    return files.slice(0, 4).map((file) => URL.createObjectURL(file));
+                  });
+                  handleUploadFiles(files);
+                  event.target.value = '';
                 }}
               />
-              <span className="text-sm font-semibold text-slate-700">Drop image or click to upload</span>
-              <span className="mt-1 text-[11px] text-slate-400">JPG, PNG, WEBP up to 10MB</span>
+              <span className="text-sm font-semibold text-slate-700">Drop images or click to upload</span>
+              <span className="mt-1 text-[11px] text-slate-400">
+                JPG, PNG, WEBP up to 10MB each • Up to {MAX_BATCH_UPLOADS} files per batch
+              </span>
             </label>
 
-            {uploadPreview && (
-              <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
-                <img src={uploadPreview} alt="Upload preview" className="h-48 w-full object-cover" />
+            {uploadPreviews.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-slate-200 p-2 sm:grid-cols-4">
+                {uploadPreviews.map((url, index) => (
+                  <img
+                    key={`${url}-${index}`}
+                    src={url}
+                    alt="Upload preview"
+                    className="h-24 w-full rounded-lg object-cover"
+                  />
+                ))}
               </div>
             )}
 
             {uploadError && <p className="mt-3 text-xs text-rose-500">{uploadError}</p>}
+            {uploadStatus && <p className="mt-3 text-xs text-slate-500">{uploadStatus}</p>}
 
             <div className="mt-4 flex items-center justify-between text-[11px] text-slate-400">
               <span>{isUploading ? 'Uploading...' : 'Ready when you are.'}</span>

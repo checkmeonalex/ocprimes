@@ -34,6 +34,7 @@ export default function Navbar() {
   const [historyItems, setHistoryItems] = useState([])
   const [isDesktopHeaderVisible, setIsDesktopHeaderVisible] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
+  const [hasVendorAccess, setHasVendorAccess] = useState(false)
   const { formatMoney } = useUserI18n()
 
   const categoriesRef = useRef(null)
@@ -214,6 +215,45 @@ export default function Navbar() {
     }
 
     void loadTopCategories()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadRole = async () => {
+      try {
+        const response = await fetch('/api/auth/role', { cache: 'no-store' })
+        if (!response.ok) {
+          if (!cancelled) setHasVendorAccess(false)
+          return
+        }
+        const payload = await response.json().catch(() => null)
+        if (cancelled) return
+        const normalizedRole = String(payload?.role || '')
+          .trim()
+          .toLowerCase()
+        const roleList = Array.isArray(payload?.roles)
+          ? payload.roles.map((role) => String(role || '').trim().toLowerCase())
+          : []
+        const canAccess =
+          normalizedRole === 'vendor' ||
+          normalizedRole === 'seller' ||
+          normalizedRole === 'admin' ||
+          roleList.includes('vendor') ||
+          roleList.includes('seller') ||
+          roleList.includes('admin') ||
+          Boolean(payload?.is_vendor) ||
+          Boolean(payload?.is_admin)
+        setHasVendorAccess(canAccess)
+      } catch {
+        if (!cancelled) setHasVendorAccess(false)
+      }
+    }
+
+    void loadRole()
     return () => {
       cancelled = true
     }
@@ -788,6 +828,32 @@ export default function Navbar() {
               Account Center
             </h1>
             <div className='flex items-center gap-2'>
+              {hasVendorAccess ? (
+                <Link
+                  className='relative hidden h-9 w-9 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200 md:flex'
+                  aria-label='Shop dashboard'
+                  href='/backend/admin/dashboard'
+                >
+                  <svg
+                    className='h-5 w-5'
+                    viewBox='0 0 16 16'
+                    fill='none'
+                    xmlns='http://www.w3.org/2000/svg'
+                    aria-hidden='true'
+                  >
+                    <path
+                      d='M3 1L0 4V5C0 5 2 6 4 6C6 6 8 5 8 5C8 5 10 6 12 6C14 6 16 5 16 5V4L13 1H3Z'
+                      fill='currentColor'
+                    />
+                    <path
+                      fillRule='evenodd'
+                      clipRule='evenodd'
+                      d='M1 15V7.5187C1.81671 7.76457 2.88168 8 4 8C5.3025 8 6.53263 7.68064 7.38246 7.39737C7.60924 7.32177 7.81664 7.24612 8 7.17526C8.18337 7.24612 8.39076 7.32177 8.61754 7.39737C9.46737 7.68064 10.6975 8 12 8C13.1183 8 14.1833 7.76457 15 7.5187V15H7V10H4V15H1ZM12 10H10V13H12V10Z'
+                      fill='currentColor'
+                    />
+                  </svg>
+                </Link>
+              ) : null}
               <Link
                 className='relative flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200'
                 aria-label='Notifications'

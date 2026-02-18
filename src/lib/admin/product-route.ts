@@ -67,6 +67,48 @@ const ensureUniqueSku = async (supabase, baseSku, excludeProductId?: string) => 
   return `${sanitize}-${Date.now().toString().slice(-4)}`
 }
 
+const resolveUniqueProductSlug = async (
+  supabase,
+  baseSlug: string,
+  excludeProductId?: string,
+) => {
+  const normalizedBase = buildSlug(baseSlug)
+  if (!normalizedBase) return ''
+  let candidate = normalizedBase
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    let query = supabase.from(PRODUCT_TABLE).select('id').eq('slug', candidate).limit(1)
+    if (excludeProductId) {
+      query = query.neq('id', excludeProductId)
+    }
+    const { data, error } = await query
+    if (error) {
+      console.error('product slug lookup failed:', error.message)
+      return `${normalizedBase}-${Date.now().toString().slice(-5)}`
+    }
+    if (!Array.isArray(data) || data.length === 0) {
+      return candidate
+    }
+    candidate = `${normalizedBase}-${attempt + 2}`
+  }
+  return `${normalizedBase}-${Date.now().toString().slice(-5)}`
+}
+
+const resolveUserBrandSlugFallback = (user: any) => {
+  const metadata = user?.user_metadata && typeof user.user_metadata === 'object'
+    ? user.user_metadata
+    : {}
+  const profile = metadata?.profile && typeof metadata.profile === 'object'
+    ? metadata.profile
+    : {}
+  return buildSlug(
+    metadata?.brand_slug ||
+      metadata?.brand_name ||
+      profile?.brand_slug ||
+      profile?.brand_name ||
+      '',
+  )
+}
+
 const toLettersOnlyPrefix = (value: string, fallback = 'PR') => {
   const cleaned = String(value || '')
     .toUpperCase()
@@ -423,18 +465,31 @@ const updateVariations = async (supabase, productId, variations) => {
   }
 }
 
-const resolveVendorBrandIds = async (db, userId: string) => {
+const resolveVendorBrandIds = async (db, userId: string, user?: any) => {
   const { data, error } = await db.from('admin_brands').select('id').eq('created_by', userId)
   if (error) {
     console.error('vendor brand lookup failed:', error.message)
+  } else if (Array.isArray(data) && data.length) {
+    return data.map((item) => item.id).filter(Boolean)
+  }
+
+  const fallbackSlug = resolveUserBrandSlugFallback(user)
+  if (!fallbackSlug) return []
+  const { data: slugMatch, error: slugError } = await db
+    .from('admin_brands')
+    .select('id')
+    .eq('slug', fallbackSlug)
+    .limit(1)
+  if (slugError) {
+    console.error('vendor brand fallback lookup failed:', slugError.message)
     return []
   }
-  return Array.isArray(data) ? data.map((item) => item.id).filter(Boolean) : []
+  return Array.isArray(slugMatch) ? slugMatch.map((item) => item.id).filter(Boolean) : []
 }
 
-const resolveVendorAccessibleProductIds = async (db, userId: string) => {
+const resolveVendorAccessibleProductIds = async (db, userId: string, user?: any) => {
   const [vendorBrandIds, ownProductsResult] = await Promise.all([
-    resolveVendorBrandIds(db, userId),
+    resolveVendorBrandIds(db, userId, user),
     db.from(PRODUCT_TABLE).select('id').eq('created_by', userId),
   ])
 
@@ -467,7 +522,7 @@ const resolveVendorAccessibleProductIds = async (db, userId: string) => {
   return Array.from(new Set([...ownProductIds, ...brandLinkedProductIds]))
 }
 
-const canVendorAccessProduct = async (db, userId: string, productId: string) => {
+const canVendorAccessProduct = async (db, userId: string, productId: string, user?: any) => {
   const safeProductId = String(productId || '')
   if (!safeProductId) return false
 
@@ -478,7 +533,7 @@ const canVendorAccessProduct = async (db, userId: string, productId: string) => 
       .eq('id', safeProductId)
       .eq('created_by', userId)
       .maybeSingle(),
-    resolveVendorBrandIds(db, userId),
+    resolveVendorBrandIds(db, userId, user),
   ])
 
   if (ownProductResult.data?.id) return true
@@ -504,12 +559,16 @@ const filterBrandIdsForVendor = (brandIds: string[] | undefined, allowedBrandIds
   return brandIds.filter((id) => allowed.has(id))
 }
 
-const resolveVendorReviewGate = async (db: any, userId: string) => {
+const resolveVendorReviewGate = async (db: any, userId: string, user?: any) => {
+  const brandIds = await resolveVendorBrandIds(db, userId, user)
+  if (!brandIds.length) {
+    return { enabled: false, brandId: '', brandName: '' }
+  }
   const { data, error } = await db
     .from('admin_brands')
     .select('id, name, require_product_review_for_publish')
-    .eq('created_by', userId)
-    .maybeSingle()
+    .in('id', brandIds)
+    .limit(20)
 
   if (error) {
     const errorCode = String((error as { code?: string })?.code || '')
@@ -519,10 +578,14 @@ const resolveVendorReviewGate = async (db: any, userId: string) => {
     return { enabled: false, brandId: '', brandName: '' }
   }
 
+  const rows = Array.isArray(data) ? data : []
+  if (!rows.length) return { enabled: false, brandId: '', brandName: '' }
+  const requiredRow = rows.find((item: any) => Boolean(item?.require_product_review_for_publish))
+  const picked = requiredRow || rows[0]
   return {
-    enabled: Boolean(data?.require_product_review_for_publish),
-    brandId: String(data?.id || ''),
-    brandName: String(data?.name || '').trim(),
+    enabled: Boolean(requiredRow?.require_product_review_for_publish),
+    brandId: String(picked?.id || ''),
+    brandName: String(picked?.name || '').trim(),
   }
 }
 
@@ -547,7 +610,7 @@ export async function listProducts(request: NextRequest) {
   const to = from + per_page - 1
   let vendorAccessibleProductIds: string[] = []
   if (isVendor && user?.id) {
-    vendorAccessibleProductIds = await resolveVendorAccessibleProductIds(db, user.id)
+    vendorAccessibleProductIds = await resolveVendorAccessibleProductIds(db, user.id, user)
     if (!vendorAccessibleProductIds.length) {
       const response = jsonOk({ items: [], pages: 1, page, total_count: 0 })
       applyCookies(response)
@@ -637,7 +700,7 @@ export async function getProduct(request: NextRequest, id: string) {
     return jsonError('Invalid product id.', 400)
   }
   if (isVendor && user?.id) {
-    const hasAccess = await canVendorAccessProduct(db, user.id, parsed.data.id)
+    const hasAccess = await canVendorAccessProduct(db, user.id, parsed.data.id, user)
     if (!hasAccess) {
       return jsonError('Product not found.', 404)
     }
@@ -728,14 +791,15 @@ export async function createProduct(request: NextRequest) {
   }
 
   const slugSource = parsed.data.slug || parsed.data.name
-  const slug = buildSlug(slugSource)
-  if (!slug) {
+  const baseSlug = buildSlug(slugSource)
+  if (!baseSlug) {
     return jsonError('Invalid slug.', 400)
   }
+  const slug = await resolveUniqueProductSlug(db, baseSlug)
 
   let finalBrandIds = parsed.data.brand_ids || []
   if (isVendor) {
-    const vendorBrandIds = await resolveVendorBrandIds(db, user.id)
+    const vendorBrandIds = await resolveVendorBrandIds(db, user.id, user)
     if (!vendorBrandIds.length) {
       return jsonError('No vendor brand linked to this account.', 400)
     }
@@ -755,7 +819,7 @@ export async function createProduct(request: NextRequest) {
   let createReviewBrandId = ''
   let createReviewBrandName = ''
   if (isVendor && !isAdmin && requestedCreateStatus === 'publish') {
-    const reviewGate = await resolveVendorReviewGate(db, user.id)
+    const reviewGate = await resolveVendorReviewGate(db, user.id, user)
     if (reviewGate.enabled) {
       createStatus = 'draft'
       createReviewRequired = true
@@ -902,7 +966,7 @@ export async function updateProduct(request: NextRequest, id: string) {
   const updates = parsed.data
   let validatedPendingCategoryRequestIds: string[] | null = null
   if (isVendor && user?.id) {
-    const hasAccess = await canVendorAccessProduct(db, user.id, parsed.data.id)
+    const hasAccess = await canVendorAccessProduct(db, user.id, parsed.data.id, user)
     if (!hasAccess) {
       return jsonError('Product not found.', 404)
     }
@@ -1006,7 +1070,7 @@ export async function updateProduct(request: NextRequest, id: string) {
   let updateReviewBrandId = ''
   let updateReviewBrandName = ''
   if (isVendor && !isAdmin && updates.status === 'publish') {
-    const reviewGate = await resolveVendorReviewGate(db, user.id)
+    const reviewGate = await resolveVendorReviewGate(db, user.id, user)
     if (reviewGate.enabled) {
       nextUpdateStatus = 'draft'
       updateReviewRequired = true
@@ -1072,7 +1136,7 @@ export async function updateProduct(request: NextRequest, id: string) {
   try {
     let scopedBrandIds = updates.brand_ids
     if (isVendor && Array.isArray(updates.brand_ids)) {
-      const vendorBrandIds = await resolveVendorBrandIds(db, user.id)
+      const vendorBrandIds = await resolveVendorBrandIds(db, user.id, user)
       scopedBrandIds = filterBrandIdsForVendor(updates.brand_ids, vendorBrandIds)
     }
     if (Array.isArray(updates.category_ids)) {
@@ -1152,7 +1216,7 @@ export async function deleteProduct(request: NextRequest, id: string) {
     return jsonError('Invalid product id.', 400)
   }
   if (isVendor && user?.id) {
-    const hasAccess = await canVendorAccessProduct(db, user.id, parsed.data.id)
+    const hasAccess = await canVendorAccessProduct(db, user.id, parsed.data.id, user)
     if (!hasAccess) {
       return jsonError('Product not found.', 404)
     }

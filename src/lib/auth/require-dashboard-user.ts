@@ -21,7 +21,9 @@ export async function requireDashboardUser(request: NextRequest) {
   const roleInfo = await getUserRoleInfoSafe(supabase, data.user.id, data.user.email || '')
   const role = roleInfo.role
   const isAdmin = roleInfo.isAdmin
-  const isVendor = roleInfo.isVendor
+  // Admin must never be vendor-scoped in dashboard data queries.
+  // Some accounts can carry both roles; admin privileges should take precedence.
+  const isVendor = roleInfo.isVendor && !isAdmin
 
   return {
     supabase,
