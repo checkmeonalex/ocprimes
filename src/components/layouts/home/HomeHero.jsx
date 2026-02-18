@@ -36,7 +36,7 @@ export default async function HomeHero() {
       <div className='relative isolate overflow-hidden border border-gray-200 mobile-full-bleed'>
         <HomeHeroSlider images={slides} mobileImages={mobile} links={slideLinks} autoMs={5000} />
 
-        <div className='pointer-events-none relative px-4 pb-6 pt-[20vh] sm:px-6 sm:pt-[22vh] lg:px-8 lg:pt-[30vh]'>
+        <div className='pointer-events-none relative px-1 pb-0 pt-[20vh] sm:px-6 sm:pt-[22vh] lg:px-8 lg:pt-[30vh]'>
           <div className='pointer-events-none absolute inset-x-0 bottom-0 top-[20vh] z-0 bg-gradient-to-b from-transparent via-white/70 to-white sm:top-[22vh] lg:top-[30vh]' />
           <div className='pointer-events-auto relative z-10'>
             <StoriesComponent />

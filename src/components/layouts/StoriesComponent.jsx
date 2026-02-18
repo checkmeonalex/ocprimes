@@ -1,11 +1,12 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight, Eye } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { storiesData } from '../data/storiesData'
 import useWindowWidth from '../hooks/useWindowWidth'
 
 const StoriesCarousel = () => {
   const windowWidth = useWindowWidth()
+  const isMobile = windowWidth < 640
   const [currentIndex, setCurrentIndex] = useState(0)
   const [itemsPerView, setItemsPerView] = useState(4)
   const [mounted, setMounted] = useState(false)
@@ -43,9 +44,9 @@ useEffect(() => {
     let newItemsPerView
     
     if (width < 640) {
-      newItemsPerView = 1.5  // Mobile
+      newItemsPerView = 3  // Mobile
     } else if (width < 768) {
-      newItemsPerView = 1.5  // Small tablet
+      newItemsPerView = 2  // Small tablet
     } else if (width < 1024) {
       newItemsPerView = 3    // Tablet
     } else {
@@ -169,12 +170,6 @@ useEffect(() => {
     }
   }
 
-  const getBadgeStyle = (badge, isLive) => {
-    if (isLive) return 'bg-red-500 text-white'
-    if (badge === 'Premiere') return 'bg-yellow-500 text-black'
-    return 'bg-blue-500 text-white'
-  }
-
   const getProgressCount = () => {
     if (!mounted) return 1
     // Calculate based on how many "pages" we can scroll through
@@ -188,15 +183,31 @@ useEffect(() => {
     return Math.floor(currentIndex / visibleItems)
   }
 
+  const storiesList = [
+    {
+      id: 'create-story',
+      isCreateStory: true,
+    },
+    ...storiesData,
+  ]
+
+  const splitName = (value = '') => {
+    const parts = String(value).trim().split(/\s+/).filter(Boolean)
+    return {
+      first: parts[0] || '',
+      second: parts[1] || '',
+    }
+  }
+
   return (
-    <div className='w-full py-2 mt-3 lg:mt-8'>
+    <div className='w-full pt-2 pb-0 mt-3 lg:mt-8'>
       {/* Header with Navigation Buttons */}
-      <div className='flex justify-between items-center mb-4 px-4 md:px-6 lg:px-8'>
-        <h2 className='text-2xl md:text-3xl font-medium text-gray-900'>
+      <div className={`flex justify-between items-center mb-4 ${isMobile ? 'px-1' : 'px-4 md:px-6 lg:px-8'}`}>
+        <h2 className={`${isMobile ? 'text-4xl' : 'text-2xl md:text-3xl'} font-medium text-gray-900`}>
           Stories
         </h2>
 
-        <div className='flex items-center gap-3'>
+        <div className={`items-center gap-3 ${isMobile ? 'hidden' : 'flex'}`}>
           <button
             onClick={handlePrevious}
             className={`p-2 rounded-full border-2 transition-all duration-300 ${
@@ -227,10 +238,10 @@ useEffect(() => {
 
       {/* Stories Carousel Container */}
       <div className='relative w-full'>
-        <div className='lg:px-2'>
+        <div className={isMobile ? '' : 'lg:px-2'}>
           <div 
             ref={scrollRef}
-            className='flex gap-2 overflow-x-auto scrollbar-hide scroll-smooth'
+            className={`flex overflow-x-auto scrollbar-hide scroll-smooth ${isMobile ? 'gap-2 pl-2 pr-2' : 'gap-2'}`}
             style={{
               scrollSnapType: 'x proximity', // Changed from mandatory to proximity
               WebkitOverflowScrolling: 'touch',
@@ -238,70 +249,83 @@ useEffect(() => {
               msOverflowStyle: 'none',
             }}
           >
-            {storiesData.map((story) => (
-                <div
+            {storiesList.map((story, index) => (
+              <div
                 key={story.id}
                 className='flex-none'
                 style={{
-                  width: `${100 / itemsPerView}%`,
+                  width:
+                    windowWidth < 640
+                      ? '31%'
+                      : windowWidth < 768
+                        ? '29%'
+                        : windowWidth < 1024
+                          ? '27%'
+                          : '24.5%',
                   minWidth:
                     windowWidth < 640
-                      ? '66.66%'
+                      ? '31%'
                       : windowWidth < 768
-                        ? '66.66%'
+                        ? '29%'
                         : windowWidth < 1024
-                          ? '33.33%'
-                        : '24%',
+                          ? '27%'
+                          : '24.5%',
                   scrollSnapAlign: 'start',
                 }}
               >
-                <div className='cursor-pointer group transition-all duration-300 px-1'>
-                  <div className='relative aspect-[2.5/4] rounded-2xl overflow-hidden bg-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1'>
-                    <img
-                      src={story.image}
-                      alt={`${story.username}'s story`}
-                      className='w-full h-full object-cover transition-transform duration-300 group-hover:scale-105'
-                      loading='lazy'
-                      draggable={false}
-                    />
-                    <div className='absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30' />
-                    <div className='absolute top-3 left-3'>
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${getBadgeStyle(
-                          story.badge,
-                          story.isLive
-                        )}`}
-                      >
-                        {story.badge}
-                      </span>
-                    </div>
-                    {story.viewers && (
-                      <div className='absolute top-3 right-3 flex items-center gap-1 bg-black/60 px-2 py-1 rounded-full backdrop-blur-sm'>
-                        <Eye size={12} className='text-white' />
-                        <span className='text-white text-xs font-medium'>
-                          {story.viewers}
-                        </span>
+                <div className='group cursor-pointer px-0 transition-all duration-300'>
+                  {story.isCreateStory ? (
+                    <div className='flex h-[320px] md:h-[380px] lg:h-[430px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm'>
+                      <div className='relative min-h-0 flex-1 overflow-hidden bg-slate-200'>
+                        <img
+                          src={storiesData[0]?.image || ''}
+                          alt='Create story'
+                          className='h-full w-full object-cover opacity-80'
+                          loading='lazy'
+                          draggable={false}
+                        />
+                        <button
+                          type='button'
+                          className='absolute bottom-2 left-1/2 inline-flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border border-white bg-blue-500 text-white shadow'
+                          aria-label='Create story'
+                        >
+                          +
+                        </button>
                       </div>
-                    )}
-                    <div className='absolute bottom-3 left-3 right-3 flex items-center gap-2'>
+                      <div className='flex h-[56px] items-center justify-center px-1 text-center text-sm font-semibold text-slate-900'>
+                        Create story
+                      </div>
+                    </div>
+                  ) : (
+                    <div className='relative h-[320px] md:h-[380px] lg:h-[430px] overflow-hidden rounded-2xl bg-gray-100 shadow-md transition-all duration-300 hover:-translate-y-1 hover:shadow-xl'>
                       <img
-                        src={story.avatar}
-                        alt={story.username}
-                        className='w-8 h-8 rounded-full border-2 border-white object-cover shadow-sm'
+                        src={story.image}
+                        alt={`${story.username}'s story`}
+                        className='w-full h-full object-cover transition-transform duration-300 group-hover:scale-105'
+                        loading='lazy'
                         draggable={false}
                       />
-                      <span className='text-white text-sm font-medium truncate'>
-                        {story.username}
+                      <div className='absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20' />
+                      <span className='absolute right-2 top-2 inline-flex min-w-5 items-center justify-center rounded-md bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold text-white'>
+                        1
                       </span>
+                      <div className='absolute bottom-2 left-2 right-2'>
+                        <p className='text-[10px] font-semibold leading-3 text-white'>
+                          {splitName(story.username).first}
+                        </p>
+                        <p className='text-[10px] font-semibold leading-3 text-white'>
+                          {splitName(story.username).second}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {mounted && scrollWidth > containerWidth && (
+        {!isMobile && mounted && scrollWidth > containerWidth && (
           <div className='flex justify-center mt-4 gap-1.5'>
             {Array.from({ length: getProgressCount() }).map((_, index) => {
               const isActive = getCurrentProgressIndex() === index

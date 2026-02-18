@@ -1,4 +1,4 @@
-import { layoutContent } from '../../data/contentData'
+import { layoutContent } from './heroContent'
 
 export default function RightLayout() {
   const { right } = layoutContent

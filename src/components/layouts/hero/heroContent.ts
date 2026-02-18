@@ -136,7 +136,7 @@ export const layoutContent = {
             colorDots: ['bg-yellow-400', 'bg-black'],
           },
         },
-      ],
+      ] as ProductCard[],
       boldFashion: {
         title: 'Bring Bold Fashion',
         subtitle: 'Layers on Layers',

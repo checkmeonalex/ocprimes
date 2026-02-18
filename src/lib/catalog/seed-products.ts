@@ -1,5 +1,3 @@
-import { productsData } from '@/components/data/products'
-
 const slugify = (value) =>
   String(value || '')
     .toLowerCase()
@@ -60,9 +58,7 @@ const normalizeSeedProduct = (item) => {
   }
 }
 
-const SEED_PRODUCTS = Array.isArray(productsData)
-  ? productsData.map(normalizeSeedProduct)
-  : []
+const SEED_PRODUCTS = []
 
 export const getSeedProducts = () => SEED_PRODUCTS
 

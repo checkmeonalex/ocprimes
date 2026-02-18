@@ -1,9 +1,15 @@
 // components/CategoriesMenu.jsx
 'use client'
 import { useState, useEffect } from 'react'
-import { fetchCategoriesData } from '../data/categoriesMenuData.ts'
+import { fetchCategoriesData } from '@/lib/catalog/categories-menu'
 
-const CategoriesMenu = ({ isOpen, onClose, initialActiveCategoryId = null }) => {
+const CategoriesMenu = ({
+  isOpen,
+  onClose,
+  initialActiveCategoryId = null,
+  mobileTopOffset = 56,
+  applyMobileOffset = false,
+}) => {
   const [categoriesData, setCategoriesData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [activeCategory, setActiveCategory] = useState(null)
@@ -68,22 +74,22 @@ const CategoriesMenu = ({ isOpen, onClose, initialActiveCategoryId = null }) => 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-white z-50 lg:absolute lg:inset-auto lg:top-full">
-      <div className="h-full lg:h-auto overflow-y-auto">
-        <div className="lg:max-w-7xl lg:mx-auto lg:px-8">
-          {/* Mobile Header */}
-          <div className="flex items-center justify-between py-4 px-4 border-b border-gray-200 lg:hidden">
-            <h2 className="text-base font-semibold">Categories</h2>
-            <button onClick={onClose} className="p-2 text-gray-500">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
+    <div
+      className="fixed inset-0 bg-white z-50 lg:static lg:w-[min(92vw,980px)] lg:rounded-b-2xl lg:border lg:border-slate-200 lg:shadow-xl"
+      style={
+        applyMobileOffset
+          ? {
+              top: `${mobileTopOffset}px`,
+              height: `calc(100dvh - ${mobileTopOffset}px)`,
+            }
+          : undefined
+      }
+    >
+      <div className="relative h-full lg:h-auto overflow-y-auto">
+        <div className="lg:w-full">
           <div className="flex flex-row">
             {/* Categories Sidebar */}
-           <div className="w-[32%] max-w-[32%] border-r bg-gray-50 border-gray-200 py-3 lg:max-w-[30%] lg:py-4">
+           <div className="w-[32%] max-w-[32%] border-r bg-gray-50 border-gray-200 py-3 lg:max-w-[280px] lg:min-w-[240px] lg:py-4">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -116,7 +122,7 @@ const CategoriesMenu = ({ isOpen, onClose, initialActiveCategoryId = null }) => 
             </div>
 
             {/* Subcategories Content */}
-            <div className="flex-1 py-3 lg:py-4">
+            <div className="flex-1 py-3 lg:py-4 lg:max-w-[700px]">
               {activeCategory?.subcategories?.map((subcategory) => (
                 <div key={subcategory.id} className="px-1 lg:px-6">
                   <div className="flex items-center justify-between mb-3 lg:mb-4">
@@ -199,7 +205,7 @@ const CategoriesMenu = ({ isOpen, onClose, initialActiveCategoryId = null }) => 
                 </div>
               ))}
 
-              {!activeCategory && (
+              {!loading && !activeCategory && (
                 <div className="px-2 lg:px-6 py-8 text-center text-gray-500">
                   <svg
                     className="mx-auto h-12 w-12 text-gray-400 mb-4"
@@ -221,6 +227,13 @@ const CategoriesMenu = ({ isOpen, onClose, initialActiveCategoryId = null }) => 
           </div>
         </div>
       </div>
+
+      <button
+        onClick={onClose}
+        className="fixed bottom-4 left-1/2 z-[60] -translate-x-1/2 inline-flex items-center rounded-full border border-slate-300 bg-white/95 px-3 py-1 text-xs font-semibold text-slate-700 shadow-md backdrop-blur lg:hidden"
+      >
+        Close
+      </button>
     </div>
   )
 }

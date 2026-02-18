@@ -73,7 +73,7 @@ const BrowseCategories = () => {
   )
 
   return (
-    <div className='w-full px-3 sm:px-6 lg:px-8 py-6'>
+    <div className='w-full px-3 sm:px-6 lg:px-8 pt-0 pb-6'>
       {/* Header Section */}
       <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4'>
         <h2 className='text-2xl md:text-3xl font-medium text-gray-900'>

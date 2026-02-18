@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useCart } from '../context/CartContext'
 import CategoriesMenu from './Catergories/CategoriesMenu'
-import { fetchCategoriesData } from './data/categoriesMenuData.ts'
+import { fetchCategoriesData } from '@/lib/catalog/categories-menu'
 import { getRecentlyViewed } from '@/lib/recently-viewed/storage'
 import UserMenu from './auth/UserMenu'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
@@ -925,7 +925,7 @@ export default function Navbar() {
 
       <div
         ref={menuRef}
-        className='absolute left-0 right-0 top-32 z-40'
+        className='absolute left-0 right-0 top-full z-40 bg-white'
         onMouseEnter={handleCategoriesMouseEnter}
         onMouseLeave={handleCategoriesMouseLeave}
       >

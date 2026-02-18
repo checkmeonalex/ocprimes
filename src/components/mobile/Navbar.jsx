@@ -7,7 +7,7 @@ import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { useSidebar } from '../../context/SidebarContext'
 import dynamic from 'next/dynamic'
 import { useCart } from '../../context/CartContext'
-import { fetchCategoriesData } from '../data/categoriesMenuData.ts'
+import { fetchCategoriesData } from '@/lib/catalog/categories-menu'
 import { useAuthUser } from '../../lib/auth/useAuthUser.ts'
 
 // Lazy load CategoriesMenu since it's not immediately visible
@@ -29,8 +29,10 @@ function MobileNavbar() {
   const [mobileCategories, setMobileCategories] = useState([])
   const [activeMobileCategoryId, setActiveMobileCategoryId] = useState(null)
   const [isSecondBarVisible, setIsSecondBarVisible] = useState(true)
+  const [menuTopOffset, setMenuTopOffset] = useState(56)
   const searchRef = useRef(null)
   const accountMenuRef = useRef(null)
+  const navRef = useRef(null)
   const lastScrollYRef = useRef(0)
   const attemptedSearchImageTermsRef = useRef(new Set())
 
@@ -204,6 +206,43 @@ function MobileNavbar() {
   }, [])
 
   useEffect(() => {
+    const navEl = navRef.current
+    if (!navEl) return undefined
+
+    let frameId = null
+    const updateMenuOffset = () => {
+      const measured = Number(navEl.getBoundingClientRect().height || 56)
+      setMenuTopOffset((prev) => {
+        const next = Math.max(56, Math.round(measured))
+        return prev === next ? prev : next
+      })
+    }
+    const scheduleUpdate = () => {
+      if (frameId) cancelAnimationFrame(frameId)
+      frameId = requestAnimationFrame(updateMenuOffset)
+    }
+
+    updateMenuOffset()
+
+    const resizeObserver = new ResizeObserver(() => {
+      scheduleUpdate()
+    })
+    resizeObserver.observe(navEl)
+
+    navEl.addEventListener('transitionrun', scheduleUpdate)
+    navEl.addEventListener('transitionend', scheduleUpdate)
+    window.addEventListener('resize', scheduleUpdate)
+
+    return () => {
+      if (frameId) cancelAnimationFrame(frameId)
+      resizeObserver.disconnect()
+      navEl.removeEventListener('transitionrun', scheduleUpdate)
+      navEl.removeEventListener('transitionend', scheduleUpdate)
+      window.removeEventListener('resize', scheduleUpdate)
+    }
+  }, [pathname, mobileCategories.length])
+
+  useEffect(() => {
     const rawY =
       window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0
     const currentY = Math.max(0, rawY)
@@ -287,7 +326,7 @@ function MobileNavbar() {
   return (
     <>
       {/* Main Mobile Navbar */}
-      <nav className='fixed top-0 left-0 right-0 isolate bg-white shadow-sm border-b border-gray-200 z-[2147483000] lg:hidden'>
+      <nav ref={navRef} className='fixed top-0 left-0 right-0 isolate bg-white shadow-sm border-b border-gray-200 z-[2147483000] lg:hidden'>
         <div className='px-4'>
           <div className='flex items-center justify-between h-14'>
             {/* Updated hamburger button with active state */}
@@ -857,6 +896,8 @@ function MobileNavbar() {
           isOpen={isCategoriesOpen}
           onClose={() => setIsCategoriesOpen(false)}
           initialActiveCategoryId={activeMobileCategoryId}
+          mobileTopOffset={menuTopOffset}
+          applyMobileOffset
         />
       )}
     </>

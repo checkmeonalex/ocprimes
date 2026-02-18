@@ -1,7 +1,7 @@
 'use client'
 import { Heart, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useState } from 'react'
-import { layoutContent } from '../../data/contentData'
+import { layoutContent } from './heroContent'
 
 export default function LeftLayout() {
   const [currentFavoriteIndex, setCurrentFavoriteIndex] = useState(0)
