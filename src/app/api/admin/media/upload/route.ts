@@ -20,12 +20,12 @@ const formSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
-  const { supabase, applyCookies, canManageCatalog, isAdmin, user } = await requireDashboardUser(request)
+  const { applyCookies, canManageCatalog, user } = await requireDashboardUser(request)
 
   if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db = createAdminSupabaseClient()
 
   let formData: FormData
   try {

@@ -26,7 +26,7 @@ export const listCategoriesQuerySchema = z.object({
 })
 
 export const categoryTreeQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(500).default(200),
+  limit: z.coerce.number().int().min(1).max(2000).default(500),
   search: z.preprocess(normalizeBlank, z.string().max(120).optional()),
 })
 

@@ -5,6 +5,7 @@ import LoadingButton from '@/components/LoadingButton';
 import { buildCategoryTree } from '@/lib/categories/tree.mjs';
 
 const normalizeParentId = (value) => (value ? value : null);
+const DRAFT_STORAGE_KEY = 'ocprimes_admin_category_tree_draft_v1';
 
 const buildOptionList = (nodes, depth = 0, acc = []) => {
   nodes.forEach((node) => {
@@ -37,6 +38,19 @@ const filterTree = (nodes, query) => {
       return { ...node, children };
     })
     .filter(Boolean);
+};
+
+const applyUpdatesToItems = (baseItems, updates) => {
+  const map = new Map((Array.isArray(updates) ? updates : []).map((update) => [update.id, update]));
+  return (Array.isArray(baseItems) ? baseItems : []).map((item) => {
+    const update = map.get(item.id);
+    if (!update) return item;
+    return {
+      ...item,
+      parent_id: update.parent_id,
+      sort_order: update.sort_order,
+    };
+  });
 };
 
 function Sheet({ open, title, onClose, children, forceBottom = false }) {
@@ -121,7 +135,10 @@ function CategoryTreeManager() {
   const [error, setError] = useState('');
   const [saveError, setSaveError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingReorder, setIsSavingReorder] = useState(false);
   const [draggedId, setDraggedId] = useState('');
+  const [touchDrag, setTouchDrag] = useState(null);
+  const [pendingReorderUpdates, setPendingReorderUpdates] = useState([]);
   const [dropHint, setDropHint] = useState(null);
   const [uploadingId, setUploadingId] = useState('');
   const [toggleLoadingId, setToggleLoadingId] = useState('');
@@ -144,18 +161,40 @@ function CategoryTreeManager() {
   const filteredTree = useMemo(() => filterTree(tree, query), [tree, query]);
   const parentOptions = useMemo(() => buildOptionList(tree), [tree]);
 
-  const loadCategories = useCallback(async () => {
+  const loadCategories = useCallback(async ({ skipDraft = false } = {}) => {
     setIsLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/admin/categories/tree?limit=500', {
+      const response = await fetch('/api/admin/categories/tree?limit=2000', {
         credentials: 'include',
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to load categories.');
       }
-      setItems(Array.isArray(payload?.items) ? payload.items : []);
+      const serverItems = Array.isArray(payload?.items) ? payload.items : [];
+      let draftUpdates = [];
+      if (!skipDraft) {
+        try {
+          const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY);
+          const parsed = raw ? JSON.parse(raw) : null;
+          const updates = Array.isArray(parsed?.updates) ? parsed.updates : [];
+          const idSet = new Set(serverItems.map((item) => item.id));
+          draftUpdates = updates.filter(
+            (update) =>
+              update &&
+              typeof update.id === 'string' &&
+              idSet.has(update.id) &&
+              (update.parent_id === null || typeof update.parent_id === 'string') &&
+              Number.isInteger(update.sort_order),
+          );
+        } catch {
+          draftUpdates = [];
+        }
+      }
+
+      setPendingReorderUpdates(draftUpdates);
+      setItems(draftUpdates.length > 0 ? applyUpdatesToItems(serverItems, draftUpdates) : serverItems);
     } catch (err) {
       setError(err?.message || 'Unable to load categories.');
     } finally {
@@ -384,29 +423,60 @@ function CategoryTreeManager() {
     }
   };
 
-  const applyReorder = useCallback(
-    async (updates, nextItems) => {
-      if (!updates.length) return;
-      setItems(nextItems);
-      setSaveError('');
+  const applyReorder = useCallback((updates, nextItems) => {
+    if (!updates.length) return;
+    setItems(nextItems);
+    setSaveError('');
+    setPendingReorderUpdates((prev) => {
+      const map = new Map(prev.map((update) => [update.id, update]));
+      updates.forEach((update) => {
+        map.set(update.id, update);
+      });
+      const merged = Array.from(map.values());
       try {
+        window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ updates: merged }));
+      } catch {
+        // ignore storage failures
+      }
+      return merged;
+    });
+  }, []);
+
+  const saveReorderChanges = useCallback(async () => {
+    if (pendingReorderUpdates.length <= 0 || isSavingReorder) return;
+    setIsSavingReorder(true);
+    setSaveError('');
+    try {
+      const updates = [...pendingReorderUpdates];
+      const batchSize = 200;
+
+      for (let index = 0; index < updates.length; index += batchSize) {
+        const chunk = updates.slice(index, index + batchSize);
         const response = await fetch('/api/admin/categories/order', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ updates }),
+          body: JSON.stringify({ updates: chunk }),
         });
         const payload = await response.json().catch(() => null);
         if (!response.ok) {
-          throw new Error(payload?.error || 'Unable to reorder categories.');
+          throw new Error(payload?.error || 'Unable to save category structure.');
         }
-      } catch (err) {
-        setSaveError(err?.message || 'Unable to reorder categories.');
-        loadCategories();
       }
-    },
-    [loadCategories],
-  );
+
+      try {
+        window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+      } catch {
+        // ignore storage failures
+      }
+      setPendingReorderUpdates([]);
+      await loadCategories({ skipDraft: true });
+    } catch (err) {
+      setSaveError(err?.message || 'Unable to save category structure.');
+    } finally {
+      setIsSavingReorder(false);
+    }
+  }, [isSavingReorder, pendingReorderUpdates, loadCategories]);
 
   const buildReorderUpdates = useCallback(
     (dragId, targetId, position) => {
@@ -486,15 +556,70 @@ function CategoryTreeManager() {
       setDropHint(null);
       if (!dragId || dragId === targetId) {
         setDraggedId('');
+        setTouchDrag(null);
         return;
       }
       const result = buildReorderUpdates(dragId, targetId, position);
       if (!result) return;
       setDraggedId('');
+      setTouchDrag(null);
       applyReorder(result.updates, result.nextItems);
     },
     [applyReorder, buildReorderUpdates],
   );
+
+  useEffect(() => {
+    if (!touchDrag?.id) return undefined;
+
+    const resolveDropTarget = (clientX, clientY) => {
+      const target = document
+        .elementFromPoint(clientX, clientY)
+        ?.closest('[data-drop-target-id][data-drop-position]');
+      if (!target) return null;
+      const targetId = target.getAttribute('data-drop-target-id');
+      const position = target.getAttribute('data-drop-position');
+      if (!targetId || !position) return null;
+      if (position !== 'before' && position !== 'inside' && position !== 'after') return null;
+      return { targetId, position };
+    };
+
+    const onPointerMove = (event) => {
+      if (event.pointerId !== touchDrag.pointerId) return;
+      const next = resolveDropTarget(event.clientX, event.clientY);
+      if (!next) return;
+      setDropHint(next);
+      event.preventDefault();
+    };
+
+    const onPointerUp = (event) => {
+      if (event.pointerId !== touchDrag.pointerId) return;
+      const next = resolveDropTarget(event.clientX, event.clientY);
+      if (!next) {
+        setDropHint(null);
+        setDraggedId('');
+        setTouchDrag(null);
+        return;
+      }
+      handleDrop(touchDrag.id, next.targetId, next.position);
+    };
+
+    const onPointerCancel = (event) => {
+      if (event.pointerId !== touchDrag.pointerId) return;
+      setDropHint(null);
+      setDraggedId('');
+      setTouchDrag(null);
+    };
+
+    window.addEventListener('pointermove', onPointerMove, { passive: false });
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
+
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerCancel);
+    };
+  }, [handleDrop, touchDrag]);
 
   const renderNode = (node, depth = 0) => {
     const isDragged = node.id === draggedId;
@@ -518,6 +643,8 @@ function CategoryTreeManager() {
         >
           <div
             className={`h-2 rounded-full ${dropAbove ? 'bg-emerald-400' : 'bg-transparent'}`}
+            data-drop-target-id={node.id}
+            data-drop-position="before"
             onDragOver={(event) => {
               event.preventDefault();
               event.dataTransfer.dropEffect = 'move';
@@ -530,16 +657,6 @@ function CategoryTreeManager() {
             }}
           />
           <div
-            draggable
-            onDragStart={(event) => {
-              event.dataTransfer.setData('text/plain', node.id);
-              event.dataTransfer.effectAllowed = 'move';
-              setDraggedId(node.id);
-            }}
-            onDragEnd={() => {
-              setDraggedId('');
-              setDropHint(null);
-            }}
             onDragOver={(event) => {
               event.preventDefault();
               event.dataTransfer.dropEffect = 'move';
@@ -550,9 +667,40 @@ function CategoryTreeManager() {
               const dragId = event.dataTransfer.getData('text/plain') || draggedId;
               handleDrop(dragId, node.id, 'inside');
             }}
+            data-drop-target-id={node.id}
+            data-drop-position="inside"
             className="flex items-center justify-between gap-3"
           >
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                draggable
+                onPointerDown={(event) => {
+                  if (event.pointerType === 'mouse') return;
+                  setDraggedId(node.id);
+                  setTouchDrag({ id: node.id, pointerId: event.pointerId });
+                }}
+                onDragStart={(event) => {
+                  event.dataTransfer.setData('text/plain', node.id);
+                  event.dataTransfer.effectAllowed = 'move';
+                  setDraggedId(node.id);
+                }}
+                onDragEnd={() => {
+                  setDraggedId('');
+                  setDropHint(null);
+                }}
+                className="inline-flex h-7 w-7 shrink-0 cursor-grab items-center justify-center rounded-full border border-slate-200 text-slate-500 active:cursor-grabbing"
+                aria-label={`Drag ${node.name}`}
+              >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                  <circle cx="7" cy="6" r="1.2" />
+                  <circle cx="13" cy="6" r="1.2" />
+                  <circle cx="7" cy="10" r="1.2" />
+                  <circle cx="13" cy="10" r="1.2" />
+                  <circle cx="7" cy="14" r="1.2" />
+                  <circle cx="13" cy="14" r="1.2" />
+                </svg>
+              </button>
               <div className="relative h-12 w-12 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 group/image">
                 {node.image_url ? (
                   <img
@@ -716,6 +864,8 @@ function CategoryTreeManager() {
           </div>
           <div
             className={`mt-2 h-2 rounded-full ${dropBelow ? 'bg-emerald-400' : 'bg-transparent'}`}
+            data-drop-target-id={node.id}
+            data-drop-position="after"
             onDragOver={(event) => {
               event.preventDefault();
               event.dataTransfer.dropEffect = 'move';
@@ -860,9 +1010,25 @@ function CategoryTreeManager() {
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Category tree</p>
             <p className="mt-2 text-sm font-semibold text-slate-800">Drag to reorder, drop on a category to nest</p>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
-            {filteredTree.length} roots in view
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
+              {filteredTree.length} roots in view
+            </span>
+            {pendingReorderUpdates.length > 0 ? (
+              <span className="rounded-full bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700">
+                Unsaved changes
+              </span>
+            ) : null}
+            <LoadingButton
+              type="button"
+              isLoading={isSavingReorder}
+              onClick={saveReorderChanges}
+              disabled={pendingReorderUpdates.length <= 0}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 disabled:opacity-50"
+            >
+              Save structure
+            </LoadingButton>
+          </div>
         </div>
 
         <div className="mt-4 space-y-3">

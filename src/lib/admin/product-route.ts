@@ -590,13 +590,13 @@ const resolveVendorReviewGate = async (db: any, userId: string, user?: any) => {
 }
 
 export async function listProducts(request: NextRequest) {
-  const { supabase, applyCookies, canManageCatalog, isAdmin, isVendor, user } =
+  const { applyCookies, canManageCatalog, isVendor, user } =
     await requireDashboardUser(request)
 
   if (!canManageCatalog) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db = createAdminSupabaseClient()
 
   const parseResult = listProductsQuerySchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -687,13 +687,13 @@ export async function listProducts(request: NextRequest) {
 }
 
 export async function getProduct(request: NextRequest, id: string) {
-  const { supabase, applyCookies, canManageCatalog, isAdmin, isVendor, user } =
+  const { applyCookies, canManageCatalog, isVendor, user } =
     await requireDashboardUser(request)
 
   if (!canManageCatalog) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db = createAdminSupabaseClient()
 
   const parsed = productIdSchema.safeParse({ id })
   if (!parsed.success) {
@@ -731,13 +731,13 @@ export async function getProduct(request: NextRequest, id: string) {
 }
 
 export async function createProduct(request: NextRequest) {
-  const { supabase, applyCookies, canManageCatalog, isAdmin, isVendor, user } =
+  const { applyCookies, canManageCatalog, isAdmin, isVendor, user } =
     await requireDashboardUser(request)
 
   if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db = createAdminSupabaseClient()
 
   let payload: unknown
   try {
@@ -928,13 +928,13 @@ export async function createProduct(request: NextRequest) {
 }
 
 export async function updateProduct(request: NextRequest, id: string) {
-  const { supabase, applyCookies, canManageCatalog, isAdmin, isVendor, user } =
+  const { applyCookies, canManageCatalog, isAdmin, isVendor, user } =
     await requireDashboardUser(request)
 
   if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db = createAdminSupabaseClient()
 
   let payload: unknown
   try {
@@ -1203,13 +1203,13 @@ export async function updateProduct(request: NextRequest, id: string) {
 }
 
 export async function deleteProduct(request: NextRequest, id: string) {
-  const { supabase, applyCookies, canManageCatalog, isAdmin, isVendor, user } =
+  const { applyCookies, canManageCatalog, isVendor, user } =
     await requireDashboardUser(request)
 
   if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db = createAdminSupabaseClient()
 
   const parsed = productIdSchema.safeParse({ id })
   if (!parsed.success) {

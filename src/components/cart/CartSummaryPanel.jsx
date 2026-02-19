@@ -3,15 +3,44 @@
 import { useRouter } from 'next/navigation'
 import { useMemo } from 'react'
 import OrderProtectionInfoButton from '@/components/cart/OrderProtectionInfoButton'
+import { buildCheckoutSelectionParam } from '@/lib/cart/checkout-selection'
+import {
+  calculateOrderProtectionFee,
+  isDigitalProductLike,
+} from '@/lib/order-protection/config'
 
-const CartSummaryPanel = ({ summary, formatMoney, setAllProtection }) => {
+const CartSummaryPanel = ({
+  summary,
+  formatMoney,
+  setAllProtection,
+  selectedKeys = new Set(),
+  selectedItems = [],
+}) => {
   const router = useRouter()
+
+  const selectedSummary = useMemo(() => {
+    const safeItems = Array.isArray(selectedItems) ? selectedItems : []
+    const subtotal = safeItems.reduce(
+      (sum, entry) => sum + Number(entry.price || 0) * Number(entry.quantity || 0),
+      0,
+    )
+    const protectedSubtotal = safeItems.reduce((sum, entry) => {
+      if (!entry.isProtected || isDigitalProductLike(entry)) return sum
+      return sum + Number(entry.price || 0) * Number(entry.quantity || 0)
+    }, 0)
+    const protection = calculateOrderProtectionFee(
+      protectedSubtotal,
+      summary?.protectionConfig,
+    )
+    const itemCount = safeItems.reduce((sum, entry) => sum + Number(entry.quantity || 0), 0)
+    return { subtotal, protection, itemCount }
+  }, [selectedItems, summary?.protectionConfig])
 
   const amounts = useMemo(() => {
     const shipping = 0
-    const tax = Math.round(summary.subtotal * 0.1 * 100) / 100
-    const protection = Number(summary.protectionFee || 0)
-    const total = summary.subtotal + shipping + tax + protection
+    const tax = Math.round(selectedSummary.subtotal * 0.1 * 100) / 100
+    const protection = Number(selectedSummary.protection || 0)
+    const total = selectedSummary.subtotal + shipping + tax + protection
 
     return {
       shipping,
@@ -19,31 +48,29 @@ const CartSummaryPanel = ({ summary, formatMoney, setAllProtection }) => {
       protection,
       total,
     }
-  }, [summary.itemCount, summary.protectionFee, summary.subtotal])
+  }, [selectedSummary.protection, selectedSummary.subtotal])
 
   return (
     <div className='space-y-3'>
       <section className='rounded-xl border border-[#b8d4cd] bg-[#edf7f4] p-3'>
         <div className='flex items-start justify-between gap-3'>
           <div>
-            <p className='flex items-center gap-1 text-sm font-semibold text-slate-900'>
+            <p className='flex items-center gap-1 text-base font-semibold text-slate-900'>
               Order Protection
               <OrderProtectionInfoButton className='text-slate-500 hover:text-slate-700' />
             </p>
-            <p className='mt-1 text-[11px] leading-5 text-slate-600'>
+            <p className='mt-1 text-[13px] leading-5 text-slate-600'>
               Protect selected items against damage, defects, or items not as described. Claim
               requests are reviewed within the policy window.
             </p>
-            <button type='button' className='mt-1 text-[11px] font-semibold text-slate-700'>
-              Learn more
-              <span className='ml-1' aria-hidden='true'>
-                ›
-              </span>
-            </button>
+            <OrderProtectionInfoButton
+              label='Learn more'
+              className='mt-1 inline-flex items-center gap-1 text-[13px] font-semibold text-slate-700'
+            />
           </div>
-          <span className='text-sm font-semibold text-slate-900'>
-            {amounts.protection > 0 ? formatMoney(amounts.protection) : formatMoney(0)}
-          </span>
+          {amounts.protection > 0 ? (
+            <span className='text-sm font-semibold text-slate-900'>{formatMoney(amounts.protection)}</span>
+          ) : null}
         </div>
         <div className='mt-2 flex items-center justify-between gap-3'>
           <span className='text-[11px] text-slate-600'>Protect all eligible items</span>
@@ -72,7 +99,7 @@ const CartSummaryPanel = ({ summary, formatMoney, setAllProtection }) => {
         <div className='mt-3 space-y-2 border-b border-slate-200 pb-3 text-sm'>
           <div className='flex items-center justify-between'>
             <span className='text-slate-600'>Sub Total :</span>
-            <span className='font-semibold text-slate-900'>{formatMoney(summary.subtotal)}</span>
+            <span className='font-semibold text-slate-900'>{formatMoney(selectedSummary.subtotal)}</span>
           </div>
           <div className='flex items-center justify-between'>
             <span className='text-slate-600'>Shipping :</span>
@@ -84,7 +111,13 @@ const CartSummaryPanel = ({ summary, formatMoney, setAllProtection }) => {
           </div>
           {amounts.protection > 0 ? (
             <div className='flex items-center justify-between'>
-              <span className='text-slate-600'>Order Protection :</span>
+              <span className='inline-flex items-center gap-1 text-slate-600'>
+                <span>Order Protection :</span>
+                <OrderProtectionInfoButton
+                  label='Learn more'
+                  className='inline-flex items-center text-[11px] text-slate-600 hover:text-slate-800'
+                />
+              </span>
               <span className='font-semibold text-slate-900'>{formatMoney(amounts.protection)}</span>
             </div>
           ) : null}
@@ -97,11 +130,18 @@ const CartSummaryPanel = ({ summary, formatMoney, setAllProtection }) => {
 
         <button
           type='button'
-          onClick={() => router.push('/checkout/shipping')}
-          disabled={summary.itemCount <= 0}
+          onClick={() => {
+            const selectedParam = buildCheckoutSelectionParam(selectedKeys)
+            router.push(
+              selectedParam
+                ? `/checkout/shipping?selected=${encodeURIComponent(selectedParam)}`
+                : '/checkout/shipping',
+            )
+          }}
+          disabled={selectedSummary.itemCount <= 0}
           className='mt-4 w-full rounded-md bg-[#0f172a] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#020617] disabled:cursor-not-allowed disabled:opacity-50'
         >
-          Proceed to Secure Checkout
+          Proceed to Secure Checkout ({selectedSummary.itemCount})
         </button>
 
       </section>

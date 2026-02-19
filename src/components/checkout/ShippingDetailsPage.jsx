@@ -1,10 +1,15 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { useCart } from '@/context/CartContext'
+import { filterItemsByCheckoutSelection, parseCheckoutSelectionParam } from '@/lib/cart/checkout-selection'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
+import {
+  calculateOrderProtectionFee,
+  isDigitalProductLike,
+} from '@/lib/order-protection/config'
 
 const TAX_RATE = 0.1
 const emptyAddressDraft = {
@@ -67,8 +72,30 @@ const normalizeAddresses = (profile) => {
 
 const ShippingDetailsPage = () => {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { formatMoney } = useUserI18n()
   const { items, summary, isReady, isServerReady, updateQuantity } = useCart()
+  const selectedKeys = useMemo(
+    () => parseCheckoutSelectionParam(searchParams?.get('selected')),
+    [searchParams],
+  )
+  const checkoutItems = useMemo(
+    () => filterItemsByCheckoutSelection(items, selectedKeys),
+    [items, selectedKeys],
+  )
+  const checkoutSummary = useMemo(() => {
+    const subtotal = checkoutItems.reduce(
+      (sum, entry) => sum + Number(entry.price || 0) * Number(entry.quantity || 0),
+      0,
+    )
+    const protectionSubtotal = checkoutItems.reduce((sum, entry) => {
+      if (!entry.isProtected || isDigitalProductLike(entry)) return sum
+      return sum + Number(entry.price || 0) * Number(entry.quantity || 0)
+    }, 0)
+    const protectionFee = calculateOrderProtectionFee(protectionSubtotal, summary?.protectionConfig)
+    const itemCount = checkoutItems.reduce((sum, entry) => sum + Number(entry.quantity || 0), 0)
+    return { subtotal, protectionFee, itemCount }
+  }, [checkoutItems, summary?.protectionConfig])
   const [profile, setProfile] = useState(null)
   const [addresses, setAddresses] = useState([])
   const [selectedAddressId, setSelectedAddressId] = useState('')
@@ -154,14 +181,14 @@ const ShippingDetailsPage = () => {
     }
   }, [])
 
-  const hasCartItems = items.length > 0
+  const hasCartItems = checkoutItems.length > 0
   const hasSelectedAddress = Boolean(selectedAddressId)
   const selectedDeliveryOption =
     DELIVERY_OPTIONS.find((option) => option.id === selectedDeliveryOptionId) ||
     DELIVERY_OPTIONS[0]
   const standardThreshold = Number(shippingProgressConfig.standardFreeShippingThreshold || 50)
   const expressThreshold = Number(shippingProgressConfig.expressFreeShippingThreshold || 100)
-  const subtotalValue = Number(summary.subtotal || 0)
+  const subtotalValue = Number(checkoutSummary.subtotal || 0)
   const isStandardFreeUnlocked = subtotalValue >= standardThreshold
   const isExpressFreeUnlocked = subtotalValue >= expressThreshold
   const shippingFee =
@@ -174,9 +201,9 @@ const ShippingDetailsPage = () => {
         : isStandardFreeUnlocked
           ? 0
           : selectedDeliveryOption.fee
-  const taxAmount = Math.round(summary.subtotal * TAX_RATE * 100) / 100
-  const protectionFee = Number(summary.protectionFee || 0)
-  const totalAmount = summary.subtotal + shippingFee + taxAmount + protectionFee
+  const taxAmount = Math.round(checkoutSummary.subtotal * TAX_RATE * 100) / 100
+  const protectionFee = Number(checkoutSummary.protectionFee || 0)
+  const totalAmount = checkoutSummary.subtotal + shippingFee + taxAmount + protectionFee
 
   const selectedAddress = useMemo(
     () => addresses.find((entry) => entry.id === selectedAddressId) || null,
@@ -547,7 +574,14 @@ const ShippingDetailsPage = () => {
               </button>
               <button
                 type='button'
-                onClick={() => router.push('/checkout/payment')}
+                onClick={() => {
+                  const selected = String(searchParams?.get('selected') || '').trim()
+                  router.push(
+                    selected
+                      ? `/checkout/payment?selected=${encodeURIComponent(selected)}`
+                      : '/checkout/payment',
+                  )
+                }}
                 disabled={!hasCartItems || !hasSelectedAddress}
                 className='rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_0_0_2px_rgba(15,23,42,0.25)] disabled:cursor-not-allowed disabled:opacity-50'
               >
@@ -560,7 +594,7 @@ const ShippingDetailsPage = () => {
             <h2 className='text-2xl font-semibold leading-none text-slate-900'>Order Summary</h2>
 
             <div className='mt-4 space-y-3'>
-              {items.map((item) => (
+              {checkoutItems.map((item) => (
                 <div key={item.key} className='flex items-start gap-3'>
                   <img
                     src={item.image || '/favicon.ico'}
@@ -628,7 +662,7 @@ const ShippingDetailsPage = () => {
               <div className='mt-3 space-y-2 text-sm'>
                 <div className='flex items-center justify-between text-slate-600'>
                   <span>Subtotal</span>
-                  <span className='font-semibold text-slate-900'>{formatMoney(summary.subtotal)}</span>
+                  <span className='font-semibold text-slate-900'>{formatMoney(checkoutSummary.subtotal)}</span>
                 </div>
                 <div className='flex items-center justify-between text-slate-600'>
                   <span>Shipping</span>

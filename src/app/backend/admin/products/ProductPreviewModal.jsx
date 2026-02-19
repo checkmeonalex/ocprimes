@@ -139,9 +139,7 @@ const buildInitialForm = (product) => {
     condition_check: product.condition_check || '',
     packaging_style: product.packaging_style || 'in_wrap_nylon',
     return_policy: product.return_policy || 'not_returnable',
-    categories: Array.isArray(product.categories)
-      ? product.categories.map((item) => item.name).join(', ')
-      : '',
+    categories: normalizeEntityNames(product.categories).join(', '),
     image_id: product?.images?.[0]?.id ? String(product.images[0].id) : '',
   };
 };
@@ -158,6 +156,40 @@ const emptyShortcutDefaults = {
 const normalizeShortcutIds = (value) =>
   Array.isArray(value)
     ? value.map((item) => String(item || '').trim()).filter(Boolean)
+    : [];
+
+const normalizeEntitySelectionIds = (value) =>
+  Array.isArray(value)
+    ? value
+        .map((entry) => {
+          if (entry == null) return '';
+          if (typeof entry === 'string' || typeof entry === 'number') {
+            return String(entry).trim();
+          }
+          if (typeof entry === 'object') {
+            const id = String(entry.id || '').trim();
+            if (id) return id;
+            return String(entry.name || '').trim();
+          }
+          return '';
+        })
+        .filter(Boolean)
+    : [];
+
+const normalizeEntityNames = (value) =>
+  Array.isArray(value)
+    ? value
+        .map((entry) => {
+          if (entry == null) return '';
+          if (typeof entry === 'string' || typeof entry === 'number') {
+            return String(entry).trim();
+          }
+          if (typeof entry === 'object') {
+            return String(entry.name || '').trim();
+          }
+          return '';
+        })
+        .filter(Boolean)
     : [];
 
 const normalizeGallery = (images) => {
@@ -328,9 +360,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   // Initialize selected categories when product changes
   useEffect(() => {
     if (product?.categories) {
-      const categoryIds = Array.isArray(product.categories)
-        ? product.categories.map(cat => cat.id || cat.name)
-        : [];
+      const categoryIds = normalizeEntitySelectionIds(product.categories);
       setSelectedCategories(categoryIds);
     } else {
       setSelectedCategories([]);
@@ -347,9 +377,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
 
   useEffect(() => {
     if (product?.tags) {
-      const tagIds = Array.isArray(product.tags)
-        ? product.tags.map(tag => tag.id || tag.name)
-        : [];
+      const tagIds = normalizeEntitySelectionIds(product.tags);
       setSelectedTags(tagIds);
     } else {
       setSelectedTags([]);
@@ -358,9 +386,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
 
   useEffect(() => {
     if (product?.brands) {
-      const brandIds = Array.isArray(product.brands)
-        ? product.brands.map(brand => brand.id || brand.name)
-        : [];
+      const brandIds = normalizeEntitySelectionIds(product.brands);
       setSelectedBrands(brandIds);
     } else {
       setSelectedBrands([]);

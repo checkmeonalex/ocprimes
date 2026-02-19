@@ -9,9 +9,18 @@ import CartItemSkeletonRow from '@/components/cart/CartItemSkeletonRow'
 import CartCheckoutProgressBar from '@/components/cart/CartCheckoutProgressBar'
 import CartSummaryPanel from '@/components/cart/CartSummaryPanel'
 import SellerIcon from '@/components/cart/SellerIcon'
+import emptyCartImage from '@/components/cart/empty-cart.webp'
 import { normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
 import { getSelectionSummary } from '@/lib/cart/selection-summary'
 import { buildVendorHref } from '@/lib/cart/vendor-link'
+
+const toSet = (keys) => {
+  const next = new Set()
+  keys.forEach((key) => {
+    if (key) next.add(key)
+  })
+  return next
+}
 
 const CartCheckoutExperience = ({
   items,
@@ -30,6 +39,7 @@ const CartCheckoutExperience = ({
   const [relatedOffers, setRelatedOffers] = useState([])
   const [isLoadingRelated, setIsLoadingRelated] = useState(false)
   const [returnPolicyBySlug, setReturnPolicyBySlug] = useState({})
+  const [selectedKeys, setSelectedKeys] = useState(new Set())
   const relatedSeedRef = useRef('')
 
   useEffect(() => {
@@ -172,6 +182,39 @@ const CartCheckoutExperience = ({
   }, [items])
 
   useEffect(() => {
+    const itemKeys = items.map((item) => item.key).filter(Boolean)
+    setSelectedKeys((prev) => {
+      if (prev.size === 0) return toSet(itemKeys)
+      const next = new Set()
+      itemKeys.forEach((key) => {
+        if (prev.has(key)) next.add(key)
+      })
+      if (next.size === 0 && itemKeys.length > 0) return toSet(itemKeys)
+      return next
+    })
+  }, [items])
+
+  const selectedCount = selectedKeys.size
+  const isAllSelected = items.length > 0 && selectedCount === items.length
+
+  const toggleAll = () => {
+    if (isAllSelected) {
+      setSelectedKeys(new Set())
+      return
+    }
+    setSelectedKeys(toSet(items.map((item) => item.key)))
+  }
+
+  const toggleItem = (key) => {
+    setSelectedKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  useEffect(() => {
     let cancelled = false
 
     const hydrateReturnPolicies = async () => {
@@ -230,7 +273,7 @@ const CartCheckoutExperience = ({
   }, [items])
 
   return (
-    <div className='min-h-screen bg-[#f3f4f6] text-slate-900'>
+    <div className='min-h-screen bg-white text-slate-900 lg:bg-[#f3f4f6]'>
       <div className='w-full px-0 pb-16 pt-0 lg:mx-auto lg:max-w-7xl lg:px-4 lg:pt-0 xl:px-6'>
         <CartMobileExperience
           items={items}
@@ -289,6 +332,32 @@ const CartCheckoutExperience = ({
                 </>
               ) : items.length > 0 ? (
                 <>
+                  <div className='border-y border-slate-200 bg-slate-50/70 px-4 py-2'>
+                    <div className='flex items-center gap-2 text-xs'>
+                      <button
+                        type='button'
+                        onClick={toggleAll}
+                        className='inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2 py-1 text-slate-700'
+                      >
+                        <span
+                          className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${
+                            isAllSelected
+                              ? 'border-slate-900 bg-slate-900 text-white'
+                              : 'border-slate-300 bg-white text-transparent'
+                          }`}
+                        >
+                          <svg viewBox='0 0 20 20' className='h-3 w-3' fill='none' stroke='currentColor' strokeWidth='2'>
+                            <path d='M4.5 10.5l3.2 3.2 7.8-7.8' strokeLinecap='round' strokeLinejoin='round' />
+                          </svg>
+                        </span>
+                        Select all ({items.length})
+                      </button>
+                      <span className='rounded-full border border-slate-900 bg-slate-900 px-2 py-1 text-white'>
+                        Selected ({selectedCount})
+                      </span>
+                    </div>
+                  </div>
+
                   <div className='hidden border-y border-slate-200 px-4 py-2 text-[11px] uppercase tracking-wide text-slate-500 sm:grid sm:grid-cols-[1.7fr_0.6fr_0.5fr_0.1fr]'>
                     <span>Product</span>
                     <span className='text-center'>Quantity</span>
@@ -308,6 +377,9 @@ const CartCheckoutExperience = ({
                         setItemProtection={setItemProtection}
                         orderProtectionConfig={summary.protectionConfig}
                         returnPolicyBySlug={returnPolicyBySlug}
+                        showSelection
+                        isSelected={selectedKeys.has(item.key)}
+                        onToggleSelect={toggleItem}
                       />
                     ))}
                   </div>
@@ -322,11 +394,16 @@ const CartCheckoutExperience = ({
                   </div>
                 </>
               ) : (
-                <div className='px-4 py-10 text-center'>
-                  <p className='text-sm text-slate-500'>Your cart is empty.</p>
+                <div className='flex min-h-[240px] flex-col items-center justify-center px-4 py-6 text-center'>
+                  <Image
+                    src={emptyCartImage}
+                    alt='Empty cart stroller'
+                    className='mb-0 h-[14rem] w-[20rem] object-cover object-center'
+                    draggable={false}
+                  />
                   <Link
                     href='/'
-                    className='mt-4 inline-flex rounded-md bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-black'
+                    className='mt-0 inline-flex rounded-md bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-black'
                   >
                     Continue shopping
                   </Link>
@@ -419,6 +496,8 @@ const CartCheckoutExperience = ({
                   summary={summary}
                   formatMoney={formatMoney}
                   setAllProtection={setAllProtection}
+                  selectedKeys={selectedKeys}
+                  selectedItems={items.filter((item) => selectedKeys.has(item.key))}
                 />
               </div>
             </aside>

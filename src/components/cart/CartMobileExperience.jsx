@@ -4,12 +4,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import QuantityControl from '@/components/cart/QuantityControl'
+import CartQuantitySelect from '@/components/cart/CartQuantitySelect'
 import CartCheckoutProgressBar from '@/components/cart/CartCheckoutProgressBar'
 import CartItemSkeletonRow from '@/components/cart/CartItemSkeletonRow'
+import DiscountPriceDisplay from '@/components/cart/DiscountPriceDisplay'
 import OrderProtectionInfoButton from '@/components/cart/OrderProtectionInfoButton'
 import SellerIcon from '@/components/cart/SellerIcon'
+import emptyCartImage from '@/components/cart/empty-cart.webp'
 import { isReturnPolicyDisabled, normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
+import { buildCheckoutSelectionParam } from '@/lib/cart/checkout-selection'
 import { getSelectionSummary } from '@/lib/cart/selection-summary'
 import { buildVendorHref } from '@/lib/cart/vendor-link'
 import {
@@ -129,15 +132,19 @@ const CartMobileExperience = ({
   }, [isLoadingCart, items.length])
 
   const checkoutCard = (
-    <div className='mx-auto w-full max-w-7xl rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur'>
+    <div className='mx-auto w-full max-w-7xl rounded-none border-y border-slate-200 bg-white p-3 shadow-none'>
       <div className='mb-2 flex items-center justify-between text-sm font-semibold text-slate-900'>
         <span>Total ({selectedCount})</span>
         <span>{formatMoney(selectedGrandTotal)}</span>
       </div>
       {selectedProtectionFee > 0 ? (
-        <p className='mb-1 text-[11px] text-slate-600'>
-          Includes Order Protection {formatMoney(selectedProtectionFee)}
-        </p>
+        <div className='mb-1 inline-flex items-center gap-1 text-[11px] text-slate-600'>
+          <span>Includes Order Protection {formatMoney(selectedProtectionFee)}</span>
+          <OrderProtectionInfoButton
+            label='Learn more'
+            className='inline-flex items-center text-[11px] text-slate-600 hover:text-slate-800'
+          />
+        </div>
       ) : null}
       {selectedSavings > 0 ? (
         <p className='mb-2 text-[11px] font-semibold text-emerald-700'>
@@ -146,7 +153,14 @@ const CartMobileExperience = ({
       ) : null}
       <button
         type='button'
-        onClick={() => router.push('/checkout/shipping')}
+        onClick={() => {
+          const selectedParam = buildCheckoutSelectionParam(selectedKeys)
+          router.push(
+            selectedParam
+              ? `/checkout/shipping?selected=${encodeURIComponent(selectedParam)}`
+              : '/checkout/shipping',
+          )
+        }}
         disabled={selectedCount <= 0}
         className='w-full rounded-full bg-orange-500 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
       >
@@ -156,8 +170,8 @@ const CartMobileExperience = ({
   )
 
   return (
-    <section className='space-y-2 lg:hidden'>
-      <div className='flex items-center justify-between border border-slate-200 bg-white px-3 py-3'>
+    <section className='space-y-2 bg-white lg:hidden'>
+      <div className='flex items-center justify-between border-b border-slate-200 bg-white px-3 py-3'>
           <button
             type='button'
             onClick={() => router.back()}
@@ -192,7 +206,7 @@ const CartMobileExperience = ({
         config={checkoutProgressConfig}
       />
 
-      <div className='rounded-xl border border-slate-200 bg-white px-3 py-2'>
+      <div className='border-y border-slate-200 bg-white px-3 py-2'>
         <div className='flex items-center gap-2 text-xs'>
             <button
               type='button'
@@ -218,18 +232,23 @@ const CartMobileExperience = ({
         </div>
       </div>
 
-      <div className='border border-slate-200 bg-white'>
+      <div className='border-y border-slate-200 bg-white'>
         {isLoadingCart ? (
           <div>
             <CartItemSkeletonRow />
             <CartItemSkeletonRow />
           </div>
         ) : items.length <= 0 ? (
-          <div className='px-4 py-10 text-center'>
-            <p className='text-sm text-slate-500'>Your cart is empty.</p>
+          <div className='flex min-h-[240px] flex-col items-center justify-center px-4 py-6 text-center'>
+            <Image
+              src={emptyCartImage}
+              alt='Empty cart stroller'
+              className='mb-0 h-[14rem] w-[20rem] object-cover object-center'
+              draggable={false}
+            />
             <Link
               href='/'
-              className='mt-4 inline-flex rounded-md bg-slate-900 px-4 py-2 text-xs font-semibold text-white'
+              className='mt-0 inline-flex rounded-md bg-slate-900 px-4 py-2 text-xs font-semibold text-white'
             >
               Continue shopping
             </Link>
@@ -311,25 +330,27 @@ const CartMobileExperience = ({
                           </button>
                         </div>
 
-                        <div className='mt-2 flex items-end justify-between gap-2'>
-                          <div>
-                            <p className='text-base font-semibold text-orange-600'>{formatMoney(item.price)}</p>
-                            {item.originalPrice ? (
-                              <p className='text-xs text-slate-400 line-through'>
-                                {formatMoney(item.originalPrice)}
-                              </p>
-                            ) : null}
+                        <div className='mt-2 flex flex-wrap items-end gap-2'>
+                          <div className='min-w-0'>
+                            <DiscountPriceDisplay
+                              price={item.price}
+                              originalPrice={item.originalPrice}
+                              formatMoney={formatMoney}
+                              size='compact'
+                              itemName={item.name}
+                              itemImage={item.image}
+                              itemMeta={getSelectionSummary(item)}
+                              quantity={item.quantity}
+                            />
                           </div>
 
-                          <QuantityControl
-                            quantity={item.quantity}
-                            onIncrement={() => updateQuantity(item.key, item.quantity + 1)}
-                            onDecrement={() => updateQuantity(item.key, Math.max(0, item.quantity - 1))}
-                            size='sm'
-                            stylePreset='card'
-                            appearance='solid'
-                            isLoading={Boolean(item.isSyncing)}
-                          />
+                          <div className='ml-auto'>
+                            <CartQuantitySelect
+                              quantity={item.quantity}
+                              onChange={(nextQuantity) => updateQuantity(item.key, nextQuantity)}
+                              isLoading={Boolean(item.isSyncing)}
+                            />
+                          </div>
                         </div>
 
                         {item.syncError ? (
@@ -341,28 +362,28 @@ const CartMobileExperience = ({
                             {item.syncError}
                           </button>
                         ) : null}
-                        <div className='mt-2 inline-flex rounded-sm bg-slate-100 px-2 py-1.5'>
-                          <label className='inline-flex items-center gap-2 text-[14px] text-slate-800'>
-                            <input
-                              type='checkbox'
-                              className='h-4 w-4 rounded-sm border-slate-400'
-                              checked={Boolean(item.isProtected)}
-                              disabled={!isProtectionEligible || Boolean(item.isSyncing)}
-                              onChange={(event) =>
-                                setItemProtection(item.key, event.target.checked)
-                              }
-                            />
-                            <span className='leading-none'>
-                              Add Order Protection{' '}
-                              <OrderProtectionInfoButton
-                                label='Learn more'
-                                className='text-[13px] text-blue-700 hover:underline'
-                              />
-                            </span>
-                          </label>
-                        </div>
                       </div>
                     </div>
+                  </div>
+                  <div className='mt-2 w-full'>
+                    <label className='flex w-full items-center justify-between gap-2 text-[14px] text-slate-800'>
+                      <span className='inline-flex items-center gap-2'>
+                        <input
+                          type='checkbox'
+                          className='h-4 w-4 rounded-sm border-slate-400'
+                          checked={Boolean(item.isProtected)}
+                          disabled={!isProtectionEligible || Boolean(item.isSyncing)}
+                          onChange={(event) =>
+                            setItemProtection(item.key, event.target.checked)
+                          }
+                        />
+                        <span className='leading-none'>Add Order Protection</span>
+                      </span>
+                      <OrderProtectionInfoButton
+                        label='Learn more'
+                        className='text-[13px] text-blue-700 hover:underline'
+                      />
+                    </label>
                   </div>
                 </article>
               )

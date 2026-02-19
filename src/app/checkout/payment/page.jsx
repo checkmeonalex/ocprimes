@@ -1,11 +1,19 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { useCart } from '@/context/CartContext'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { useAuthUser } from '@/lib/auth/useAuthUser'
+import {
+  filterItemsByCheckoutSelection,
+  parseCheckoutSelectionParam,
+} from '@/lib/cart/checkout-selection'
+import {
+  calculateOrderProtectionFee,
+  isDigitalProductLike,
+} from '@/lib/order-protection/config'
 import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
 import paystackLogo from './paystack.webp'
 
@@ -156,9 +164,34 @@ const isoToFlagEmoji = (code) => {
 
 export default function CheckoutPaymentPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { formatMoney } = useUserI18n()
   const { user, isLoading: isAuthLoading } = useAuthUser()
   const { items, summary, updateQuantity, isReady, isServerReady } = useCart()
+  const selectedKeys = useMemo(
+    () => parseCheckoutSelectionParam(searchParams?.get('selected')),
+    [searchParams],
+  )
+  const checkoutItems = useMemo(
+    () => filterItemsByCheckoutSelection(items, selectedKeys),
+    [items, selectedKeys],
+  )
+  const checkoutSummary = useMemo(() => {
+    const subtotal = checkoutItems.reduce(
+      (sum, entry) => sum + Number(entry.price || 0) * Number(entry.quantity || 0),
+      0,
+    )
+    const protectedSubtotal = checkoutItems.reduce((sum, entry) => {
+      if (!entry.isProtected || isDigitalProductLike(entry)) return sum
+      return sum + Number(entry.price || 0) * Number(entry.quantity || 0)
+    }, 0)
+    const protectedItemCount = checkoutItems.reduce((sum, entry) => {
+      if (!entry.isProtected || isDigitalProductLike(entry)) return sum
+      return sum + Number(entry.quantity || 0)
+    }, 0)
+    const protectionFee = calculateOrderProtectionFee(protectedSubtotal, summary?.protectionConfig)
+    return { subtotal, protectionFee, protectedItemCount, itemCount: checkoutItems.length }
+  }, [checkoutItems, summary?.protectionConfig])
 
   const [promoCode, setPromoCode] = useState('')
   const [phoneCountry, setPhoneCountry] = useState('')
@@ -190,15 +223,16 @@ export default function CheckoutPaymentPage() {
   const hasManualPhoneCountryRef = useRef(false)
 
   const taxAmount = useMemo(
-    () => Math.round(summary.subtotal * TAX_RATE * 100) / 100,
-    [summary.subtotal],
+    () => Math.round(checkoutSummary.subtotal * TAX_RATE * 100) / 100,
+    [checkoutSummary.subtotal],
   )
-  const protectionFee = Number(summary.protectionFee || 0)
+  const protectionFee = Number(checkoutSummary.protectionFee || 0)
   const shippingFee =
-    Number(summary.subtotal || 0) >= Number(shippingProgressConfig.standardFreeShippingThreshold || 50)
+    Number(checkoutSummary.subtotal || 0) >=
+    Number(shippingProgressConfig.standardFreeShippingThreshold || 50)
       ? 0
       : SHIPPING_FEE
-  const totalAmount = summary.subtotal + shippingFee + taxAmount + protectionFee
+  const totalAmount = checkoutSummary.subtotal + shippingFee + taxAmount + protectionFee
   const selectedPhoneCountry = phoneCountry || profile?.country || user?.country || 'United States'
   const selectedDialCode = useMemo(
     () => getDialCodeByCountry(selectedPhoneCountry),
@@ -588,7 +622,7 @@ export default function CheckoutPaymentPage() {
   }
 
   const handlePayWithPaystack = async () => {
-    if (!items.length) return
+    if (!checkoutItems.length) return
     if (!paystackPublicKey) {
       setPaymentError('Missing Paystack public key configuration.')
       return
@@ -631,8 +665,8 @@ export default function CheckoutPaymentPage() {
         ...(selectedPaystackChannels.length > 0 ? { channels: selectedPaystackChannels } : {}),
         metadata: {
           source: 'checkout_payment_page',
-          item_count: items.length,
-          protection_item_count: Number(summary.protectedItemCount || 0),
+          item_count: checkoutSummary.itemCount,
+          protection_item_count: Number(checkoutSummary.protectedItemCount || 0),
           protection_fee: protectionFee,
           promo_code: promoCode.trim(),
           selected_payment_method: selectedPaymentMethodId,
@@ -645,7 +679,12 @@ export default function CheckoutPaymentPage() {
         },
         callback: (response) => {
           const ref = String(response?.reference || reference).trim()
-          router.push(`/checkout/review?payment_reference=${encodeURIComponent(ref)}`)
+          const selected = String(searchParams?.get('selected') || '').trim()
+          router.push(
+            selected
+              ? `/checkout/review?payment_reference=${encodeURIComponent(ref)}&selected=${encodeURIComponent(selected)}`
+              : `/checkout/review?payment_reference=${encodeURIComponent(ref)}`,
+          )
         },
         onClose: () => {
           setIsStartingPayment(false)
@@ -968,7 +1007,7 @@ export default function CheckoutPaymentPage() {
                 type='button'
                 onClick={handlePayWithPaystack}
                 disabled={
-                  !items.length ||
+                  !checkoutItems.length ||
                   isAuthLoading ||
                   isStartingPayment ||
                   !isPaystackReady ||
@@ -1003,7 +1042,7 @@ export default function CheckoutPaymentPage() {
             <h2 className='text-2xl font-semibold leading-none text-slate-900'>Order Summary</h2>
 
             <div className='mt-4 space-y-3'>
-              {items.map((item) => (
+              {checkoutItems.map((item) => (
                 <div key={item.key} className='flex items-start gap-3'>
                   <img
                     src={item.image || '/favicon.ico'}
@@ -1076,7 +1115,7 @@ export default function CheckoutPaymentPage() {
               <div className='mt-3 space-y-2 text-sm'>
                 <div className='flex items-center justify-between text-slate-600'>
                   <span>Subtotal</span>
-                  <span className='font-semibold text-slate-900'>{formatMoney(summary.subtotal)}</span>
+                  <span className='font-semibold text-slate-900'>{formatMoney(checkoutSummary.subtotal)}</span>
                 </div>
                 <div className='flex items-center justify-between text-slate-600'>
                   <span>Shipping</span>

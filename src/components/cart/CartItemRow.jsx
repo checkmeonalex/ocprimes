@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import CartQuantitySelect from '@/components/cart/CartQuantitySelect'
+import DiscountPriceDisplay from '@/components/cart/DiscountPriceDisplay'
 import OrderProtectionInfoButton from '@/components/cart/OrderProtectionInfoButton'
 import SellerIcon from '@/components/cart/SellerIcon'
 import { isReturnPolicyDisabled, normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
@@ -34,6 +35,9 @@ const CartItemRow = ({
   setItemProtection,
   orderProtectionConfig,
   returnPolicyBySlug,
+  isSelected = true,
+  onToggleSelect,
+  showSelection = false,
 }) => {
   const selectionSummary = getSelectionSummary(item)
   const sourceName = String(item?.sourceName || item?.vendorName || item?.storeName || 'OCPRIMES')
@@ -49,8 +53,26 @@ const CartItemRow = ({
   const isProtectionEligible = !isDigitalProductLike(item)
 
   return (
-    <article className='grid grid-cols-1 gap-4 border-b border-slate-200 px-4 py-5 last:border-b-0 sm:grid-cols-[1.7fr_0.6fr_0.5fr_0.1fr] sm:items-center'>
+    <article className='grid grid-cols-1 gap-4 border-b border-slate-200 px-4 py-5 last:border-b-0 sm:grid-cols-[1.9fr_0.6fr_0.5fr_0.1fr] sm:items-center'>
       <div className='flex items-start gap-3'>
+        {showSelection ? (
+          <button
+            type='button'
+            onClick={() => onToggleSelect?.(item.key)}
+            aria-label={isSelected ? 'Deselect item' : 'Select item'}
+            className='mt-1 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded border border-slate-300 bg-white text-transparent'
+          >
+            <span
+              className={`inline-flex h-4 w-4 items-center justify-center rounded-sm ${
+                isSelected ? 'bg-slate-900 text-white' : 'bg-white text-transparent'
+              }`}
+            >
+              <svg viewBox='0 0 20 20' className='h-3 w-3' fill='none' stroke='currentColor' strokeWidth='2'>
+                <path d='M4.5 10.5l3.2 3.2 7.8-7.8' strokeLinecap='round' strokeLinejoin='round' />
+              </svg>
+            </span>
+          </button>
+        ) : null}
         <div className='relative h-24 w-24 shrink-0 overflow-hidden rounded-md border border-slate-200 bg-slate-100'>
           {item.image ? (
             <Image src={item.image} alt={item.name} fill sizes='96px' className='object-cover' />
@@ -100,22 +122,22 @@ const CartItemRow = ({
               {item.syncError}
             </button>
           ) : null}
-          <div className='mt-2 inline-flex rounded-sm bg-slate-100 px-2 py-1.5'>
-            <label className='inline-flex items-center gap-2 text-[14px] text-slate-800'>
+          <div className='mt-2 w-full rounded-sm bg-slate-100 px-2 py-1.5'>
+            <label className='flex w-full items-center justify-between gap-2 text-[11px] text-slate-700'>
+              <span className='inline-flex items-center gap-1.5'>
               <input
                 type='checkbox'
-                className='h-4 w-4 rounded-sm border-slate-400'
+                className='h-3.5 w-3.5 rounded-sm border-slate-400'
                 checked={Boolean(item.isProtected)}
                 disabled={!isProtectionEligible || Boolean(item.isSyncing)}
                 onChange={(event) => setItemProtection(item.key, event.target.checked)}
               />
-              <span className='leading-none'>
-                Add Order Protection{' '}
-                <OrderProtectionInfoButton
-                  label='Learn more'
-                  className='text-[13px] text-blue-700 hover:underline'
-                />
+              <span className='leading-none'>Add Order Protection</span>
               </span>
+              <OrderProtectionInfoButton
+                label='Learn more'
+                className='inline-flex items-center gap-0.5 text-[11px] text-blue-700 hover:underline'
+              />
             </label>
           </div>
         </div>
@@ -130,10 +152,16 @@ const CartItemRow = ({
       </div>
 
       <div className='flex items-center justify-between sm:block sm:text-right'>
-        <p className='text-sm font-semibold text-slate-900'>{formatMoney(item.price)}</p>
-        {item.originalPrice ? (
-          <p className='text-xs text-slate-400 line-through'>{formatMoney(item.originalPrice)}</p>
-        ) : null}
+        <DiscountPriceDisplay
+          price={item.price}
+          originalPrice={item.originalPrice}
+          formatMoney={formatMoney}
+          size='compact'
+          itemName={item.name}
+          itemImage={item.image}
+          itemMeta={selectionSummary}
+          quantity={item.quantity}
+        />
       </div>
 
       <button

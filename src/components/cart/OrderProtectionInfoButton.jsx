@@ -23,7 +23,12 @@ const OrderProtectionInfoButton = ({ className = '', label = '' }) => {
         aria-label='Order protection details'
       >
         {label ? (
-          <span>{label}</span>
+          <span className='inline-flex items-center gap-0.5'>
+            <span>{label}</span>
+            <svg viewBox='0 0 20 20' className='h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='2'>
+              <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
+            </svg>
+          </span>
         ) : (
           <svg
             viewBox='0 0 20 20'
@@ -49,7 +54,7 @@ const OrderProtectionInfoButton = ({ className = '', label = '' }) => {
             aria-label='Close order protection details'
           />
 
-          <section className='absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white p-5 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:w-[min(92vw,620px)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl'>
+          <section className='absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white p-5 [animation:order-sheet-up_220ms_ease-out]'>
             <div className='mb-3 flex items-center justify-between'>
               <h2 className='text-lg font-semibold text-slate-900'>Order Protection Policy</h2>
               <button
@@ -96,6 +101,18 @@ const OrderProtectionInfoButton = ({ className = '', label = '' }) => {
               </p>
             </div>
           </section>
+          <style jsx>{`
+            @keyframes order-sheet-up {
+              from {
+                transform: translateY(28px);
+                opacity: 0.96;
+              }
+              to {
+                transform: translateY(0);
+                opacity: 1;
+              }
+            }
+          `}</style>
         </div>
       ) : null}
     </>
