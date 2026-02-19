@@ -390,13 +390,13 @@ export default function Navbar() {
 
   if (isCheckoutFlow) {
     return (
-      <nav className='fixed left-0 right-0 top-0 z-40 hidden border-b border-gray-200 bg-[#f3f4f6] lg:block'>
-        <div className='mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8'>
-          <div className='relative flex h-16 items-center'>
-            <div className='absolute left-0 top-1/2 -translate-y-1/2'>
+      <nav className='fixed left-0 right-0 top-0 z-40 hidden border-b border-gray-200 bg-white sm:block'>
+        <div className='w-full px-3 sm:px-4 lg:mx-auto lg:max-w-[1400px] lg:px-8'>
+          <div className='grid h-16 grid-cols-[auto_1fr_auto] items-center gap-3'>
+            <div>
               <Link
                 href={checkoutBackHref}
-                className='inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-[#eef0f2] px-4 py-2 text-sm font-medium text-slate-900 hover:bg-[#e6e8ea]'
+                className='inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-[#eef0f2] px-3 py-1.5 text-xs font-medium text-slate-900 hover:bg-[#e6e8ea] xl:px-4 xl:py-2 xl:text-sm'
               >
                 <svg
                   viewBox='0 0 20 20'
@@ -412,8 +412,8 @@ export default function Navbar() {
               </Link>
             </div>
 
-            <div className='mx-auto min-w-0 px-32'>
-              <ol className='flex items-center justify-center gap-3 overflow-x-auto'>
+            <div className='min-w-0'>
+              <ol className='mx-auto flex w-fit max-w-full items-center justify-center gap-2 overflow-x-auto px-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden xl:gap-3'>
               {checkoutStepOrder.map((stepKey, index) => {
                 const isDone = index < checkoutCurrentStepIndex
                 const isCurrent = index === checkoutCurrentStepIndex
@@ -426,9 +426,9 @@ export default function Navbar() {
                         ? 'Pay'
                         : 'Review'
                 return (
-                  <li key={stepKey} className='flex items-center gap-2.5'>
+                  <li key={stepKey} className='flex shrink-0 items-center gap-1.5 xl:gap-2.5'>
                     <span
-                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold ${
+                      className={`inline-flex h-7 w-7 items-center justify-center rounded-full border text-xs font-semibold xl:h-8 xl:w-8 xl:text-sm ${
                         isDone
                           ? 'border-white/85 bg-white/40 text-slate-700 backdrop-blur-xl'
                           : isCurrent
@@ -456,14 +456,14 @@ export default function Navbar() {
                       )}
                     </span>
                     <span
-                      className={`whitespace-nowrap text-base font-medium ${
+                      className={`whitespace-nowrap text-sm font-medium xl:text-base ${
                         isDone || isCurrent ? 'text-slate-900' : 'text-slate-500'
                       }`}
                     >
                       {label}
                     </span>
                     {index < checkoutStepOrder.length - 1 ? (
-                      <span className='mx-1 h-px w-10 bg-slate-400/70' aria-hidden='true' />
+                      <span className='mx-0.5 h-px w-6 bg-slate-400/70 xl:mx-1 xl:w-10' aria-hidden='true' />
                     ) : null}
                   </li>
                 )
@@ -471,7 +471,7 @@ export default function Navbar() {
               </ol>
             </div>
 
-            <div className='absolute right-0 top-1/2 -translate-y-1/2'>
+            <div className='hidden justify-self-end lg:block'>
               <UserMenu variant='compactChip' />
             </div>
           </div>

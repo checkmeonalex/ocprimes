@@ -30,9 +30,13 @@ const toSet = (keys) => {
 
 const CartMobileExperience = ({
   items,
+  savedItems = [],
   formatMoney,
   updateQuantity,
   removeItem,
+  saveForLater,
+  moveToCart,
+  removeSavedItem,
   retryItem,
   setItemProtection,
   clearCart,
@@ -141,8 +145,7 @@ const CartMobileExperience = ({
         <div className='mb-1 inline-flex items-center gap-1 text-[11px] text-slate-600'>
           <span>Includes Order Protection {formatMoney(selectedProtectionFee)}</span>
           <OrderProtectionInfoButton
-            label='Learn more'
-            className='inline-flex items-center text-[11px] text-slate-600 hover:text-slate-800'
+            className='inline-flex items-center text-slate-500 hover:text-slate-700'
           />
         </div>
       ) : null}
@@ -162,9 +165,9 @@ const CartMobileExperience = ({
           )
         }}
         disabled={selectedCount <= 0}
-        className='w-full rounded-full bg-orange-500 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50'
+        className='w-full rounded-full bg-black px-4 py-3 text-sm font-semibold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50'
       >
-        Checkout ({selectedCount})
+        Proceed to Secure Checkout ({selectedCount})
       </button>
     </div>
   )
@@ -288,10 +291,10 @@ const CartMobileExperience = ({
                       </svg>
                     </button>
 
-                    <div className='grid grid-cols-[88px_1fr] gap-3'>
-                      <div className='relative h-[88px] w-[88px] overflow-hidden rounded-md border border-slate-200 bg-slate-100'>
+                    <div className='grid grid-cols-[96px_1fr] gap-3'>
+                      <div className='relative h-[96px] w-[96px] overflow-hidden rounded-md border border-slate-200 bg-slate-100'>
                         {item.image ? (
-                          <Image src={item.image} alt={item.name} fill sizes='88px' className='object-cover' />
+                          <Image src={item.image} alt={item.name} fill sizes='96px' className='object-cover' />
                         ) : null}
                       </div>
 
@@ -337,6 +340,7 @@ const CartMobileExperience = ({
                               originalPrice={item.originalPrice}
                               formatMoney={formatMoney}
                               size='compact'
+                              align='left'
                               itemName={item.name}
                               itemImage={item.image}
                               itemMeta={getSelectionSummary(item)}
@@ -362,6 +366,15 @@ const CartMobileExperience = ({
                             {item.syncError}
                           </button>
                         ) : null}
+                        <div className='mt-1 w-full text-left'>
+                          <button
+                            type='button'
+                            onClick={() => saveForLater(item.key)}
+                            className='block w-fit text-left text-[11px] font-medium text-slate-700 underline underline-offset-2'
+                          >
+                            Save for later
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -391,6 +404,48 @@ const CartMobileExperience = ({
           </div>
         )}
       </div>
+
+      {!isLoadingCart && savedItems.length > 0 ? (
+        <div className='border-y border-slate-200 bg-white'>
+          <div className='border-b border-slate-200 px-3 py-2'>
+            <h3 className='text-sm font-semibold text-slate-900'>
+              Saved for later ({savedItems.length})
+            </h3>
+          </div>
+          {savedItems.map((item) => (
+            <article key={`saved-mobile-${item.key}`} className='border-b border-slate-200 px-3 py-3 last:border-b-0'>
+              <div className='grid grid-cols-[80px_1fr] gap-3'>
+                <div className='relative h-[80px] w-[80px] overflow-hidden rounded-md border border-slate-200 bg-slate-100'>
+                  {item.image ? (
+                    <Image src={item.image} alt={item.name} fill sizes='80px' className='object-cover' />
+                  ) : null}
+                </div>
+                <div className='min-w-0'>
+                  <p className='line-clamp-2 text-sm font-semibold text-slate-900'>{item.name}</p>
+                  <p className='line-clamp-1 text-xs text-slate-500'>{getSelectionSummary(item)}</p>
+                  <p className='mt-1 text-sm font-semibold text-slate-900'>{formatMoney(item.price)}</p>
+                  <div className='mt-2 flex items-center gap-3'>
+                    <button
+                      type='button'
+                      onClick={() => moveToCart(item.key)}
+                      className='text-[11px] font-medium text-slate-700 underline underline-offset-2'
+                    >
+                      Move to cart
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => removeSavedItem(item.key)}
+                      className='text-[11px] font-medium text-rose-600 underline underline-offset-2'
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
 
       {!isLoadingCart && items.length > 0 ? (
         <>

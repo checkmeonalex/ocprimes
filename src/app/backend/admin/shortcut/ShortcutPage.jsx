@@ -19,7 +19,7 @@ const buildSafeProfilePayload = (profile, patch = {}) => {
   return {
     ...base,
     firstName: String(base.firstName || '').trim() || 'User',
-    country: String(base.country || base.location || 'USA').trim() || 'USA',
+    country: String(base.country || base.location || 'Nigeria').trim() || 'Nigeria',
     contactInfo,
     ...patch,
   }

@@ -31,6 +31,10 @@ const CartCheckoutExperience = ({
   setItemProtection,
   setAllProtection,
   removeItem,
+  savedItems = [],
+  saveForLater,
+  moveToCart,
+  removeSavedItem,
   clearCart,
   retryItem,
   isLoadingCart = false,
@@ -277,9 +281,13 @@ const CartCheckoutExperience = ({
       <div className='w-full px-0 pb-16 pt-0 lg:mx-auto lg:max-w-7xl lg:px-4 lg:pt-0 xl:px-6'>
         <CartMobileExperience
           items={items}
+          savedItems={savedItems}
           formatMoney={formatMoney}
           updateQuantity={updateQuantity}
           removeItem={removeItem}
+          saveForLater={saveForLater}
+          moveToCart={moveToCart}
+          removeSavedItem={removeSavedItem}
           retryItem={retryItem}
           clearCart={clearCart}
           isLoadingCart={isLoadingCart}
@@ -373,6 +381,7 @@ const CartCheckoutExperience = ({
                         formatMoney={formatMoney}
                         updateQuantity={updateQuantity}
                         removeItem={removeItem}
+                        onSaveForLater={saveForLater}
                         retryItem={retryItem}
                         setItemProtection={setItemProtection}
                         orderProtectionConfig={summary.protectionConfig}
@@ -384,14 +393,6 @@ const CartCheckoutExperience = ({
                     ))}
                   </div>
 
-                  <div className='flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3'>
-                    <p className='text-xs text-slate-600'>
-                      Buy With Confidence - 100% NO-RISK MONEY BACK GUARANTEE
-                    </p>
-                    <button type='button' className='text-xs font-semibold text-red-600 hover:text-red-700'>
-                      Cancel Order
-                    </button>
-                  </div>
                 </>
               ) : (
                 <div className='flex min-h-[240px] flex-col items-center justify-center px-4 py-6 text-center'>
@@ -410,6 +411,58 @@ const CartCheckoutExperience = ({
                 </div>
               )}
             </section>
+
+            {savedItems.length > 0 ? (
+              <section className='rounded-xl border border-slate-200 bg-white'>
+                <div className='border-b border-slate-200 px-4 py-3'>
+                  <h2 className='text-sm font-semibold text-slate-900'>
+                    Saved for later ({savedItems.length})
+                  </h2>
+                </div>
+                <div>
+                  {savedItems.map((item) => (
+                    <article
+                      key={`saved-${item.key}`}
+                      className='grid grid-cols-1 gap-3 border-b border-slate-200 px-4 py-3 last:border-b-0 sm:grid-cols-[1.6fr_0.4fr_0.6fr] sm:items-center'
+                    >
+                      <div className='flex items-center gap-3'>
+                        <div className='relative h-16 w-16 overflow-hidden rounded-md border border-slate-200 bg-slate-100'>
+                          {item.image ? (
+                            <Image src={item.image} alt={item.name} fill sizes='64px' className='object-cover' />
+                          ) : null}
+                        </div>
+                        <div className='min-w-0'>
+                          <p className='line-clamp-2 text-sm font-semibold text-slate-900'>{item.name}</p>
+                          <p className='line-clamp-1 text-xs text-slate-500'>{getSelectionSummary(item)}</p>
+                        </div>
+                      </div>
+                      <p className='text-sm font-semibold text-slate-900 sm:text-right'>
+                        {formatMoney(item.price)}
+                      </p>
+                      <div className='flex items-center gap-3 sm:justify-end'>
+                        <button
+                          type='button'
+                          onClick={() => moveToCart(item.key)}
+                          className='text-xs font-medium text-slate-700 underline underline-offset-2 hover:text-slate-900'
+                        >
+                          Move to cart
+                        </button>
+                        <button
+                          type='button'
+                          onClick={() => removeSavedItem(item.key)}
+                          className='inline-flex h-7 w-7 items-center justify-center rounded-full text-rose-500 hover:bg-rose-50 hover:text-rose-600'
+                          aria-label='Remove saved item'
+                        >
+                          <svg viewBox='-7.29 0 122.88 122.88' className='h-3.5 w-3.5 fill-current' aria-hidden='true'>
+                            <path d='M77.4,49.1h-5.94v56.09h5.94V49.1L77.4,49.1L77.4,49.1z M6.06,9.06h32.16V6.2c0-0.1,0-0.19,0.01-0.29 c0.13-2.85,2.22-5.25,5.01-5.79C43.97-0.02,44.64,0,45.38,0H63.9c0.25,0,0.49-0.01,0.73,0.02c1.58,0.08,3.02,0.76,4.06,1.81 c1.03,1.03,1.69,2.43,1.79,3.98c0.01,0.18,0.02,0.37,0.02,0.55v2.7H103c0.44,0,0.75,0.01,1.19,0.08c2.21,0.36,3.88,2.13,4.07,4.37 c0.02,0.24,0.03,0.47,0.03,0.71v10.54c0,1.47-1.19,2.66-2.67,2.66H2.67C1.19,27.43,0,26.23,0,24.76V24.7v-9.91 C0,10.64,2.04,9.06,6.06,9.06L6.06,9.06z M58.07,49.1h-5.95v56.09h5.95V49.1L58.07,49.1L58.07,49.1z M38.74,49.1H32.8v56.09h5.95 V49.1L38.74,49.1L38.74,49.1z M10.74,31.57h87.09c0.36,0.02,0.66,0.04,1.03,0.1c1.25,0.21,2.4,0.81,3.27,1.66 c1.01,1,1.67,2.34,1.7,3.83c0,0.31-0.03,0.63-0.06,0.95l-7.33,78.66c-0.1,1.03-0.27,1.95-0.79,2.92c-1.01,1.88-2.88,3.19-5.2,3.19 H18.4c-0.55,0-1.05,0-1.59-0.08c-0.22-0.03-0.43-0.08-0.64-0.14c-0.31-0.09-0.62-0.21-0.91-0.35c-0.27-0.13-0.52-0.27-0.78-0.45 c-1.51-1.04-2.51-2.78-2.69-4.72L4.5,37.88c-0.02-0.25-0.04-0.52-0.04-0.77c0.05-1.48,0.7-2.8,1.7-3.79 c0.88-0.86,2.06-1.47,3.33-1.67C9.9,31.59,10.34,31.57,10.74,31.57L10.74,31.57z M97.75,36.9H10.6c-0.57,0-0.84,0.1-0.79,0.7 l7.27,79.05h0l0,0.01c0.03,0.38,0.2,0.69,0.45,0.83l0,0l0.08,0.03l0.06,0.01l0.08,0h72.69c0.6,0,0.67-0.84,0.71-1.28l7.34-78.71 C98.53,37.04,98.23,36.9,97.75,36.9L97.75,36.9z' />
+                          </svg>
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
 
             {relatedOffers.length > 0 ? (
               <section className='rounded-xl border border-slate-200 bg-white'>

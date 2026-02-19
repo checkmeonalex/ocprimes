@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuthUser } from '@/lib/auth/useAuthUser.ts'
 import { USER_MENU_ITEMS } from '@/lib/user/menu-items'
-import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
 import CountryFlagIcon from '@/components/common/CountryFlagIcon'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import {
   DEFAULT_COUNTRY,
-  getAllowedCurrencyCodes,
+  INTERNATIONAL_COUNTRY,
   getCountryLocaleDefaults,
+  normalizeCountry,
 } from '@/lib/i18n/locale-config'
 import { translateMenuLabel } from '@/lib/i18n/messages'
 
@@ -155,12 +155,10 @@ const renderMenuItemIcon = (label) => {
 export default function UserMenu({ variant = 'default' }) {
   const router = useRouter()
   const { user, isLoading } = useAuthUser()
-  const { locale, setLocale, t, languageOptions, currencyOptions } = useUserI18n()
+  const { locale, setLocale, t } = useUserI18n()
   const [isOpen, setIsOpen] = useState(false)
   const [isLocaleMenuOpen, setIsLocaleMenuOpen] = useState(false)
   const [localeCountry, setLocaleCountry] = useState(locale.country || DEFAULT_COUNTRY)
-  const [localeLanguage, setLocaleLanguage] = useState(locale.language)
-  const [localeCurrency, setLocaleCurrency] = useState(locale.currency)
   const [isLocaleSaving, setIsLocaleSaving] = useState(false)
   const [localeError, setLocaleError] = useState('')
   const [localeSuccess, setLocaleSuccess] = useState('')
@@ -217,27 +215,12 @@ export default function UserMenu({ variant = 'default' }) {
     ? user.user_metadata.avatar_url.trim()
     : ''
   const defaultCountryPrefs = useMemo(() => getCountryLocaleDefaults(localeCountry), [localeCountry])
-  const localCurrencyCode = defaultCountryPrefs.currency
-  const allowedCurrencyCodes = useMemo(() => getAllowedCurrencyCodes(localeCountry), [localeCountry])
-  const allowedCurrencyOptions = useMemo(
-    () => currencyOptions.filter((option) => allowedCurrencyCodes.includes(option.code)),
-    [allowedCurrencyCodes, currencyOptions],
-  )
-  const currencyMeta =
-    currencyOptions.find((option) => option.code === localeCurrency) ||
-    currencyOptions[0]
-  const accountLocale = `${localeLanguage} (${currencyMeta.symbol})`
+  const isInternational = localeCountry === INTERNATIONAL_COUNTRY
+  const accountLocale = isInternational ? 'International ($)' : 'Nigeria (₦)'
 
   useEffect(() => {
     setLocaleCountry(locale.country || DEFAULT_COUNTRY)
-    setLocaleLanguage(locale.language)
-    setLocaleCurrency(locale.currency)
-  }, [locale.country, locale.currency, locale.language])
-
-  useEffect(() => {
-    if (allowedCurrencyCodes.includes(localeCurrency)) return
-    setLocaleCurrency(localCurrencyCode)
-  }, [allowedCurrencyCodes, localeCurrency, localCurrencyCode])
+  }, [locale.country])
 
   const openLocaleMenu = async () => {
     setLocaleError('')
@@ -257,18 +240,8 @@ export default function UserMenu({ variant = 'default' }) {
         profile?.deliveryAddress?.country ||
         profile?.country ||
         DEFAULT_COUNTRY
-      const normalizedCountry = ACCEPTED_COUNTRIES.includes(profileCountry)
-        ? profileCountry
-        : DEFAULT_COUNTRY
-      const defaultPrefs = getCountryLocaleDefaults(normalizedCountry)
-      const profileCurrency = profile?.currency || defaultPrefs.currency
-      const allowedCurrencyByCountry = getAllowedCurrencyCodes(normalizedCountry)
-      const normalizedCurrency = allowedCurrencyByCountry.includes(profileCurrency)
-        ? profileCurrency
-        : defaultPrefs.currency
+      const normalizedCountry = normalizeCountry(profileCountry)
       setLocaleCountry(normalizedCountry)
-      setLocaleLanguage(profile?.language || defaultPrefs.language)
-      setLocaleCurrency(normalizedCurrency)
     } catch (err) {
       setLocaleError(err?.message || 'Unable to load shipping settings.')
     }
@@ -298,11 +271,12 @@ export default function UserMenu({ variant = 'default' }) {
         ...(profileDraft?.deliveryAddress || {}),
         country: localeCountry,
       }
+      const localeDefaults = getCountryLocaleDefaults(localeCountry)
       const nextProfile = {
         ...profileDraft,
         country: localeCountry,
-        language: localeLanguage,
-        currency: localeCurrency,
+        language: localeDefaults.language,
+        currency: localeDefaults.currency,
         deliveryAddress: updatedDeliveryAddress,
         addresses: updatedAddresses,
       }
@@ -319,8 +293,8 @@ export default function UserMenu({ variant = 'default' }) {
       setProfileDraft(savedProfile)
       setLocale({
         country: localeCountry,
-        language: localeLanguage,
-        currency: localeCurrency,
+        language: localeDefaults.language,
+        currency: localeDefaults.currency,
       })
       setLocaleSuccess(t('locale.preferencesUpdated', 'Preferences updated.'))
       setIsLocaleMenuOpen(false)
@@ -492,7 +466,7 @@ export default function UserMenu({ variant = 'default' }) {
                     className='rounded-md px-1.5 py-1 transition hover:bg-gray-50'
                     aria-haspopup='menu'
                     aria-expanded={isLocaleMenuOpen}
-                    aria-label='Open country and currency menu'
+                    aria-label='Open location mode menu'
                   >
                     <span className='inline-flex items-center gap-1 text-[11px] font-normal text-gray-800'>
                       <span className='inline-flex h-3.5 w-5 items-center justify-center overflow-hidden rounded-sm border border-gray-200 bg-white'>
@@ -508,90 +482,34 @@ export default function UserMenu({ variant = 'default' }) {
                 <div className='mt-2 space-y-3 rounded-xl border border-gray-200 bg-gray-50/70 p-3'>
                   <div>
                     <p className='text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500'>
-                      {t('locale.shipTo', 'Ship to')}
+                      Shopping mode
                     </p>
-                    <div className='relative mt-1'>
-                      <span className='pointer-events-none absolute left-3 top-1/2 inline-flex h-4 w-5 -translate-y-1/2 items-center justify-center overflow-hidden rounded-sm border border-gray-200 bg-white'>
-                        <CountryFlagIcon country={localeCountry} className='h-full w-full' />
+                    <label className='mt-1 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2.5'>
+                      <span className='flex items-center gap-2 text-sm text-gray-800'>
+                        <span className='inline-flex h-4 w-5 items-center justify-center overflow-hidden rounded-sm border border-gray-200 bg-white'>
+                          <CountryFlagIcon country={isInternational ? INTERNATIONAL_COUNTRY : DEFAULT_COUNTRY} className='h-full w-full' />
+                        </span>
+                        {isInternational ? 'International (USD)' : 'Nigeria (NGN)'}
                       </span>
-                      <select
-                        value={localeCountry}
-                        onChange={(event) => setLocaleCountry(event.target.value)}
-                        className='h-10 w-full appearance-none rounded-lg border border-gray-200 bg-white pl-10 pr-10 text-sm text-gray-800 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10'
+                      <button
+                        type='button'
+                        role='switch'
+                        aria-checked={isInternational}
+                        onClick={() =>
+                          setLocaleCountry((prev) =>
+                            prev === INTERNATIONAL_COUNTRY ? DEFAULT_COUNTRY : INTERNATIONAL_COUNTRY,
+                          )}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                          isInternational ? 'bg-gray-900' : 'bg-gray-300'
+                        }`}
                       >
-                        {ACCEPTED_COUNTRIES.map((country) => (
-                          <option key={country} value={country}>
-                            {country}
-                          </option>
-                        ))}
-                      </select>
-                      <svg
-                        className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500'
-                        viewBox='0 0 20 20'
-                        fill='none'
-                        stroke='currentColor'
-                        strokeWidth='1.7'
-                        aria-hidden='true'
-                      >
-                        <path strokeLinecap='round' strokeLinejoin='round' d='m6 8 4 4 4-4' />
-                      </svg>
-                    </div>
-                  </div>
-                  <div>
-                    <p className='text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500'>
-                      {t('locale.language', 'Language')}
-                    </p>
-                    <div className='relative mt-1'>
-                      <select
-                        value={localeLanguage}
-                        onChange={(event) => setLocaleLanguage(event.target.value)}
-                        className='h-10 w-full appearance-none rounded-lg border border-gray-200 bg-white px-3 pr-10 text-sm text-gray-800 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10'
-                      >
-                        {languageOptions.map((option) => (
-                          <option key={option.code} value={option.code}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <svg
-                        className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500'
-                        viewBox='0 0 20 20'
-                        fill='none'
-                        stroke='currentColor'
-                        strokeWidth='1.7'
-                        aria-hidden='true'
-                      >
-                        <path strokeLinecap='round' strokeLinejoin='round' d='m6 8 4 4 4-4' />
-                      </svg>
-                    </div>
-                  </div>
-                  <div>
-                    <p className='text-[11px] font-semibold uppercase tracking-[0.08em] text-gray-500'>
-                      {t('locale.currency', 'Currency')}
-                    </p>
-                    <div className='relative mt-1'>
-                      <select
-                        value={localeCurrency}
-                        onChange={(event) => setLocaleCurrency(event.target.value)}
-                        className='h-10 w-full appearance-none rounded-lg border border-gray-200 bg-white px-3 pr-10 text-sm text-gray-800 outline-none transition focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10'
-                      >
-                        {allowedCurrencyOptions.map((option) => (
-                          <option key={option.code} value={option.code}>
-                            {option.code} ({option.symbol} {option.label})
-                          </option>
-                        ))}
-                      </select>
-                      <svg
-                        className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500'
-                        viewBox='0 0 20 20'
-                        fill='none'
-                        stroke='currentColor'
-                        strokeWidth='1.7'
-                        aria-hidden='true'
-                      >
-                        <path strokeLinecap='round' strokeLinejoin='round' d='m6 8 4 4 4-4' />
-                      </svg>
-                    </div>
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                            isInternational ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </label>
                   </div>
                   {localeError ? (
                     <p className='text-xs text-rose-600'>{localeError}</p>
@@ -637,7 +555,7 @@ export default function UserMenu({ variant = 'default' }) {
                         <span className='inline-flex h-6 w-6 items-center justify-center text-gray-500'>
                           {renderMenuItemIcon(item.label)}
                         </span>
-                        {translateMenuLabel(item.label, localeLanguage)}
+                        {translateMenuLabel(item.label, locale.language)}
                       </Link>
                     ))}
                   </div>

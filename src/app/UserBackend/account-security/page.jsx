@@ -81,28 +81,7 @@ export default function AccountSecurityPage() {
   const countryRule = useMemo(() => {
     const map = {
       Nigeria: { code: '234', max: 10 },
-      'United States': { code: '1', max: 10 },
-      'United Kingdom': { code: '44', max: 10 },
-      Canada: { code: '1', max: 10 },
-      Germany: { code: '49', max: 11 },
-      France: { code: '33', max: 9 },
-      Italy: { code: '39', max: 10 },
-      Spain: { code: '34', max: 9 },
-      Netherlands: { code: '31', max: 9 },
-      'South Africa': { code: '27', max: 9 },
-      Kenya: { code: '254', max: 9 },
-      Ghana: { code: '233', max: 9 },
-      'United Arab Emirates': { code: '971', max: 9 },
-      'Saudi Arabia': { code: '966', max: 9 },
-      India: { code: '91', max: 10 },
-      Pakistan: { code: '92', max: 10 },
-      China: { code: '86', max: 11 },
-      Japan: { code: '81', max: 10 },
-      'South Korea': { code: '82', max: 10 },
-      Australia: { code: '61', max: 9 },
-      Brazil: { code: '55', max: 11 },
-      Mexico: { code: '52', max: 10 },
-      Argentina: { code: '54', max: 10 },
+      International: { code: '1', max: 15 },
     }
     return map[profile?.country] || { code: '', max: 15 }
   }, [profile?.country])

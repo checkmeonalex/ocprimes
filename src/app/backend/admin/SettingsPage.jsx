@@ -66,7 +66,7 @@ const buildSafeProfilePayload = (profile, patch = {}) => {
   return {
     ...base,
     firstName: String(base.firstName || '').trim() || 'User',
-    country: String(base.country || base.location || 'USA').trim() || 'USA',
+    country: String(base.country || base.location || 'Nigeria').trim() || 'Nigeria',
     contactInfo,
     ...patch,
   }
@@ -123,7 +123,7 @@ export default function SettingsPage() {
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
 
   const locationOptions = useMemo(
-    () => [''].concat(ACCEPTED_COUNTRIES.map((item) => item.name)),
+    () => [''].concat(ACCEPTED_COUNTRIES),
     [],
   )
 
@@ -267,7 +267,7 @@ export default function SettingsPage() {
         nickname: String(profileForm.displayName || '').trim(),
         slogan: String(profileForm.slogan || '').trim(),
         location: String(profileForm.location || '').trim(),
-        country: String(currentProfile.country || profileForm.location || 'USA').trim() || 'USA',
+        country: String(currentProfile.country || profileForm.location || 'Nigeria').trim() || 'Nigeria',
         contactInfo: {
           ...(currentProfile.contactInfo || {}),
           email: String(profileForm.email || '').trim(),

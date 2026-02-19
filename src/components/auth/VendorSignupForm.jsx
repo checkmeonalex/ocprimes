@@ -294,20 +294,26 @@ export default function VendorSignupForm({ signInHref = '/vendor/login' }) {
 
       {step === STEPS.SHIPPING ? (
         <form className='grid gap-4' onSubmit={handleSubmitRequest}>
-          <label className='space-y-2 text-sm font-semibold text-slate-700'>
-            Where are you shipping from?
-            <select
-              value={shippingCountry}
-              onChange={(event) => setShippingCountry(event.target.value)}
-              className='w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-normal text-slate-800 shadow-sm focus:border-slate-400 focus:outline-none'
-            >
+          <div className='space-y-2 text-sm font-semibold text-slate-700'>
+            Shipping mode
+            <div className='grid gap-2'>
               {ACCEPTED_COUNTRIES.map((country) => (
-                <option key={country} value={country}>
-                  {country}
-                </option>
+                <button
+                  key={country}
+                  type='button'
+                  onClick={() => setShippingCountry(country)}
+                  className={`w-full rounded-2xl border px-4 py-3 text-left text-sm font-medium transition ${
+                    shippingCountry === country
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'
+                  }`}
+                  aria-pressed={shippingCountry === country}
+                >
+                  {country === 'International' ? 'International (Worldwide)' : country}
+                </button>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
           <button
             type='submit'
             disabled={isBusy}

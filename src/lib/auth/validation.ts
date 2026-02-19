@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
 
 const emailSchema = z.string().email().max(255)
 const passwordSchema = z.string().min(8).max(128)
@@ -38,5 +39,5 @@ export const vendorOnboardingSubmitSchema = z.object({
   phone: z.string().trim().min(7).max(20),
   fullName: z.string().trim().min(2).max(120),
   brandName: z.string().trim().min(2).max(120),
-  shippingCountry: z.string().trim().min(2).max(120),
+  shippingCountry: z.enum(ACCEPTED_COUNTRIES),
 })

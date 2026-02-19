@@ -23,7 +23,7 @@ const OrderProtectionInfoButton = ({ className = '', label = '' }) => {
         aria-label='Order protection details'
       >
         {label ? (
-          <span className='inline-flex items-center gap-0.5'>
+          <span className='inline-flex items-center gap-0.5 whitespace-nowrap'>
             <span>{label}</span>
             <svg viewBox='0 0 20 20' className='h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='2'>
               <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
@@ -46,7 +46,7 @@ const OrderProtectionInfoButton = ({ className = '', label = '' }) => {
       </button>
 
       {open ? (
-        <div className='fixed inset-0 z-[80]'>
+        <div className='fixed inset-0 z-[80] md:flex md:items-center md:justify-center md:p-4'>
           <button
             type='button'
             onClick={() => setOpen(false)}
@@ -54,20 +54,20 @@ const OrderProtectionInfoButton = ({ className = '', label = '' }) => {
             aria-label='Close order protection details'
           />
 
-          <section className='absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white p-5 [animation:order-sheet-up_220ms_ease-out]'>
-            <div className='mb-3 flex items-center justify-between'>
+          <section className='modal-scroll absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white [animation:order-sheet-up_220ms_ease-out] md:relative md:inset-auto md:max-h-[75vh] md:w-full md:max-w-[520px] md:rounded-none md:border md:border-slate-200 md:[animation:none]'>
+            <div className='sticky top-0 z-10 mb-3 flex items-center justify-between border-b border-slate-100 bg-white px-5 py-4 md:px-6 md:py-4'>
               <h2 className='text-lg font-semibold text-slate-900'>Order Protection Policy</h2>
               <button
                 type='button'
                 onClick={() => setOpen(false)}
-                className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500'
+                className='inline-flex items-center justify-center text-2xl font-bold leading-none text-slate-600 transition hover:text-slate-900'
                 aria-label='Close'
               >
                 <span aria-hidden='true'>×</span>
               </button>
             </div>
 
-            <div className='space-y-4 text-sm text-slate-700'>
+            <div className='space-y-4 px-5 pb-5 text-sm text-slate-700 md:px-6 md:pb-6'>
               <div>
                 <h3 className='font-semibold text-slate-900'>What&apos;s Covered</h3>
                 <ul className='mt-1 list-disc space-y-1 pl-5'>
@@ -111,6 +111,21 @@ const OrderProtectionInfoButton = ({ className = '', label = '' }) => {
                 transform: translateY(0);
                 opacity: 1;
               }
+            }
+            .modal-scroll {
+              scrollbar-width: thin;
+              scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+            }
+            .modal-scroll::-webkit-scrollbar {
+              width: 4px;
+              height: 4px;
+            }
+            .modal-scroll::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .modal-scroll::-webkit-scrollbar-thumb {
+              background: rgba(148, 163, 184, 0.35);
+              border-radius: 9999px;
             }
           `}</style>
         </div>

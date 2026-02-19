@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
+import CartQuantitySelect from '@/components/cart/CartQuantitySelect'
 import { useCart } from '@/context/CartContext'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { useAuthUser } from '@/lib/auth/useAuthUser'
@@ -20,40 +21,19 @@ import paystackLogo from './paystack.webp'
 const SHIPPING_FEE = 5
 const TAX_RATE = 0.05
 const MAX_ADDRESSES = 5
+const DEFAULT_COUNTRY = 'Nigeria'
+const INTERNATIONAL_COUNTRY = 'International'
+const ACCEPTED_COUNTRY_SET = new Set(ACCEPTED_COUNTRIES)
 const DEFAULT_DIAL_CODE = '1'
 const COUNTRY_DIAL_CODES = {
   nigeria: '234',
-  ghana: '233',
-  kenya: '254',
-  uganda: '256',
-  tanzania: '255',
-  southafrica: '27',
-  egypt: '20',
-  morocco: '212',
-  unitedstates: '1',
-  usa: '1',
-  canada: '1',
-  unitedkingdom: '44',
-  uk: '44',
-  ireland: '353',
+  international: '1',
+  worldwide: '1',
 }
 const COUNTRY_FLAGS = {
   nigeria: 'NG',
-  ghana: 'GH',
-  kenya: 'KE',
-  uganda: 'UG',
-  tanzania: 'TZ',
-  southafrica: 'ZA',
-  egypt: 'EG',
-  morocco: 'MA',
-  unitedstates: 'US',
-  usa: 'US',
-  canada: 'CA',
-  unitedkingdom: 'GB',
-  uk: 'GB',
-  ireland: 'IE',
-  germany: 'DE',
-  georgia: 'GE',
+  international: 'US',
+  worldwide: 'US',
 }
 const PAYMENT_METHOD_GROUPS = [
   {
@@ -96,7 +76,7 @@ const emptyAddressDraft = {
   city: '',
   state: '',
   postalCode: '',
-  country: '',
+  country: DEFAULT_COUNTRY,
   isDefault: false,
 }
 
@@ -136,6 +116,14 @@ const formatAddressLine = (address) => {
 const getDefaultAddress = (entries) =>
   entries.find((entry) => entry.isDefault) || entries[0] || null
 
+const normalizeCheckoutCountry = (country) => {
+  const next = String(country || '').trim()
+  if (!next) return DEFAULT_COUNTRY
+  if (ACCEPTED_COUNTRY_SET.has(next)) return next
+  if (next.toLowerCase() === 'nigeria') return DEFAULT_COUNTRY
+  return INTERNATIONAL_COUNTRY
+}
+
 const getDialCodeByCountry = (country) => {
   const normalized = String(country || '')
     .toLowerCase()
@@ -162,7 +150,7 @@ const isoToFlagEmoji = (code) => {
   return String.fromCodePoint(chars[0].charCodeAt(0) + 127397, chars[1].charCodeAt(0) + 127397)
 }
 
-export default function CheckoutPaymentPage() {
+function CheckoutPaymentPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { formatMoney } = useUserI18n()
@@ -193,9 +181,7 @@ export default function CheckoutPaymentPage() {
     return { subtotal, protectionFee, protectedItemCount, itemCount: checkoutItems.length }
   }, [checkoutItems, summary?.protectionConfig])
 
-  const [promoCode, setPromoCode] = useState('')
   const [phoneCountry, setPhoneCountry] = useState('')
-  const [phoneSearch, setPhoneSearch] = useState('')
   const [isPhoneCountryMenuOpen, setIsPhoneCountryMenuOpen] = useState(false)
   const [contactPhoneLocal, setContactPhoneLocal] = useState('')
   const [isStartingPayment, setIsStartingPayment] = useState(false)
@@ -218,7 +204,11 @@ export default function CheckoutPaymentPage() {
   const [addressError, setAddressError] = useState('')
   const [addressSuccess, setAddressSuccess] = useState('')
   const [isSavingAddress, setIsSavingAddress] = useState(false)
+  const [isMobileOrderSummaryOpen, setIsMobileOrderSummaryOpen] = useState(false)
   const phoneSelectorRef = useRef(null)
+  const billingSectionRef = useRef(null)
+  const paymentMethodSectionRef = useRef(null)
+  const contactPhoneSectionRef = useRef(null)
   const hasPrefilledPhoneRef = useRef(false)
   const hasManualPhoneCountryRef = useRef(false)
 
@@ -233,7 +223,8 @@ export default function CheckoutPaymentPage() {
       ? 0
       : SHIPPING_FEE
   const totalAmount = checkoutSummary.subtotal + shippingFee + taxAmount + protectionFee
-  const selectedPhoneCountry = phoneCountry || profile?.country || user?.country || 'United States'
+  const formatFeeOrFree = (amount) => (Number(amount || 0) <= 0 ? 'FREE' : formatMoney(amount))
+  const selectedPhoneCountry = normalizeCheckoutCountry(phoneCountry || profile?.country || user?.country)
   const selectedDialCode = useMemo(
     () => getDialCodeByCountry(selectedPhoneCountry),
     [selectedPhoneCountry],
@@ -259,13 +250,6 @@ export default function CheckoutPaymentPage() {
       })),
     [],
   )
-  const filteredPhoneCountryOptions = useMemo(() => {
-    const query = String(phoneSearch || '').toLowerCase().trim()
-    if (!query) return phoneCountryOptions
-    return phoneCountryOptions.filter((entry) =>
-      String(entry.country || '').toLowerCase().includes(query),
-    )
-  }, [phoneCountryOptions, phoneSearch])
   const defaultPaymentMethodId =
     PAYMENT_METHOD_GROUPS[0]?.methods?.[0]?.id || ''
   const [selectedPaymentMethodId, setSelectedPaymentMethodId] = useState(defaultPaymentMethodId)
@@ -273,7 +257,17 @@ export default function CheckoutPaymentPage() {
     () => getPaystackChannelsForMethod(selectedPaymentMethodId),
     [selectedPaymentMethodId],
   )
+  const mobilePaymentMethods = useMemo(
+    () => PAYMENT_METHOD_GROUPS.flatMap((group) => group.methods),
+    [],
+  )
   const [useShippingAsBilling, setUseShippingAsBilling] = useState(false)
+
+  useEffect(() => {
+    const promoParam = String(searchParams?.get('promo') || '').trim()
+    if (!promoParam) return
+    setPromoCode(promoParam)
+  }, [searchParams])
   const hasDedicatedBillingAddresses = billingAddresses.length > 0
   const displayedBillingAddresses = hasDedicatedBillingAddresses
     ? billingAddresses
@@ -376,9 +370,8 @@ export default function CheckoutPaymentPage() {
   }, [])
 
   useEffect(() => {
-    const inferredCountry = profile?.country || user?.country || 'United States'
+    const inferredCountry = normalizeCheckoutCountry(profile?.country || user?.country)
     if (hasManualPhoneCountryRef.current) return
-    if (!inferredCountry) return
     if (phoneCountry === inferredCountry) return
     setPhoneCountry(inferredCountry)
   }, [profile?.country, user?.country, phoneCountry])
@@ -420,7 +413,6 @@ export default function CheckoutPaymentPage() {
       if (!phoneSelectorRef.current) return
       if (phoneSelectorRef.current.contains(event.target)) return
       setIsPhoneCountryMenuOpen(false)
-      setPhoneSearch('')
     }
     document.addEventListener('mousedown', handleOutsideClick)
     return () => document.removeEventListener('mousedown', handleOutsideClick)
@@ -438,17 +430,71 @@ export default function CheckoutPaymentPage() {
     setSelectedBillingAddressId(fallback?.id || '')
   }, [useShippingAsBilling, shippingAddresses, displayedBillingAddresses, selectedBillingAddressId])
 
-  const incrementItemQty = (item) => {
-    updateQuantity(item.key, Number(item.quantity || 0) + 1)
-  }
-
-  const decrementItemQty = (item) => {
-    const nextQty = Math.max(1, Number(item.quantity || 1) - 1)
-    updateQuantity(item.key, nextQty)
-  }
-
   const removeItem = (item) => {
     updateQuantity(item.key, 0)
+  }
+
+  const scrollToSection = (sectionRef) => {
+    if (!sectionRef?.current) return
+    sectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  const getPaymentBlockingIssue = () => {
+    if (!checkoutItems.length) {
+      return {
+        message: 'Your checkout selection is empty. Add item(s) before payment.',
+        sectionRef: paymentMethodSectionRef,
+      }
+    }
+    if (isAuthLoading) {
+      return {
+        message: 'Checking your account. Please wait a moment.',
+        sectionRef: contactPhoneSectionRef,
+      }
+    }
+    if (isStartingPayment) {
+      return {
+        message: 'Payment is already starting. Please wait.',
+        sectionRef: paymentMethodSectionRef,
+      }
+    }
+    if (!isPaystackReady) {
+      return {
+        message: 'Paystack is still loading. Please try again.',
+        sectionRef: paymentMethodSectionRef,
+      }
+    }
+    if (!selectedPaymentMethodId) {
+      return {
+        message: 'Select a payment method to continue.',
+        sectionRef: paymentMethodSectionRef,
+      }
+    }
+    if (!selectedBillingAddress) {
+      return {
+        message: 'Select a billing address before payment.',
+        sectionRef: billingSectionRef,
+      }
+    }
+    if (!contactPhoneLocal || String(contactPhoneLocal || '').length < minLocalPhoneLength) {
+      return {
+        message: `Enter a valid contact phone number after country code +${selectedDialCode}.`,
+        sectionRef: contactPhoneSectionRef,
+      }
+    }
+    return null
+  }
+
+  const isProceedBlocked = Boolean(getPaymentBlockingIssue())
+
+  const handleProceedClick = () => {
+    const blockingIssue = getPaymentBlockingIssue()
+    if (blockingIssue) {
+      setPaymentError(blockingIssue.message)
+      scrollToSection(blockingIssue.sectionRef)
+      return
+    }
+    void handlePayWithPaystack()
   }
 
   const openAddressModal = () => {
@@ -462,7 +508,7 @@ export default function CheckoutPaymentPage() {
     setDraftAddress({
       ...emptyAddressDraft,
       isDefault: billingAddresses.length === 0,
-      country: profile?.country || '',
+      country: normalizeCheckoutCountry(profile?.country),
     })
     setIsAddressModalOpen(true)
   }
@@ -480,7 +526,7 @@ export default function CheckoutPaymentPage() {
       city: address.city || '',
       state: address.state || '',
       postalCode: address.postalCode || '',
-      country: address.country || '',
+      country: normalizeCheckoutCountry(address.country),
       isDefault: Boolean(address.isDefault),
     })
     setIsAddressModalOpen(true)
@@ -537,8 +583,7 @@ export default function CheckoutPaymentPage() {
     const profileFirstName =
       String(profile?.firstName || profile?.displayName || 'Customer').trim() || 'Customer'
     const profileCountry =
-      String(profile?.country || defaultItem?.country || draftAddress.country || 'Unknown').trim() ||
-      'Unknown'
+      normalizeCheckoutCountry(profile?.country || defaultItem?.country || draftAddress.country)
 
     setIsSavingAddress(true)
     setAddressError('')
@@ -551,7 +596,7 @@ export default function CheckoutPaymentPage() {
             city: String(profile.deliveryAddress.city || ''),
             state: String(profile.deliveryAddress.state || ''),
             postalCode: String(profile.deliveryAddress.postalCode || ''),
-            country: String(profile.deliveryAddress.country || ''),
+            country: normalizeCheckoutCountry(profile.deliveryAddress.country),
           }
         : {
             line1: '',
@@ -559,7 +604,7 @@ export default function CheckoutPaymentPage() {
             city: '',
             state: '',
             postalCode: '',
-            country: '',
+            country: DEFAULT_COUNTRY,
           }
 
       const response = await fetch('/api/user/profile', {
@@ -578,7 +623,7 @@ export default function CheckoutPaymentPage() {
                 city: defaultItem.city || '',
                 state: defaultItem.state || '',
                 postalCode: defaultItem.postalCode || '',
-                country: defaultItem.country || '',
+                country: normalizeCheckoutCountry(defaultItem.country),
               }
             : {
                 line1: '',
@@ -586,7 +631,7 @@ export default function CheckoutPaymentPage() {
                 city: '',
                 state: '',
                 postalCode: '',
-                country: '',
+                country: DEFAULT_COUNTRY,
               },
           deliveryAddress,
         }),
@@ -622,28 +667,41 @@ export default function CheckoutPaymentPage() {
   }
 
   const handlePayWithPaystack = async () => {
-    if (!checkoutItems.length) return
+    if (!checkoutItems.length) {
+      scrollToSection(paymentMethodSectionRef)
+      return
+    }
     if (!paystackPublicKey) {
       setPaymentError('Missing Paystack public key configuration.')
+      scrollToSection(paymentMethodSectionRef)
       return
     }
     if (!window.PaystackPop || !isPaystackReady) {
       setPaymentError('Paystack is still loading. Please try again.')
+      scrollToSection(paymentMethodSectionRef)
+      return
+    }
+    if (!selectedPaymentMethodId) {
+      setPaymentError('Select a payment method to continue.')
+      scrollToSection(paymentMethodSectionRef)
       return
     }
     const phone = String(contactPhoneDigits || '').trim()
     if (!phone || String(contactPhoneLocal || '').length < minLocalPhoneLength) {
       setPaymentError(`Enter a valid contact phone number after country code +${selectedDialCode}.`)
+      scrollToSection(contactPhoneSectionRef)
       return
     }
 
     const email = String(paystackEmail || '').trim()
     if (!email) {
       setPaymentError('Unable to prepare payment contact details.')
+      scrollToSection(contactPhoneSectionRef)
       return
     }
     if (!selectedBillingAddress) {
       setPaymentError('Select a billing address before payment.')
+      scrollToSection(billingSectionRef)
       return
     }
 
@@ -668,7 +726,6 @@ export default function CheckoutPaymentPage() {
           item_count: checkoutSummary.itemCount,
           protection_item_count: Number(checkoutSummary.protectedItemCount || 0),
           protection_fee: protectionFee,
-          promo_code: promoCode.trim(),
           selected_payment_method: selectedPaymentMethodId,
           selected_payment_channel: selectedPaystackChannels[0] || '',
           contact_phone: `+${phone}`,
@@ -699,10 +756,70 @@ export default function CheckoutPaymentPage() {
   }
 
   return (
-    <div className='min-h-screen bg-[#eceff1] text-slate-900'>
-      <div className='mx-auto w-full max-w-7xl px-4 pb-10 pt-4 sm:px-6'>
-        <div className='grid gap-5 lg:grid-cols-[1.65fr_1fr]'>
-          <section className='rounded-3xl border border-slate-200 bg-white p-4 sm:p-5'>
+    <div className='min-h-screen bg-white text-slate-900'>
+      <div className='w-full pb-24 pt-4 sm:pb-24 lg:mx-auto lg:max-w-7xl lg:px-6 lg:pb-10'>
+        <section className='pb-4 sm:hidden'>
+          <header className='flex items-center justify-between py-2'>
+            <button
+              type='button'
+              onClick={() => router.back()}
+              className='inline-flex h-8 w-8 items-center justify-center text-slate-700'
+              aria-label='Go back'
+            >
+              <svg viewBox='0 0 20 20' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='2'>
+                <path d='M12.5 4.5L7 10l5.5 5.5' strokeLinecap='round' strokeLinejoin='round' />
+              </svg>
+            </button>
+            <h1 className='text-sm font-bold tracking-[0.08em] text-slate-900'>CHECKOUT</h1>
+            <span className='h-8 w-8' />
+          </header>
+
+          <div className='mt-2 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm'>
+            <div className='grid grid-cols-3 gap-1 text-center text-[10px] leading-tight'>
+              <div className='text-slate-900'>
+                <div className='mx-auto mb-1 inline-flex items-center justify-center text-slate-900'>
+                  <svg viewBox='0 0 256 256' className='h-6 w-6' fill='currentColor' aria-hidden='true'>
+                    <polygon points='256,80.7 211.6,36.9 142,36.9 142,80.7' />
+                    <polygon points='118,36.9 48.1,36.9 4,80.7 118,80.7' />
+                    <path d='M142,93.9v44.4H118V93.9H4v169.2h252V93.9H142z M176.1,180.1l16.6,16.6h-7.2V225h-18.9v-28.3h-7.2L176.1,180.1z M238.8,245.9h-79.3V233h79.3V245.9z M231.7,196.7V225h-18.9v-28.3h-7.2l16.6-16.6l16.6,16.6H231.7z' />
+                  </svg>
+                </div>
+                <p className='font-semibold'>Shipping</p>
+              </div>
+              <div className='relative text-slate-900'>
+                <span className='pointer-events-none absolute -left-[35%] top-2.5 z-0 h-0 w-[70%] border-t-2 border-dotted border-slate-300' aria-hidden='true' />
+                <div className='relative z-10 mx-auto mb-1 inline-flex items-center justify-center bg-white px-0.5'>
+                  <svg viewBox='0 0 24 24' className='h-7 w-7' fill='none' stroke='currentColor' aria-hidden='true'>
+                    <rect x='3' y='6' width='18' height='13' rx='2' strokeWidth='2.2' strokeLinecap='round' strokeLinejoin='round' />
+                    <path d='M3 10H20.5' strokeWidth='2.2' strokeLinecap='round' strokeLinejoin='round' />
+                    <path d='M7 15H9' strokeWidth='2.2' strokeLinecap='round' strokeLinejoin='round' />
+                  </svg>
+                </div>
+                <p className='font-semibold'>Payment</p>
+              </div>
+              <div className='relative text-slate-400'>
+                <span className='pointer-events-none absolute -left-[35%] top-2.5 z-0 h-0 w-[70%] border-t-2 border-dotted border-slate-300' aria-hidden='true' />
+                <div className='relative z-10 mx-auto mb-1 inline-flex items-center justify-center bg-white px-0.5'>
+                  <svg viewBox='0 0 24 24' className='h-7 w-7' fill='none' stroke='currentColor' aria-hidden='true'>
+                    <rect x='5' y='4' width='14' height='17' rx='2' strokeWidth='2.2' />
+                    <path d='M9 9H15' strokeWidth='2.2' strokeLinecap='round' />
+                    <path d='M9 13H15' strokeWidth='2.2' strokeLinecap='round' />
+                    <path d='M9 17H13' strokeWidth='2.2' strokeLinecap='round' />
+                  </svg>
+                </div>
+                <p>Summary</p>
+              </div>
+            </div>
+            <div className='mt-2 grid grid-cols-3'>
+              <span className='mx-auto h-0.5 w-14 rounded-full bg-slate-900' />
+              <span className='mx-auto h-0.5 w-14 rounded-full bg-slate-900' />
+              <span className='mx-auto h-0.5 w-14 rounded-full bg-transparent' />
+            </div>
+          </div>
+        </section>
+
+        <div className='grid gap-5 lg:grid-cols-2'>
+          <section className='rounded-lg border border-slate-200 bg-white p-4 sm:p-5'>
             <div>
               <h1 className='text-[26px] font-semibold leading-none text-slate-900'>Secure Checkout</h1>
               <p className='mt-1 text-sm text-slate-500'>
@@ -710,129 +827,164 @@ export default function CheckoutPaymentPage() {
               </p>
             </div>
 
-            <div className='mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4'>
-              <div className='flex items-center justify-between gap-3'>
-                <h2 className='text-sm font-semibold uppercase tracking-[0.08em] text-slate-500'>Billing Address</h2>
-                <button
-                  type='button'
-                  onClick={openAddressModal}
-                  className='rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700'
-                >
-                  + New
-                </button>
+            <div ref={billingSectionRef} className='mt-5 sm:rounded-lg sm:border sm:border-slate-200 sm:bg-slate-50 sm:p-4'>
+              <div>
+                <div className='mt-2 flex items-center justify-between gap-2'>
+                  <p className='text-sm font-semibold text-slate-900'>Select a billing address</p>
+                  <button
+                    type='button'
+                    onClick={openAddressModal}
+                    className='text-[11px] font-semibold text-slate-700 underline underline-offset-2'
+                  >
+                    Add New
+                  </button>
+                </div>
+                <div className='mt-2 rounded-md border border-slate-200 bg-white px-3 py-2'>
+                  {isLoadingAddresses ? (
+                    <div className='h-10 animate-pulse rounded-md bg-slate-100' />
+                  ) : activeBillingAddressPool.length > 0 ? (
+                    <div className='space-y-2'>
+                      {activeBillingAddressPool.map((address) => {
+                        const isSelected = selectedBillingAddressId === address.id
+                        const mobileAddressLine = [
+                          address.line1,
+                          address.line2,
+                          [address.city, address.state].filter(Boolean).join(', '),
+                          [address.postalCode, address.country].filter(Boolean).join(', '),
+                        ]
+                          .filter(Boolean)
+                          .join(', ')
+
+                        return (
+                          <div key={`mobile-billing-address-${address.id}`} className='flex w-full items-start gap-2'>
+                            <span
+                              className={`mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                                isSelected ? 'border-slate-900' : 'border-slate-300'
+                              }`}
+                              aria-hidden='true'
+                            >
+                              {isSelected ? <span className='h-2 w-2 rounded-full bg-slate-900' /> : null}
+                            </span>
+                            <button
+                              type='button'
+                              onClick={() => setSelectedBillingAddressId(address.id)}
+                              className='min-w-0 flex-1 text-left'
+                            >
+                              <p className='text-xs font-semibold text-slate-900'>
+                                {address.label}
+                                {address.isDefault ? (
+                                  <span className='ml-1 rounded-full border border-slate-300 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600'>
+                                    Default
+                                  </span>
+                                ) : null}
+                              </p>
+                              <p className='line-clamp-2 text-[11px] text-slate-500'>{mobileAddressLine}</p>
+                            </button>
+                            <button
+                              type='button'
+                              onClick={() => {
+                                setSelectedBillingAddressId(address.id)
+                                openEditAddressModal(address)
+                              }}
+                              className='inline-flex h-7 w-7 items-center justify-center text-slate-500'
+                              aria-label='Edit billing address'
+                            >
+                              <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                                <path
+                                  d='M3.5 13.5v3h3L15.6 7.4a1.2 1.2 0 0 0 0-1.7L14.3 4.4a1.2 1.2 0 0 0-1.7 0L3.5 13.5Z'
+                                  strokeLinecap='round'
+                                  strokeLinejoin='round'
+                                />
+                                <path d='m11.5 5.5 3 3' strokeLinecap='round' strokeLinejoin='round' />
+                              </svg>
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className='text-xs text-slate-500'>No billing address yet. Add one to continue.</p>
+                  )}
+                </div>
+                {addressSuccess ? <p className='mt-2 text-xs text-emerald-600'>{addressSuccess}</p> : null}
+                {addressError ? <p className='mt-2 text-xs text-rose-600'>{addressError}</p> : null}
               </div>
-              {shippingAddresses.length > 0 ? (
-                <label className='mt-2 inline-flex items-center gap-2 text-xs text-slate-600'>
-                  <input
-                    type='checkbox'
-                    checked={useShippingAsBilling}
-                    onChange={(event) => setUseShippingAsBilling(event.target.checked)}
-                    className='h-4 w-4 rounded border-slate-300 text-slate-900'
-                  />
-                  Same as shipping address
-                </label>
-              ) : null}
 
-              {isLoadingAddresses ? (
-                <div className='mt-3 h-12 animate-pulse rounded-md bg-slate-200' />
-              ) : selectedBillingAddress ? (
-                <div className='mt-3 flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2'>
-                  <button
-                    type='button'
-                    onClick={() => setSelectedBillingAddressId(selectedBillingAddress.id)}
-                    className='flex items-start gap-2 text-left'
-                  >
-                    <span className='mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-900'>
-                      <span className='h-1.5 w-1.5 rounded-full bg-white' />
-                    </span>
-                    <span>
-                      <p className='text-sm font-semibold text-slate-900'>{selectedBillingAddress.label}</p>
-                      <p className='text-xs text-slate-500'>{formatAddressLine(selectedBillingAddress)}</p>
-                    </span>
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => openEditAddressModal(selectedBillingAddress)}
-                    className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:text-slate-700'
-                    aria-label='Edit billing address'
-                  >
-                    <svg viewBox='0 0 20 20' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='1.8'>
-                      <path
-                        d='M3.5 13.5v3h3L15.6 7.4a1.2 1.2 0 0 0 0-1.7L14.3 4.4a1.2 1.2 0 0 0-1.7 0L3.5 13.5Z'
-                        strokeLinecap='round'
-                        strokeLinejoin='round'
-                      />
-                      <path d='m11.5 5.5 3 3' strokeLinecap='round' strokeLinejoin='round' />
-                    </svg>
-                  </button>
-                </div>
-              ) : (
-                <div className='mt-3 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2'>
-                  <p className='text-xs text-slate-500'>No billing address yet. Add one to continue.</p>
-                  <button
-                    type='button'
-                    onClick={openAddressModal}
-                    className='rounded-md bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white'
-                  >
-                    Add address
-                  </button>
-                </div>
-              )}
-
-              {!hasDedicatedBillingAddresses && displayedBillingAddresses.length > 0 ? (
-                <p className='mt-2 text-xs text-slate-500'>
-                  Using shipping address temporarily. Add a billing address to keep it separate.
-                </p>
-              ) : null}
-              {useShippingAsBilling ? (
-                <p className='mt-2 text-xs text-slate-500'>
-                  Billing is currently set to your shipping address for this checkout.
-                </p>
-              ) : null}
-
-              {activeBillingAddressPool.length > 0 ? (
-                <div className='mt-3 flex flex-wrap gap-2'>
-                  {activeBillingAddressPool.map((address) => (
-                    <button
-                      key={address.id}
-                      type='button'
-                      onClick={() => setSelectedBillingAddressId(address.id)}
-                      className={`rounded-full border px-3 py-1 text-xs font-medium ${
-                        address.id === selectedBillingAddressId
-                          ? 'border-sky-500 bg-sky-50 text-sky-700'
-                          : 'border-slate-200 bg-white text-slate-600'
-                      }`}
-                    >
-                      {address.label}
-                    </button>
-                  ))}
-                  <button
-                    type='button'
-                    onClick={openAddressModal}
-                    className='rounded-full border border-dashed border-slate-300 px-3 py-1 text-xs font-medium text-slate-500'
-                  >
-                    + New address
-                  </button>
-                </div>
-              ) : null}
-
-              {addressSuccess ? (
-                <p className='mt-2 text-xs text-emerald-600'>{addressSuccess}</p>
-              ) : null}
-              {addressError ? (
-                <p className='mt-2 text-xs text-rose-600'>{addressError}</p>
-              ) : null}
             </div>
 
-            <div className='mt-5 rounded-2xl bg-white'>
+            <div ref={paymentMethodSectionRef} className='mt-5 rounded-lg bg-white'>
               <div className='border-b border-slate-200 px-4 py-3'>
                 <h2 className='text-sm font-semibold uppercase tracking-[0.08em] text-slate-500'>
                   Choose Payment Method
                 </h2>
               </div>
-              <div className='space-y-3 p-3'>
+              <div className='sm:hidden'>
+                {mobilePaymentMethods.map((method, index) => (
+                  <button
+                    key={`mobile-payment-method-${method.id}`}
+                    type='button'
+                    onClick={() => setSelectedPaymentMethodId(method.id)}
+                    className={`flex w-full items-center justify-between px-3 py-3 text-left ${
+                      index < mobilePaymentMethods.length - 1 ? 'border-b border-slate-200' : ''
+                    }`}
+                  >
+                    <div className='flex items-center gap-3'>
+                      {method.logo === 'visa' ? (
+                        <span className='text-base font-extrabold tracking-tight text-[#1A1F71]'>VISA</span>
+                      ) : null}
+                      {method.logo === 'mastercard' ? (
+                        <svg
+                          viewBox='0 -222 2000 2000'
+                          className='h-7 w-12'
+                          xmlns='http://www.w3.org/2000/svg'
+                          aria-label='Mastercard'
+                          role='img'
+                        >
+                          <path fill='#ff5f00' d='M1270.57 1104.15H729.71v-972h540.87Z' />
+                          <path fill='#eb001b' d='M764 618.17c0-197.17 92.32-372.81 236.08-486A615.46 615.46 0 0 0 618.09 0C276.72 0 0 276.76 0 618.17s276.72 618.17 618.09 618.17a615.46 615.46 0 0 0 382-132.17C856.34 991 764 815.35 764 618.17' />
+                          <path fill='#f79e1b' d='M2000.25 618.17c0 341.41-276.72 618.17-618.09 618.17a615.65 615.65 0 0 1-382.05-132.17c143.8-113.19 236.12-288.82 236.12-486s-92.32-372.81-236.12-486A615.65 615.65 0 0 1 1382.15 0c341.37 0 618.09 276.76 618.09 618.17' />
+                        </svg>
+                      ) : null}
+                      {method.logo === 'bank-transfer' ? (
+                        <span className='inline-flex h-6 items-center justify-center rounded border border-slate-300 bg-slate-100 px-2 text-[11px] font-bold text-slate-700'>
+                          BANK
+                        </span>
+                      ) : null}
+                      {method.logo === 'ussd' ? (
+                        <span className='inline-flex h-6 items-center justify-center rounded border border-emerald-300 bg-emerald-50 px-2 text-[11px] font-bold text-emerald-700'>
+                          *737#
+                        </span>
+                      ) : null}
+                      {method.logo === 'amex' ? (
+                        <span className='rounded bg-[#2E77BC] px-2 py-1 text-[10px] font-bold text-white'>
+                          AMEX
+                        </span>
+                      ) : null}
+                      {method.logo === 'verve' ? (
+                        <span className='rounded bg-[#0b1d4d] px-2 py-1 text-[10px] font-bold text-white'>
+                          VERVE
+                        </span>
+                      ) : null}
+                      <span className='text-sm text-slate-900'>{method.label}</span>
+                    </div>
+                    <span
+                      className={`inline-flex h-5 w-5 items-center justify-center rounded-full border ${
+                        selectedPaymentMethodId === method.id
+                          ? 'border-sky-600'
+                          : 'border-slate-300'
+                      }`}
+                      aria-hidden='true'
+                    >
+                      {selectedPaymentMethodId === method.id ? (
+                        <span className='h-2 w-2 rounded-full bg-sky-600' />
+                      ) : null}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className='hidden space-y-3 p-3 sm:block'>
                 {PAYMENT_METHOD_GROUPS.map((group) => (
-                  <div key={group.id} className='overflow-hidden rounded-xl border border-slate-200'>
+                  <div key={group.id} className='overflow-hidden rounded-lg border border-slate-200'>
                     <div className='bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-500'>
                       {group.title}
                     </div>
@@ -912,7 +1064,7 @@ export default function CheckoutPaymentPage() {
               </div>
             </div>
 
-            <div className='mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4'>
+            <div ref={contactPhoneSectionRef} className='mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4'>
               <label className='block text-xs font-semibold uppercase tracking-[0.08em] text-slate-500'>
                 Contact Phone Number
                 <span className='ml-1 text-rose-500'>*</span>
@@ -945,17 +1097,8 @@ export default function CheckoutPaymentPage() {
 
                 {isPhoneCountryMenuOpen ? (
                   <div className='absolute z-30 mt-12 w-full max-w-[320px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl'>
-                    <div className='border-b border-slate-200 p-2'>
-                      <input
-                        type='text'
-                        value={phoneSearch}
-                        onChange={(event) => setPhoneSearch(event.target.value)}
-                        placeholder='Search for countries'
-                        className='h-9 w-full rounded-lg border border-slate-200 px-3 text-sm text-slate-800 outline-none focus:border-slate-900'
-                      />
-                    </div>
                     <div className='max-h-64 overflow-y-auto py-1'>
-                      {filteredPhoneCountryOptions.map((entry) => (
+                      {phoneCountryOptions.map((entry) => (
                         <button
                           key={entry.country}
                           type='button'
@@ -963,7 +1106,6 @@ export default function CheckoutPaymentPage() {
                             hasManualPhoneCountryRef.current = true
                             setPhoneCountry(entry.country)
                             setIsPhoneCountryMenuOpen(false)
-                            setPhoneSearch('')
                           }}
                           className='flex w-full items-center justify-between px-3 py-2 text-left hover:bg-slate-50'
                         >
@@ -985,7 +1127,7 @@ export default function CheckoutPaymentPage() {
                 <p className='mt-2 text-xs text-slate-500'>Checking account...</p>
               ) : null}
               <p className='mt-2 text-xs text-slate-500'>
-                {selectedFlagEmoji} +{selectedDialCode} {contactPhoneLocal || 'Phone number'}
+                We will use this number to contact you about your delivery and payment updates.
               </p>
               {paymentError ? (
                 <p className='mt-2 text-xs text-rose-600'>{paymentError}</p>
@@ -993,7 +1135,7 @@ export default function CheckoutPaymentPage() {
             </div>
 
             <div className='mt-5 grid items-center gap-3 sm:grid-cols-2'>
-              <div className='flex items-center justify-center'>
+              <div className='flex items-center justify-center sm:col-span-2 lg:col-span-1'>
                 <Image
                   src={paystackLogo}
                   alt='Paystack'
@@ -1005,23 +1147,17 @@ export default function CheckoutPaymentPage() {
               </div>
               <button
                 type='button'
-                onClick={handlePayWithPaystack}
-                disabled={
-                  !checkoutItems.length ||
-                  isAuthLoading ||
-                  isStartingPayment ||
-                  !isPaystackReady ||
-                  !selectedBillingAddress ||
-                  !contactPhoneLocal ||
-                  contactPhoneLocal.length < minLocalPhoneLength
-                }
-                className='inline-flex h-10 w-full items-center justify-center gap-2 self-center rounded-md bg-black px-5 text-sm font-semibold text-white shadow-[0_2px_8px_rgba(0,0,0,0.25)] disabled:cursor-not-allowed disabled:opacity-60'
+                onClick={handleProceedClick}
+                aria-disabled={isProceedBlocked || isStartingPayment}
+                className={`hidden h-10 w-full items-center justify-center gap-2 self-center rounded-md bg-black px-5 text-sm font-semibold text-white shadow-[0_2px_8px_rgba(0,0,0,0.25)] lg:inline-flex ${
+                  isProceedBlocked || isStartingPayment ? 'cursor-not-allowed opacity-60' : ''
+                }`}
               >
                 {isStartingPayment ? (
                   'Connecting to Paystack...'
                 ) : (
                   <>
-                    <span>Proceed to pay</span>
+                    <span>{`Pay now ${formatMoney(totalAmount)}`}</span>
                     <svg
                       viewBox='0 0 20 20'
                       className='h-4 w-4'
@@ -1030,7 +1166,7 @@ export default function CheckoutPaymentPage() {
                       strokeWidth='2'
                       aria-hidden='true'
                     >
-                      <path d='M4 10h11m0 0-4-4m4 4-4 4' strokeLinecap='round' strokeLinejoin='round' />
+                      <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
                     </svg>
                   </>
                 )}
@@ -1038,199 +1174,224 @@ export default function CheckoutPaymentPage() {
             </div>
           </section>
 
-          <aside className='rounded-3xl border border-slate-200 bg-white p-4 sm:p-5'>
-            <h2 className='text-2xl font-semibold leading-none text-slate-900'>Order Summary</h2>
-
-            <div className='mt-4 space-y-3'>
-              {checkoutItems.map((item) => (
-                <div key={item.key} className='flex items-start gap-3'>
-                  <img
-                    src={item.image || '/favicon.ico'}
-                    alt={item.name}
-                    className='h-14 w-14 rounded-xl border border-slate-200 object-cover'
-                    draggable={false}
-                    onDragStart={(event) => event.preventDefault()}
-                  />
-                  <div className='min-w-0 flex-1'>
-                    <p className='truncate text-sm font-semibold text-slate-900'>{item.name}</p>
-                    <p className='text-sm font-semibold text-slate-700'>{formatMoney(item.price)}</p>
-                  </div>
-                  <div className='flex items-center gap-2'>
-                    <button
-                      type='button'
-                      onClick={() => removeItem(item)}
-                      className='text-slate-400 hover:text-slate-600'
-                      aria-label='Remove item'
-                    >
-                      x
-                    </button>
-                    <div className='inline-flex items-center gap-2 rounded-full border border-slate-200 px-2 py-1'>
-                      <button
-                        type='button'
-                        onClick={() => decrementItemQty(item)}
-                        className='inline-flex h-6 w-6 items-center justify-center rounded-full text-sm font-semibold text-slate-700'
-                        aria-label='Decrease quantity'
-                      >
-                        -
-                      </button>
-                      <span className='w-4 text-center text-sm font-semibold text-slate-800'>{item.quantity}</span>
-                      <button
-                        type='button'
-                        onClick={() => incrementItemQty(item)}
-                        className='inline-flex h-6 w-6 items-center justify-center rounded-full text-sm font-semibold text-slate-700'
-                        aria-label='Increase quantity'
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className='mt-5'>
-              <h3 className='text-2xl font-semibold leading-none text-slate-900'>Promotion Code</h3>
-              <div className='mt-2 flex items-center rounded-xl border border-slate-200 bg-slate-50 px-3 py-2'>
-                <input
-                  type='text'
-                  value={promoCode}
-                  onChange={(event) => setPromoCode(event.target.value)}
-                  placeholder='Add Promo Code'
-                  className='w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400'
-                />
+          <div className='self-start space-y-3 lg:col-start-2 lg:row-start-1'>
+            <aside className='px-4 py-3 sm:rounded-lg sm:border sm:border-slate-200 sm:bg-white sm:p-5'>
+              <div className='flex items-center justify-between py-2'>
                 <button
                   type='button'
-                  className='inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-600'
-                  aria-label='Apply promo code'
+                  onClick={() => setIsMobileOrderSummaryOpen((prev) => !prev)}
+                  className='text-left sm:cursor-default'
                 >
-                  <svg viewBox='0 0 20 20' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='2'>
-                    <path d='m7 5 6 5-6 5' strokeLinecap='round' strokeLinejoin='round' />
+                  <h2 className='text-xl font-semibold leading-none text-slate-900 sm:text-2xl'>Order Summary</h2>
+                  <p className='mt-1 text-xs text-slate-500 sm:hidden'>
+                    {`${checkoutSummary.itemCount} item${checkoutSummary.itemCount === 1 ? '' : 's'} • ${formatMoney(totalAmount)}`}
+                  </p>
+                </button>
+                <button
+                  type='button'
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setIsMobileOrderSummaryOpen((prev) => !prev)
+                  }}
+                  className='inline-flex h-7 w-7 items-center justify-center text-slate-600 sm:hidden'
+                  aria-label={isMobileOrderSummaryOpen ? 'Collapse order summary' : 'Expand order summary'}
+                >
+                  <svg
+                    viewBox='0 0 20 20'
+                    className={`h-4 w-4 transition-transform ${isMobileOrderSummaryOpen ? 'rotate-90' : ''}`}
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='2'
+                    aria-hidden='true'
+                  >
+                    <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
                   </svg>
                 </button>
               </div>
-            </div>
 
-            <div className='mt-5'>
-              <h3 className='text-2xl font-semibold leading-none text-slate-900'>Order Total</h3>
-              <div className='mt-3 space-y-2 text-sm'>
-                <div className='flex items-center justify-between text-slate-600'>
-                  <span>Subtotal</span>
-                  <span className='font-semibold text-slate-900'>{formatMoney(checkoutSummary.subtotal)}</span>
-                </div>
-                <div className='flex items-center justify-between text-slate-600'>
-                  <span>Shipping</span>
-                  <span className='font-semibold text-slate-900'>{formatMoney(shippingFee)}</span>
-                </div>
-                <div className='flex items-center justify-between text-slate-600'>
-                  <span>Tax ({Math.round(TAX_RATE * 100)}%)</span>
-                  <span className='font-semibold text-slate-900'>{formatMoney(taxAmount)}</span>
-                </div>
-                {protectionFee > 0 ? (
+              <div className={`${isMobileOrderSummaryOpen ? 'mt-3 space-y-3' : 'hidden'} sm:mt-4 sm:block sm:space-y-3`}>
+                {checkoutItems.map((item) => {
+                  const currentPrice = Number(item.price || 0)
+                  const regularPrice = Number(item.originalPrice || item.price || 0)
+                  const hasDiscountPrice = regularPrice > currentPrice
+
+                  return (
+                    <div key={item.key} className='flex items-start gap-3'>
+                      <img
+                        src={item.image || '/favicon.ico'}
+                        alt={item.name}
+                        className='h-20 w-20 rounded-lg border border-slate-200 object-cover'
+                        draggable={false}
+                        onDragStart={(event) => event.preventDefault()}
+                      />
+                      <div className='min-w-0 flex-1'>
+                        <p className='truncate text-sm font-semibold text-slate-900'>{item.name}</p>
+                        <div className='mt-0.5 flex items-center gap-2'>
+                          <p className={`text-sm font-semibold ${hasDiscountPrice ? 'text-[#ff4d1f]' : 'text-slate-700'}`}>
+                            {formatMoney(item.price)}
+                          </p>
+                          {hasDiscountPrice ? (
+                            <p className='text-xs text-slate-400 line-through'>{formatMoney(regularPrice)}</p>
+                          ) : null}
+                        </div>
+                        <button
+                          type='button'
+                          onClick={() => removeItem(item)}
+                          className='mt-1 inline-flex text-xs font-medium text-rose-600 underline underline-offset-2 hover:text-rose-700'
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <div className='shrink-0'>
+                        <CartQuantitySelect
+                          quantity={item.quantity}
+                          onChange={(nextQuantity) => updateQuantity(item.key, nextQuantity)}
+                          isLoading={Boolean(item.isSyncing)}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className={`${isMobileOrderSummaryOpen ? 'mt-4' : 'hidden'} sm:mt-4 sm:block`}>
+                <h3 className='text-2xl font-semibold leading-none text-slate-900'>Order Total</h3>
+                <div className='mt-3 space-y-2 text-sm'>
                   <div className='flex items-center justify-between text-slate-600'>
-                    <span>Order Protection</span>
-                    <span className='font-semibold text-slate-900'>{formatMoney(protectionFee)}</span>
+                    <span>Subtotal</span>
+                    <span className='font-semibold text-slate-900'>{formatMoney(checkoutSummary.subtotal)}</span>
                   </div>
-                ) : null}
-                <div className='flex items-center justify-between border-t border-slate-200 pt-2 text-base font-semibold'>
-                  <span className='text-slate-900'>Total</span>
-                  <span className='text-sky-600'>{formatMoney(totalAmount)}</span>
+                  <div className='flex items-center justify-between text-slate-600'>
+                    <span>Shipping</span>
+                    <span className='font-semibold text-slate-900'>{formatFeeOrFree(shippingFee)}</span>
+                  </div>
+                  <div className='flex items-center justify-between text-slate-600'>
+                    <span>Tax ({Math.round(TAX_RATE * 100)}%)</span>
+                    <span className='font-semibold text-slate-900'>{formatMoney(taxAmount)}</span>
+                  </div>
+                  {protectionFee > 0 ? (
+                    <div className='flex items-center justify-between text-slate-600'>
+                      <span>Order Protection</span>
+                      <span className='font-semibold text-slate-900'>{formatMoney(protectionFee)}</span>
+                    </div>
+                  ) : null}
+                  <div className='border-t border-slate-200 pt-2 flex items-center justify-between text-base font-semibold'>
+                    <span className='text-slate-900'>Total</span>
+                    <span className='text-sky-600'>{formatMoney(totalAmount)}</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className='mt-5 space-y-3'>
-              <section className='rounded-xl border border-slate-200 bg-slate-100 px-3 py-2'>
-                <div className='flex items-center gap-2'>
-                  <svg
-                    viewBox='0 0 20 20'
-                    className='h-4 w-4 text-emerald-600'
-                    fill='none'
-                    stroke='currentColor'
-                    strokeWidth='1.8'
-                    aria-hidden='true'
-                  >
-                    <rect x='5.4' y='9' width='9.2' height='7' rx='1.2' />
-                    <path d='M7.3 9V7.3a2.7 2.7 0 1 1 5.4 0V9' />
-                  </svg>
-                  <p className='text-sm font-semibold text-slate-900'>Payment Security</p>
-                </div>
-                <p className='mt-1 text-xs leading-5 text-slate-600'>
-                  Your payment details are encrypted and securely processed. We never store your
-                  full card details on OCPRIMES.
+              {!isReady || !isServerReady ? (
+                <p className={`${isMobileOrderSummaryOpen ? 'mt-3' : 'hidden'} text-xs text-slate-500 sm:mt-3 sm:block`}>
+                  Refreshing cart details...
                 </p>
-                <button type='button' className='mt-1 text-[11px] font-semibold text-slate-700'>
-                  Learn more
-                  <span className='ml-1' aria-hidden='true'>
-                    ›
-                  </span>
-                </button>
-              </section>
+              ) : null}
+            </aside>
 
-              <section className='rounded-xl border border-slate-200 bg-slate-100 px-3 py-2'>
-                <div className='flex items-center gap-2'>
-                  <svg
-                    viewBox='0 0 20 20'
-                    className='h-4 w-4 text-blue-600'
-                    fill='none'
-                    stroke='currentColor'
-                    strokeWidth='1.8'
-                    aria-hidden='true'
-                  >
-                    <path d='M4.5 5.5h11v9h-11z' />
-                    <path d='M6.7 9.3h6.6M6.7 12h4.2' />
-                  </svg>
-                  <p className='text-sm font-semibold text-slate-900'>Return Policy</p>
+            <aside className='hidden rounded-lg border border-slate-200 bg-white p-4 lg:block'>
+              <h3 className='text-base font-semibold text-slate-900'>Shop Safely and Sustainably</h3>
+              <div className='mt-2 space-y-4'>
+                <div>
+                  <p className='flex items-center gap-2 text-sm font-semibold text-emerald-700'>
+                    <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                      <path d='M12 3.8 18.5 6v5.3c0 3.6-2.3 6.8-6.5 8.9-4.2-2.1-6.5-5.3-6.5-8.9V6z' />
+                      <path d='M9.3 11.9 11.2 13.8 14.7 10.3' strokeLinecap='round' strokeLinejoin='round' />
+                    </svg>
+                    Payment Security
+                  </p>
+                  <p className='mt-1 text-xs leading-5 text-slate-600'>
+                    Your payment information is protected and shared only with trusted payment
+                    service providers required to complete checkout.
+                  </p>
+                  <div className='mt-2 flex flex-wrap items-center gap-2'>
+                    <span className='text-[11px] font-extrabold tracking-tight text-[#1A1F71]'>VISA</span>
+                    <span className='text-[11px] font-extrabold text-[#eb001b]'>Mastercard</span>
+                    <span className='text-[11px] font-bold text-[#0046ad]'>ID Check</span>
+                    <span className='text-[11px] font-bold text-[#0b57d0]'>SafeKey</span>
+                    <span className='text-[11px] font-bold text-[#1f4fa3]'>JCB</span>
+                  </div>
                 </div>
-                <p className='mt-1 text-xs leading-5 text-slate-600'>
-                  Eligible products can be returned based on seller policy. Order Protection can
-                  override no-return items for covered issues.
-                </p>
-                <button type='button' className='mt-1 text-[11px] font-semibold text-slate-700'>
-                  Learn more
-                  <span className='ml-1' aria-hidden='true'>
-                    ›
-                  </span>
-                </button>
-              </section>
 
-              <section className='rounded-xl border border-slate-200 bg-slate-100 px-3 py-2'>
-                <div className='flex items-center gap-2'>
-                  <svg
-                    viewBox='0 0 20 20'
-                    className='h-4 w-4 text-violet-600'
-                    fill='none'
-                    stroke='currentColor'
-                    strokeWidth='1.8'
-                    aria-hidden='true'
-                  >
-                    <rect x='3.8' y='5.5' width='12.4' height='9' rx='1.4' />
-                    <path d='M3.8 8.7h12.4' />
-                  </svg>
-                  <p className='text-sm font-semibold text-slate-900'>Save Payment Options</p>
+                <div className='border-t border-slate-200 pt-3'>
+                  <p className='flex items-center gap-2 text-sm font-semibold text-emerald-700'>
+                    <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                      <rect x='5.2' y='10.3' width='13.6' height='9.2' rx='1.3' />
+                      <path d='M8 10.3V8.8a4 4 0 1 1 8 0v1.5' />
+                    </svg>
+                    Security & Privacy
+                  </p>
+                  <p className='mt-1 text-xs leading-5 text-slate-600'>
+                    We use industry-standard safeguards to protect your personal details and checkout data.
+                  </p>
+                  <button type='button' className='mt-1 text-[11px] font-semibold text-slate-700'>
+                    Learn more
+                    <svg viewBox='0 0 20 20' className='ml-1 inline-block h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='2' aria-hidden='true'>
+                      <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
+                    </svg>
+                  </button>
                 </div>
-                <p className='mt-1 text-xs leading-5 text-slate-600'>
-                  Save your preferred payment method for faster future checkout. You can manage
-                  saved options anytime in your account settings.
-                </p>
-                <button type='button' className='mt-1 text-[11px] font-semibold text-slate-700'>
-                  Learn more
-                  <span className='ml-1' aria-hidden='true'>
-                    ›
-                  </span>
-                </button>
-              </section>
-            </div>
 
-            {!isReady || !isServerReady ? (
-              <p className='mt-3 text-xs text-slate-500'>Refreshing cart details...</p>
-            ) : null}
-          </aside>
+                <div className='border-t border-slate-200 pt-3'>
+                  <p className='flex items-center gap-2 text-sm font-semibold text-emerald-700'>
+                    <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                      <path d='M3.5 8.5h10v7h-10z' />
+                      <path d='M13.5 10.5h4l2 2v3h-6z' />
+                      <circle cx='7' cy='16.5' r='1.2' />
+                      <circle cx='16.5' cy='16.5' r='1.2' />
+                    </svg>
+                    Secure Shipment Guarantee
+                  </p>
+                  <p className='mt-1 text-xs leading-5 text-slate-600'>
+                    Covered support is available for eligible lost, returned, or damaged packages.
+                  </p>
+                </div>
+
+                <div className='border-t border-slate-200 pt-3'>
+                  <p className='flex items-center gap-2 text-sm font-semibold text-emerald-700'>
+                    <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                      <path d='M5.5 11.5a6.5 6.5 0 1 1 13 0' />
+                      <rect x='4' y='11.5' width='3.5' height='6' rx='1.2' />
+                      <rect x='16.5' y='11.5' width='3.5' height='6' rx='1.2' />
+                      <path d='M16.5 18.5c0 1.1-.9 2-2 2H12' />
+                    </svg>
+                    Customer Support
+                  </p>
+                  <p className='mt-1 text-xs leading-5 text-slate-600'>
+                    Need help with your order? Our support team is available to assist you.
+                  </p>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div className='fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 backdrop-blur lg:hidden'>
+          <button
+            type='button'
+            onClick={handleProceedClick}
+            aria-disabled={isProceedBlocked || isStartingPayment}
+            className={`inline-flex w-full items-center justify-center gap-2 rounded-full bg-black px-4 py-3 text-sm font-semibold text-white ${
+              isProceedBlocked || isStartingPayment ? 'cursor-not-allowed opacity-50' : ''
+            }`}
+          >
+            {isStartingPayment ? (
+              'Connecting to Paystack...'
+            ) : (
+              <>
+                <span>{`Pay now ${formatMoney(totalAmount)}`}</span>
+                <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2' aria-hidden='true'>
+                  <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
+                </svg>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
       {isAddressModalOpen ? (
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4'>
-          <div className='mx-auto w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl max-h-[calc(100vh-6rem)] overflow-y-auto'>
+          <div className='mx-auto w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-5 shadow-2xl max-h-[calc(100vh-6rem)] overflow-y-auto'>
             <div className='flex items-center justify-between gap-3'>
               <h2 className='text-lg font-semibold text-slate-900'>
                 {editingAddressId ? 'Edit billing address' : 'Add billing address'}
@@ -1324,7 +1485,6 @@ export default function CheckoutPaymentPage() {
                   }
                   className='mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-slate-900'
                 >
-                  <option value=''>Select country</option>
                   {ACCEPTED_COUNTRIES.map((country) => (
                     <option key={country} value={country}>
                       {country}
@@ -1369,5 +1529,23 @@ export default function CheckoutPaymentPage() {
         </div>
       ) : null}
     </div>
+  )
+}
+
+function PaymentPageFallback() {
+  return (
+    <div className='min-h-screen bg-white px-4 py-10 sm:px-6 lg:px-8'>
+      <div className='mx-auto w-full max-w-6xl rounded-lg border border-slate-200 bg-white p-10 text-sm text-slate-500'>
+        Loading checkout...
+      </div>
+    </div>
+  )
+}
+
+export default function CheckoutPaymentPage() {
+  return (
+    <Suspense fallback={<PaymentPageFallback />}>
+      <CheckoutPaymentPageContent />
+    </Suspense>
   )
 }

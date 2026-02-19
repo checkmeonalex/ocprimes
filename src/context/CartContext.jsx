@@ -12,6 +12,7 @@ import {
 
 const CartContext = createContext(null)
 const STORAGE_KEY = 'ocprimes_cart_items'
+const SAVED_STORAGE_KEY = 'ocprimes_saved_items'
 const RETRY_DELAYS = [200, 500, 1000]
 const BACKGROUND_REFRESH_COOLDOWN_MS = 10000
 
@@ -36,8 +37,38 @@ const normalizeItems = (items) => {
 
 const normalizeServerItems = (items) => normalizeItems(items)
 
+const normalizeSavedItems = (items) => {
+  if (!Array.isArray(items)) return []
+  const map = new Map()
+  items.forEach((entry) => {
+    if (!entry) return
+    try {
+      const normalized = normalizeItem(entry)
+      const existing = map.get(normalized.key)
+      if (existing) {
+        map.set(normalized.key, {
+          ...existing,
+          quantity: Math.max(1, Number(existing.quantity || 1) + Number(normalized.quantity || 1)),
+        })
+        return
+      }
+      map.set(normalized.key, {
+        ...normalized,
+        quantity: Math.max(1, Number(normalized.quantity || 1)),
+      })
+    } catch {
+      // ignore malformed saved item entries
+    }
+  })
+  return Array.from(map.values())
+}
+
+const getSavedStorageKey = (userId) =>
+  userId ? `${SAVED_STORAGE_KEY}:${String(userId).trim()}` : SAVED_STORAGE_KEY
+
 export function CartProvider({ children }) {
   const [items, setItems] = useState([])
+  const [savedItems, setSavedItems] = useState([])
   const [isReady, setIsReady] = useState(false)
   const [isServerReady, setIsServerReady] = useState(false)
   const [cartVersion, setCartVersion] = useState(null)
@@ -46,6 +77,7 @@ export function CartProvider({ children }) {
   const { user, isLoading } = useAuthUser()
 
   const itemsRef = useRef(items)
+  const savedItemsRef = useRef(savedItems)
   const cartVersionRef = useRef(cartVersion)
   const lastUserIdRef = useRef(null)
   const metaRef = useRef(new Map())
@@ -58,6 +90,10 @@ export function CartProvider({ children }) {
   useEffect(() => {
     itemsRef.current = items
   }, [items])
+
+  useEffect(() => {
+    savedItemsRef.current = savedItems
+  }, [savedItems])
 
   useEffect(() => {
     cartVersionRef.current = cartVersion
@@ -390,8 +426,16 @@ export function CartProvider({ children }) {
         } else {
           setItemsState([])
         }
+        const savedRaw = window.localStorage.getItem(getSavedStorageKey(null))
+        if (savedRaw) {
+          const parsedSaved = JSON.parse(savedRaw)
+          setSavedItems(normalizeSavedItems(parsedSaved))
+        } else {
+          setSavedItems([])
+        }
       } catch {
         setItemsState([])
+        setSavedItems([])
       } finally {
         setIsReady(true)
         setIsServerReady(false)
@@ -419,6 +463,18 @@ export function CartProvider({ children }) {
         }
       } catch {
         localItems = []
+      }
+
+      try {
+        const savedRaw = window.localStorage.getItem(getSavedStorageKey(user.id))
+        if (savedRaw) {
+          const parsedSaved = JSON.parse(savedRaw)
+          setSavedItems(normalizeSavedItems(parsedSaved))
+        } else {
+          setSavedItems([])
+        }
+      } catch {
+        setSavedItems([])
       }
 
       try {
@@ -472,6 +528,16 @@ export function CartProvider({ children }) {
       // Ignore storage errors.
     }
   }, [items, isReady, user])
+
+  useEffect(() => {
+    if (isLoading) return
+    try {
+      const key = getSavedStorageKey(user?.id || null)
+      window.localStorage.setItem(key, JSON.stringify(savedItems))
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [savedItems, isLoading, user?.id])
 
   useEffect(() => {
     if (isLoading) return
@@ -662,6 +728,43 @@ export function CartProvider({ children }) {
     }
   }
 
+  const saveForLater = (key) => {
+    const existingCartItem = (itemsRef.current || []).find((entry) => entry.key === key)
+    if (!existingCartItem) return
+
+    setSavedItems((prev) => {
+      const normalizedPrev = normalizeSavedItems(prev)
+      const existingSaved = normalizedPrev.find((entry) => entry.key === key)
+      if (existingSaved) {
+        return normalizedPrev.map((entry) =>
+          entry.key === key
+            ? {
+                ...entry,
+                quantity: Math.max(
+                  1,
+                  Number(entry.quantity || 1) + Math.max(1, Number(existingCartItem.quantity || 1)),
+                ),
+              }
+            : entry,
+        )
+      }
+      return normalizeSavedItems([...normalizedPrev, existingCartItem])
+    })
+
+    removeItem(key)
+  }
+
+  const removeSavedItem = (key) => {
+    setSavedItems((prev) => prev.filter((entry) => entry.key !== key))
+  }
+
+  const moveToCart = (key) => {
+    const savedEntry = (savedItemsRef.current || []).find((entry) => entry.key === key)
+    if (!savedEntry) return
+    addItem(savedEntry, Math.max(1, Number(savedEntry.quantity || 1)))
+    removeSavedItem(key)
+  }
+
   const summary = useMemo(() => {
     const subtotal = items.reduce((sum, entry) => sum + entry.price * entry.quantity, 0)
     const originalTotal = items.reduce((sum, entry) => {
@@ -726,6 +829,10 @@ export function CartProvider({ children }) {
       setItemProtection,
       setAllProtection,
       removeItem,
+      savedItems,
+      saveForLater,
+      moveToCart,
+      removeSavedItem,
       clearCart,
       retryItem,
       summary,
@@ -734,6 +841,7 @@ export function CartProvider({ children }) {
     }),
     [
       items,
+      savedItems,
       isReady,
       isServerReady,
       isUpdating,

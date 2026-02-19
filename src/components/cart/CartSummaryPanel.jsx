@@ -69,7 +69,9 @@ const CartSummaryPanel = ({
             />
           </div>
           {amounts.protection > 0 ? (
-            <span className='text-sm font-semibold text-slate-900'>{formatMoney(amounts.protection)}</span>
+            <span className='whitespace-nowrap text-sm font-semibold tabular-nums text-slate-900'>
+              {formatMoney(amounts.protection)}
+            </span>
           ) : null}
         </div>
         <div className='mt-2 flex items-center justify-between gap-3'>
@@ -99,7 +101,9 @@ const CartSummaryPanel = ({
         <div className='mt-3 space-y-2 border-b border-slate-200 pb-3 text-sm'>
           <div className='flex items-center justify-between'>
             <span className='text-slate-600'>Sub Total :</span>
-            <span className='font-semibold text-slate-900'>{formatMoney(selectedSummary.subtotal)}</span>
+            <span className='whitespace-nowrap font-semibold tabular-nums text-slate-900'>
+              {formatMoney(selectedSummary.subtotal)}
+            </span>
           </div>
           <div className='flex items-center justify-between'>
             <span className='text-slate-600'>Shipping :</span>
@@ -107,7 +111,9 @@ const CartSummaryPanel = ({
           </div>
           <div className='flex items-center justify-between'>
             <span className='text-slate-600'>Tax :</span>
-            <span className='font-semibold text-slate-900'>{formatMoney(amounts.tax)}</span>
+            <span className='whitespace-nowrap font-semibold tabular-nums text-slate-900'>
+              {formatMoney(amounts.tax)}
+            </span>
           </div>
           {amounts.protection > 0 ? (
             <div className='flex items-center justify-between'>
@@ -118,14 +124,18 @@ const CartSummaryPanel = ({
                   className='inline-flex items-center text-[11px] text-slate-600 hover:text-slate-800'
                 />
               </span>
-              <span className='font-semibold text-slate-900'>{formatMoney(amounts.protection)}</span>
+              <span className='whitespace-nowrap font-semibold tabular-nums text-slate-900'>
+                {formatMoney(amounts.protection)}
+              </span>
             </div>
           ) : null}
         </div>
 
         <div className='mt-3 flex items-center justify-between'>
           <span className='text-sm text-slate-600'>Estimated Total Payable</span>
-          <span className='text-xl font-semibold text-slate-900'>{formatMoney(amounts.total)}</span>
+          <span className='whitespace-nowrap text-xl font-semibold tabular-nums text-slate-900'>
+            {formatMoney(amounts.total)}
+          </span>
         </div>
 
         <button
@@ -139,7 +149,7 @@ const CartSummaryPanel = ({
             )
           }}
           disabled={selectedSummary.itemCount <= 0}
-          className='mt-4 w-full rounded-md bg-[#0f172a] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#020617] disabled:cursor-not-allowed disabled:opacity-50'
+          className='mt-4 w-full rounded-md bg-black px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50'
         >
           Proceed to Secure Checkout ({selectedSummary.itemCount})
         </button>

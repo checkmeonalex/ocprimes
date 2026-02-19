@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   }
 
   const shippingCountry = parsed.data.shippingCountry.trim()
-  if (!ACCEPTED_COUNTRY_SET.has(shippingCountry as any)) {
+  if (!ACCEPTED_COUNTRY_SET.has(shippingCountry)) {
     return jsonError('Unsupported shipping country.', 400)
   }
 

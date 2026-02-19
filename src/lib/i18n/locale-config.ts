@@ -1,6 +1,6 @@
-import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
-
 export const DEFAULT_COUNTRY = 'Nigeria'
+export const INTERNATIONAL_COUNTRY = 'International'
+export const LOCALE_COUNTRY_OPTIONS = [DEFAULT_COUNTRY, INTERNATIONAL_COUNTRY] as const
 
 export const LANGUAGE_OPTIONS = [
   { code: 'EN', label: 'English' },
@@ -23,33 +23,23 @@ export const CURRENCY_OPTIONS = [
 
 export type LanguageCode = (typeof LANGUAGE_OPTIONS)[number]['code']
 export type CurrencyCode = (typeof CURRENCY_OPTIONS)[number]['code']
+export type LocaleCountry = (typeof LOCALE_COUNTRY_OPTIONS)[number]
 
-export const COUNTRY_DEFAULT_PREFS: Record<
-  (typeof ACCEPTED_COUNTRIES)[number],
-  { language: LanguageCode; currency: CurrencyCode }
-> = {
+export const COUNTRY_DEFAULT_PREFS: Record<LocaleCountry, { language: LanguageCode; currency: CurrencyCode }> = {
   Nigeria: { language: 'EN', currency: 'NGN' },
-  Egypt: { language: 'AR', currency: 'EGP' },
-  Ghana: { language: 'EN', currency: 'GHS' },
-  'Ivory Coast': { language: 'FR', currency: 'XOF' },
-  Algeria: { language: 'AR', currency: 'DZD' },
-  Morocco: { language: 'AR', currency: 'MAD' },
-  USA: { language: 'EN', currency: 'USD' },
-  UK: { language: 'EN', currency: 'GBP' },
-  UAE: { language: 'AR', currency: 'AED' },
-  Canada: { language: 'EN', currency: 'CAD' },
+  International: { language: 'EN', currency: 'USD' },
 }
 
 export const USD_CURRENCY_CODE: CurrencyCode = 'USD'
 
 const SUPPORTED_LANGUAGE_SET = new Set<string>(LANGUAGE_OPTIONS.map((item) => item.code))
 const SUPPORTED_CURRENCY_SET = new Set<string>(CURRENCY_OPTIONS.map((item) => item.code))
-const SUPPORTED_COUNTRY_SET = new Set<string>(ACCEPTED_COUNTRIES)
+const SUPPORTED_COUNTRY_SET = new Set<string>(LOCALE_COUNTRY_OPTIONS)
 
 export const normalizeCountry = (country?: string | null) => {
   const next = typeof country === 'string' ? country.trim() : ''
   if (!next || !SUPPORTED_COUNTRY_SET.has(next)) return DEFAULT_COUNTRY
-  return next as (typeof ACCEPTED_COUNTRIES)[number]
+  return next as LocaleCountry
 }
 
 export const normalizeLanguage = (language?: string | null) => {
@@ -64,9 +54,9 @@ export const getCountryLocaleDefaults = (country?: string | null) => {
 }
 
 export const getAllowedCurrencyCodes = (country?: string | null) => {
-  const { currency: localCurrency } = getCountryLocaleDefaults(country)
-  if (localCurrency === USD_CURRENCY_CODE) return [USD_CURRENCY_CODE] as CurrencyCode[]
-  return [localCurrency, USD_CURRENCY_CODE] as CurrencyCode[]
+  const normalizedCountry = normalizeCountry(country)
+  if (normalizedCountry === INTERNATIONAL_COUNTRY) return [USD_CURRENCY_CODE] as CurrencyCode[]
+  return [COUNTRY_DEFAULT_PREFS[DEFAULT_COUNTRY].currency] as CurrencyCode[]
 }
 
 export const normalizeCurrency = (currency?: string | null, country?: string | null) => {

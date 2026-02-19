@@ -55,15 +55,7 @@ export default function ProfilePage() {
   const countryRule = useMemo(() => {
     const map = {
       Nigeria: { code: '234', max: 10 },
-      Egypt: { code: '20', max: 10 },
-      Ghana: { code: '233', max: 9 },
-      'Ivory Coast': { code: '225', max: 10 },
-      Algeria: { code: '213', max: 10 },
-      Morocco: { code: '212', max: 9 },
-      USA: { code: '1', max: 10 },
-      UK: { code: '44', max: 10 },
-      UAE: { code: '971', max: 9 },
-      Canada: { code: '1', max: 10 },
+      International: { code: '1', max: 15 },
     }
     return map[form.country] || { code: '', max: 15 }
   }, [form.country])

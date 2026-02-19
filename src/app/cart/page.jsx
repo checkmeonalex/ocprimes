@@ -18,12 +18,16 @@ export default function CartPage() {
   )
   const {
     items,
+    savedItems,
     summary,
     addItem,
     updateQuantity,
     setItemProtection,
     setAllProtection,
     removeItem,
+    saveForLater,
+    moveToCart,
+    removeSavedItem,
     clearCart,
     retryItem,
     isReady,
@@ -72,6 +76,10 @@ export default function CartPage() {
       setItemProtection={setItemProtection}
       setAllProtection={setAllProtection}
       removeItem={removeItem}
+      savedItems={savedItems}
+      saveForLater={saveForLater}
+      moveToCart={moveToCart}
+      removeSavedItem={removeSavedItem}
       clearCart={clearCart}
       retryItem={retryItem}
       isLoadingCart={!isReady || !isServerReady}

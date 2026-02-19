@@ -46,14 +46,14 @@ export default function ClientLayout({ children }) {
   return (
     <>
       {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute ? <MobileNavbar /> : null}
-      {!isMobile ? <Navbar /> : null}
+      {!isMobile || isCheckoutFlowRoute ? <Navbar /> : null}
       <div
         className={`flex ${
           isCheckoutFlowRoute
-            ? 'pt-0 lg:pt-16'
+            ? 'pt-0 sm:pt-16'
             : isUserBackendRoute
               ? 'pt-0 lg:pt-[106px]'
-            : 'pt-24 lg:pt-[106px]'
+              : 'pt-24 lg:pt-[106px]'
         }`}
       >
         <Sidebar />
