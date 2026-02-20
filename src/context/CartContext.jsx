@@ -438,7 +438,8 @@ export function CartProvider({ children }) {
         setSavedItems([])
       } finally {
         setIsReady(true)
-        setIsServerReady(false)
+        // Guests should be able to use and view cart immediately.
+        setIsServerReady(true)
         setCartVersion(null)
         notifySyncStateChanged()
       }
@@ -451,6 +452,8 @@ export function CartProvider({ children }) {
     const loadServerCart = async () => {
       setIsServerReady(false)
       setIsReady(true)
+      let didPersistToServer = false
+      let didLoadServerCart = false
 
       let localItems = []
       try {
@@ -489,9 +492,11 @@ export function CartProvider({ children }) {
             const data = await response.json().catch(() => null)
             setCartVersion(data?.cartVersion ?? 1)
             applyServerSnapshot(data?.items || [])
+            didPersistToServer = true
           } else {
-            setItemsState([])
-            setCartVersion(1)
+            // Keep guest cart items visible; retry merge on next app load.
+            setItemsState(localItems)
+            setCartVersion(null)
           }
         } else {
           const response = await fetch('/api/cart')
@@ -499,19 +504,28 @@ export function CartProvider({ children }) {
             const data = await response.json().catch(() => null)
             setCartVersion(data?.cartVersion ?? 1)
             applyServerSnapshot(data?.items || [])
+            didLoadServerCart = true
           } else {
             setItemsState([])
             setCartVersion(1)
           }
         }
       } catch {
-        setItemsState([])
-        setCartVersion(1)
+        if (localItems.length > 0) {
+          // Fallback to local guest cart if server merge fails.
+          setItemsState(localItems)
+          setCartVersion(null)
+        } else {
+          setItemsState([])
+          setCartVersion(1)
+        }
       } finally {
-        try {
-          window.localStorage.removeItem(STORAGE_KEY)
-        } catch {
-          // Ignore storage errors.
+        if (didPersistToServer || (localItems.length === 0 && didLoadServerCart)) {
+          try {
+            window.localStorage.removeItem(STORAGE_KEY)
+          } catch {
+            // Ignore storage errors.
+          }
         }
         setIsServerReady(true)
       }
