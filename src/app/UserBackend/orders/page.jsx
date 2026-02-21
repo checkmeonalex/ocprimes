@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useMemo, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -12,6 +13,14 @@ const DATE_FILTERS = [
   { key: 'last_3_days', label: 'Last 3 days' },
   { key: 'last_1_week', label: 'Last 1 week' },
   { key: 'last_1_month', label: 'Last 1 month' },
+]
+
+const STATUS_OPTIONS = [
+  { key: 'all', label: 'All' },
+  { key: 'completed', label: 'Completed' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'failed', label: 'Failed' },
+  { key: 'cancelled', label: 'Cancelled' },
 ]
 
 const formatDateTime = (value) => {
@@ -224,7 +233,7 @@ export default function OrdersPage() {
           <button
             type='button'
             onClick={() => setIsFilterSheetOpen(true)}
-            className='inline-flex h-8 w-8 items-center justify-center rounded-full text-[#925428] hover:bg-slate-100'
+            className='inline-flex h-8 w-8 items-center justify-center rounded-full text-[#925428] hover:bg-slate-100 lg:hidden'
             aria-label='Open order filters'
           >
             <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='1.8'>
@@ -234,17 +243,58 @@ export default function OrdersPage() {
             </svg>
           </button>
         </div>
-
+        <div className='mt-3 hidden items-center justify-between gap-3 lg:flex'>
+          <div className='flex flex-wrap items-center gap-2'>
+            {STATUS_OPTIONS.map((option) => {
+              const active = appliedOrderType === option.key
+              return (
+                <button
+                  key={option.key}
+                  type='button'
+                  onClick={() => {
+                    setDraftOrderType(option.key)
+                    setAppliedOrderType(option.key)
+                  }}
+                  className={`inline-flex h-9 items-center justify-center rounded-full border px-4 text-sm font-semibold transition ${
+                    active
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              )
+            })}
+          </div>
+          <label className='inline-flex items-center gap-2 text-sm text-slate-600'>
+            <span>Date</span>
+            <select
+              value={appliedDateFilter}
+              onChange={(event) => {
+                const next = String(event.target.value || 'latest')
+                setDraftDateFilter(next)
+                setAppliedDateFilter(next)
+              }}
+              className='h-9 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-slate-400'
+            >
+              {DATE_FILTERS.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       <div className='pb-6 pt-3'>
         {error ? (
-          <div className='rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700'>
+          <div className='mx-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700'>
             {error}
           </div>
         ) : null}
 
-        <div className='space-y-2'>
+        <div className='space-y-2 px-3 lg:hidden'>
           {isLoading
             ? Array.from({ length: 3 }).map((_, index) => (
                 <div key={`orders-skeleton-${index}`} className='rounded-xl border border-slate-200 bg-white p-3'>
@@ -307,6 +357,98 @@ export default function OrdersPage() {
                 </div>
               </article>
             ))}
+        </div>
+
+        <div className='hidden px-3 lg:block'>
+          {isLoading ? (
+            <div className='rounded-xl border border-slate-200 bg-white'>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={`orders-desktop-skeleton-${index}`} className='grid grid-cols-[2fr_1fr_1.1fr_auto] gap-3 border-b border-slate-100 px-4 py-4 last:border-b-0'>
+                  <div>
+                    <div className='h-4 w-2/3 animate-pulse rounded bg-slate-200' />
+                    <div className='mt-2 h-3 w-1/2 animate-pulse rounded bg-slate-100' />
+                  </div>
+                  <div className='h-4 w-20 animate-pulse rounded bg-slate-100' />
+                  <div className='h-4 w-24 animate-pulse rounded bg-slate-100' />
+                  <div className='h-8 w-24 animate-pulse rounded bg-slate-100' />
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {!isLoading && filteredOrders.length === 0 ? (
+            <div className='rounded-xl border border-dashed border-slate-300 bg-white px-4 py-16 text-center'>
+              <p className='text-base font-semibold text-slate-700'>No order yet</p>
+              <p className='mt-1 text-sm text-slate-500'>You have not placed any order.</p>
+              <Link
+                href='/'
+                className='mt-4 inline-flex items-center justify-center rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white'
+              >
+                Place order
+              </Link>
+            </div>
+          ) : null}
+
+          {!isLoading && filteredOrders.length > 0 ? (
+            <div className='overflow-hidden rounded-xl border border-slate-200 bg-white'>
+              <div className='grid grid-cols-[2fr_1fr_1.1fr_auto] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-[0.06em] text-slate-500'>
+                <p>Order</p>
+                <p>Status</p>
+                <p>Total</p>
+                <p className='text-right'>Action</p>
+              </div>
+              {filteredOrders.map((order) => (
+                <article
+                  key={order.id}
+                  className='grid grid-cols-[2fr_1fr_1.1fr_auto] items-center gap-3 border-b border-slate-100 px-4 py-4 last:border-b-0'
+                >
+                  <div className='min-w-0'>
+                    <Link href={`/UserBackend/orders/${order.id}`} className='inline-flex max-w-full items-center gap-1 text-base font-semibold text-slate-900 hover:text-slate-700'>
+                      <span className='truncate'>{order.orderNumber}</span>
+                      <svg viewBox='0 0 20 20' className='h-4 w-4 shrink-0' fill='none' stroke='currentColor' strokeWidth='2'>
+                        <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
+                      </svg>
+                    </Link>
+                    <p className='mt-1 text-xs text-slate-500'>{formatDateTime(order.createdAt)}</p>
+                    <p className='mt-1 line-clamp-1 text-sm text-slate-700'>{order.previewText}</p>
+                  </div>
+                  <div>
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      order.status === 'completed'
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : order.status === 'pending'
+                          ? 'bg-amber-100 text-amber-700'
+                          : order.status === 'failed'
+                            ? 'bg-rose-100 text-rose-700'
+                            : 'bg-slate-100 text-slate-700'
+                    }`}>
+                      {order.status === 'completed' ? 'Success' : order.status}
+                    </span>
+                  </div>
+                  <div className='text-sm text-slate-900'>
+                    <p className='font-semibold'>{formatMoney(order.totalAmount)}</p>
+                    <p className='text-xs text-slate-500'>{toItemCountLabel(order.itemCount)}</p>
+                  </div>
+                  <div className='flex items-center justify-end gap-2'>
+                    <Link
+                      href={`/UserBackend/orders/${order.id}`}
+                      className='inline-flex h-9 items-center justify-center rounded-md border border-slate-200 px-3 text-xs font-semibold text-slate-700'
+                    >
+                      See details
+                    </Link>
+                    <button
+                      type='button'
+                      onClick={() => handleReorder(order.id)}
+                      disabled={Boolean(reorderLoadingByOrderId[order.id])}
+                      className='inline-flex h-9 items-center justify-center rounded-md border border-[#c67a45] px-3 text-xs font-semibold text-[#c67a45] disabled:cursor-not-allowed disabled:opacity-60'
+                    >
+                      {reorderLoadingByOrderId[order.id] ? 'Re-Ordering...' : 'Re-Order'}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -434,13 +576,7 @@ export default function OrdersPage() {
             <div className='mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-300' />
             <h2 className='text-2xl font-semibold text-slate-900'>Order Type</h2>
             <div className='mt-2 space-y-2'>
-              {[
-                { key: 'all', label: 'All' },
-                { key: 'completed', label: 'Completed' },
-                { key: 'pending', label: 'Pending' },
-                { key: 'failed', label: 'Failed' },
-                { key: 'cancelled', label: 'Cancelled' },
-              ].map((option) => (
+              {STATUS_OPTIONS.map((option) => (
                 <label key={option.key} className='flex items-center gap-2 text-sm text-slate-700'>
                   <input
                     type='radio'

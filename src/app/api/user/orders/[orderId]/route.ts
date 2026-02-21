@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { isReturnPolicyDisabled, normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
 
 const toUiStatus = (paymentStatus: string) => {
   const normalized = String(paymentStatus || '').toLowerCase()
@@ -97,12 +98,19 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
     new Set((itemsRows || []).map((entry) => String(entry.product_id || '')).filter(Boolean)),
   )
   const vendorByProductId = new Map<string, string>()
+  const returnPolicyByProductId = new Map<string, string>()
 
   if (productIds.length > 0) {
-    const { data: brandLinkRows } = await supabase
-      .from('product_brand_links')
-      .select('product_id, admin_brands(name)')
-      .in('product_id', productIds)
+    const [{ data: brandLinkRows }, { data: productPolicyRows }] = await Promise.all([
+      supabase
+        .from('product_brand_links')
+        .select('product_id, admin_brands(name)')
+        .in('product_id', productIds),
+      supabase
+        .from('products')
+        .select('id, return_policy')
+        .in('id', productIds),
+    ])
 
     ;((brandLinkRows || []) as BrandLinkRow[]).forEach((row) => {
       const productId = String(row.product_id || '')
@@ -119,9 +127,27 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
         vendorByProductId.set(productId, vendorName)
       }
     })
+
+    ;((productPolicyRows || []) as Array<{ id: string; return_policy?: string | null }>).forEach((row) => {
+      const productId = String(row.id || '')
+      if (!productId) return
+      returnPolicyByProductId.set(productId, normalizeReturnPolicyKey(row.return_policy))
+    })
   }
 
   const shippingAddress = (orderRow.shipping_address || {}) as Record<string, unknown>
+  const contactPhone = String(
+    shippingAddress?.phone ||
+      shippingAddress?.phoneNumber ||
+      shippingAddress?.contactPhone ||
+      '',
+  ).trim()
+  const deliveryMethod = String(
+    shippingAddress?.shippingLabel ||
+      shippingAddress?.selectedShippingOption ||
+      shippingAddress?.deliveryMethod ||
+      '',
+  ).trim()
   let paymentMethod = String(
     shippingAddress?.paymentMethod || shippingAddress?.selectedPaymentMethod || '',
   ).trim()
@@ -172,6 +198,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
       seller: 'OCPRIMES',
       trackId: String(orderRow.paystack_reference || orderRow.id || ''),
       addressLabel: formatAddress(shippingAddress),
+      contactPhone,
+      deliveryMethod: deliveryMethod || 'Standard delivery',
       paymentMode: toPaymentMethodLabel(paymentMethod, paymentChannel),
       items: (itemsRows || []).map((entry) => ({
         id: String(entry.id),
@@ -187,6 +215,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
             ? Number(entry.original_unit_price)
             : null,
         lineTotal: Number(entry.line_total || 0),
+        isReturnable: !isReturnPolicyDisabled(
+          returnPolicyByProductId.get(String(entry.product_id || '')) || '',
+        ),
       })),
     },
   })

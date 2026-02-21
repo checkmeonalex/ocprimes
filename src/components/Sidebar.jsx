@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { useSidebar } from '../context/SidebarContext'
 import MobileSidebar from './sidebar/MobileSidebar'
-import SidebarSkeleton from './sidebar/SidebarSkeleton'
 
 const sidebarItems = [
   { name: 'Popular Products', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
@@ -29,7 +28,7 @@ export default function Sidebar() {
   const [selectedItem, setSelectedItem] = useState('Popular Products')
 
   if (!isHydrated) {
-    return <SidebarSkeleton />
+    return null
   }
 
   return (
