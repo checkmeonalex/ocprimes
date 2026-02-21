@@ -7,6 +7,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getUserRoleSafe } from '@/lib/auth/roles'
 import { DEFAULT_VENDOR_VERIFIED_BADGE_PATH } from '@/lib/catalog/vendor-verification'
 
+export const dynamic = 'force-dynamic'
+
 const toReadableName = (value = '') =>
   String(value || '')
     .trim()

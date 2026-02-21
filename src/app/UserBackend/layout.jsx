@@ -3,6 +3,8 @@ import UserBackendNav from '@/components/user-backend/UserBackendNav'
 import StickySidebar from '@/components/user-backend/StickySidebar'
 import UserBackendMobileHeader from '@/components/user-backend/UserBackendMobileHeader'
 
+export const dynamic = 'force-dynamic'
+
 const getDisplayName = (user) => {
   const metaName = user?.user_metadata?.full_name
   if (metaName) return metaName
@@ -30,9 +32,7 @@ export default async function UserBackendLayout({ children }) {
               />
             </StickySidebar>
           </div>
-          <main className='bg-transparent'>
-            <div className='p-3 md:p-4 lg:p-0'>{children}</div>
-          </main>
+          <main className='bg-transparent'>{children}</main>
         </div>
       </div>
     </div>

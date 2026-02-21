@@ -10,6 +10,8 @@ import WishlistSaveModal from '../components/wishlist/WishlistSaveModal'
 import { UserLocaleProvider } from '../context/UserLocaleContext'
 import { Suspense } from 'react'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata = {
   title: 'OcPrimes',
 }
@@ -37,6 +39,5 @@ export default function RootLayout({ children }) {
     </html>
   )
 }
-
 
 

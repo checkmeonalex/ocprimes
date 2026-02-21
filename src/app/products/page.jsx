@@ -3,6 +3,8 @@ import { fetchProductListing } from '../../lib/catalog/product-listing'
 import { fetchCategoryWithChildren } from '../../lib/catalog/categories'
 import { fetchTagBySlugOrId } from '../../lib/catalog/tags'
 
+export const dynamic = 'force-dynamic'
+
 const toReadableName = (value = '') =>
   String(value || '')
     .trim()

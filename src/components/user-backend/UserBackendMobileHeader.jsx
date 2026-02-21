@@ -23,10 +23,12 @@ export default function UserBackendMobileHeader() {
   const pathname = usePathname()
   const { locale, t } = useUserI18n()
   const isRootPage = pathname === '/UserBackend'
-  const rawTitle = isRootPage ? 'Account' : TITLE_BY_PATH[pathname] || 'Account'
+  const isOrderDetailsPage = /^\/UserBackend\/orders\/[^/]+$/.test(String(pathname || ''))
+  const rawTitle = isRootPage ? 'Account' : isOrderDetailsPage ? 'Order' : TITLE_BY_PATH[pathname] || 'Account'
   const title = prettifyTitle(rawTitle)
   const translatedTitle = (() => {
     if (isRootPage) return t('account.title', 'Account')
+    if (isOrderDetailsPage) return 'Order'
     if (title === 'Saved Items') return t('menu.savedItems', 'Saved Items')
     if (title === 'Profile') return t('menu.editProfile', 'Edit Profile')
     if (title === 'Orders') return t('home.orders', 'Orders')

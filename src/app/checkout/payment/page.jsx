@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
@@ -705,6 +707,22 @@ function CheckoutPaymentPageContent() {
       return
     }
 
+    const rawDeliveryAddress =
+      profile?.deliveryAddress && typeof profile.deliveryAddress === 'object'
+        ? profile.deliveryAddress
+        : shippingAddresses.find((entry) => entry.isDefault) || shippingAddresses[0] || null
+    const resolvedShippingAddress = rawDeliveryAddress
+      ? {
+          label: String(rawDeliveryAddress.label || ''),
+          line1: String(rawDeliveryAddress.line1 || ''),
+          line2: String(rawDeliveryAddress.line2 || ''),
+          city: String(rawDeliveryAddress.city || ''),
+          state: String(rawDeliveryAddress.state || ''),
+          postalCode: String(rawDeliveryAddress.postalCode || ''),
+          country: normalizeCheckoutCountry(rawDeliveryAddress.country),
+        }
+      : null
+
     setIsStartingPayment(true)
     setPaymentError('')
     try {
@@ -733,6 +751,13 @@ function CheckoutPaymentPageContent() {
           billing_address_label: selectedBillingAddress.label,
           billing_address_country: selectedBillingAddress.country,
           billing_address_line1: selectedBillingAddress.line1,
+          shipping_address_label: resolvedShippingAddress?.label || '',
+          shipping_address_line1: resolvedShippingAddress?.line1 || '',
+          shipping_address_line2: resolvedShippingAddress?.line2 || '',
+          shipping_address_city: resolvedShippingAddress?.city || '',
+          shipping_address_state: resolvedShippingAddress?.state || '',
+          shipping_address_postal_code: resolvedShippingAddress?.postalCode || '',
+          shipping_address_country: resolvedShippingAddress?.country || '',
         },
         callback: (response) => {
           const ref = String(response?.reference || reference).trim()

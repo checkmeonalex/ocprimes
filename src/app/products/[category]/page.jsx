@@ -4,6 +4,8 @@ import { fetchCategoryWithChildren } from '../../../lib/catalog/categories'
 import { fetchHotspotLayoutsByCategory } from '../../../lib/catalog/hotspot'
 import { fetchLogoGridByCategory } from '../../../lib/catalog/logo-grid'
 
+export const dynamic = 'force-dynamic'
+
 const toReadableName = (value = '') =>
   String(value || '')
     .trim()

@@ -3,7 +3,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { useCart } from '../context/CartContext'
 import CategoriesMenu from './Catergories/CategoriesMenu'
@@ -15,6 +15,7 @@ import { useUserI18n } from '@/lib/i18n/useUserI18n'
 export default function Navbar() {
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { summary } = useCart()
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const [hoverTimeout, setHoverTimeout] = useState(null)
@@ -364,6 +365,11 @@ export default function Navbar() {
       : pathname?.startsWith('/checkout/payment')
         ? '/checkout/shipping'
         : '/cart'
+  const isCheckoutReviewSuccess =
+    pathname?.startsWith('/checkout/review') &&
+    String(searchParams?.get('payment_reference') || '').trim().length > 0
+  const checkoutHeaderActionHref = isCheckoutReviewSuccess ? '/' : checkoutBackHref
+  const checkoutHeaderActionLabel = isCheckoutReviewSuccess ? 'Continue shopping' : 'Back'
   const formatPrice = (value) => {
     if (!Number.isFinite(Number(value))) return '--'
     return formatMoney(Number(value))
@@ -395,7 +401,7 @@ export default function Navbar() {
           <div className='grid h-16 grid-cols-[auto_1fr_auto] items-center gap-3'>
             <div>
               <Link
-                href={checkoutBackHref}
+                href={checkoutHeaderActionHref}
                 className='inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-[#eef0f2] px-3 py-1.5 text-xs font-medium text-slate-900 hover:bg-[#e6e8ea] xl:px-4 xl:py-2 xl:text-sm'
               >
                 <svg
@@ -408,15 +414,16 @@ export default function Navbar() {
                 >
                   <path d='m12.5 4.5-5 5 5 5' strokeLinecap='round' strokeLinejoin='round' />
                 </svg>
-                Back
+                {checkoutHeaderActionLabel}
               </Link>
             </div>
 
             <div className='min-w-0'>
               <ol className='mx-auto flex w-fit max-w-full items-center justify-center gap-2 overflow-x-auto px-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden xl:gap-3'>
               {checkoutStepOrder.map((stepKey, index) => {
-                const isDone = index < checkoutCurrentStepIndex
-                const isCurrent = index === checkoutCurrentStepIndex
+                const isFinalSuccessfulStep = isCheckoutReviewSuccess && stepKey === 'review'
+                const isDone = index < checkoutCurrentStepIndex || isFinalSuccessfulStep
+                const isCurrent = index === checkoutCurrentStepIndex && !isFinalSuccessfulStep
                 const label =
                   stepKey === 'account'
                     ? 'Cart'
@@ -424,7 +431,7 @@ export default function Navbar() {
                       ? 'Shipping'
                       : stepKey === 'payment'
                         ? 'Pay'
-                        : 'Review'
+                        : 'Checkout'
                 return (
                   <li key={stepKey} className='flex shrink-0 items-center gap-1.5 xl:gap-2.5'>
                     <span
