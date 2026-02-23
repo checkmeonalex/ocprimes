@@ -335,7 +335,7 @@ const CustomerReviews = ({ data, productSlug, onReviewSubmitted }) => {
           <span className='font-semibold text-gray-900'>
             {data.summary.wouldRecommendPercent}%
           </span>
-          Whould You Recommend ({data.summary.wouldRecommendCount} recommendations)
+          Would You Recommend ({data.summary.wouldRecommendCount} recommendations)
         </div>
         {canWriteReview ? (
           <button
