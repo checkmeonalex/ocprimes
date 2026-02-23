@@ -26,6 +26,9 @@ export default function SellerConversationThread({
   }, [conversation?.messages]);
 
   if (!conversation) return null;
+  const customerAvatar = getInitials(conversation.customerName);
+  const sellerAvatar = 'OC';
+  const sellerName = 'OCPRIMES';
 
   return (
     <section className="flex h-full min-h-0 flex-col bg-white">
@@ -69,8 +72,21 @@ export default function SellerConversationThread({
         <div className="space-y-2.5">
           {conversation.messages.map((message) => {
             const isSellerMessage = message.sender === 'seller';
+            const senderLabel =
+              String(message.senderLabel || '').trim() ||
+              (isSellerMessage ? sellerName : conversation.customerName);
+
             return (
-              <div key={message.id} className={`flex ${isSellerMessage ? 'justify-end' : 'justify-start'}`}>
+              <div
+                key={message.id}
+                className={`flex items-end gap-2 ${isSellerMessage ? 'justify-end' : 'justify-start'}`}
+              >
+                {!isSellerMessage ? (
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-300 text-[11px] font-semibold text-slate-700">
+                    {customerAvatar}
+                  </span>
+                ) : null}
+
                 <div
                   className={`max-w-[75%] rounded-lg px-3 py-2 text-sm leading-relaxed shadow-sm ${
                     isSellerMessage
@@ -78,6 +94,13 @@ export default function SellerConversationThread({
                       : 'rounded-bl-sm border border-slate-200 bg-white text-slate-900'
                   }`}
                 >
+                  <p
+                    className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${
+                      isSellerMessage ? 'text-emerald-100/90' : 'text-slate-500'
+                    }`}
+                  >
+                    {senderLabel}
+                  </p>
                   <p>{message.text}</p>
                   <p
                     className={`mt-1 text-right text-[10px] ${
@@ -87,6 +110,12 @@ export default function SellerConversationThread({
                     {message.timeLabel}
                   </p>
                 </div>
+
+                {isSellerMessage ? (
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#005c4b] text-[11px] font-semibold text-white">
+                    {sellerAvatar}
+                  </span>
+                ) : null}
               </div>
             );
           })}

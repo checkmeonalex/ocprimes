@@ -261,7 +261,7 @@ const attachRelations = async (supabase, items) => {
       .in('product_id', ids),
     supabase
       .from(BRAND_LINKS)
-      .select('product_id, admin_brands(id, name, slug)')
+      .select('product_id, admin_brands(id, name, slug, created_by)')
       .in('product_id', ids),
     supabase
       .from(IMAGE_TABLE)
@@ -416,7 +416,7 @@ export async function listPublicProducts(request: NextRequest) {
 
   let query = supabase
     .from(PRODUCT_TABLE)
-    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at')
+    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at, created_by')
     .eq('status', 'publish')
     .order('created_at', { ascending: false })
     .range(from, to)
@@ -502,7 +502,7 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
 
   let query = supabase
     .from(PRODUCT_TABLE)
-    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at')
+    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at, created_by')
     .eq('slug', parsed.data.slug)
 
   if (!previewRequested) {

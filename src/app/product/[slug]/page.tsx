@@ -2156,6 +2156,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       <SellerChatPopup
         isOpen={showSellerChat}
         onClose={() => setShowSellerChat(false)}
+        productId={String(product?.id || '')}
         vendorName={String(product?.vendor || 'Seller')}
         vendorAvatarUrl={String(product?.vendorLogoUrl || '')}
         hasBottomOffset={shouldShowMobileFloatingCart}

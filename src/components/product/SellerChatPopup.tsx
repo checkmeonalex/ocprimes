@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
 import MakeOfferModal from './MakeOfferModal'
 
 type SellerChatPopupProps = {
   isOpen: boolean
   onClose: () => void
   onSend?: (message: string) => void
+  productId: string
   vendorName: string
   vendorAvatarUrl?: string
   hasBottomOffset?: boolean
@@ -21,12 +23,44 @@ type ChatMessage = {
   time: string
 }
 
+type ApiMessage = {
+  id?: string
+  senderUserId?: string
+  sender?: 'self' | 'other'
+  body?: string
+  createdAt?: string | null
+}
+
 const QUICK_START_MESSAGES = [
   'Make an Offer',
   "What's your best offer?",
   'Is this in stock?',
   "What's your return policy?",
 ]
+
+const formatTimeLabel = (value: unknown) => {
+  if (typeof value !== 'string' || !value.trim()) return '--:--'
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return '--:--'
+  return parsed.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+const toUiMessage = (message: ApiMessage, currentUserId: string): ChatMessage | null => {
+  const id = String(message?.id || '').trim()
+  const text = String(message?.body || '').trim()
+  if (!id || !text) return null
+
+  const isBuyer = message.sender === 'self' || String(message.senderUserId || '') === currentUserId
+  return {
+    id,
+    sender: isBuyer ? 'buyer' : 'seller',
+    text,
+    time: formatTimeLabel(message.createdAt),
+  }
+}
 
 const roundOfferAmount = (amount: number) => {
   if (!Number.isFinite(amount) || amount <= 0) return 0
@@ -57,12 +91,14 @@ export default function SellerChatPopup({
   isOpen,
   onClose,
   onSend,
+  productId,
   vendorName,
   vendorAvatarUrl,
   hasBottomOffset = false,
   productPrice = 0,
   currencySymbol = '$',
 }: SellerChatPopupProps) {
+  const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const [draft, setDraft] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [showOfferModal, setShowOfferModal] = useState(false)
@@ -70,6 +106,11 @@ export default function SellerChatPopup({
   const [showQuickStarters, setShowQuickStarters] = useState(true)
   const [shouldRender, setShouldRender] = useState(isOpen)
   const [isVisible, setIsVisible] = useState(isOpen)
+  const [isInitializing, setIsInitializing] = useState(false)
+  const [isSending, setIsSending] = useState(false)
+  const [chatError, setChatError] = useState('')
+  const [conversationId, setConversationId] = useState('')
+  const [currentUserId, setCurrentUserId] = useState('')
 
   useEffect(() => {
     if (isOpen) {
@@ -84,23 +125,120 @@ export default function SellerChatPopup({
 
   useEffect(() => {
     if (!isOpen) return
-    setMessages([
-      {
-        id: 'seller-1',
-        sender: 'seller',
-        text: `Hi, this is ${vendorName}. How can I help you with this product?`,
-        time: '12:05',
-      },
-      {
-        id: 'buyer-1',
-        sender: 'buyer',
-        text: 'I want to confirm the exact condition and shipping timeline.',
-        time: '12:10',
-      },
-    ])
-    setHasUserSentMessage(false)
-    setShowQuickStarters(true)
-  }, [isOpen, vendorName])
+
+    let cancelled = false
+
+    const initializeConversation = async () => {
+      setIsInitializing(true)
+      setChatError('')
+      setConversationId('')
+      setCurrentUserId('')
+      setMessages([])
+      setHasUserSentMessage(false)
+      setShowQuickStarters(true)
+
+      if (!String(productId || '').trim()) {
+        setChatError('Chat is unavailable for this product.')
+        setIsInitializing(false)
+        return
+      }
+
+      const response = await fetch('/api/chat/conversations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          productId,
+        }),
+      }).catch(() => null)
+
+      if (!response) {
+        if (!cancelled) {
+          setChatError('Unable to connect to chat right now.')
+          setIsInitializing(false)
+        }
+        return
+      }
+
+      const payload = await response.json().catch(() => null)
+
+      if (cancelled) return
+
+      if (!response.ok) {
+        setChatError(String(payload?.error || 'Unable to load chat.'))
+        setIsInitializing(false)
+        return
+      }
+
+      const nextUserId = String(payload?.currentUserId || '').trim()
+      const nextConversationId = String(payload?.conversation?.id || '').trim()
+
+      setCurrentUserId(nextUserId)
+      setConversationId(nextConversationId)
+
+      const nextMessages = Array.isArray(payload?.messages)
+        ? payload.messages
+            .map((message: ApiMessage) => toUiMessage(message, nextUserId))
+            .filter((message: ChatMessage | null): message is ChatMessage => Boolean(message))
+        : []
+
+      setMessages(nextMessages)
+
+      const userHasSentMessage = nextMessages.some((message) => message.sender === 'buyer')
+      setHasUserSentMessage(userHasSentMessage)
+      setShowQuickStarters(!userHasSentMessage)
+      setIsInitializing(false)
+    }
+
+    void initializeConversation()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, productId])
+
+  useEffect(() => {
+    if (!isOpen || !conversationId) return
+
+    const channel = supabase
+      .channel(`chat-conversation-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const next = toUiMessage(
+            {
+              id: String(payload.new?.id || ''),
+              senderUserId: String(payload.new?.sender_user_id || ''),
+              body: String(payload.new?.body || ''),
+              createdAt: String(payload.new?.created_at || ''),
+            },
+            currentUserId,
+          )
+
+          if (!next) return
+
+          setMessages((previous) => {
+            if (previous.some((message) => message.id === next.id)) {
+              return previous
+            }
+            return [...previous, next]
+          })
+        },
+      )
+
+    channel.subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [conversationId, currentUserId, isOpen, supabase])
 
   useEffect(() => {
     if (!isOpen) return
@@ -121,35 +259,64 @@ export default function SellerChatPopup({
   const popupDesktopBottomClass = hasBottomOffset ? 'sm:bottom-28' : 'sm:bottom-24'
   const offerPresets = buildThoughtfulOfferPresets(productPrice)
 
-  const sendDisabled = draft.trim().length === 0
-  const appendBuyerMessage = (message: string) => {
-    const text = String(message || '').trim()
-    if (!text) return
-    const now = new Date()
-    const time = `${String(now.getHours()).padStart(2, '0')}.${String(now.getMinutes()).padStart(2, '0')}`
-    setMessages((prev) => [
-      ...prev,
+  const sendMessage = async (rawMessage: string) => {
+    const body = String(rawMessage || '').trim()
+    if (!body || !conversationId || isSending || isInitializing) return
+
+    setIsSending(true)
+    setChatError('')
+
+    const response = await fetch(
+      `/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`,
       {
-        id: `buyer-${Date.now()}`,
-        sender: 'buyer',
-        text,
-        time,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ body }),
       },
-    ])
-    onSend?.(text)
+    ).catch(() => null)
+
+    if (!response) {
+      setChatError('Unable to send message right now.')
+      setIsSending(false)
+      return
+    }
+
+    const payload = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      setChatError(String(payload?.error || 'Unable to send message.'))
+      setIsSending(false)
+      return
+    }
+
+    const inserted = toUiMessage(payload?.message, currentUserId)
+    if (inserted) {
+      setMessages((previous) => {
+        if (previous.some((message) => message.id === inserted.id)) {
+          return previous
+        }
+        return [...previous, inserted]
+      })
+    }
+
+    setDraft('')
+    onSend?.(body)
+
     if (!hasUserSentMessage) {
       setHasUserSentMessage(true)
     }
+
     if (showQuickStarters) {
       setShowQuickStarters(false)
     }
+
+    setIsSending(false)
   }
 
   const handleSend = () => {
-    const message = draft.trim()
-    if (!message) return
-    appendBuyerMessage(message)
-    setDraft('')
+    void sendMessage(draft)
   }
 
   const handleQuickStartClick = (message: string) => {
@@ -159,6 +326,9 @@ export default function SellerChatPopup({
     }
     setDraft(message)
   }
+
+  const sendDisabled =
+    draft.trim().length === 0 || !conversationId || isSending || isInitializing
 
   return (
     <>
@@ -241,33 +411,45 @@ export default function SellerChatPopup({
             </span>
           </div>
 
-          <div className='space-y-2.5'>
-            {messages.map((message) => {
-              const isBuyer = message.sender === 'buyer'
-              return (
-                <div key={message.id} className={`flex ${isBuyer ? 'justify-end' : 'justify-start'}`}>
-                  <div className='max-w-[85%]'>
-                    <div
-                      className={`rounded-2xl px-3 py-2 text-sm leading-snug ${
-                        isBuyer
-                          ? 'rounded-br-md bg-blue-600 text-white'
-                          : 'rounded-bl-md bg-white text-gray-900'
-                      }`}
-                    >
-                      {message.text}
-                    </div>
-                    <div
-                      className={`mt-1 text-[10px] text-gray-500 ${
-                        isBuyer ? 'text-right' : 'text-left'
-                      }`}
-                    >
-                      {message.time}
+          {chatError ? (
+            <div className='mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800'>
+              {chatError}
+            </div>
+          ) : null}
+
+          {isInitializing ? (
+            <div className='py-6 text-center text-sm text-gray-500'>Connecting to chat...</div>
+          ) : messages.length === 0 ? (
+            <div className='py-6 text-center text-sm text-gray-500'>No messages yet. Start the conversation.</div>
+          ) : (
+            <div className='space-y-2.5'>
+              {messages.map((message) => {
+                const isBuyer = message.sender === 'buyer'
+                return (
+                  <div key={message.id} className={`flex ${isBuyer ? 'justify-end' : 'justify-start'}`}>
+                    <div className='max-w-[85%]'>
+                      <div
+                        className={`rounded-2xl px-3 py-2 text-sm leading-snug ${
+                          isBuyer
+                            ? 'rounded-br-md bg-blue-600 text-white'
+                            : 'rounded-bl-md bg-white text-gray-900'
+                        }`}
+                      >
+                        {message.text}
+                      </div>
+                      <div
+                        className={`mt-1 text-[10px] text-gray-500 ${
+                          isBuyer ? 'text-right' : 'text-left'
+                        }`}
+                      >
+                        {message.time}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
           <div className='border-t border-gray-200 bg-transparent p-2.5'>
@@ -315,8 +497,9 @@ export default function SellerChatPopup({
               <input
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                placeholder={`Message ${vendorName}...`}
-                className='min-w-0 flex-1 appearance-none border-0 bg-white text-sm text-gray-800 shadow-none outline-none ring-0 placeholder:text-gray-500 focus:border-0 focus:outline-none focus:ring-0'
+                placeholder={conversationId ? `Message ${vendorName}...` : 'Sign in to start chat'}
+                disabled={!conversationId || isInitializing}
+                className='min-w-0 flex-1 appearance-none border-0 bg-white text-sm text-gray-800 shadow-none outline-none ring-0 placeholder:text-gray-500 focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60'
                 aria-label='Type a message'
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
@@ -389,7 +572,7 @@ export default function SellerChatPopup({
         presetAmounts={offerPresets}
         currencySymbol={currencySymbol}
         onSubmit={(amount) => {
-          appendBuyerMessage(
+          void sendMessage(
             `I'd like to offer ${currencySymbol}${amount.toLocaleString('en-US')}.`,
           )
           setShowOfferModal(false)
