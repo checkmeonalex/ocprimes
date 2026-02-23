@@ -1023,6 +1023,17 @@ function AssistantAI({
         }
       }
     }
+    const resolvedBaseStockQuantity =
+      nextFormUpdates.stock_quantity !== undefined
+        ? String(nextFormUpdates.stock_quantity ?? '')
+        : String(form.stock_quantity ?? '');
+    const defaultVariationStockQuantity = (() => {
+      const raw = resolvedBaseStockQuantity.trim();
+      if (!raw) return '';
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed)) return '';
+      return String(Math.max(0, Math.floor(parsed)));
+    })();
 
     if (payload.categories) {
       const values = parseAiList(payload.categories);
@@ -1147,7 +1158,7 @@ function AssistantAI({
         regular_price: '',
         sale_price: '',
         sku: '',
-        stock_quantity: '',
+        stock_quantity: defaultVariationStockQuantity,
         image_id: '',
       }));
       setVariations((prev) => [...prev, ...next]);

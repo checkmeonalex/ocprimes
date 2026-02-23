@@ -1,5 +1,6 @@
 'use client'
 
+import CustomSelect from '@/components/common/CustomSelect'
 import glassStyles from '@/styles/glass/glass.module.css'
 
 type QuantityControlProps = {
@@ -23,7 +24,6 @@ const sizeStyles = {
     label: 'text-xs',
     select: 'h-7 text-xs pl-9 pr-8',
     tag: 'left-2 text-[10px]',
-    chevron: 'right-2 h-3.5 w-3.5',
   },
   md: {
     wrapper: 'h-11 text-sm px-3 gap-3',
@@ -31,7 +31,6 @@ const sizeStyles = {
     label: 'text-sm',
     select: 'h-9 text-sm pl-10 pr-9',
     tag: 'left-3 text-xs',
-    chevron: 'right-3 h-4 w-4',
   },
 }
 
@@ -78,7 +77,7 @@ const QuantityControl = ({
           >
             Qty
           </span>
-          <select
+          <CustomSelect
             aria-label='Select quantity'
             value={selectedQuantity}
             disabled={isLoading}
@@ -96,17 +95,7 @@ const QuantityControl = ({
                 {qty}
               </option>
             ))}
-          </select>
-          <svg
-            viewBox='0 0 20 20'
-            aria-hidden='true'
-            className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-gray-500 ${sizeClass.chevron}`}
-            fill='none'
-            stroke='currentColor'
-            strokeWidth='1.8'
-          >
-            <path d='M6 8l4 4 4-4' strokeLinecap='round' strokeLinejoin='round' />
-          </svg>
+          </CustomSelect>
         </div>
       </div>
     )

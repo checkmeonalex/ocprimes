@@ -19,8 +19,10 @@ type RelatedProduct = {
   slug: string
   name: string
   image: string
+  createdAt?: string | null
   price: number
   originalPrice?: number | null
+  stock?: number | null
   rating?: number
   reviews?: number
   selectedVariationId?: string | number | null
@@ -43,10 +45,11 @@ const RelatedProductsSection = ({
 }: RelatedProductsSectionProps) => {
   const { addItem, items: cartItems, updateQuantity } = useCart()
   const { openSaveModal, isRecentlySaved } = useWishlist()
+  const now = Date.now()
   if (!Array.isArray(items) || items.length === 0) return null
 
   return (
-    <section className='border-t border-gray-100 px-2 pb-5 pt-4 sm:px-6 sm:pb-6 sm:pt-5'>
+    <section className='border-t border-gray-100'>
       <div className='px-1 pb-1 pt-1 sm:pb-2'>
         <p className='text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 sm:text-xs'>
           {subtitle}
@@ -76,6 +79,15 @@ const RelatedProductsSection = ({
           const rating = Number(product.rating || 0)
           const reviews = Number(product.reviews || 0)
           const showRating = rating > 0
+          const stockCount = Number(product.stock || 0)
+          const showLowStockWarning = stockCount > 0 && stockCount <= 3
+          const savingsAmount =
+            product.originalPrice && product.originalPrice > product.price
+              ? product.originalPrice - product.price
+              : 0
+          const createdAtTimestamp = new Date(String(product.createdAt || '')).getTime()
+          const ageMs = Number.isNaN(createdAtTimestamp) ? Number.POSITIVE_INFINITY : now - createdAtTimestamp
+          const isNewProduct = ageMs >= 0 && ageMs <= 12 * 60 * 60 * 1000
 
           const hasImage = Boolean(product.image)
           const isSaved = isRecentlySaved(product?.id)
@@ -131,7 +143,11 @@ const RelatedProductsSection = ({
             >
               <div className='relative h-full min-w-0 overflow-hidden bg-white p-2 shadow-sm transition hover:shadow-md sm:p-3'>
                 <div className='relative aspect-square overflow-hidden border border-gray-200 bg-gray-100'>
-                  {discountPercentage ? (
+                  {isNewProduct ? (
+                    <div className='absolute left-2 top-2 z-10 inline-flex items-center rounded-full bg-yellow-300 px-2.5 py-1 text-[10px] font-semibold text-yellow-900'>
+                      <span>New</span>
+                    </div>
+                  ) : discountPercentage ? (
                     <div className='absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-rose-500 px-2.5 py-1 text-[10px] font-semibold text-white'>
                       <BadgePercent className='h-4 w-4' />
                       <span>-{discountPercentage}%</span>
@@ -186,20 +202,40 @@ const RelatedProductsSection = ({
                       </span>
                       ) : null}
                   </div>
-                  <div className='mt-1 flex items-center justify-between gap-2'>
-                    <div className='min-w-0 flex items-center gap-2 text-xs text-gray-500'>
-                      {showRating ? (
-                        <>
-                          <Star className='h-4 w-4 text-amber-500 fill-amber-500' />
-                          <span className='font-semibold text-gray-800'>
-                            {rating.toFixed(1)}
-                          </span>
-                          {reviews > 0 ? <span>({reviews})</span> : null}
-                        </>
-                      ) : (
-                        <span className='text-gray-400'>New</span>
-                      )}
+                  <div className='mt-1 min-h-[18px]'>
+                    {savingsAmount > 0 ? (
+                      <span className='text-xs font-semibold text-green-600'>
+                        Save ${formatPrice(savingsAmount)}
+                      </span>
+                    ) : null}
+                  </div>
+                  {showRating ? (
+                    <div className='mt-1 min-w-0 flex items-center gap-2 text-xs text-gray-500'>
+                      <Star className='h-4 w-4 text-amber-500 fill-amber-500' />
+                      <span className='font-semibold text-gray-800'>
+                        {rating.toFixed(1)}
+                      </span>
+                      {reviews > 0 ? <span>({reviews})</span> : null}
                     </div>
+                  ) : null}
+                  {showLowStockWarning ? (
+                    <div className='mt-1'>
+                      <span className='flex items-center gap-1 text-xs font-semibold text-orange-600'>
+                        <svg
+                          width='12'
+                          height='12'
+                          viewBox='0 0 24 24'
+                          fill='none'
+                          stroke='currentColor'
+                          strokeWidth='2'
+                        >
+                          <path d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' />
+                        </svg>
+                        Only {stockCount} left in stock
+                      </span>
+                    </div>
+                  ) : null}
+                  <div className='mt-1 flex items-center justify-end gap-2'>
                     {quantity > 0 ? (
                       <div className='shrink-0'>
                         <QuantityControl

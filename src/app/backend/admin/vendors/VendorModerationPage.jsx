@@ -1,5 +1,6 @@
 'use client'
 
+import CustomSelect from '@/components/common/CustomSelect'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -449,7 +450,7 @@ export default function VendorModerationPage() {
                                     </p>
                                   </div>
                                   <div className='flex flex-wrap items-center gap-2'>
-                                    <select
+                                    <CustomSelect
                                       value={String(product.status || 'draft')}
                                       onChange={(event) =>
                                         updateProductStatus(product, event.target.value, { enabled: false })
@@ -462,7 +463,7 @@ export default function VendorModerationPage() {
                                           {option.label}
                                         </option>
                                       ))}
-                                    </select>
+                                    </CustomSelect>
                                     <button
                                       type='button'
                                       onClick={() => openTakeDownDialog(product)}

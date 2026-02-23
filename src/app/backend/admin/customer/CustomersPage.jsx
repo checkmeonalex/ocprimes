@@ -1,3 +1,4 @@
+import CustomSelect from '@/components/common/CustomSelect'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import BouncingDotsLoader from '../components/BouncingDotsLoader'
@@ -326,11 +327,11 @@ function CustomersPage() {
                       />
                     </label>
                     <span className="text-xs text-slate-400">Sort by:</span>
-                    <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="h-8 border-0 bg-transparent pr-6 text-xs font-semibold text-slate-700 outline-none">
+                    <CustomSelect value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="h-8 border-0 bg-transparent pr-6 text-xs font-semibold text-slate-700 outline-none">
                       <option value="newest">Newest</option>
                       <option value="oldest">Oldest</option>
                       <option value="name">Name</option>
-                    </select>
+                    </CustomSelect>
                   </div>
                 </div>
 

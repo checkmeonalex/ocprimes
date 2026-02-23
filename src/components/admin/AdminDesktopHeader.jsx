@@ -11,6 +11,7 @@ const HEADER_META = [
   { match: '/backend/admin/notifications', title: 'Notifications', subtitle: 'Track account, catalog, and workflow alerts' },
   { match: '/backend/admin/store-front', title: 'Store front', subtitle: 'Manage storefront structure and publishing' },
   { match: '/backend/admin/orders', title: 'Orders', subtitle: 'Track sales and fulfillment status' },
+  { match: '/backend/admin/messages', title: 'Messages', subtitle: 'Reply to buyers and manage conversations' },
   { match: '/backend/admin/reviews', title: 'Reviews', subtitle: 'Moderate and manage product reviews' },
   { match: '/backend/admin/customers', title: 'Customers', subtitle: 'Review customer activity and profiles' },
   { match: '/backend/admin/categories', title: 'Categories', subtitle: 'Organize product collections' },

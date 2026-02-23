@@ -7,6 +7,7 @@ import {
   findSeedProduct,
 } from '@/lib/catalog/seed-products'
 import { getUserRole } from '@/lib/auth/roles'
+import { countBrandFollowers } from '@/lib/catalog/brand-following'
 import { personalizationSignalsSchema } from '@/lib/personalization/signal-schema'
 import {
   rankProductsWithSignals,
@@ -23,6 +24,78 @@ const BRAND_LINKS = 'product_brand_links'
 const IMAGE_TABLE = 'product_images'
 const VARIATIONS_TABLE = 'product_variations'
 const MAX_CATEGORY_BREADCRUMB_DEPTH = 8
+const MISSING_COLUMN_CODE = '42703'
+
+const withOptionalBrandColumns = async (supabase: any, brandId: string) => {
+  const preferredSelect =
+    'id, name, slug, logo_url, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor'
+  const fallbackSelect = 'id, name, slug, logo_url'
+
+  const preferred = await supabase
+    .from(BRAND_TABLE)
+    .select(preferredSelect)
+    .eq('id', brandId)
+    .maybeSingle()
+
+  if (!preferred.error || String(preferred.error?.code || '') !== MISSING_COLUMN_CODE) {
+    return preferred
+  }
+
+  return supabase
+    .from(BRAND_TABLE)
+    .select(fallbackSelect)
+    .eq('id', brandId)
+    .maybeSingle()
+}
+
+const attachVendorProfile = async (supabase: any, item: any) => {
+  const primaryBrand = Array.isArray(item?.brands) ? item.brands[0] : null
+  const brandId = String(primaryBrand?.id || '').trim()
+  if (!brandId) {
+    return {
+      ...item,
+      vendor_profile: null,
+    }
+  }
+
+  const [brandResult, brandProductsCountResult, followersCount] = await Promise.all([
+    withOptionalBrandColumns(supabase, brandId),
+    supabase
+      .from(BRAND_LINKS)
+      .select('product_id', { head: true, count: 'exact' })
+      .eq('brand_id', brandId),
+    countBrandFollowers(brandId),
+  ])
+
+  if (brandResult.error && brandResult.error.code !== 'PGRST116') {
+    console.error('brand profile lookup failed:', brandResult.error.message)
+  }
+  if (brandProductsCountResult.error) {
+    console.error('brand product count failed:', brandProductsCountResult.error.message)
+  }
+
+  const brandData = brandResult.data || primaryBrand || {}
+  const productCount = Math.max(0, Number(brandProductsCountResult.count) || 0)
+  const useCustomMetrics = Boolean(brandData?.use_custom_profile_metrics)
+  const customFollowers = Math.max(0, Number(brandData?.custom_profile_followers) || 0)
+  const customSold = Math.max(0, Number(brandData?.custom_profile_sold) || 0)
+  const realFollowersCount = Math.max(0, Number(followersCount) || 0)
+  const realSoldCount = Math.max(productCount * 15, Math.round(realFollowersCount * 0.42))
+  const followers = useCustomMetrics ? customFollowers : realFollowersCount
+  const sold = useCustomMetrics ? customSold : realSoldCount
+
+  return {
+    ...item,
+    vendor_profile: {
+      followers,
+      sold,
+      items: productCount,
+      rating: Math.max(0, Number(item?.rating) || 0),
+      logo_url: String(brandData?.logo_url || '').trim(),
+      badge: Boolean(brandData?.is_trusted_vendor) ? 'Trusted seller' : '',
+    },
+  }
+}
 
 const toCategorySlug = (value = '') =>
   String(value)
@@ -455,7 +528,8 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
 
   const [item] = await attachRelations(supabase, [data])
   const itemWithCategoryPath = await attachPrimaryCategoryPath(supabase, item)
-  const response = jsonOk({ item: itemWithCategoryPath })
+  const itemWithVendorProfile = await attachVendorProfile(supabase, itemWithCategoryPath)
+  const response = jsonOk({ item: itemWithVendorProfile })
   applyCookies(response)
   return response
 }

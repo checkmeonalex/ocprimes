@@ -18,7 +18,6 @@ export default function Navbar() {
   const searchParams = useSearchParams()
   const { summary } = useCart()
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
-  const [hoverTimeout, setHoverTimeout] = useState(null)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isSearchCategoryOpen, setIsSearchCategoryOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
@@ -40,6 +39,7 @@ export default function Navbar() {
 
   const categoriesRef = useRef(null)
   const menuRef = useRef(null)
+  const categoriesHoverTimeoutRef = useRef(null)
   const searchContainerRef = useRef(null)
   const browsingHistoryRef = useRef(null)
   const historyPanelRef = useRef(null)
@@ -60,6 +60,30 @@ export default function Navbar() {
 
   const placeholderChipImage =
     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="20" fill="%23e5e7eb"/></svg>'
+  const CATEGORIES_OPEN_HOVER_DELAY_MS = 300
+  const CATEGORIES_CLOSE_HOVER_DELAY_MS = 200
+
+  const clearCategoriesHoverTimeout = () => {
+    if (!categoriesHoverTimeoutRef.current) return
+    clearTimeout(categoriesHoverTimeoutRef.current)
+    categoriesHoverTimeoutRef.current = null
+  }
+
+  const isWithinCategoriesArea = (node) => {
+    if (!node) return false
+    return Boolean(
+      categoriesRef.current?.contains(node) || menuRef.current?.contains(node),
+    )
+  }
+
+  const scheduleCategoriesOpen = () => {
+    clearCategoriesHoverTimeout()
+    if (isCategoriesOpen) return
+    categoriesHoverTimeoutRef.current = setTimeout(() => {
+      setIsCategoriesOpen(true)
+      categoriesHoverTimeoutRef.current = null
+    }, CATEGORIES_OPEN_HOVER_DELAY_MS)
+  }
 
   useEffect(() => {
     try {
@@ -185,12 +209,8 @@ export default function Navbar() {
 
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        categoriesRef.current &&
-        !categoriesRef.current.contains(event.target) &&
-        menuRef.current &&
-        !menuRef.current.contains(event.target)
-      ) {
+      if (!isWithinCategoriesArea(event.target)) {
+        clearCategoriesHoverTimeout()
         setIsCategoriesOpen(false)
       }
     }
@@ -198,9 +218,9 @@ export default function Navbar() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
-      if (hoverTimeout) clearTimeout(hoverTimeout)
+      clearCategoriesHoverTimeout()
     }
-  }, [hoverTimeout])
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -276,30 +296,32 @@ export default function Navbar() {
   }, [lastScrollY])
 
   const handleCategoriesMouseEnter = () => {
-    if (hoverTimeout) clearTimeout(hoverTimeout)
     setIsHistoryOpen(false)
     setIsHistoryPinned(false)
-    setIsCategoriesOpen(true)
+    scheduleCategoriesOpen()
   }
 
-  const handleCategoriesMouseLeave = () => {
-    const timeout = setTimeout(() => {
+  const handleCategoriesMouseLeave = (event) => {
+    const nextTarget = event?.relatedTarget
+    if (isWithinCategoriesArea(nextTarget)) return
+    clearCategoriesHoverTimeout()
+    categoriesHoverTimeoutRef.current = setTimeout(() => {
       setIsCategoriesOpen(false)
-    }, 200)
-    setHoverTimeout(timeout)
+      categoriesHoverTimeoutRef.current = null
+    }, CATEGORIES_CLOSE_HOVER_DELAY_MS)
   }
 
   const handleTopCategoryHover = (category) => {
     if (!category) return
-    if (hoverTimeout) clearTimeout(hoverTimeout)
     setIsHistoryOpen(false)
     setIsHistoryPinned(false)
     setActiveTopCategoryId(category.id || null)
-    setIsCategoriesOpen(true)
+    scheduleCategoriesOpen()
   }
 
   const handleHistoryMouseEnter = () => {
     if (historyHoverTimeout) clearTimeout(historyHoverTimeout)
+    clearCategoriesHoverTimeout()
     setHistoryItems(getRecentlyViewed())
     setIsCategoriesOpen(false)
     setIsHistoryOpen(true)
@@ -325,6 +347,7 @@ export default function Navbar() {
 
   const handleHistoryClick = () => {
     if (historyHoverTimeout) clearTimeout(historyHoverTimeout)
+    clearCategoriesHoverTimeout()
     setHistoryItems(getRecentlyViewed())
     setIsCategoriesOpen(false)
     setIsHistoryOpen((prev) => {
@@ -539,6 +562,7 @@ export default function Navbar() {
               type='button'
               className='inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-gray-50 px-2.5 text-xs font-semibold text-gray-900 hover:bg-gray-100'
               onClick={() => {
+                clearCategoriesHoverTimeout()
                 setIsHistoryOpen(false)
                 setIsHistoryPinned(false)
                 setIsCategoriesOpen((prev) => !prev)
@@ -902,7 +926,10 @@ export default function Navbar() {
             </div>
           </div>
         ) : (
-          <div className='mx-auto flex h-10 w-full max-w-[1400px] items-center gap-4 px-4 sm:px-6 lg:px-8'>
+          <div
+            className='mx-auto flex h-10 w-full max-w-[1400px] items-center gap-4 px-4 sm:px-6 lg:px-8'
+            onMouseLeave={handleCategoriesMouseLeave}
+          >
           <div className='flex shrink-0 items-center gap-2 text-xs text-gray-700'>
             <span className='leading-tight'>
               Your order is at your door in
@@ -997,16 +1024,20 @@ export default function Navbar() {
       </div>
 
       <div
-        ref={menuRef}
-        className='absolute left-0 right-0 top-full z-40 bg-white'
-        onMouseEnter={handleCategoriesMouseEnter}
-        onMouseLeave={handleCategoriesMouseLeave}
+        className='pointer-events-none absolute inset-x-0 top-full z-40'
       >
-        <CategoriesMenu
-          isOpen={isCategoriesOpen}
-          onClose={() => setIsCategoriesOpen(false)}
-          initialActiveCategoryId={activeTopCategoryId}
-        />
+        <div
+          ref={menuRef}
+          className='pointer-events-auto mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8'
+          onMouseEnter={handleCategoriesMouseEnter}
+          onMouseLeave={handleCategoriesMouseLeave}
+        >
+          <CategoriesMenu
+            isOpen={isCategoriesOpen}
+            onClose={() => setIsCategoriesOpen(false)}
+            initialActiveCategoryId={activeTopCategoryId}
+          />
+        </div>
       </div>
 
       {isHistoryOpen ? (

@@ -1,5 +1,6 @@
 'use client'
 
+import CustomSelect from '@/components/common/CustomSelect'
 import { useEffect, useMemo, useState } from 'react'
 import { useAlerts } from '@/context/AlertContext'
 import {
@@ -388,7 +389,7 @@ export default function AccountSecurityPage() {
               <p className='mt-1 text-sm text-slate-500'>An extra layer of protection to your account during login</p>
             </div>
             <div className='flex items-center gap-2'>
-              <select
+              <CustomSelect
                 value={twoStepMethod}
                 onChange={(event) => setTwoStepMethod(event.target.value)}
                 className='w-40 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900'
@@ -398,7 +399,7 @@ export default function AccountSecurityPage() {
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </CustomSelect>
               <button
                 type='button'
                 className={ghostButtonClass}
@@ -531,7 +532,7 @@ export default function AccountSecurityPage() {
             </div>
           </div>
           <div className='mt-3 flex flex-col gap-2'>
-            <select
+            <CustomSelect
               value={twoStepMethod}
               onChange={(event) => setTwoStepMethod(event.target.value)}
               className={selectFieldClass}
@@ -541,7 +542,7 @@ export default function AccountSecurityPage() {
                   {option.label}
                 </option>
               ))}
-            </select>
+            </CustomSelect>
             <button
               type='button'
               className={primaryButtonClass}
@@ -628,7 +629,7 @@ export default function AccountSecurityPage() {
           <div className='mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2'>
             <div>
               <label className={accountLabelClass}>Security question</label>
-              <select
+              <CustomSelect
                 value={question}
                 onChange={(event) => setQuestion(event.target.value)}
                 className={`mt-2 ${selectFieldClass}`}
@@ -639,7 +640,7 @@ export default function AccountSecurityPage() {
                     {item}
                   </option>
                 ))}
-              </select>
+              </CustomSelect>
             </div>
             {question ? (
               <div>
@@ -671,7 +672,7 @@ export default function AccountSecurityPage() {
           <div className='mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2'>
             <div>
               <label className={accountLabelClass}>New security question</label>
-              <select
+              <CustomSelect
                 value={resetQuestion}
                 onChange={(event) => setResetQuestion(event.target.value)}
                 className={`mt-2 ${selectFieldClass}`}
@@ -682,7 +683,7 @@ export default function AccountSecurityPage() {
                     {item}
                   </option>
                 ))}
-              </select>
+              </CustomSelect>
             </div>
             {resetQuestion ? (
               <div>

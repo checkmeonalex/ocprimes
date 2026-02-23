@@ -6,6 +6,10 @@
   --app-sidebar-width: 4rem;
   --ocp-glass-base: #ffffff;
   --ocp-ink: #000000;
+  --ocp-scrollbar-size: 15px;
+  --ocp-scrollbar-track: #252525;
+  --ocp-scrollbar-thumb: #9f9f9f;
+  --ocp-scrollbar-thumb-hover: #b6b6b6;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -142,13 +146,44 @@ main {
 
 /* Prevent media overflow */
 img,
-video,
+video,  
 iframe,
 embed,
 object {
   max-width: 100%;
   height: auto;
   display: block;
+}
+
+/* Global scrollbar theme */
+* {
+  scrollbar-width: auto;
+  scrollbar-color: var(--ocp-scrollbar-thumb) var(--ocp-scrollbar-track);
+}
+
+*::-webkit-scrollbar {
+  width: var(--ocp-scrollbar-size);
+  height: var(--ocp-scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--ocp-scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--ocp-scrollbar-thumb);
+  border-radius: 999px;
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  min-height: 44px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ocp-scrollbar-thumb-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--ocp-scrollbar-track);
 }
 
 /* Recently viewed horizontal scrollbar */

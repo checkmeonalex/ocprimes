@@ -1,5 +1,6 @@
 'use client'
 
+import CustomSelect from '@/components/common/CustomSelect'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useMemo, useEffect, useState } from 'react'
@@ -18,7 +19,7 @@ const DATE_FILTERS = [
 const STATUS_OPTIONS = [
   { key: 'all', label: 'All' },
   { key: 'completed', label: 'Completed' },
-  { key: 'pending', label: 'Pending' },
+  { key: 'pending', label: 'Awaiting Payment' },
   { key: 'failed', label: 'Failed' },
   { key: 'cancelled', label: 'Cancelled' },
 ]
@@ -55,7 +56,7 @@ const getOrdersTitle = (filterKey) => {
   if (key === 'all') return 'All orders'
   if (key === 'cancelled') return 'Cancel'
   if (key === 'completed') return 'Completed'
-  if (key === 'pending') return 'Pending'
+  if (key === 'pending') return 'Awaiting Payment'
   if (key === 'failed') return 'Failed'
   return 'All orders'
 }
@@ -69,10 +70,29 @@ const matchesStatusFilter = (entry, filterKey) => {
   if (key === 'all') return true
   if (key === 'delivery') return orderType === 'delivery'
   if (key === 'completed') return paymentStatus === 'paid' || uiStatus === 'completed'
-  if (key === 'pending') return paymentStatus === 'pending'
-  if (key === 'failed') return paymentStatus === 'failed'
+  if (key === 'pending') return paymentStatus === 'pending' || uiStatus === 'pending'
+  if (key === 'failed') return paymentStatus === 'failed' || uiStatus === 'failed'
   if (key === 'cancelled') return paymentStatus === 'cancelled' || uiStatus === 'cancelled'
   return false
+}
+
+const statusPillTone = (status) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'completed') return 'bg-emerald-100 text-emerald-700'
+  if (normalized === 'pending') return 'bg-amber-100 text-amber-700'
+  if (normalized === 'failed') return 'bg-rose-100 text-rose-700'
+  return 'bg-slate-100 text-slate-700'
+}
+
+const statusDisplayLabel = (status) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'completed') return 'Success'
+  if (normalized === 'pending') return 'Awaiting Payment'
+  if (normalized === 'out_for_delivery') return 'Out for Delivery'
+  if (normalized === 'processing') return 'Processing'
+  if (normalized === 'failed') return 'Failed'
+  if (normalized === 'cancelled') return 'Cancelled'
+  return String(status || 'Status')
 }
 
 export default function OrdersPage() {
@@ -268,7 +288,7 @@ export default function OrdersPage() {
           </div>
           <label className='inline-flex items-center gap-2 text-sm text-slate-600'>
             <span>Date</span>
-            <select
+            <CustomSelect
               value={appliedDateFilter}
               onChange={(event) => {
                 const next = String(event.target.value || 'latest')
@@ -282,7 +302,7 @@ export default function OrdersPage() {
                   {option.label}
                 </option>
               ))}
-            </select>
+            </CustomSelect>
           </label>
         </div>
       </div>
@@ -322,8 +342,10 @@ export default function OrdersPage() {
             filteredOrders.map((order) => (
               <article key={order.id} className='rounded-xl border border-slate-200 bg-white p-3'>
                 <div className='flex items-center justify-between'>
-                  <span className='inline-flex rounded-full bg-emerald-600 px-2 py-0.5 text-[11px] font-semibold text-white'>
-                    {order.status === 'completed' ? 'Success' : order.status}
+                  <span
+                    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusPillTone(order.status)}`}
+                  >
+                    {statusDisplayLabel(order.status)}
                   </span>
                   <Link href={`/UserBackend/orders/${order.id}`} className='inline-flex items-center gap-1 text-sm font-medium text-slate-800'>
                     <span>See Details</span>
@@ -413,16 +435,8 @@ export default function OrdersPage() {
                     <p className='mt-1 line-clamp-1 text-sm text-slate-700'>{order.previewText}</p>
                   </div>
                   <div>
-                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      order.status === 'completed'
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : order.status === 'pending'
-                          ? 'bg-amber-100 text-amber-700'
-                          : order.status === 'failed'
-                            ? 'bg-rose-100 text-rose-700'
-                            : 'bg-slate-100 text-slate-700'
-                    }`}>
-                      {order.status === 'completed' ? 'Success' : order.status}
+                    <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusPillTone(order.status)}`}>
+                      {statusDisplayLabel(order.status)}
                     </span>
                   </div>
                   <div className='text-sm text-slate-900'>

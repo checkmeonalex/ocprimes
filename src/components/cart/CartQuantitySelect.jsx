@@ -7,6 +7,7 @@ const CartQuantitySelect = ({
   onChange,
   isLoading = false,
   maxQuantity = 10,
+  size = 'sm',
 }) => {
   const [open, setOpen] = useState(false)
   const [panelPlacement, setPanelPlacement] = useState('bottom')
@@ -20,6 +21,18 @@ const CartQuantitySelect = ({
     () => Array.from({ length: Math.max(safeMax, selectedQuantity) + 1 }, (_, index) => index),
     [safeMax, selectedQuantity],
   )
+  const sizePreset =
+    size === 'md'
+      ? {
+          trigger: 'h-11 min-w-[124px] px-4',
+          label: 'text-base',
+          listItem: 'px-4 py-2.5 text-sm',
+        }
+      : {
+          trigger: 'h-8 min-w-[96px] px-3',
+          label: 'text-sm',
+          listItem: 'px-4 py-2 text-base',
+        }
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -81,9 +94,9 @@ const CartQuantitySelect = ({
         aria-haspopup='listbox'
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className='inline-flex h-8 min-w-[96px] items-center justify-between rounded-full border border-slate-700 bg-white px-3 font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-70'
+        className={`inline-flex items-center justify-between rounded-full border border-slate-700 bg-white font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-70 ${sizePreset.trigger}`}
       >
-        <span className='text-sm'>{`Qty ${selectedQuantity}`}</span>
+        <span className={sizePreset.label}>{`Qty ${selectedQuantity}`}</span>
         <svg
           viewBox='0 0 20 20'
           className={`h-4 w-4 text-slate-700 transition-transform ${open ? 'rotate-180' : ''}`}
@@ -100,7 +113,7 @@ const CartQuantitySelect = ({
         <div
           ref={listRef}
           role='listbox'
-          className={`absolute left-0 z-20 w-[102px] overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-md ${
+          className={`absolute left-0 z-20 w-full min-w-[102px] overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-md ${
             panelPlacement === 'top' ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'
           }`}
           style={{ maxHeight: `${panelMaxHeight}px` }}
@@ -115,7 +128,7 @@ const CartQuantitySelect = ({
                 setOpen(false)
                 onChange(value)
               }}
-              className='flex w-full items-center justify-between px-4 py-2 text-left text-base text-slate-800 hover:bg-slate-100'
+              className={`flex w-full items-center justify-between text-left text-slate-800 hover:bg-slate-100 ${sizePreset.listItem}`}
             >
               <span>{value}</span>
               {value === selectedQuantity ? (

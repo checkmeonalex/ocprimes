@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
+import CustomSelect from '@/components/common/CustomSelect'
 import CartQuantitySelect from '@/components/cart/CartQuantitySelect'
 import { useCart } from '@/context/CartContext'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
@@ -1503,7 +1504,7 @@ function CheckoutPaymentPageContent() {
 
               <label className='text-xs font-semibold uppercase tracking-[0.08em] text-slate-500'>
                 Country
-                <select
+                <CustomSelect
                   value={draftAddress.country}
                   onChange={(event) =>
                     setDraftAddress((prev) => ({ ...prev, country: event.target.value }))
@@ -1515,7 +1516,7 @@ function CheckoutPaymentPageContent() {
                       {country}
                     </option>
                   ))}
-                </select>
+                </CustomSelect>
               </label>
 
               <label className='sm:col-span-2 inline-flex items-center gap-2 text-sm text-slate-700'>

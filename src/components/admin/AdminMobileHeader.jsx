@@ -9,6 +9,7 @@ const TITLE_BY_PATH = {
   '/backend/admin': 'Homepage',
   '/backend/admin/dashboard': 'Homepage',
   '/backend/admin/orders': 'Orders',
+  '/backend/admin/messages': 'Messages',
   '/backend/admin/products': 'Products',
   '/backend/admin/settings': 'More',
 }

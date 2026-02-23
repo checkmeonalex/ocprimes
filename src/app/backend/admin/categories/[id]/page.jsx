@@ -1,4 +1,5 @@
 'use client';
+import CustomSelect from '@/components/common/CustomSelect'
 import { useEffect, useState, useRef, use } from 'react';
 import Link from 'next/link';
 import AdminSidebar from '@/components/AdminSidebar';
@@ -1722,7 +1723,7 @@ function CategoryDetailPage({ params }) {
                       <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
                         Filter by
                       </label>
-                      <select
+                      <CustomSelect
                         value={featureFilterType}
                         onChange={(e) => {
                           const value = e.target.value;
@@ -1739,7 +1740,7 @@ function CategoryDetailPage({ params }) {
                         <option value="none">None</option>
                         <option value="category">Category</option>
                         <option value="tag">Tag</option>
-                      </select>
+                      </CustomSelect>
                     </div>
 
                     {featureFilterType === 'category' && (
@@ -1747,7 +1748,7 @@ function CategoryDetailPage({ params }) {
                         <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
                           Category
                         </label>
-                        <select
+                        <CustomSelect
                           value={form.featured_strip_category_id}
                           onChange={(e) =>
                             setForm((prev) => ({
@@ -1763,7 +1764,7 @@ function CategoryDetailPage({ params }) {
                               {category.name}
                             </option>
                           ))}
-                        </select>
+                        </CustomSelect>
                       </div>
                     )}
 
@@ -1772,7 +1773,7 @@ function CategoryDetailPage({ params }) {
                         <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
                           Tag
                         </label>
-                        <select
+                        <CustomSelect
                           value={form.featured_strip_tag_id}
                           onChange={(e) =>
                             setForm((prev) => ({
@@ -1791,7 +1792,7 @@ function CategoryDetailPage({ params }) {
                               {tag.name}
                             </option>
                           ))}
-                        </select>
+                        </CustomSelect>
                       </div>
                     )}
                   </div>
@@ -2092,7 +2093,7 @@ function CategoryDetailPage({ params }) {
                     <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
                       Filter mode
                     </label>
-                    <select
+                    <CustomSelect
                       value={form.home_catalog_filter_mode}
                       onChange={(e) =>
                         setForm((prev) => ({
@@ -2109,13 +2110,13 @@ function CategoryDetailPage({ params }) {
                       <option value="none">None (show no products)</option>
                       <option value="category">Category</option>
                       <option value="tag">Tag</option>
-                    </select>
+                    </CustomSelect>
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
                       Category
                     </label>
-                    <select
+                    <CustomSelect
                       value={form.home_catalog_category_id}
                       onChange={(e) =>
                         setForm((prev) => ({ ...prev, home_catalog_category_id: e.target.value }))
@@ -2131,13 +2132,13 @@ function CategoryDetailPage({ params }) {
                           {category.name}
                         </option>
                       ))}
-                    </select>
+                    </CustomSelect>
                   </div>
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
                       Tag
                     </label>
-                    <select
+                    <CustomSelect
                       value={form.home_catalog_tag_id}
                       onChange={(e) =>
                         setForm((prev) => ({ ...prev, home_catalog_tag_id: e.target.value }))
@@ -2153,7 +2154,7 @@ function CategoryDetailPage({ params }) {
                           {tag.name}
                         </option>
                       ))}
-                    </select>
+                    </CustomSelect>
                   </div>
                 </div>
               </div>

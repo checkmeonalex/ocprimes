@@ -7,6 +7,7 @@ type RawOrder = {
   order_number: string | null
   paystack_reference: string
   payment_status: string
+  shipping_address?: Record<string, unknown> | null
   total_amount: number | string
   subtotal: number | string
   currency: string
@@ -21,11 +22,29 @@ type RawOrderItem = {
   quantity: number | string
 }
 
-const toUiStatus = (paymentStatus: string) => {
+const getManualStatus = (shippingAddress: Record<string, unknown>) =>
+  String(
+    shippingAddress?.orderStatus ||
+      shippingAddress?.order_status ||
+      shippingAddress?.status ||
+      '',
+  )
+    .trim()
+    .toLowerCase()
+
+const toUiStatus = (paymentStatus: string, shippingAddress: Record<string, unknown>) => {
+  const manual = getManualStatus(shippingAddress)
+  if (manual === 'delivered') return 'completed'
+  if (manual === 'cancelled') return 'cancelled'
+  if (manual === 'failed') return 'failed'
+  if (manual === 'processing' || manual === 'out_for_delivery' || manual === 'pending') return 'pending'
+
   const normalized = String(paymentStatus || '').toLowerCase()
   if (normalized === 'paid') return 'completed'
-  if (normalized === 'failed' || normalized === 'cancelled') return 'cancelled'
-  return 'active'
+  if (normalized === 'failed') return 'failed'
+  if (normalized === 'cancelled') return 'cancelled'
+  if (normalized === 'pending') return 'pending'
+  return 'pending'
 }
 
 export async function GET(request: NextRequest) {
@@ -40,7 +59,9 @@ export async function GET(request: NextRequest) {
 
   const { data: ordersData, error: ordersError } = await supabase
     .from('checkout_orders')
-    .select('id, order_number, paystack_reference, payment_status, total_amount, subtotal, currency, created_at, item_count')
+    .select(
+      'id, order_number, paystack_reference, payment_status, shipping_address, total_amount, subtotal, currency, created_at, item_count',
+    )
     .eq('user_id', auth.user.id)
     .order('created_at', { ascending: false })
 
@@ -84,7 +105,7 @@ export async function GET(request: NextRequest) {
       id: order.id,
       orderNumber: String(order.order_number || '').trim() || `#${String(order.id || '').replace(/-/g, '').toUpperCase()}`,
       paystackReference: String(order.paystack_reference || ''),
-      status: toUiStatus(order.payment_status),
+      status: toUiStatus(order.payment_status, (order.shipping_address || {}) as Record<string, unknown>),
       paymentStatus: String(order.payment_status || ''),
       totalAmount: Number(order.total_amount || 0),
       subtotal: Number(order.subtotal || 0),

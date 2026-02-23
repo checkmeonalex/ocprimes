@@ -1,5 +1,6 @@
 'use client'
 
+import CustomSelect from '@/components/common/CustomSelect'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -766,7 +767,7 @@ export default function SettingsPage() {
                         </div>
                         <div>
                           <label className={labelClass}>Location</label>
-                          <select
+                          <CustomSelect
                             className={inputClass}
                             value={profileForm.location}
                             onChange={(event) => setProfileForm((prev) => ({ ...prev, location: event.target.value }))}
@@ -777,7 +778,7 @@ export default function SettingsPage() {
                                 {item}
                               </option>
                             ))}
-                          </select>
+                          </CustomSelect>
                         </div>
                       </div>
                       <button
@@ -1110,7 +1111,7 @@ export default function SettingsPage() {
                           </div>
                           <div>
                             <label className={labelClass}>Location</label>
-                            <select
+                            <CustomSelect
                               className={inputClass}
                               value={profileForm.location}
                               onChange={(event) => setProfileForm((prev) => ({ ...prev, location: event.target.value }))}
@@ -1121,7 +1122,7 @@ export default function SettingsPage() {
                                   {item}
                                 </option>
                               ))}
-                            </select>
+                            </CustomSelect>
                           </div>
                         </div>
                         <div className='rounded-xl border border-slate-200 bg-slate-50 p-4'>

@@ -1,4 +1,5 @@
 'use client';
+import CustomSelect from '@/components/common/CustomSelect'
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import LoadingButton from '@/components/LoadingButton';
@@ -1072,7 +1073,7 @@ function CategoryTreeManager() {
           </div>
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">Parent category</label>
-            <select
+            <CustomSelect
               value={form.parent_id}
               onChange={(event) => setForm((prev) => ({ ...prev, parent_id: event.target.value }))}
               className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
@@ -1083,7 +1084,7 @@ function CategoryTreeManager() {
                   {option.name}
                 </option>
               ))}
-            </select>
+            </CustomSelect>
           </div>
           <div>
             <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">Description (optional)</label>

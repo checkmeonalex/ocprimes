@@ -1,4 +1,5 @@
 'use client'
+import CustomSelect from '@/components/common/CustomSelect'
 import { useMemo, useState } from 'react'
 import PriceRangeSlider from '../filters/PriceRangeSlider'
 import { getSwatchStyle } from '../colorUtils.mjs'
@@ -205,7 +206,7 @@ const ProductFiltersMobile = ({
       <div className='border-b border-gray-200 px-4 py-2'>
         <div className='flex items-center justify-between gap-2'>
           <span className='text-xs font-semibold text-gray-600'>Sort by</span>
-          <select
+          <CustomSelect
             value={sortValue}
             onChange={(event) => onSortChange?.(event.target.value)}
             className='rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-300'
@@ -217,7 +218,7 @@ const ProductFiltersMobile = ({
             <option value='price_desc'>High to Low</option>
             <option value='name_asc'>Name (A-Z)</option>
             <option value='name_desc'>Name (Z-A)</option>
-          </select>
+          </CustomSelect>
         </div>
       </div>
 

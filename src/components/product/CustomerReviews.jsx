@@ -114,6 +114,7 @@ const CustomerReviews = ({ data, productSlug, onReviewSubmitted }) => {
   const [composerContent, setComposerContent] = useState('')
   const [composerFiles, setComposerFiles] = useState([])
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  const canWriteReview = Boolean(data?.canWriteReview)
   const totalItems = Number(data?.summary?.totalReviews || 0)
   const sellerPerformance = getSellerPerformance(data?.summary?.rating)
   const total = data.breakdown.reduce((sum, row) => sum + row.count, 0)
@@ -334,15 +335,17 @@ const CustomerReviews = ({ data, productSlug, onReviewSubmitted }) => {
           <span className='font-semibold text-gray-900'>
             {data.summary.wouldRecommendPercent}%
           </span>
-          Would recommend ({data.summary.wouldRecommendCount} recommendations)
+          Whould You Recommend ({data.summary.wouldRecommendCount} recommendations)
         </div>
-        <button
-          type='button'
-          onClick={openComposer}
-          className='rounded-full bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500'
-        >
-          Write a Review
-        </button>
+        {canWriteReview ? (
+          <button
+            type='button'
+            onClick={openComposer}
+            className='rounded-full bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500'
+          >
+            Write a Review
+          </button>
+        ) : null}
       </div>
       {isComposerOpen ? (
         <div className='fixed inset-0 z-[2147483600] flex items-center justify-center bg-black/60 p-3'>

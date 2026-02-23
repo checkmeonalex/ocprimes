@@ -1,5 +1,6 @@
 'use client'
 
+import CustomSelect from '@/components/common/CustomSelect'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import CartQuantitySelect from '@/components/cart/CartQuantitySelect'
@@ -1678,7 +1679,7 @@ const ShippingDetailsPage = () => {
                       <span className='h-full w-1/3 bg-white' />
                       <span className='h-full w-1/3 bg-[#118647]' />
                     </span>
-                    <select
+                    <CustomSelect
                       className='h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-10 pr-10 text-sm text-slate-900 shadow-sm outline-none transition duration-200 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10'
                       value={draftAddress.country}
                       onChange={(event) => updateDraftAddress('country', event.target.value)}
@@ -1688,7 +1689,7 @@ const ShippingDetailsPage = () => {
                           {country}
                         </option>
                       ))}
-                    </select>
+                    </CustomSelect>
                     <svg
                       className='pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-600'
                       viewBox='0 0 20 20'

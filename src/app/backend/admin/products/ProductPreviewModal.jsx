@@ -1,3 +1,4 @@
+import CustomSelect from '@/components/common/CustomSelect'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,9 @@ import { fetchProductAttributes } from './functions/attributes';
 import { fetchSizeGuides } from './functions/sizeGuides';
 import LoadingButton from '../../../../components/LoadingButton';
 import { useAlerts } from '@/context/AlertContext';
+import { PRODUCT_CONDITION_VALUES } from '@/lib/admin/product-conditions';
+import { PRODUCT_PACKAGING_VALUES } from '@/lib/admin/product-packaging';
+import { PRODUCT_RETURN_POLICY_VALUES } from '@/lib/admin/product-returns';
 import {
   PRODUCT_EDITOR_STEPS,
   getFurthestAccessibleStepIndex,
@@ -64,6 +68,9 @@ const getTermColorHex = (term) =>
   normalizeHexColor(term?.color_hex || term?.hex || term?.color || term?.value_hex);
 
 const SHORT_DESCRIPTION_MAX = 500;
+const CONDITION_VALUE_SET = new Set(PRODUCT_CONDITION_VALUES);
+const PACKAGING_VALUE_SET = new Set(PRODUCT_PACKAGING_VALUES);
+const RETURN_POLICY_VALUE_SET = new Set(PRODUCT_RETURN_POLICY_VALUES);
 const MOBILE_STEP_META = [
   { stepIndex: 0, label: 'Basics' },
   { stepIndex: 1, label: 'Details' },
@@ -107,6 +114,12 @@ const withEmbedPreviewParam = (url) => {
   }
 };
 
+const normalizeAllowedValue = (value, allowedValues, fallback = '') => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return fallback;
+  return allowedValues.has(normalized) ? normalized : fallback;
+};
+
 const buildInitialForm = (product) => {
   if (!product) {
     return {
@@ -136,9 +149,17 @@ const buildInitialForm = (product) => {
     stock_quantity: Number.isFinite(Number(product.stock_quantity)) ? String(product.stock_quantity) : '',
     description: product.description || '',
     short_description: product.short_description || '',
-    condition_check: product.condition_check || '',
-    packaging_style: product.packaging_style || 'in_wrap_nylon',
-    return_policy: product.return_policy || 'not_returnable',
+    condition_check: normalizeAllowedValue(product.condition_check, CONDITION_VALUE_SET, ''),
+    packaging_style: normalizeAllowedValue(
+      product.packaging_style,
+      PACKAGING_VALUE_SET,
+      'in_wrap_nylon',
+    ),
+    return_policy: normalizeAllowedValue(
+      product.return_policy,
+      RETURN_POLICY_VALUE_SET,
+      'not_returnable',
+    ),
     categories: normalizeEntityNames(product.categories).join(', '),
     image_id: product?.images?.[0]?.id ? String(product.images[0].id) : '',
   };
@@ -455,12 +476,14 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         const items = Array.isArray(payload?.items) ? payload.items : [];
         setPendingCategoryRequests(items);
         setPendingCategoryRequestIds((prev) => {
-          const next = new Set(prev.map((id) => String(id)));
-          items.forEach((item) => {
-            const requestId = String(item?.id || '');
-            if (requestId && next.has(requestId)) return;
-          });
-          return Array.from(next);
+          const allowedIds = new Set(
+            items
+              .map((item) => String(item?.id || '').trim())
+              .filter(Boolean),
+          );
+          return (Array.isArray(prev) ? prev : [])
+            .map((id) => String(id || '').trim())
+            .filter((id) => id && allowedIds.has(id));
         });
       })
       .catch((_error) => {
@@ -1126,6 +1149,13 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     () => variations.find((variation) => variation.id === activeVariationEditorId) || null,
     [activeVariationEditorId, variations],
   );
+  const defaultVariationStockQuantity = useMemo(() => {
+    const raw = String(form.stock_quantity ?? '').trim();
+    if (!raw) return '';
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) return '';
+    return String(Math.max(0, Math.floor(parsed)));
+  }, [form.stock_quantity]);
   const draftSyncFingerprint = useMemo(() => {
     if (!canDraftSave) return '';
     return JSON.stringify({
@@ -1293,6 +1323,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
       return;
     }
     const colorCounters = {};
+    const defaultStockQuantity = defaultVariationStockQuantity;
     const next = variationCombinations.map((combo, index) => {
       const colorValue = colorAttributeKey ? String(combo?.attributes?.[colorAttributeKey] || '').trim() : '';
       const offset = Number(colorCounters[colorValue] || 0);
@@ -1310,7 +1341,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         regular_price: '',
         sale_price: '',
         sku: '',
-        stock_quantity: '',
+        stock_quantity: defaultStockQuantity,
         image_id: mappedImageId,
       };
     });
@@ -1450,7 +1481,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         regular_price: '',
         sale_price: '',
         sku: '',
-        stock_quantity: '',
+        stock_quantity: defaultVariationStockQuantity,
         image_id: '',
       },
     ]);
@@ -1622,7 +1653,9 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         setForm(nextForm);
       }
       const existingId = savedProduct?.id || product?.id;
-      const payload = buildProductPayload(nextForm);
+      const payload = buildProductPayload(nextForm, {
+        mode: existingId ? 'update' : 'create',
+      });
       const saved = existingId
         ? await updateProduct({ id: existingId, updates: payload })
         : await createProduct({ form: nextForm });
@@ -1673,7 +1706,9 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         size_guide_id: sizeGuideEnabled ? selectedSizeGuideId : '',
       };
       const existingId = savedProduct?.id || product?.id;
-      const payload = buildProductPayload(draftForm);
+      const payload = buildProductPayload(draftForm, {
+        mode: existingId ? 'update' : 'create',
+      });
       const saved = existingId
         ? await updateProduct({ id: existingId, updates: payload })
         : await createProduct({ form: draftForm });
@@ -2715,7 +2750,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       )}
 
                       <div className="mt-3">
-                        <select
+                        <CustomSelect
                           onChange={(event) => {
                             const selected = selectableAttributes.find(
                               (attribute) => String(attribute.id) === event.target.value,
@@ -2734,7 +2769,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                               {attribute.label || attribute.name}
                             </option>
                           ))}
-                        </select>
+                        </CustomSelect>
                       </div>
 
                       {selectedAttributes.length > 0 && (
@@ -2939,7 +2974,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 <p className="mt-3 text-xs text-slate-400">No size guides found yet.</p>
               )}
               <div className="mt-4">
-                <select
+                <CustomSelect
                   value={selectedSizeGuideId}
                   onChange={(event) => setSelectedSizeGuideId(event.target.value)}
                   className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-600"
@@ -2951,7 +2986,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       {guide.title}
                     </option>
                   ))}
-                </select>
+                </CustomSelect>
               </div>
             </div>
             )}
@@ -3205,7 +3240,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                         <label className="block text-[11px] text-slate-400">
                           {attribute.label || attribute.name}
                         </label>
-                        <select
+                        <CustomSelect
                           value={activeVariationEditor.attributes?.[attributeKey] || ''}
                           onChange={(event) =>
                             updateVariationAttribute(
@@ -3225,7 +3260,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                               {option.name}
                             </option>
                           ))}
-                        </select>
+                        </CustomSelect>
                       </div>
                     );
                   })}
@@ -3503,7 +3538,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       </div>
                       <div className="min-w-0">
                         <label className="block text-[11px] text-slate-500">Color for this image</label>
-                        <select
+                        <CustomSelect
                           value={getMappedColorForImage(image.id)}
                           onChange={(event) => handleAssignColorToImage(image.id, event.target.value)}
                           className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"
@@ -3514,7 +3549,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                               {option.label}
                             </option>
                           ))}
-                        </select>
+                        </CustomSelect>
                       </div>
                     </div>
                   ))}

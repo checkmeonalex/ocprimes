@@ -7,6 +7,7 @@ export default function Gallery({
   setCurrentImage,
   productName,
   badgeText = null,
+  badgeVariant = 'discount',
   mainImageRef = null,
 }) {
   const [isMobileView, setIsMobileView] = useState(false)
@@ -143,6 +144,7 @@ export default function Gallery({
           setCurrentImage={setCurrentImage}
           productName={productName}
           badgeText={badgeText}
+          badgeVariant={badgeVariant}
         />
       ) : (
         <div className='flex gap-0 items-start'>
@@ -261,6 +263,17 @@ export default function Gallery({
                     : { transform: 'scale(1)' }
                 }
               />
+              {badgeText ? (
+                <div
+                  className={`absolute top-4 left-4 text-xs font-semibold px-3 py-1 rounded-full z-10 ${
+                    badgeVariant === 'new'
+                      ? 'bg-yellow-300 text-yellow-900'
+                      : 'bg-red-500 text-white'
+                  }`}
+                >
+                  {badgeText}
+                </div>
+              ) : null}
             </div>
 
           </div>

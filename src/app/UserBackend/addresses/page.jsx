@@ -1,5 +1,6 @@
 'use client'
 
+import CustomSelect from '@/components/common/CustomSelect'
 import { useEffect, useMemo, useState } from 'react'
 import { useAlerts } from '@/context/AlertContext'
 import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
@@ -691,7 +692,7 @@ export default function AddressesPage() {
                       <span className='h-full w-1/3 bg-white' />
                       <span className='h-full w-1/3 bg-[#118647]' />
                     </span>
-                    <select
+                    <CustomSelect
                       value={draft.country}
                       onChange={(event) => updateDraft('country', event.target.value)}
                       className={countrySelectInputClass}
@@ -702,7 +703,7 @@ export default function AddressesPage() {
                           {country}
                         </option>
                       ))}
-                    </select>
+                    </CustomSelect>
                     <svg
                       className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600'
                       viewBox='0 0 20 20'

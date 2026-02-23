@@ -56,6 +56,7 @@ const emptyPayload = {
     { stars: 1, count: 0 },
   ],
   reviews: [],
+  canWriteReview: false,
 }
 
 const parseDateValue = (value: string | null | undefined) => {
@@ -102,6 +103,65 @@ const resolveProductBySlug = async (supabase: any, slug: string) => {
   return { error: null, data: byAdminProductsTable.data || null }
 }
 
+const PURCHASED_ORDER_STATUS = 'paid'
+const ORDER_CHUNK_SIZE = 200
+
+const hasPurchasedProduct = async (
+  supabase: any,
+  userId: string,
+  productId: string,
+) => {
+  if (!userId || !productId) {
+    return { hasPurchased: false, error: null }
+  }
+
+  const { data: paidOrders, error: paidOrdersError } = await supabase
+    .from('checkout_orders')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('payment_status', PURCHASED_ORDER_STATUS)
+    .order('created_at', { ascending: false })
+
+  if (paidOrdersError) {
+    if (isSafeMissingSchemaError(paidOrdersError)) {
+      return { hasPurchased: false, error: null }
+    }
+    return { hasPurchased: false, error: paidOrdersError }
+  }
+
+  const paidOrderIds = Array.isArray(paidOrders)
+    ? paidOrders
+        .map((row: any) => String(row?.id || ''))
+        .filter(Boolean)
+    : []
+  if (!paidOrderIds.length) {
+    return { hasPurchased: false, error: null }
+  }
+
+  for (let start = 0; start < paidOrderIds.length; start += ORDER_CHUNK_SIZE) {
+    const orderChunk = paidOrderIds.slice(start, start + ORDER_CHUNK_SIZE)
+    const { data: orderItems, error: orderItemsError } = await supabase
+      .from('checkout_order_items')
+      .select('id')
+      .eq('product_id', productId)
+      .in('order_id', orderChunk)
+      .limit(1)
+
+    if (orderItemsError) {
+      if (isSafeMissingSchemaError(orderItemsError)) {
+        return { hasPurchased: false, error: null }
+      }
+      return { hasPurchased: false, error: orderItemsError }
+    }
+
+    if (Array.isArray(orderItems) && orderItems.length > 0) {
+      return { hasPurchased: true, error: null }
+    }
+  }
+
+  return { hasPurchased: false, error: null }
+}
+
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ slug: string }> },
@@ -128,11 +188,24 @@ export async function GET(
   }
   const productId = String(productLookup.data?.id || '')
   const productName = String(productLookup.data?.name || '')
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+  const reviewerUserId =
+    !authError && authData?.user?.id ? String(authData.user.id).trim() : ''
+  let canWriteReview = false
 
   if (!productId) {
     const response = jsonOk(emptyPayload)
     applyCookies(response)
     return response
+  }
+
+  if (reviewerUserId) {
+    const purchaseCheck = await hasPurchasedProduct(supabase, reviewerUserId, productId)
+    if (purchaseCheck.error) {
+      console.error('public product reviews purchase check failed:', purchaseCheck.error.message)
+      return jsonError('Unable to load reviews.', 500)
+    }
+    canWriteReview = purchaseCheck.hasPurchased
   }
 
   const { data: brandLinks, error: brandLinksError } = await supabase
@@ -192,7 +265,10 @@ export async function GET(
 
   if (reviewsError) {
     if (isSafeMissingSchemaError(reviewsError)) {
-      const response = jsonOk(emptyPayload)
+      const response = jsonOk({
+        ...emptyPayload,
+        canWriteReview,
+      })
       applyCookies(response)
       return response
     }
@@ -202,7 +278,10 @@ export async function GET(
 
   const rows = Array.isArray(reviewRows) ? reviewRows : []
   if (!rows.length) {
-    const response = jsonOk(emptyPayload)
+    const response = jsonOk({
+      ...emptyPayload,
+      canWriteReview,
+    })
     applyCookies(response)
     return response
   }
@@ -358,6 +437,7 @@ export async function GET(
       count: ratingCounts.get(stars) || 0,
     })),
     reviews,
+    canWriteReview,
   })
   applyCookies(response)
   return response
@@ -404,6 +484,20 @@ export async function POST(
 
   const payload = parsed.data
   const user = authData.user
+  const userId = String(user?.id || '').trim()
+  if (!userId) {
+    return jsonError('You must be signed in to review.', 401)
+  }
+
+  const purchaseCheck = await hasPurchasedProduct(supabase, userId, productId)
+  if (purchaseCheck.error) {
+    console.error('public create review purchase check failed:', purchaseCheck.error.message)
+    return jsonError('Unable to submit review.', 500)
+  }
+  if (!purchaseCheck.hasPurchased) {
+    return jsonError('Only customers who bought this item can review.', 403)
+  }
+
   const rawName = String(user?.user_metadata?.full_name || '').trim()
   const email = String(user?.email || '').trim()
   const fallbackName = email.includes('@') ? email.split('@')[0] : 'User'
@@ -452,7 +546,7 @@ export async function POST(
     content: payload.content,
     review_image_urls: imageUrls,
     review_video_urls: videoUrls,
-    is_verified_purchase: false,
+    is_verified_purchase: true,
     status: evaluateReviewContentForModeration(payload.content).requiresModeration
       ? 'pending'
       : 'published',

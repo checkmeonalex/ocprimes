@@ -1,5 +1,6 @@
 'use client'
 
+import CustomSelect from '@/components/common/CustomSelect'
 import { useEffect, useState } from 'react'
 import AdminSidebar from '@/components/AdminSidebar'
 import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
@@ -285,7 +286,7 @@ export default function ShortcutPage() {
 
                     <div>
                       <label className={labelClass}>Default condition check</label>
-                      <select
+                      <CustomSelect
                         className={inputClass}
                         value={shortcutsForm.conditionCheck}
                         onChange={(event) =>
@@ -298,12 +299,12 @@ export default function ShortcutPage() {
                             {item.label}
                           </option>
                         ))}
-                      </select>
+                      </CustomSelect>
                     </div>
 
                     <div>
                       <label className={labelClass}>Default packaging style</label>
-                      <select
+                      <CustomSelect
                         className={inputClass}
                         value={shortcutsForm.packagingStyle}
                         onChange={(event) =>
@@ -316,12 +317,12 @@ export default function ShortcutPage() {
                             {item.label}
                           </option>
                         ))}
-                      </select>
+                      </CustomSelect>
                     </div>
 
                     <div>
                       <label className={labelClass}>Default return policy</label>
-                      <select
+                      <CustomSelect
                         className={inputClass}
                         value={shortcutsForm.returnPolicy}
                         onChange={(event) =>
@@ -334,7 +335,7 @@ export default function ShortcutPage() {
                             {item.label}
                           </option>
                         ))}
-                      </select>
+                      </CustomSelect>
                     </div>
                   </div>
 

@@ -1,993 +1,799 @@
-'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import AdminSidebar from '@/components/AdminSidebar';
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
-import BouncingDotsLoader from './components/BouncingDotsLoader';
-import DateRangePopover from './components/DateRangePopover';
-import {
-  fetchConnector,
-  getHostname,
-  normalizeWpUrl,
-  pickSiteForUrl,
-  readStoredSiteId,
-  readStoredSiteInfo,
-} from '@/utils/connector.mjs';
+'use client'
 
-const PER_PAGE = 10;
-const METRIC_DAYS = 7;
-const RANGE_OPTIONS = [
-  { id: 'lifetime', label: 'All Time' },
-  { id: 'last_7_days', label: 'Last 7 Days' },
-  { id: 'last_30_days', label: 'Last 30 Days' },
-  { id: 'today', label: 'Today' },
-  { id: 'custom', label: 'Custom Range' },
-];
+import Image from 'next/image'
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import AdminSidebar from '@/components/AdminSidebar'
+import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+import CustomSelect from '@/components/common/CustomSelect'
 
-const STATUS_STYLES = {
-  Completed: 'bg-emerald-100 text-emerald-700',
-  'In Progress': 'bg-blue-100 text-blue-700',
-  Waiting: 'bg-amber-100 text-amber-700',
-  Cancelled: 'bg-rose-100 text-rose-700',
-  Refunded: 'bg-slate-100 text-slate-600',
-  'On Hold': 'bg-purple-100 text-purple-700',
-};
+const PER_PAGE = 10
 
-const iconMap = {
-  bag: (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M6 7h12l-1 13H7L6 7z" />
-      <path d="M9 7V5a3 3 0 0 1 6 0v2" />
-    </svg>
-  ),
-  box: (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M3 7 12 2l9 5-9 5-9-5z" />
-      <path d="M3 7v10l9 5 9-5V7" />
-    </svg>
-  ),
-  target: (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="9" />
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 3v4" />
-      <path d="M21 12h-4" />
-    </svg>
-  ),
-  cart: (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="9" cy="20" r="1.5" />
-      <circle cx="18" cy="20" r="1.5" />
-      <path d="M3 4h2l2.5 11h10.5l2-7H7" />
-    </svg>
-  ),
-};
+const STATUS_TABS = [
+  { key: 'all', label: 'All Order' },
+  { key: 'pending', label: 'Awaiting Payment' },
+  { key: 'processing', label: 'Processing' },
+  { key: 'out_for_delivery', label: 'Out for Delivery' },
+  { key: 'delivered', label: 'Delivered' },
+]
 
-const formatCurrency = (value, currency, symbol) => {
-  const amount = Number(value);
-  if (!Number.isFinite(amount)) return value || '';
-  if (currency) {
-    try {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency,
-        maximumFractionDigits: 2,
-      }).format(amount);
-    } catch (_error) {}
+const STATUS_OPTIONS = [
+  { key: 'pending', label: 'Awaiting Payment' },
+  { key: 'processing', label: 'Processing' },
+  { key: 'out_for_delivery', label: 'Out for Delivery' },
+  { key: 'delivered', label: 'Delivered' },
+  { key: 'cancelled', label: 'Cancelled' },
+]
+
+const STATUS_TONES = {
+  pending: 'bg-amber-100 text-amber-700 border border-amber-200',
+  processing: 'bg-sky-100 text-sky-700 border border-sky-200',
+  out_for_delivery: 'bg-indigo-100 text-indigo-700 border border-indigo-200',
+  delivered: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+  cancelled: 'bg-rose-100 text-rose-700 border border-rose-200',
+}
+
+const MOBILE_STATUS_TONES = {
+  pending: 'bg-amber-50 text-amber-700 border border-amber-200',
+  processing: 'bg-sky-50 text-sky-700 border border-sky-200',
+  out_for_delivery: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+  delivered: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  cancelled: 'bg-rose-50 text-rose-700 border border-rose-200',
+}
+
+const MOBILE_SUMMARY_CARDS = [
+  {
+    key: 'pending',
+    label: 'Pending Orders',
+    note: 'Awaiting confirmation',
+    tone: 'text-amber-600',
+    dot: 'bg-amber-400',
+  },
+  {
+    key: 'in_progress',
+    label: 'In Progress',
+    note: 'Being packaged & processed',
+    tone: 'text-sky-600',
+    dot: 'bg-sky-400',
+  },
+  {
+    key: 'delivered',
+    label: 'Completed',
+    note: 'Delivered successfully',
+    tone: 'text-emerald-600',
+    dot: 'bg-emerald-400',
+  },
+  {
+    key: 'cancelled',
+    label: 'Canceled',
+    note: 'Marked as canceled',
+    tone: 'text-rose-600',
+    dot: 'bg-rose-400',
+  },
+]
+
+const MOBILE_FILTER_TABS = [
+  { key: 'product', label: 'Product' },
+  { key: 'payment', label: 'Payment' },
+  { key: 'date_range', label: 'Date Range' },
+  { key: 'status', label: 'Status' },
+]
+
+const MOBILE_SORT_OPTIONS = [
+  { key: 'newest', label: 'Newest First' },
+  { key: 'oldest', label: 'Oldest First' },
+  { key: 'amount_desc', label: 'Amount: High to Low' },
+  { key: 'amount_asc', label: 'Amount: Low to High' },
+]
+
+const MOBILE_PAYMENT_OPTIONS = [
+  { key: 'all', label: 'All Payments' },
+  { key: 'paid', label: 'Paid' },
+  { key: 'pending', label: 'Awaiting Payment' },
+  { key: 'failed', label: 'Failed' },
+]
+
+const MOBILE_DATE_RANGE_OPTIONS = [
+  { key: 'all', label: 'All Time' },
+  { key: 'today', label: 'Today' },
+  { key: 'last_7_days', label: 'Last 7 Days' },
+  { key: 'last_30_days', label: 'Last 30 Days' },
+]
+
+const MOBILE_STATUS_OPTIONS = [
+  { key: 'all', label: 'All Statuses' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'in_progress', label: 'In Progress' },
+  { key: 'delivered', label: 'Completed' },
+  { key: 'cancelled', label: 'Canceled' },
+]
+
+const formatCurrency = (value, currency) => {
+  const amount = Number(value || 0)
+  const safeCurrency = String(currency || 'NGN').toUpperCase()
+  if (!Number.isFinite(amount)) return '0'
+
+  try {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: safeCurrency,
+      maximumFractionDigits: 2,
+    }).format(amount)
+  } catch {
+    const symbol = safeCurrency === 'NGN' ? '₦' : '$'
+    return `${symbol}${amount.toFixed(2)}`
   }
-  const fallbackSymbol = symbol || '$';
-  return `${fallbackSymbol}${amount.toFixed(2)}`;
-};
+}
 
 const formatDate = (value) => {
-  if (!value) return '—';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '—';
-  return date.toLocaleDateString('en-GB', {
-    day: '2-digit',
+  const timestamp = new Date(value || '').getTime()
+  if (Number.isNaN(timestamp)) return '—'
+  return new Date(timestamp).toLocaleDateString('en-US', {
     month: 'short',
+    day: '2-digit',
     year: 'numeric',
-  });
-};
+  })
+}
 
-const normalizeStatus = (status) => {
-  const normalized = String(status || '').toLowerCase();
-  if (['completed', 'paid'].includes(normalized)) return 'Completed';
-  if (['processing', 'in-progress'].includes(normalized)) return 'In Progress';
-  if (['on-hold'].includes(normalized)) return 'On Hold';
-  if (['pending'].includes(normalized)) return 'Waiting';
-  if (['refunded'].includes(normalized)) return 'Refunded';
-  if (['cancelled', 'canceled', 'failed'].includes(normalized)) return 'Cancelled';
-  return 'Waiting';
-};
+const toItemText = (count) => {
+  const next = Math.max(1, Number(count || 1))
+  return `Items ${next}`
+}
 
-const buildCustomerName = (order) => {
-  const billing = order?.billing || {};
-  const shipping = order?.shipping || {};
-  const name = `${billing.first_name || ''} ${billing.last_name || ''}`.trim();
-  if (name) return name;
-  const shippingName = `${shipping.first_name || ''} ${shipping.last_name || ''}`.trim();
-  if (shippingName) return shippingName;
-  return order?.customer_name || order?.customer?.name || 'Guest';
-};
+const formatRelativeTime = (value) => {
+  const timestamp = new Date(value || '').getTime()
+  if (Number.isNaN(timestamp)) return '—'
+  const diffMs = Date.now() - timestamp
+  if (diffMs < 0) return 'Just now'
 
-const summarizeLineItems = (order) => {
-  const items = Array.isArray(order?.line_items) ? order.line_items : [];
-  if (!items.length) {
-    return { product: 'Order', subtext: '' };
-  }
-  const [first, ...rest] = items;
-  const subtext = rest.length ? `+${rest.length} other ${rest.length === 1 ? 'product' : 'products'}` : '';
-  return { product: first?.name || 'Order', subtext };
-};
+  const minutes = Math.floor(diffMs / (60 * 1000))
+  if (minutes < 1) return 'Just now'
+  if (minutes < 60) return `${minutes} min ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} hours ago`
+  const days = Math.floor(hours / 24)
+  return `${days} days ago`
+}
 
-const summarizeOrderItems = (order) => {
-  const items = Array.isArray(order?.line_items) ? order.line_items : [];
-  const totalQty = items.reduce((sum, item) => sum + (Number(item?.quantity) || 0), 0);
-  const count = totalQty || items.length;
-  if (!count) return 'No items';
-  return `${count} ${count === 1 ? 'item' : 'items'}`;
-};
+const isDateWithinRange = (value, dateRange) => {
+  const timestamp = new Date(value || '').getTime()
+  if (Number.isNaN(timestamp)) return false
 
-const calcChange = (current, previous) => {
-  if (!previous) {
-    return {
-      change: current ? '+100%' : '0%',
-      trend: current ? 'up' : 'down',
-    };
-  }
-  const diff = ((current - previous) / previous) * 100;
-  const trend = diff >= 0 ? 'up' : 'down';
-  return {
-    change: `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%`,
-    trend,
-  };
-};
+  const now = Date.now()
+  if (dateRange === 'today') return timestamp >= now - 24 * 60 * 60 * 1000
+  if (dateRange === 'last_7_days') return timestamp >= now - 7 * 24 * 60 * 60 * 1000
+  if (dateRange === 'last_30_days') return timestamp >= now - 30 * 24 * 60 * 60 * 1000
+  return true
+}
 
-const getRangeBounds = (range, customStart, customEnd) => {
-  if (range === 'custom') {
-    const start = customStart ? new Date(`${customStart}T00:00:00`) : null;
-    const end = customEnd ? new Date(`${customEnd}T23:59:59`) : null;
-    return { start, end };
-  }
-  if (range === 'today') {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const end = new Date(start);
-    end.setHours(23, 59, 59, 999);
-    return { start, end };
-  }
-  if (range === 'last_7_days') {
-    const end = new Date();
-    const start = new Date(end);
-    start.setDate(start.getDate() - 6);
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-    return { start, end };
-  }
-  if (range === 'last_30_days') {
-    const end = new Date();
-    const start = new Date(end);
-    start.setDate(start.getDate() - 29);
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-    return { start, end };
-  }
-  return { start: null, end: null };
-};
+export default function OrdersPage() {
+  const [orders, setOrders] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [isActionMenuOpenFor, setIsActionMenuOpenFor] = useState('')
+  const [statusUpdatingById, setStatusUpdatingById] = useState({})
+  const [summaryCounts, setSummaryCounts] = useState({
+    pending: 0,
+    processing: 0,
+    out_for_delivery: 0,
+    delivered: 0,
+    cancelled: 0,
+  })
+  const [mobileActiveFilterTab, setMobileActiveFilterTab] = useState('product')
+  const [mobileSortBy, setMobileSortBy] = useState('newest')
+  const [mobilePaymentFilter, setMobilePaymentFilter] = useState('all')
+  const [mobileDateRange, setMobileDateRange] = useState('all')
+  const [mobileStatusFilter, setMobileStatusFilter] = useState('all')
+  const [mobileOverviewExpanded, setMobileOverviewExpanded] = useState(false)
+  const [mobileOverviewReveal, setMobileOverviewReveal] = useState(false)
 
-function OrdersPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const initialCustomerSearch = useMemo(() => searchParams?.get('customer') || '', [searchParams]);
-  const [siteInfo, setSiteInfo] = useState(() => readStoredSiteInfo());
-  const [siteId, setSiteId] = useState(() => readStoredSiteId() || siteInfo?.siteId || '');
-  const [orders, setOrders] = useState([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [metricsOrders, setMetricsOrders] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [metricsLoading, setMetricsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [searchTerm, setSearchTerm] = useState(initialCustomerSearch);
-  const [range, setRange] = useState('lifetime');
-  const [customStart, setCustomStart] = useState('');
-  const [customEnd, setCustomEnd] = useState('');
-  const [isRangeOpen, setIsRangeOpen] = useState(false);
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const [ordersFallback, setOrdersFallback] = useState(false);
-  const [actionMenuId, setActionMenuId] = useState(null);
-  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
-  const loadMoreRef = useRef(null);
-  const actionMenuRef = useRef(null);
+  const hasPrev = page > 1
+  const hasNext = page * PER_PAGE < totalCount
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+  const loadSummaryCounts = async () => {
+    const statuses = ['pending', 'processing', 'out_for_delivery', 'delivered', 'cancelled']
     try {
-      const storedRange = localStorage.getItem('agentic_orders_range');
-      const storedStart = localStorage.getItem('agentic_orders_date_from');
-      const storedEnd = localStorage.getItem('agentic_orders_date_to');
-      if (storedRange) setRange(storedRange);
-      if (storedStart) setCustomStart(storedStart);
-      if (storedEnd) setCustomEnd(storedEnd);
-    } catch (_error) {}
-  }, []);
+      const results = await Promise.all(
+        statuses.map(async (status) => {
+          const params = new URLSearchParams({
+            page: '1',
+            perPage: '1',
+            status,
+          })
+          const response = await fetch(`/api/admin/orders?${params.toString()}`, { cache: 'no-store' })
+          const payload = await response.json().catch(() => null)
+          if (!response.ok) return [status, 0]
+          return [status, Math.max(0, Number(payload?.totalCount || 0))]
+        }),
+      )
 
-  useEffect(() => {
-    setSearchTerm(initialCustomerSearch);
-  }, [initialCustomerSearch]);
-
-  useEffect(() => {
-    const handleStorage = (event) => {
-      if (event.key === 'agentic_wp_site') {
-        setSiteInfo(readStoredSiteInfo());
-      }
-      if (event.key === 'agentic_wp_site_id') {
-        setSiteId(readStoredSiteId());
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
-
-  useEffect(() => {
-    const handleClick = (event) => {
-      if (!actionMenuRef.current) return;
-      if (actionMenuRef.current.contains(event.target)) return;
-      setActionMenuId(null);
-    };
-    const handleEscape = (event) => {
-      if (event.key === 'Escape') {
-        setActionMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (siteInfo?.siteId) {
-      setSiteId(siteInfo.siteId);
+      setSummaryCounts((prev) => {
+        const next = { ...prev }
+        results.forEach(([key, count]) => {
+          next[key] = Number(count || 0)
+        })
+        return next
+      })
+    } catch {
+      // Keep fallback zeros.
     }
-  }, [siteInfo]);
+  }
 
-  const applySiteInfo = useCallback((site) => {
-    if (!site) return '';
-    const resolvedSiteId =
-      typeof site.site_id === 'string'
-        ? site.site_id
-        : typeof site.id === 'string'
-          ? site.id
-          : '';
-    const siteUrl =
-      typeof site.site_url === 'string'
-        ? site.site_url
-        : typeof site.url === 'string'
-          ? site.url
-          : '';
-    const siteName =
-      typeof site.site_name === 'string'
-        ? site.site_name
-        : typeof site.name === 'string'
-          ? site.name
-          : '';
-    const logoUrl =
-      typeof site.site_logo_url === 'string'
-        ? site.site_logo_url
-        : typeof site.logoUrl === 'string'
-          ? site.logoUrl
-          : '';
-    const normalizedUrl = siteUrl ? normalizeWpUrl(siteUrl) : '';
-    const resolvedName = siteName.trim() || getHostname(normalizedUrl) || normalizedUrl;
-    const storedSiteInfo = readStoredSiteInfo();
-    const storedTagline = storedSiteInfo?.tagline || storedSiteInfo?.description || '';
-    const siteTagline =
-      typeof site.tagline === 'string'
-        ? site.tagline
-        : typeof site.description === 'string'
-          ? site.description
-          : storedTagline;
-    const nextSiteInfo = {
-      name: resolvedName,
-      logoUrl: logoUrl || '',
-      url: normalizedUrl || siteUrl,
-      siteId: resolvedSiteId || '',
-      tagline: siteTagline || '',
-      description: siteTagline || '',
-    };
-    setSiteInfo(nextSiteInfo);
-    if (resolvedSiteId) {
-      setSiteId(resolvedSiteId);
-    }
+  const loadOrders = async () => {
+    setIsLoading(true)
+    setError('')
+
     try {
-      localStorage.setItem('agentic_wp_site', JSON.stringify(nextSiteInfo));
-      if (resolvedSiteId) {
-        localStorage.setItem('agentic_wp_site_id', resolvedSiteId);
-      }
-    } catch (_error) {}
-    return resolvedSiteId;
-  }, []);
-
-  const resolveSiteId = useCallback(async () => {
-    const existingId = readStoredSiteId() || siteInfo?.siteId || siteId;
-    if (existingId) {
-      return existingId;
-    }
-    const token = localStorage.getItem('agentic_auth_token');
-    if (!token) {
-      return '';
-    }
-    const response = await fetchConnector('/sites', {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok || !payload?.sites?.length) {
-      return '';
-    }
-    const storedSite = readStoredSiteInfo();
-    const selectedSite = storedSite?.url
-      ? pickSiteForUrl(payload.sites, storedSite.url)
-      : payload.sites[0];
-    return applySiteInfo(selectedSite);
-  }, [applySiteInfo, siteId, siteInfo]);
-
-  const loadOrders = useCallback(async (nextPage = 1, { append = false } = {}) => {
-    if (append) {
-      setIsLoadingMore(true);
-    } else {
-      setIsLoading(true);
-    }
-    setError('');
-    try {
-      const resolvedSiteId = await resolveSiteId();
-      if (!resolvedSiteId) return;
-      const token = localStorage.getItem('agentic_auth_token');
-      if (!token) return;
       const params = new URLSearchParams({
-        page: String(nextPage),
-        per_page: String(PER_PAGE),
-        order: 'desc',
-        range,
-      });
-      if (range === 'custom' && (customStart || customEnd)) {
-        if (customStart) params.set('date_from', customStart);
-        if (customEnd) params.set('date_to', customEnd);
-      }
-      const response = await fetchConnector(`/sites/${resolvedSiteId}/orders?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        const detail = payload?.details ? ` (${payload.details})` : '';
-        const target = payload?.target_url ? ` ${payload.target_url}` : '';
-        setError(`${payload?.error || 'Failed to load orders.'}${detail}${target}`);
-        return;
-      }
-      const items = Array.isArray(payload?.items) ? payload.items : [];
-      const count =
-        Number(payload?.total_items || payload?.total || payload?.count) ||
-        (items.length ? (nextPage - 1) * PER_PAGE + items.length : 0);
-      const totalPages =
-        Number(payload?.pages) ||
-        (count ? Math.ceil(count / PER_PAGE) : items.length < PER_PAGE ? 1 : nextPage + 1);
-      const isFallback = payload?.fallback === 'site-summary';
-      setOrdersFallback(isFallback);
-      setHasMore(!isFallback && nextPage < totalPages);
-      setPage(nextPage);
-      setOrders((prev) => (append ? [...prev, ...items] : items));
-      setTotalCount(count);
-    } catch (error) {
-      setError(error?.message || 'Failed to load orders.');
-    } finally {
-      if (append) {
-        setIsLoadingMore(false);
-      } else {
-        setIsLoading(false);
-      }
-    }
-  }, [customEnd, customStart, range, resolveSiteId]);
+        page: String(page),
+        perPage: String(PER_PAGE),
+      })
+      if (statusFilter !== 'all') params.set('status', statusFilter)
+      if (searchTerm.trim()) params.set('search', searchTerm.trim())
 
-  const updateOrderStatus = useCallback(async (orderId, nextStatus) => {
-    if (!orderId || !nextStatus) return;
-    setStatusUpdatingId(orderId);
-    setError('');
+      const response = await fetch(`/api/admin/orders?${params.toString()}`, { cache: 'no-store' })
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to load orders.')
+      }
+
+      setOrders(Array.isArray(payload?.items) ? payload.items : [])
+      setTotalCount(Math.max(0, Number(payload?.totalCount || 0)))
+    } catch (nextError) {
+      setOrders([])
+      setTotalCount(0)
+      setError(nextError?.message || 'Unable to load orders.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadOrders()
+  }, [page, statusFilter])
+
+  useEffect(() => {
+    void loadSummaryCounts()
+  }, [])
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setPage(1)
+      void loadOrders()
+    }, 300)
+
+    return () => window.clearTimeout(timeout)
+  }, [searchTerm])
+
+  useEffect(() => {
+    if (!mobileOverviewExpanded) {
+      setMobileOverviewReveal(false)
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setMobileOverviewReveal(true)
+    }, 30)
+
+    return () => window.clearTimeout(timer)
+  }, [mobileOverviewExpanded])
+
+  const handleStatusUpdate = async (orderId, status) => {
+    const safeOrderId = String(orderId || '').trim()
+    const safeStatus = String(status || '').trim().toLowerCase()
+    if (!safeOrderId || !safeStatus) return
+
+    setStatusUpdatingById((prev) => ({ ...prev, [safeOrderId]: true }))
     try {
-      const resolvedSiteId = await resolveSiteId();
-      if (!resolvedSiteId) return;
-      const token = localStorage.getItem('agentic_auth_token');
-      if (!token) return;
-      const response = await fetchConnector(`/sites/${resolvedSiteId}/orders/${orderId}`, {
+      const response = await fetch('/api/admin/orders', {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      const payload = await response.json().catch(() => null);
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: safeOrderId, status: safeStatus }),
+      })
+      const payload = await response.json().catch(() => null)
       if (!response.ok) {
-        const detail = payload?.details ? ` (${payload.details})` : '';
-        const target = payload?.target_url ? ` ${payload.target_url}` : '';
-        setError(`${payload?.error || 'Failed to update order.'}${detail}${target}`);
-        return;
+        throw new Error(payload?.error || 'Unable to update status.')
       }
-      const updatedOrder = payload?.order || payload;
+
       setOrders((prev) =>
-        prev.map((order) => (order?.id === orderId ? { ...order, ...updatedOrder } : order)),
-      );
-      setMetricsOrders((prev) =>
-        prev.map((order) => (order?.id === orderId ? { ...order, ...updatedOrder } : order)),
-      );
-    } catch (err) {
-      setError(err?.message || 'Failed to update order.');
+        prev.map((entry) =>
+          String(entry.id) === safeOrderId
+            ? {
+                ...entry,
+                status: payload?.status || safeStatus,
+                statusLabel: payload?.statusLabel || entry.statusLabel,
+              }
+            : entry,
+        ),
+      )
+      setIsActionMenuOpenFor('')
+      void loadSummaryCounts()
+    } catch (nextError) {
+      setError(nextError?.message || 'Unable to update status.')
     } finally {
-      setStatusUpdatingId(null);
-      setActionMenuId(null);
+      setStatusUpdatingById((prev) => ({ ...prev, [safeOrderId]: false }))
     }
-  }, [resolveSiteId]);
+  }
 
-  const statusOptions = useMemo(() => ([
-    { label: 'Completed', value: 'completed' },
-    { label: 'Processing', value: 'processing' },
-    { label: 'Cancelled', value: 'cancelled' },
-    { label: 'On Hold', value: 'on-hold' },
-    { label: 'Failed', value: 'failed' },
-    { label: 'Refunded', value: 'refunded' },
-    { label: 'Draft', value: 'draft' },
-    { label: 'Pending Payment', value: 'pending' },
-  ]), []);
+  const orderRangeLabel = useMemo(() => {
+    if (totalCount <= 0) return '0'
+    const start = (page - 1) * PER_PAGE + 1
+    const end = Math.min(totalCount, page * PER_PAGE)
+    return `${start}-${end} of ${totalCount}`
+  }, [page, totalCount])
 
-  const loadMetrics = useCallback(async () => {
-    setMetricsLoading(true);
-    try {
-      const resolvedSiteId = await resolveSiteId();
-      if (!resolvedSiteId) return;
-      const token = localStorage.getItem('agentic_auth_token');
-      if (!token) return;
-      const params = new URLSearchParams({
-        page: '1',
-        per_page: '100',
-        order: 'desc',
-        range,
-      });
-      if (range === 'custom' && (customStart || customEnd)) {
-        if (customStart) params.set('date_from', customStart);
-        if (customEnd) params.set('date_to', customEnd);
-      }
-      const response = await fetchConnector(`/sites/${resolvedSiteId}/orders?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) return;
-      const items = Array.isArray(payload?.items) ? payload.items : [];
-      setMetricsOrders(items);
-    } catch (_error) {
-      setMetricsOrders([]);
-    } finally {
-      setMetricsLoading(false);
+  const mobileSummary = useMemo(
+    () => ({
+      pending: Number(summaryCounts.pending || 0),
+      in_progress: Number(summaryCounts.processing || 0) + Number(summaryCounts.out_for_delivery || 0),
+      delivered: Number(summaryCounts.delivered || 0),
+      cancelled: Number(summaryCounts.cancelled || 0),
+    }),
+    [summaryCounts],
+  )
+
+  const activeMobileFilterOptions = useMemo(() => {
+    if (mobileActiveFilterTab === 'payment') return MOBILE_PAYMENT_OPTIONS
+    if (mobileActiveFilterTab === 'date_range') return MOBILE_DATE_RANGE_OPTIONS
+    if (mobileActiveFilterTab === 'status') return MOBILE_STATUS_OPTIONS
+    return MOBILE_SORT_OPTIONS
+  }, [mobileActiveFilterTab])
+
+  const activeMobileFilterValue = useMemo(() => {
+    if (mobileActiveFilterTab === 'payment') return mobilePaymentFilter
+    if (mobileActiveFilterTab === 'date_range') return mobileDateRange
+    if (mobileActiveFilterTab === 'status') return mobileStatusFilter
+    return mobileSortBy
+  }, [mobileActiveFilterTab, mobileDateRange, mobilePaymentFilter, mobileSortBy, mobileStatusFilter])
+
+  const mobileOrders = useMemo(() => {
+    let next = [...orders]
+
+    if (mobilePaymentFilter !== 'all') {
+      next = next.filter((entry) => {
+        const paymentText = String(entry.paymentText || '').toLowerCase()
+        if (mobilePaymentFilter === 'paid') return paymentText.includes('paid')
+        if (mobilePaymentFilter === 'pending') return paymentText.includes('awaiting')
+        if (mobilePaymentFilter === 'failed') return paymentText.includes('failed')
+        return true
+      })
     }
-  }, [customEnd, customStart, range, resolveSiteId]);
 
-  useEffect(() => {
-    setOrders([]);
-    setPage(1);
-    setHasMore(true);
-    loadOrders(1, { append: false });
-  }, [customEnd, customStart, loadOrders, range]);
+    if (mobileDateRange !== 'all') {
+      next = next.filter((entry) => isDateWithinRange(entry.date, mobileDateRange))
+    }
 
-  useEffect(() => {
-    loadMetrics();
-  }, [loadMetrics]);
+    if (mobileStatusFilter !== 'all') {
+      next = next.filter((entry) => {
+        const status = String(entry.status || '').toLowerCase()
+        if (mobileStatusFilter === 'in_progress') return status === 'processing' || status === 'out_for_delivery'
+        return status === mobileStatusFilter
+      })
+    }
 
-  useEffect(() => {
-    localStorage.setItem('agentic_orders_range', range);
-  }, [range]);
-
-  useEffect(() => {
-    if (customStart) {
-      localStorage.setItem('agentic_orders_date_from', customStart);
+    if (mobileSortBy === 'oldest') {
+      next.sort((a, b) => new Date(a.date || '').getTime() - new Date(b.date || '').getTime())
+    } else if (mobileSortBy === 'amount_desc') {
+      next.sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
+    } else if (mobileSortBy === 'amount_asc') {
+      next.sort((a, b) => Number(a.amount || 0) - Number(b.amount || 0))
     } else {
-      localStorage.removeItem('agentic_orders_date_from');
+      next.sort((a, b) => new Date(b.date || '').getTime() - new Date(a.date || '').getTime())
     }
-    if (customEnd) {
-      localStorage.setItem('agentic_orders_date_to', customEnd);
-    } else {
-      localStorage.removeItem('agentic_orders_date_to');
+
+    return next
+  }, [mobileDateRange, mobilePaymentFilter, mobileSortBy, mobileStatusFilter, orders])
+
+  const handleMobileActiveFilterChange = (event) => {
+    const nextValue = String(event?.target?.value || '').trim()
+    if (!nextValue) return
+
+    if (mobileActiveFilterTab === 'payment') {
+      setMobilePaymentFilter(nextValue)
+      return
     }
-  }, [customEnd, customStart]);
-
-  const filteredOrders = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase();
-    const { start, end } = getRangeBounds(range, customStart, customEnd);
-    const sourceOrders =
-      ordersFallback && totalCount ? orders.slice(0, Math.min(totalCount, orders.length)) : orders;
-    return sourceOrders.filter((order) => {
-      const createdAt = order?.created_at || order?.date_created || order?.created;
-      const createdDate = createdAt ? new Date(createdAt) : null;
-      if (start && createdDate && createdDate < start) return false;
-      if (end && createdDate && createdDate > end) return false;
-      if (!term) return true;
-      const id = String(order?.id || '').toLowerCase();
-      const customer = buildCustomerName(order).toLowerCase();
-      const product = summarizeLineItems(order).product.toLowerCase();
-      return id.includes(term) || customer.includes(term) || product.includes(term);
-    });
-  }, [customEnd, customStart, orders, ordersFallback, range, searchTerm, totalCount]);
-
-  const canLoadMore = hasMore && !isLoading && !isLoadingMore;
-
-  useEffect(() => {
-    const node = loadMoreRef.current;
-    if (!node) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (!entry?.isIntersecting) return;
-        if (!canLoadMore) return;
-        loadOrders(page + 1, { append: true });
-      },
-      { rootMargin: '200px' },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [canLoadMore, loadOrders, page]);
-
-  const metrics = useMemo(() => {
-    const { start, end } = getRangeBounds(range, customStart, customEnd);
-    const isLifetime = !start && !end;
-    const rangeDays =
-      range === 'last_30_days'
-        ? 30
-        : range === 'last_7_days' || range === 'today'
-          ? 7
-          : METRIC_DAYS;
-
-    const startCurrent = isLifetime ? null : start || new Date(Date.now() - (rangeDays - 1) * 24 * 60 * 60 * 1000);
-    if (startCurrent) startCurrent.setHours(0, 0, 0, 0);
-    const endCurrent = isLifetime ? null : end || new Date();
-    if (endCurrent) endCurrent.setHours(23, 59, 59, 999);
-
-    const startPrev = startCurrent ? new Date(startCurrent) : null;
-    if (startPrev) startPrev.setDate(startPrev.getDate() - rangeDays);
-    const endPrev = startCurrent ? new Date(startCurrent) : null;
-    if (endPrev) endPrev.setMilliseconds(-1);
-
-    let currentOrders = 0;
-    let prevOrders = 0;
-    let currentPending = 0;
-    let prevPending = 0;
-    let currentUnits = 0;
-    let prevUnits = 0;
-    let currentRevenue = 0;
-    let prevRevenue = 0;
-
-    metricsOrders.forEach((order) => {
-      const createdAt = order?.created_at || order?.date_created || order?.created;
-      if (!createdAt) return;
-      const created = new Date(createdAt);
-      if (Number.isNaN(created.getTime())) return;
-      const total = Number(order?.total) || 0;
-      const lineItems = Array.isArray(order?.line_items) ? order.line_items : [];
-      const units = lineItems.reduce((sum, item) => sum + (Number(item?.quantity) || 0), 0);
-      const statusLabel = normalizeStatus(order?.status);
-
-      if (isLifetime || (startCurrent && endCurrent && created >= startCurrent && created <= endCurrent)) {
-        currentOrders += 1;
-        currentUnits += units;
-        currentRevenue += total;
-        if (['Waiting'].includes(statusLabel)) {
-          currentPending += 1;
-        }
-      } else if (startPrev && endPrev && created >= startPrev && created <= endPrev) {
-        prevOrders += 1;
-        prevUnits += units;
-        prevRevenue += total;
-        if (['Waiting'].includes(statusLabel)) {
-          prevPending += 1;
-        }
-      }
-    });
-
-    const orderChange = calcChange(currentOrders, prevOrders);
-    const pendingChange = calcChange(currentPending, prevPending);
-    const unitChange = calcChange(currentUnits, prevUnits);
-    const revenueChange = calcChange(currentRevenue, prevRevenue);
-
-    const currency = metricsOrders.find((order) => order?.currency)?.currency || '';
-    const symbol = metricsOrders.find((order) => order?.currency_symbol)?.currency_symbol || '';
-
-    return [
-      {
-        label: 'Total New Orders',
-        value: String(currentOrders || 0),
-        change: isLifetime ? '—' : orderChange.change,
-        trend: isLifetime ? 'up' : orderChange.trend,
-        icon: 'bag',
-      },
-      {
-        label: 'Total Orders Pending',
-        value: String(currentPending || 0),
-        change: isLifetime ? '—' : pendingChange.change,
-        trend: isLifetime ? 'up' : pendingChange.trend,
-        icon: 'box',
-      },
-      {
-        label: 'Total Product Sales',
-        value: String(currentUnits || 0),
-        change: isLifetime ? '—' : unitChange.change,
-        trend: isLifetime ? 'up' : unitChange.trend,
-        icon: 'target',
-      },
-      {
-        label: 'Total Volume Of Products',
-        value: formatCurrency(currentRevenue || 0, currency, symbol),
-        change: isLifetime ? '—' : revenueChange.change,
-        trend: isLifetime ? 'up' : revenueChange.trend,
-        icon: 'cart',
-      },
-    ];
-  }, [customEnd, customStart, metricsOrders, range]);
-
-  const displayTotal = searchTerm ? filteredOrders.length : totalCount || filteredOrders.length;
-  const startEntry = filteredOrders.length ? 1 : 0;
-  const endEntry = filteredOrders.length ? Math.min(displayTotal, filteredOrders.length) : 0;
-  const skeletonRows = useMemo(() => Array.from({ length: 6 }, (_, idx) => idx), []);
+    if (mobileActiveFilterTab === 'date_range') {
+      setMobileDateRange(nextValue)
+      return
+    }
+    if (mobileActiveFilterTab === 'status') {
+      setMobileStatusFilter(nextValue)
+      return
+    }
+    setMobileSortBy(nextValue)
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="flex min-h-screen">
-        <div className="sticky top-0 self-start h-screen">
-          <AdminSidebar />
-        </div>
+    <div className='min-h-screen bg-[#f4f7f9] text-slate-900 lg:bg-white'>
+      <div className='flex min-h-screen'>
+        <AdminSidebar />
+        <main className='flex-1 pb-8'>
+          <AdminDesktopHeader />
+          <section className='w-full bg-transparent p-0 lg:bg-white lg:px-4 xl:px-5'>
+            <div className='px-3 pb-3 pt-4 lg:hidden'>
+              <div className='grid grid-cols-2 gap-2'>
+                {MOBILE_SUMMARY_CARDS.map((card, index) => {
+                  const isExpandableCard = index > 1
+                  if (isExpandableCard && !mobileOverviewExpanded) return null
 
-        <main className="flex-1 px-4 pb-6 sm:px-6 lg:px-10">
-                  <AdminDesktopHeader />
-          <div className="mx-auto w-full max-w-6xl">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Orders</p>
-                <h1 className="mt-2 text-2xl font-semibold text-slate-900">Orders</h1>
-                <p className="mt-2 text-sm text-slate-500">
-                  An overview of recent data of customers info, products details and analysis.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm"
-                >
-                  Download Report
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm"
-                >
-                  Filter
-                </button>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsRangeOpen((prev) => !prev)}
-                    className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm"
-                  >
-                    {RANGE_OPTIONS.find((option) => option.id === range)?.label || 'Lifetime'}
-                    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  </button>
-                  {isRangeOpen && (
-                    <div className="absolute right-0 z-10 mt-2 w-40 rounded-2xl border border-slate-200 bg-white p-2 text-xs shadow-lg">
-                      {RANGE_OPTIONS.map((option) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => {
-                            setRange(option.id);
-                            if (option.id !== 'custom') {
-                              setIsCalendarOpen(false);
-                            }
-                            setIsRangeOpen(false);
-                          }}
-                          className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-semibold ${
-                            option.id === range ? 'bg-slate-100 text-slate-700' : 'text-slate-500 hover:bg-slate-50'
-                          }`}
-                        >
-                          {option.label}
-                          {option.id === range && <span className="text-[10px] text-slate-400">Active</span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {range === 'custom' && (
-                  <div className="relative">
+                  const count = Number(mobileSummary[card.key] || 0)
+                  const active = mobileStatusFilter === card.key
+                  return (
                     <button
-                      type="button"
-                      onClick={() => setIsCalendarOpen((prev) => !prev)}
-                      className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm"
+                      key={card.key}
+                      type='button'
+                      onClick={() => {
+                        setMobileStatusFilter(card.key)
+                        setMobileActiveFilterTab('status')
+                      }}
+                      className={`rounded-2xl border bg-white px-3 py-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition ${
+                        active ? 'border-orange-300 ring-1 ring-orange-200' : 'border-slate-200'
+                      } ${
+                        isExpandableCard
+                          ? `duration-300 ${mobileOverviewReveal ? 'opacity-100' : 'opacity-0'}`
+                          : ''
+                      }`}
                     >
-                      {customStart && customEnd
-                        ? `${customStart} → ${customEnd}`
-                        : 'Pick dates'}
-                      <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="3" y="4" width="18" height="16" rx="2" />
-                        <path d="M8 2v4M16 2v4M3 10h18" />
-                      </svg>
-                    </button>
-                    {isCalendarOpen && (
-                      <div className="absolute right-0 z-10 mt-2">
-                        <DateRangePopover
-                          startDate={customStart}
-                          endDate={customEnd}
-                          onApply={({ start, end }) => {
-                            setCustomStart(start);
-                            setCustomEnd(end);
-                          }}
-                          onClose={() => setIsCalendarOpen(false)}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {metrics.map((item) => (
-                <div key={item.label} className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-[11px] font-semibold text-slate-500">{item.label}</p>
-                      <p className="mt-2 text-xl font-semibold text-slate-900">
-                        {metricsLoading ? '...' : item.value}
+                      <p className='text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500'>{card.label}</p>
+                      <p className='mt-1 text-[28px] font-semibold leading-none text-slate-900'>{count}</p>
+                      <p className={`mt-2 inline-flex items-center gap-1.5 text-[11px] ${card.tone}`}>
+                        <span className={`inline-flex h-1.5 w-1.5 rounded-full ${card.dot}`} />
+                        {card.note}
                       </p>
-                      <span
-                        className={`mt-2 inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold ${
-                          item.trend === 'up'
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-rose-100 text-rose-700'
+                    </button>
+                  )
+                })}
+              </div>
+              <div className='mt-1 flex justify-center'>
+                <button
+                  type='button'
+                  onClick={() => setMobileOverviewExpanded((prev) => !prev)}
+                  className='inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold text-sky-600 transition hover:text-sky-500'
+                >
+                  {mobileOverviewExpanded ? (
+                    <>
+                      <svg viewBox='0 0 24 24' className='h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='2'>
+                        <path d='m18 15-6-6-6 6' />
+                      </svg>
+                      Collapse Overview
+                    </>
+                  ) : (
+                    <>
+                      <svg viewBox='0 0 24 24' className='h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='2'>
+                        <path d='m6 9 6 6 6-6' />
+                      </svg>
+                      More Overview
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className='mt-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_2px_8px_rgba(15,23,42,0.05)]'>
+                <div className='grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1'>
+                  {MOBILE_FILTER_TABS.map((tab) => {
+                    const active = mobileActiveFilterTab === tab.key
+                    return (
+                      <button
+                        key={tab.key}
+                        type='button'
+                        onClick={() => setMobileActiveFilterTab(tab.key)}
+                        className={`h-8 rounded-lg px-1 text-[11px] font-semibold transition ${
+                          active ? 'bg-[#ff8f4d] text-white shadow-sm' : 'text-slate-600'
                         }`}
                       >
-                        {item.change}
-                      </span>
-                    </div>
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-                      {iconMap[item.icon]}
-                    </span>
-                  </div>
+                        {tab.label}
+                      </button>
+                    )
+                  })}
                 </div>
-              ))}
-            </div>
 
-            <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">All Orders</p>
-                  <p className="mt-1 text-xs text-slate-400">Keep track of recent order data and other information.</p>
-                </div>
-                <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="6" />
-                    <path d="m15.5 15.5 4 4" />
-                  </svg>
-                  <input
-                    className="w-40 bg-transparent text-xs text-slate-600 placeholder:text-slate-400 focus:outline-none"
-                    placeholder="Search here..."
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                  />
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-                    3K
-                  </span>
+                <div className='mt-2'>
+                  <CustomSelect
+                    value={activeMobileFilterValue}
+                    onChange={handleMobileActiveFilterChange}
+                    className='h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800'
+                  >
+                    {activeMobileFilterOptions.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </CustomSelect>
                 </div>
               </div>
 
-              <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200">
-                <div className="bg-slate-50 px-6 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                  <div className="hidden min-w-0 md:grid md:grid-cols-[minmax(0,_0.7fr)_minmax(0,_1.7fr)_minmax(0,_1.2fr)_minmax(0,_1fr)_minmax(0,_0.9fr)_minmax(0,_0.9fr)_minmax(0,_0.8fr)_minmax(0,_0.3fr)] md:gap-3">
-                    <span>Order ID</span>
-                    <span>Product Name</span>
-                    <span>Customer Name</span>
-                    <span>Date</span>
-                    <span>Payment</span>
-                    <span>Amount</span>
-                    <span>Status</span>
-                    <span className="text-right">Action</span>
-                  </div>
-                  <div className="grid min-w-0 grid-cols-[minmax(0,_1fr)_minmax(0,_1.2fr)_minmax(0,_0.8fr)_minmax(0,_0.6fr)] gap-3 md:hidden">
-                    <span>Order</span>
-                    <span>Customer</span>
-                    <span>Amount</span>
-                    <span>Status</span>
-                  </div>
+              {error ? (
+                <div className='mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700'>
+                  {error}
                 </div>
+              ) : null}
 
-                <div className="relative">
-                  {actionMenuId && (
-                    <div className="fixed inset-0 z-10 bg-white/60 backdrop-blur-sm" />
-                  )}
-                  <div className="divide-y divide-slate-100">
-                  {isLoading && !orders.length && skeletonRows.map((row) => (
-                    <div
-                      key={`orders-skeleton-${row}`}
-                      className="flex min-w-0 animate-pulse flex-col gap-3 px-6 py-4 text-sm md:grid md:grid-cols-[minmax(0,_0.7fr)_minmax(0,_1.7fr)_minmax(0,_1.2fr)_minmax(0,_1fr)_minmax(0,_0.9fr)_minmax(0,_0.9fr)_minmax(0,_0.8fr)_minmax(0,_0.3fr)] md:items-center md:gap-3"
+              <div className='mt-3 space-y-2'>
+                {isLoading
+                  ? Array.from({ length: 5 }).map((_, index) => (
+                      <div key={`mobile-orders-skeleton-${index}`} className='rounded-xl border border-slate-200 bg-white p-3'>
+                        <div className='h-3.5 w-24 animate-pulse rounded bg-slate-200' />
+                        <div className='mt-2 h-3 w-36 animate-pulse rounded bg-slate-100' />
+                        <div className='mt-3 h-5 w-20 animate-pulse rounded bg-slate-100' />
+                      </div>
+                    ))
+                  : null}
+
+                {!isLoading && mobileOrders.length === 0 ? (
+                  <div className='rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500'>
+                    No orders found.
+                  </div>
+                ) : null}
+
+                {!isLoading &&
+                  mobileOrders.map((order) => (
+                    <Link
+                      key={order.id}
+                      href={`/backend/admin/orders/${order.id}`}
+                      className='block rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-[0_1px_6px_rgba(15,23,42,0.04)]'
                     >
-                      <div className="h-3 w-16 rounded-full bg-slate-200/80" />
-                      <div>
-                        <div className="h-3 w-40 rounded-full bg-slate-200/80" />
-                        <div className="mt-2 h-2 w-24 rounded-full bg-slate-100" />
-                      </div>
-                      <div className="hidden md:block h-3 w-24 rounded-full bg-slate-100" />
-                      <div className="hidden md:block h-3 w-20 rounded-full bg-slate-100" />
-                      <div className="hidden md:block h-3 w-14 rounded-full bg-slate-100" />
-                      <div className="hidden md:block h-3 w-16 rounded-full bg-slate-100" />
-                      <div className="hidden md:block h-4 w-16 rounded-full bg-slate-200/80" />
-                      <div className="hidden md:flex justify-end">
-                        <div className="h-3 w-6 rounded-full bg-slate-100" />
-                      </div>
-                    </div>
-                  ))}
-
-                  {isLoading && orders.length > 0 && (
-                    <div className="px-6 py-6 text-center text-xs text-slate-400">
-                      Loading orders...
-                    </div>
-                  )}
-                  {!isLoading && error && (
-                    <div className="px-6 py-6 text-center text-xs text-rose-500">
-                      {error}
-                    </div>
-                  )}
-                  {!isLoading && !error && filteredOrders.length === 0 && (
-                    <div className="px-6 py-6 text-center text-xs text-slate-400">
-                      No orders found.
-                    </div>
-                  )}
-                  {!isLoading &&
-                    !error &&
-                    filteredOrders.map((order, index) => {
-                      const { product, subtext } = summarizeLineItems(order);
-                      const statusLabel = normalizeStatus(order?.status);
-                      return (
-                        <div
-                          key={`${order?.id || 'order'}-${index}`}
-                          onClick={() => {
-                            if (order?.id) {
-                              router.push(`/backend/admin/orders/${order.id}`);
-                            }
-                          }}
-                          className={`flex min-w-0 cursor-pointer flex-col gap-3 px-6 py-4 text-sm text-slate-600 transition hover:bg-slate-50 md:grid md:grid-cols-[minmax(0,_0.7fr)_minmax(0,_1.7fr)_minmax(0,_1.2fr)_minmax(0,_1fr)_minmax(0,_0.9fr)_minmax(0,_0.9fr)_minmax(0,_0.8fr)_minmax(0,_0.3fr)] md:items-center md:gap-3 ${
-                            actionMenuId === order?.id ? 'relative z-20' : 'relative'
-                          }`}
-                        >
-                          <div className="flex min-w-0 items-start justify-between gap-3">
-                            <div className="font-semibold text-slate-700">#{order?.id || '—'}</div>
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold md:hidden ${
-                                STATUS_STYLES[statusLabel] || 'bg-slate-100 text-slate-600'
-                              }`}
-                            >
-                              {statusLabel}
-                            </span>
-                          </div>
-                          <div className="min-w-0 md:block">
-                            <div className="hidden md:block">
-                              <p className="truncate font-semibold text-slate-700">{product}</p>
-                              {subtext && <p className="truncate text-[11px] text-slate-400">{subtext}</p>}
-                            </div>
-                            <div className="md:hidden text-[11px] text-slate-500">
-                              {summarizeOrderItems(order)}
-                            </div>
-                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500 md:hidden">
-                              <span>{buildCustomerName(order)}</span>
-                              <span>{formatDate(order?.created_at || order?.date_created)}</span>
-                              <span>{order?.payment_method_title || order?.payment_method || '—'}</span>
-                              <span>{formatCurrency(order?.total, order?.currency, order?.currency_symbol)}</span>
-                            </div>
-                          </div>
-                          <div className="hidden md:block">{buildCustomerName(order)}</div>
-                          <div className="hidden md:block">{formatDate(order?.created_at || order?.date_created)}</div>
-                          <div className="hidden md:block">{order?.payment_method_title || order?.payment_method || '—'}</div>
-                          <div className="hidden md:block">
-                            {formatCurrency(order?.total, order?.currency, order?.currency_symbol)}
-                          </div>
-                          <div className="hidden md:block">
-                            <span
-                              className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold ${
-                                STATUS_STYLES[statusLabel] || 'bg-slate-100 text-slate-600'
-                              }`}
-                            >
-                              {statusLabel}
-                            </span>
-                          </div>
-                          <div className="hidden md:flex justify-end">
-                            <div className="relative" ref={actionMenuId === order?.id ? actionMenuRef : null}>
-                              <button
-                                type="button"
-                                onClick={() => setActionMenuId((prev) => (prev === order?.id ? null : order?.id))}
-                                className="text-slate-400 hover:text-slate-600"
-                                aria-label="Order actions"
-                                onMouseDown={(event) => event.stopPropagation()}
-                              >
-                                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <circle cx="12" cy="12" r="1" />
-                                  <circle cx="19" cy="12" r="1" />
-                                  <circle cx="5" cy="12" r="1" />
-                                </svg>
-                              </button>
-                              {actionMenuId === order?.id && (
-                                <div
-                                  className="absolute right-0 top-7 z-30 w-48 rounded-2xl border border-slate-200 bg-white p-2 text-xs shadow-lg"
-                                  onMouseDown={(event) => event.stopPropagation()}
-                                >
-                                  {statusOptions.map((option) => (
-                                    <button
-                                      key={option.value}
-                                      type="button"
-                                      onClick={() => updateOrderStatus(order?.id, option.value)}
-                                      disabled={statusUpdatingId === order?.id}
-                                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-semibold ${
-                                        option.value === String(order?.status || '').toLowerCase()
-                                          ? 'bg-slate-100 text-slate-700'
-                                          : 'text-slate-600 hover:bg-slate-50'
-                                      } ${statusUpdatingId === order?.id ? 'cursor-not-allowed opacity-60' : ''}`}
-                                    >
-                                      <span>{option.label}</span>
-                                      {option.value === String(order?.status || '').toLowerCase() && (
-                                        <span className="text-[10px] text-slate-400">Current</span>
-                                      )}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          {statusUpdatingId === order?.id && (
-                            <div className="md:col-span-8">
-                              <div className="flex items-center gap-2 text-[11px] font-semibold text-slate-500">
-                                <BouncingDotsLoader />
-                                <span>Changing order status</span>
-                              </div>
-                            </div>
-                          )}
+                      <div className='flex items-start justify-between gap-3'>
+                        <div className='min-w-0'>
+                          <p className='text-[13px] font-bold text-slate-900'>
+                            {String(order.orderId || '').startsWith('#') ? String(order.orderId) : `#${order.orderId}`}
+                          </p>
+                          <p className='text-[13px] text-slate-500'>Customer</p>
+                          <p className='text-[13px] leading-5 text-slate-400'>
+                            Total items bought: {Math.max(1, Number(order.itemCount || 1))}
+                          </p>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-col items-center gap-3 text-xs text-slate-500">
-                <p>
-                  {displayTotal
-                    ? `${ordersFallback ? 'Showing recent entries' : 'Showing entries'} ${startEntry} to ${endEntry} of ${displayTotal}`
-                    : 'Showing entries 0 to 0 of 0'}
-                </p>
-                {ordersFallback && (
-                  <p className="text-[11px] text-amber-600">
-                    Orders endpoint is blocked by the site security page. Showing recent orders only.
-                  </p>
-                )}
-                <div ref={loadMoreRef} className="flex min-h-[28px] items-center justify-center">
-                  {isLoadingMore && <BouncingDotsLoader />}
-                  {!hasMore && orders.length > 0 && (
-                    <span className="text-[11px] text-slate-400">You reached the end.</span>
-                  )}
-                </div>
+                        <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-tight ${MOBILE_STATUS_TONES[order.status] || 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
+                          {order.statusLabel}
+                        </span>
+                      </div>
+                      <div className='mt-2 flex items-end justify-between'>
+                        <p className='text-[13px] font-semibold leading-none text-slate-900'>{formatCurrency(order.amount, order.currency)}</p>
+                        <span className='inline-flex items-center gap-1 text-[13px] text-slate-400'>
+                          {formatRelativeTime(order.date)}
+                          <svg viewBox='0 0 20 20' className='h-3 w-3' fill='none' stroke='currentColor' strokeWidth='2'>
+                            <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
+                          </svg>
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
               </div>
             </div>
-          </div>
+
+            <div className='hidden lg:block'>
+              <div className='grid grid-cols-2 gap-2 pb-3 xl:grid-cols-4'>
+                {MOBILE_SUMMARY_CARDS.map((card) => {
+                  const count = Number(mobileSummary[card.key] || 0)
+                  return (
+                    <div
+                      key={`desktop-summary-${card.key}`}
+                      className='rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.06)]'
+                    >
+                      <p className='text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500'>{card.label}</p>
+                      <p className='mt-1 text-[28px] font-semibold leading-none text-slate-900'>{count}</p>
+                      <p className={`mt-2 inline-flex items-center gap-1.5 text-[11px] ${card.tone}`}>
+                        <span className={`inline-flex h-1.5 w-1.5 rounded-full ${card.dot}`} />
+                        {card.note}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className='border-b border-slate-200 bg-white py-4'>
+              <div className='flex flex-wrap items-center justify-between gap-3'>
+                <h1 className='text-[30px] font-semibold text-slate-900'>Orders List</h1>
+                <button
+                  type='button'
+                  className='inline-flex h-10 items-center justify-center rounded-full bg-emerald-500 px-5 text-sm font-semibold text-white'
+                >
+                  + Add Order
+                </button>
+              </div>
+
+              <div className='mt-5 flex flex-wrap items-center justify-between gap-3'>
+                <div className='flex flex-wrap items-center gap-2'>
+                  {STATUS_TABS.map((tab) => {
+                    const active = statusFilter === tab.key
+                    return (
+                      <button
+                        key={tab.key}
+                        type='button'
+                        onClick={() => {
+                          setStatusFilter(tab.key)
+                          setPage(1)
+                        }}
+                        className={`inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-medium transition ${
+                          active
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className='flex items-center gap-2'>
+                  <div className='flex h-10 min-w-[230px] items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3'>
+                    <svg viewBox='0 0 20 20' className='h-4 w-4 text-slate-500' fill='none' stroke='currentColor' strokeWidth='2'>
+                      <circle cx='9' cy='9' r='5' />
+                      <path d='m13 13 4 4' strokeLinecap='round' />
+                    </svg>
+                    <input
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      placeholder='Search...'
+                      className='w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400'
+                    />
+                  </div>
+                  <button type='button' className='inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500'>
+                    <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2'>
+                      <path d='M3 6h14M6 10h8M8 14h4' strokeLinecap='round' />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              </div>
+
+            {error ? (
+              <div className='mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700'>
+                {error}
+              </div>
+            ) : null}
+
+            <div className='mt-5 overflow-x-auto bg-white'>
+              <table className='min-w-full text-left'>
+                <thead>
+                  <tr className='border-b border-slate-200 text-sm font-medium text-slate-500'>
+                    <th className='px-3 py-3'>Product Name</th>
+                    <th className='px-3 py-3'>Customer Name</th>
+                    <th className='px-3 py-3'>Order Id</th>
+                    <th className='px-3 py-3'>Amount</th>
+                    <th className='px-3 py-3'>Status</th>
+                    <th className='px-3 py-3 text-right'>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading
+                    ? Array.from({ length: 8 }).map((_, index) => (
+                        <tr key={`orders-skeleton-${index}`} className='border-b border-slate-100'>
+                          <td className='px-3 py-3'><div className='h-4 w-40 animate-pulse rounded bg-slate-100' /></td>
+                          <td className='px-3 py-3'><div className='h-4 w-32 animate-pulse rounded bg-slate-100' /></td>
+                          <td className='px-3 py-3'><div className='h-4 w-24 animate-pulse rounded bg-slate-100' /></td>
+                          <td className='px-3 py-3'><div className='h-4 w-28 animate-pulse rounded bg-slate-100' /></td>
+                          <td className='px-3 py-3'><div className='h-8 w-24 animate-pulse rounded-full bg-slate-100' /></td>
+                          <td className='px-3 py-3 text-right'><div className='ml-auto h-8 w-8 animate-pulse rounded bg-slate-100' /></td>
+                        </tr>
+                      ))
+                    : null}
+
+                  {!isLoading && orders.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className='px-3 py-10 text-center text-sm text-slate-500'>
+                        No orders found.
+                      </td>
+                    </tr>
+                  ) : null}
+
+                  {!isLoading &&
+                    orders.map((order) => (
+                      <tr key={order.id} className='border-b border-slate-100'>
+                        <td className='px-3 py-3'>
+                          <div className='flex items-center gap-2'>
+                            <div className='relative h-9 w-9 overflow-hidden rounded-md border border-slate-200 bg-slate-100'>
+                              {order.productImage ? (
+                                <Image
+                                  src={order.productImage}
+                                  alt={order.productName}
+                                  fill
+                                  sizes='36px'
+                                  className='object-cover'
+                                />
+                              ) : null}
+                            </div>
+                            <div>
+                              <p className='text-sm font-semibold text-slate-900'>{order.productName}</p>
+                              <p className='text-xs text-slate-500'>{toItemText(order.itemCount)}</p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className='px-3 py-3'>
+                          <p className='text-sm font-semibold text-slate-900'>{order.customerName}</p>
+                          <p className='text-xs text-slate-500'>{order.customerTag}</p>
+                        </td>
+
+                        <td className='px-3 py-3'>
+                          <p className='text-sm font-semibold text-slate-900'>{order.orderId}</p>
+                          <p className='text-xs text-slate-500'>{formatDate(order.date)}</p>
+                        </td>
+
+                        <td className='px-3 py-3'>
+                          <p className='text-sm font-semibold text-slate-900'>{formatCurrency(order.amount, order.currency)}</p>
+                          <p className='text-xs text-slate-500'>{order.paymentText}</p>
+                        </td>
+
+                        <td className='px-3 py-3'>
+                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${STATUS_TONES[order.status] || 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
+                            {order.statusLabel}
+                          </span>
+                        </td>
+
+                        <td className='relative px-3 py-3 text-right'>
+                          <button
+                            type='button'
+                            onClick={() => setIsActionMenuOpenFor((prev) => (prev === order.id ? '' : order.id))}
+                            className='inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50'
+                          >
+                            <svg viewBox='0 0 20 20' className='h-4 w-4' fill='currentColor'>
+                              <circle cx='4' cy='10' r='1.5' />
+                              <circle cx='10' cy='10' r='1.5' />
+                              <circle cx='16' cy='10' r='1.5' />
+                            </svg>
+                          </button>
+
+                          {isActionMenuOpenFor === order.id ? (
+                            <div className='absolute right-2 top-12 z-20 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-lg'>
+                              <Link
+                                href={`/backend/admin/orders/${order.id}`}
+                                className='block rounded-md px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50'
+                              >
+                                View details
+                              </Link>
+                              {STATUS_OPTIONS.map((option) => (
+                                <button
+                                  key={option.key}
+                                  type='button'
+                                  onClick={() => handleStatusUpdate(order.id, option.key)}
+                                  disabled={Boolean(statusUpdatingById[order.id])}
+                                  className='block w-full rounded-md px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60'
+                                >
+                                  Mark as {option.label}
+                                </button>
+                              ))}
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className='mt-5 flex items-center justify-between bg-white px-1 py-3'>
+              <button
+                type='button'
+                onClick={() => hasPrev && setPage((prev) => prev - 1)}
+                disabled={!hasPrev}
+                className='inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 disabled:opacity-50'
+              >
+                <span>←</span>
+                <span>Previous</span>
+              </button>
+
+              <p className='text-sm font-medium text-slate-500'>{orderRangeLabel}</p>
+
+              <button
+                type='button'
+                onClick={() => hasNext && setPage((prev) => prev + 1)}
+                disabled={!hasNext}
+                className='inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 disabled:opacity-50'
+              >
+                <span>Next</span>
+                <span>→</span>
+              </button>
+            </div>
+            </div>
+          </section>
         </main>
       </div>
     </div>
-  );
+  )
 }
-
-export default OrdersPage;

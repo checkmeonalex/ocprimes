@@ -14,6 +14,9 @@ const AboutStoreCard = ({
   const vendorHref = buildVendorHref(vendor)
   const followersLabel =
     typeof followers === 'number' ? followers.toLocaleString() : followers
+  const safeFollowers = followersLabel || '0'
+  const safeSoldCount = Number.isFinite(Number(soldCount)) ? Number(soldCount).toLocaleString() : String(soldCount || '0')
+  const safeRating = Number.isFinite(Number(rating)) ? Number(rating).toFixed(1) : '0.0'
 
   return (
     <div className='border border-gray-200 rounded-2xl p-4 bg-white'>
@@ -43,15 +46,15 @@ const AboutStoreCard = ({
           </div>
           <div className='mt-1 flex flex-wrap items-center gap-4 text-xs text-gray-500'>
             <div className='text-gray-900 font-semibold'>
-              {followersLabel}{' '}
+              {safeFollowers}{' '}
               <span className='font-normal text-gray-500'>Followers</span>
             </div>
             <div className='text-gray-900 font-semibold'>
-              {soldCount}{' '}
+              {safeSoldCount}{' '}
               <span className='font-normal text-gray-500'>Sold</span>
             </div>
             <div className='text-gray-900 font-semibold'>
-              {rating} <span className='text-gray-700'>★</span>
+              {safeRating} <span className='text-gray-700'>★</span>
             </div>
           </div>
         </div>

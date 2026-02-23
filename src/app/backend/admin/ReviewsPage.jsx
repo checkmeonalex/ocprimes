@@ -1,5 +1,6 @@
 'use client';
 
+import CustomSelect from '@/components/common/CustomSelect'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AdminSidebar from '@/components/AdminSidebar';
@@ -276,7 +277,7 @@ export default function ReviewsPage() {
                   placeholder="Search by reviewer, title, or comment"
                   className="col-span-2 h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 md:col-span-1"
                 />
-                <select
+                <CustomSelect
                   value={ratingFilter}
                   onChange={(event) => setRatingFilter(event.target.value)}
                   className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
@@ -287,8 +288,8 @@ export default function ReviewsPage() {
                   <option value="3">3★</option>
                   <option value="2">2★</option>
                   <option value="1">1★</option>
-                </select>
-                <select
+                </CustomSelect>
+                <CustomSelect
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value)}
                   className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
@@ -297,7 +298,7 @@ export default function ReviewsPage() {
                   <option value="published">Published</option>
                   <option value="pending">Pending</option>
                   <option value="hidden">Hidden</option>
-                </select>
+                </CustomSelect>
               </div>
 
               {activeFiltersLabel ? (
@@ -412,7 +413,7 @@ export default function ReviewsPage() {
                     {permissions.can_edit_review_content ? (
                       <label className="text-sm">
                         <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Rating</span>
-                        <select
+                        <CustomSelect
                           value={editRating}
                           onChange={(event) => setEditRating(event.target.value)}
                           className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
@@ -422,13 +423,13 @@ export default function ReviewsPage() {
                           <option value="3">3 stars</option>
                           <option value="2">2 stars</option>
                           <option value="1">1 star</option>
-                        </select>
+                        </CustomSelect>
                       </label>
                     ) : null}
                     {permissions.can_change_status ? (
                       <label className="text-sm">
                         <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
-                        <select
+                        <CustomSelect
                           value={editStatus}
                           onChange={(event) => setEditStatus(event.target.value)}
                           className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
@@ -436,7 +437,7 @@ export default function ReviewsPage() {
                           <option value="published">Published</option>
                           <option value="pending">Pending</option>
                           <option value="hidden">Hidden</option>
-                        </select>
+                        </CustomSelect>
                       </label>
                     ) : null}
                   </div>

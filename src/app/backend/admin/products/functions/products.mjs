@@ -1,13 +1,88 @@
-export const buildProductPayload = (form) => {
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const CONDITION_VALUES = new Set([
+  'brand_new',
+  'like_new',
+  'open_box',
+  'refurbished',
+  'handmade',
+  'okx',
+]);
+
+const PACKAGING_VALUES = new Set([
+  'in_wrap_nylon',
+  'in_a_box',
+  'premium_gift_packaging',
+  'cardboard_wrap',
+]);
+
+const RETURN_POLICY_VALUES = new Set(['not_returnable', 'support_return']);
+
+const normalizeEnumValue = (value, allowedValues) => {
+  if (typeof value !== 'string') return '';
+  const normalized = value.trim();
+  if (!normalized) return '';
+  return allowedValues.has(normalized) ? normalized : '';
+};
+
+const normalizeUuid = (value) => {
+  if (typeof value !== 'string') return '';
+  const normalized = value.trim();
+  if (!normalized) return '';
+  return UUID_PATTERN.test(normalized) ? normalized : '';
+};
+
+const normalizeUuidArray = (value) => {
+  if (!Array.isArray(value)) return null;
+  const seen = new Set();
+  const next = [];
+  value.forEach((item) => {
+    const normalized = normalizeUuid(String(item ?? ''));
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    next.push(normalized);
+  });
+  return next;
+};
+
+const normalizeVariations = (value) => {
+  if (!Array.isArray(value) || !value.length) return null;
+  return value.map((variation) => {
+    const safeVariation = { ...variation };
+    if (safeVariation && 'image_id' in safeVariation) {
+      const imageId = normalizeUuid(String(safeVariation.image_id ?? ''));
+      safeVariation.image_id = imageId || undefined;
+    }
+    return safeVariation;
+  });
+};
+
+export const buildProductPayload = (form, options = {}) => {
+  const mode = options?.mode === 'update' ? 'update' : 'create';
   const payload = {
     name: form.name.trim(),
-    sku: form.sku.trim() || undefined,
     description: form.description,
     short_description: form.short_description,
-    condition_check: form.condition_check,
-    packaging_style: form.packaging_style,
-    return_policy: form.return_policy,
   };
+  const sku = typeof form.sku === 'string' ? form.sku.trim() : '';
+  if (sku) {
+    payload.sku = sku;
+  } else if (mode === 'create') {
+    payload.sku = undefined;
+  }
+  const conditionCheck = normalizeEnumValue(form.condition_check, CONDITION_VALUES);
+  if (conditionCheck) {
+    payload.condition_check = conditionCheck;
+  }
+  const packagingStyle = normalizeEnumValue(form.packaging_style, PACKAGING_VALUES);
+  if (packagingStyle) {
+    payload.packaging_style = packagingStyle;
+  }
+  const returnPolicy = normalizeEnumValue(form.return_policy, RETURN_POLICY_VALUES);
+  if (returnPolicy) {
+    payload.return_policy = returnPolicy;
+  }
   if (form.status) {
     payload.status = form.status;
   }
@@ -21,33 +96,39 @@ export const buildProductPayload = (form) => {
   if (form.sale_price !== undefined && form.sale_price !== '') {
     payload.discount_price = Number(form.sale_price);
   }
-  if (Array.isArray(form.category_ids)) {
-    payload.category_ids = form.category_ids;
-  } else if (Array.isArray(form.categories)) {
-    payload.category_ids = form.categories;
-  } else {
-    payload.category_ids = [];
+  const categoryIds =
+    normalizeUuidArray(form.category_ids) ?? normalizeUuidArray(form.categories);
+  if (Array.isArray(categoryIds) && (categoryIds.length || mode === 'create')) {
+    payload.category_ids = categoryIds;
   }
-  if (Array.isArray(form.pending_category_request_ids) && form.pending_category_request_ids.length) {
-    payload.pending_category_request_ids = form.pending_category_request_ids;
+  const pendingCategoryRequestIds = normalizeUuidArray(form.pending_category_request_ids);
+  if (Array.isArray(pendingCategoryRequestIds) && pendingCategoryRequestIds.length) {
+    payload.pending_category_request_ids = pendingCategoryRequestIds;
   }
-  if (Array.isArray(form.tag_ids) && form.tag_ids.length) {
-    payload.tag_ids = form.tag_ids;
+  const tagIds = normalizeUuidArray(form.tag_ids);
+  if (Array.isArray(tagIds) && tagIds.length) {
+    payload.tag_ids = tagIds;
   }
-  if (Array.isArray(form.brand_ids) && form.brand_ids.length) {
-    payload.brand_ids = form.brand_ids;
+  const brandIds = normalizeUuidArray(form.brand_ids);
+  if (Array.isArray(brandIds) && brandIds.length) {
+    payload.brand_ids = brandIds;
   }
-  if (form.image_id) {
-    payload.main_image_id = form.image_id;
+  const mainImageId = normalizeUuid(String(form.image_id ?? ''));
+  if (mainImageId) {
+    payload.main_image_id = mainImageId;
+  } else if (mode === 'create') {
+    payload.main_image_id = undefined;
   }
-  if (Array.isArray(form.image_ids) && form.image_ids.length) {
-    payload.image_ids = form.image_ids;
+  const imageIds = normalizeUuidArray(form.image_ids);
+  if (Array.isArray(imageIds) && imageIds.length) {
+    payload.image_ids = imageIds;
   }
   if (Array.isArray(form.attributes) && form.attributes.length) {
     payload.attributes = form.attributes;
   }
-  if (Array.isArray(form.variations) && form.variations.length) {
-    payload.variations = form.variations;
+  const variations = normalizeVariations(form.variations);
+  if (Array.isArray(variations) && variations.length) {
+    payload.variations = variations;
   }
   const qtyRaw = form.stock_quantity !== undefined ? form.stock_quantity : '';
   const qty = Number(qtyRaw);

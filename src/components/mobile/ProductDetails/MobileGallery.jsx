@@ -16,6 +16,7 @@ export default function MobileGallery({
   setCurrentImage,
   productName = 'Premium Hoodie',
   badgeText = null,
+  badgeVariant = 'discount',
 }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
@@ -183,7 +184,13 @@ export default function MobileGallery({
           </div>
 
           {badgeText && (
-            <div className='absolute top-4 left-4 bg-red-500 text-white text-xs font-semibold px-3 py-1 rounded-full'>
+            <div
+              className={`absolute top-4 left-4 text-xs font-semibold px-3 py-1 rounded-full ${
+                badgeVariant === 'new'
+                  ? 'bg-yellow-300 text-yellow-900'
+                  : 'bg-red-500 text-white'
+              }`}
+            >
               {badgeText}
             </div>
           )}

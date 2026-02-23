@@ -3,12 +3,40 @@ import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { isReturnPolicyDisabled, normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
 
-const toUiStatus = (paymentStatus: string) => {
+const getManualStatus = (shippingAddress: Record<string, unknown>) =>
+  String(
+    shippingAddress?.orderStatus ||
+      shippingAddress?.order_status ||
+      shippingAddress?.status ||
+      '',
+  )
+    .trim()
+    .toLowerCase()
+
+const toStatusKey = (paymentStatus: string, shippingAddress: Record<string, unknown>) => {
+  const manual = getManualStatus(shippingAddress)
+  if (manual === 'delivered') return 'delivered'
+  if (manual === 'out_for_delivery') return 'out_for_delivery'
+  if (manual === 'processing') return 'processing'
+  if (manual === 'cancelled') return 'cancelled'
+  if (manual === 'pending') return 'pending'
+  if (manual === 'failed') return 'failed'
+
   const normalized = String(paymentStatus || '').toLowerCase()
-  if (normalized === 'paid') return 'Completed'
-  if (normalized === 'failed') return 'Failed'
+  if (normalized === 'paid') return 'delivered'
+  if (normalized === 'failed') return 'failed'
+  if (normalized === 'cancelled') return 'cancelled'
+  return 'pending'
+}
+
+const toStatusLabel = (statusKey: string) => {
+  const normalized = String(statusKey || '').trim().toLowerCase()
+  if (normalized === 'delivered') return 'Completed'
+  if (normalized === 'out_for_delivery') return 'Out for delivery'
+  if (normalized === 'processing') return 'Processing'
   if (normalized === 'cancelled') return 'Cancelled'
-  return 'Pending'
+  if (normalized === 'failed') return 'Failed'
+  return 'Awaiting Payment'
 }
 
 type BrandLinkRow = {
@@ -136,6 +164,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
   }
 
   const shippingAddress = (orderRow.shipping_address || {}) as Record<string, unknown>
+  const statusKey = toStatusKey(String(orderRow.payment_status || ''), shippingAddress)
   const contactPhone = String(
     shippingAddress?.phone ||
       shippingAddress?.phoneNumber ||
@@ -187,7 +216,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
     order: {
       id: String(orderRow.id),
       orderNumber: String(orderRow.order_number || '').trim() || `#${String(orderRow.id).replace(/-/g, '').toUpperCase()}`,
-      status: toUiStatus(String(orderRow.payment_status || '')),
+      statusKey,
+      status: toStatusLabel(statusKey),
       paymentStatus: String(orderRow.payment_status || ''),
       createdAt: String(orderRow.created_at || ''),
       totalAmount: Number(orderRow.total_amount || 0),

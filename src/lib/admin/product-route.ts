@@ -336,7 +336,14 @@ const validatePendingCategoryRequests = async (
     .filter((row: any) => row?.id && String(row?.status || '') === 'pending')
     .map((row: any) => String(row.id))
   if (validIds.length !== dedupedIds.length) {
-    return { ids: [] as string[], error: 'Some pending category requests are invalid or already processed.' }
+    console.warn(
+      'pending category request ids contained stale/invalid entries; ignoring missing ids',
+      {
+        requested: dedupedIds.length,
+        valid: validIds.length,
+        userId,
+      },
+    )
   }
   return { ids: validIds, error: null as string | null }
 }
@@ -1079,16 +1086,34 @@ export async function updateProduct(request: NextRequest, id: string) {
     }
   }
   const updatePayload: Record<string, unknown> = {
-    name: updates.name,
-    short_description: updates.short_description ?? null,
-    description: updates.description ?? null,
-    price: updates.price,
-    discount_price: updates.discount_price ?? null,
-    stock_quantity: updates.stock_quantity,
-    status: nextUpdateStatus,
-    product_type: updates.product_type,
-    main_image_id: updates.main_image_id ?? null,
     updated_at: new Date().toISOString(),
+  }
+  if (updates.name !== undefined) {
+    updatePayload.name = updates.name
+  }
+  if (updates.short_description !== undefined) {
+    updatePayload.short_description = updates.short_description ?? null
+  }
+  if (updates.description !== undefined) {
+    updatePayload.description = updates.description ?? null
+  }
+  if (updates.price !== undefined) {
+    updatePayload.price = updates.price
+  }
+  if (updates.discount_price !== undefined) {
+    updatePayload.discount_price = updates.discount_price ?? null
+  }
+  if (updates.stock_quantity !== undefined) {
+    updatePayload.stock_quantity = updates.stock_quantity
+  }
+  if (nextUpdateStatus !== undefined) {
+    updatePayload.status = nextUpdateStatus
+  }
+  if (updates.product_type !== undefined) {
+    updatePayload.product_type = updates.product_type
+  }
+  if (updates.main_image_id !== undefined) {
+    updatePayload.main_image_id = updates.main_image_id ?? null
   }
   if (updates.slug !== undefined) {
     updatePayload.slug = slug

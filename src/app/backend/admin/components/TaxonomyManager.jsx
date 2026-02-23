@@ -1,4 +1,5 @@
 'use client';
+import CustomSelect from '@/components/common/CustomSelect'
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import LoadingButton from '@/components/LoadingButton';
 import ColorPicker, { defaultSwatches, getSwatchStyle } from './ColorPicker';
@@ -466,7 +467,7 @@ function TaxonomyManager({
                 <label className="mt-4 block text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
                   Attribute type
                 </label>
-                <select
+                <CustomSelect
                   value={form.type_id || ''}
                   onChange={(event) => setForm((prev) => ({ ...prev, type_id: event.target.value }))}
                   className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
@@ -477,7 +478,7 @@ function TaxonomyManager({
                       {type.name}
                     </option>
                   ))}
-                </select>
+                </CustomSelect>
                 {typesError && <p className="mt-2 text-xs text-rose-500">{typesError}</p>}
               </>
             )}
@@ -583,7 +584,7 @@ function TaxonomyManager({
                     {isEditing ? (
                       <div className="flex items-center justify-end gap-2">
                         {optionsEndpoint && (
-                          <select
+                          <CustomSelect
                             value={editForm.type_id || ''}
                             onChange={(event) =>
                               setEditForm((prev) => ({ ...prev, type_id: event.target.value }))
@@ -596,7 +597,7 @@ function TaxonomyManager({
                                 {type.name}
                               </option>
                             ))}
-                          </select>
+                          </CustomSelect>
                         )}
                         <LoadingButton
                           type="button"

@@ -16,6 +16,10 @@ import { findCartEntry } from '../../../lib/cart/cart-match'
 import RecentlyViewedSection from '../../../components/product/RecentlyViewedSection'
 import { addRecentlyViewed } from '../../../lib/recently-viewed/storage'
 import ShareProductModal from '../../../components/product/ShareProductModal'
+import CartQuantitySelect from '../../../components/cart/CartQuantitySelect'
+import ProductFloatingDock from '../../../components/product/ProductFloatingDock'
+import SellerChatPopup from '../../../components/product/SellerChatPopup'
+import { useWishlist } from '../../../context/WishlistContext'
 
 const buildVariationLabel = (attributes: Record<string, string> | null | undefined) => {
   if (!attributes || typeof attributes !== 'object') return ''
@@ -194,6 +198,7 @@ const createEmptyReviewData = () => ({
     { stars: 1, count: 0 },
   ],
   reviews: [],
+  canWriteReview: false,
 })
 
 const extractAttributeValue = (
@@ -221,6 +226,7 @@ const mapApiProduct = (item: any) => {
   const displayPrice = hasDiscount ? discountPrice : basePrice
   const primaryCategory = Array.isArray(item.categories) ? item.categories[0] : null
   const primaryBrand = Array.isArray(item.brands) ? item.brands[0] : null
+  const vendorProfile = item.vendor_profile || null
   const fallbackImage = item.image_url || imageUrls[0] || ''
   const categorySlug = primaryCategory?.slug || slugifyCategory(primaryCategory?.name)
   const primaryCategoryPath = Array.isArray(item.primary_category_path)
@@ -268,10 +274,17 @@ const mapApiProduct = (item: any) => {
     id: item.id,
     name: item.name,
     slug: item.slug,
+    createdAt: item.created_at || null,
     category: primaryCategory?.name || 'Uncategorized',
     categorySlug,
     categoryPath: primaryCategoryPath,
     vendor: primaryBrand?.name || 'OCPRIMES',
+    vendorRating: Math.max(0, Number(vendorProfile?.rating ?? item.rating) || 0),
+    vendorFollowers: Math.max(0, Number(vendorProfile?.followers) || 0),
+    vendorSoldCount: Math.max(0, Number(vendorProfile?.sold) || 0),
+    vendorItemsCount: Math.max(0, Number(vendorProfile?.items) || 0),
+    vendorBadge: String(vendorProfile?.badge || '').trim(),
+    vendorLogoUrl: String(vendorProfile?.logo_url || primaryBrand?.logo_url || '').trim(),
     vendorFont: 'Georgia, serif',
     shortDescription: item.short_description || '',
     fullDescription: item.description || '',
@@ -316,10 +329,15 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const [currentImage, setCurrentImage] = useState('')
   const [activeTab, setActiveTab] = useState('details')
   const [showFloatingCart, setShowFloatingCart] = useState(false)
+  const [isInlineAddToCartVisible, setIsInlineAddToCartVisible] = useState(false)
+  const [showFloatingDock, setShowFloatingDock] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [isMobileGalleryVisible, setIsMobileGalleryVisible] = useState(false)
+  const [showSellerChat, setShowSellerChat] = useState(false)
   const [selectedVariation, setSelectedVariation] = useState<any>(null)
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({})
   const [shakeKeys, setShakeKeys] = useState<string[]>([])
+  const [showSelectionErrors, setShowSelectionErrors] = useState(false)
   const [variationError, setVariationError] = useState('')
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
@@ -331,11 +349,13 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const [reviewData, setReviewData] = useState<any>(createEmptyReviewData())
   const [reviewReloadKey, setReviewReloadKey] = useState(0)
   const { addItem, items, updateQuantity } = useCart()
+  const { openSaveModal, isRecentlySaved } = useWishlist()
   const searchParams = useSearchParams()
   const addToCartRef = useRef<HTMLDivElement | null>(null)
   const galleryMainRef = useRef<HTMLDivElement | null>(null)
   const conditionInfoRef = useRef<HTMLDivElement | null>(null)
   const returnInfoRef = useRef<HTMLDivElement | null>(null)
+  const productContentAreaRef = useRef<HTMLDivElement | null>(null)
   const sectionRef = useRef<HTMLDivElement | null>(null)
   const rightColumnRef = useRef<HTMLDivElement | null>(null)
   const rightPinRef = useRef<HTMLDivElement | null>(null)
@@ -410,14 +430,67 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     },
     [normalizedVariations, selectionMap],
   )
+  const hasSelectionConflict = useCallback(
+    (nextSelectionMap: Record<string, string>) => {
+      if (!normalizedVariations.length) return false
+      return Object.entries(nextSelectionMap).some(([key, value]) => {
+        if (!value) return false
+        return !normalizedVariations.some(({ attrs }) => {
+          if (attrs[key] !== value) return false
+          return Object.entries(nextSelectionMap).every(([selKey, selValue]) => {
+            if (!selValue || selKey === key) return true
+            return attrs[selKey] === selValue
+          })
+        })
+      })
+    },
+    [normalizedVariations],
+  )
   const requiresColor = attributeOptions.some((item) => item.key === 'color')
   const requiresSize = attributeOptions.some((item) => item.key === 'size')
   const requiresExtras = extraAttributeOptions.map((item) => item.key)
+  const requiredSelectionKeys = useMemo(
+    () => attributeOptions.map((item) => item.key),
+    [attributeOptions],
+  )
+  const missingSelectionKeys = useMemo(
+    () => requiredSelectionKeys.filter((key) => !selectionMap[key]),
+    [requiredSelectionKeys, selectionMap],
+  )
+  const missingSelectionKeySet = useMemo(
+    () => new Set(missingSelectionKeys),
+    [missingSelectionKeys],
+  )
+  const attributeLabelByKey = useMemo(
+    () => new Map(attributeOptions.map((item) => [item.key, item.label])),
+    [attributeOptions],
+  )
+  const getSelectionErrorMessage = useCallback(
+    (key: string) => {
+      const fallback = key.replace(/[_-]+/g, ' ')
+      const label = String(attributeLabelByKey.get(key) || fallback)
+        .trim()
+        .toLowerCase()
+      const article = /^[aeiou]/.test(label) ? 'an' : 'a'
+      return `Select ${article} ${label}.`
+    },
+    [attributeLabelByKey],
+  )
+  const hasMatchingSelection = useMemo(() => {
+    if (!variationList.length) return true
+    const requiredKeys = attributeOptions.map((item) => item.key)
+    const isComplete = requiredKeys.every((key) => Boolean(selectionMap[key]))
+    if (!isComplete) return false
+    return normalizedVariations.some(({ attrs }) =>
+      requiredKeys.every((key) => attrs[key] === selectionMap[key]),
+    )
+  }, [attributeOptions, normalizedVariations, selectionMap, variationList.length])
   const isSelectionComplete =
-    !variationList.length ||
-    (!requiresColor || Boolean(selectedColor)) &&
-      (!requiresSize || Boolean(selectedSize)) &&
-      requiresExtras.every((key) => Boolean(selectionMap[key]))
+    (!variationList.length ||
+      (!requiresColor || Boolean(selectedColor)) &&
+        (!requiresSize || Boolean(selectedSize)) &&
+        requiresExtras.every((key) => Boolean(selectionMap[key]))) &&
+    hasMatchingSelection
   const colorVariationCards = useMemo(() => {
     const map = new Map<string, any>()
     variationList.forEach((variation: any) => {
@@ -440,36 +513,6 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }, [attributeOptions, product?.sizes])
 
   useEffect(() => {
-    if (!selectedColor && !selectedSize && Object.keys(selectedAttributes).length === 0) return
-    const nextAttributes: Record<string, string> = { ...selectedAttributes }
-    Object.entries(nextAttributes).forEach(([key, value]) => {
-      if (!value) return
-      if (!isOptionAvailable(key, value)) {
-        delete nextAttributes[key]
-      }
-    })
-    const nextColor = selectedColor && !isOptionAvailable('color', selectedColor) ? '' : selectedColor
-    const nextSize = selectedSize && !isOptionAvailable('size', selectedSize) ? '' : selectedSize
-    const attributesChanged =
-      Object.keys(nextAttributes).length !== Object.keys(selectedAttributes).length ||
-      Object.entries(nextAttributes).some(([key, value]) => selectedAttributes[key] !== value)
-    const colorChanged = nextColor !== selectedColor
-    const sizeChanged = nextSize !== selectedSize
-    if (colorChanged) {
-      setSelectedColor(nextColor)
-    }
-    if (sizeChanged) {
-      setSelectedSize(nextSize)
-    }
-    if (attributesChanged) {
-      setSelectedAttributes(nextAttributes)
-    }
-    if (colorChanged || sizeChanged || attributesChanged) {
-      setSelectedVariation(null)
-    }
-  }, [isOptionAvailable, selectedAttributes, selectedColor, selectedSize])
-
-  useEffect(() => {
     if (!variationList.length) return
     if (!Object.keys(selectionMap).length) return
     const requiredKeys = attributeOptions.map((item) => item.key)
@@ -481,7 +524,10 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     const match = normalizedVariations.find(({ attrs }) =>
       requiredKeys.every((key) => attrs[key] === selectionMap[key]),
     )
-    if (!match) return
+    if (!match) {
+      setSelectedVariation(null)
+      return
+    }
     setSelectedVariation(match.variation)
     setCurrentImage(match.variation?.image || product?.image || '')
     setVariationError('')
@@ -509,6 +555,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
         setSelectedSize(mapped?.sizes?.[0] || '')
         setCurrentImage(mapped?.image || '')
         setSelectedVariation(null)
+        setShowSelectionErrors(false)
         setVariationError('')
       } catch (_error) {
         if (!isActive) return
@@ -547,6 +594,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
           ? payload.breakdown
           : createEmptyReviewData().breakdown
         const reviews = Array.isArray(payload?.reviews) ? payload.reviews : []
+        const canWriteReview = Boolean(payload?.canWriteReview)
         setReviewData({
           summary: {
             rating: Number(summary?.rating) || 0,
@@ -557,6 +605,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
           },
           breakdown,
           reviews,
+          canWriteReview,
         })
       } catch (_error) {
         if (!isActive) return
@@ -775,21 +824,74 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }, [])
 
   useEffect(() => {
-    if (!isMobile || !addToCartRef.current) {
+    if (!addToCartRef.current) {
+      setIsInlineAddToCartVisible(false)
       setShowFloatingCart(false)
+      return
+    }
+    const panel = rightPinRef.current
+    let frameId = 0
+
+    const measureInlineCartVisibility = () => {
+      const anchor = addToCartRef.current
+      if (!anchor) {
+        setIsInlineAddToCartVisible(false)
+        setShowFloatingCart(false)
+        return
+      }
+      const rect = anchor.getBoundingClientRect()
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0
+      const visibleTop = Math.max(0, rect.top)
+      const visibleBottom = Math.min(viewportHeight, rect.bottom)
+      const visibleHeight = Math.max(0, visibleBottom - visibleTop)
+      const height = Math.max(1, rect.height)
+      const ratio = visibleHeight / height
+      const isInlineVisible = ratio > 0.05
+
+      setIsInlineAddToCartVisible(isInlineVisible)
+      setShowFloatingCart(isMobile ? ratio < 0.6 : false)
+    }
+
+    const scheduleMeasureInlineCartVisibility = () => {
+      if (frameId) return
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0
+        measureInlineCartVisibility()
+      })
+    }
+
+    scheduleMeasureInlineCartVisibility()
+    window.addEventListener('scroll', scheduleMeasureInlineCartVisibility, { passive: true })
+    window.addEventListener('resize', scheduleMeasureInlineCartVisibility, { passive: true })
+    panel?.addEventListener('scroll', scheduleMeasureInlineCartVisibility, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', scheduleMeasureInlineCartVisibility)
+      window.removeEventListener('resize', scheduleMeasureInlineCartVisibility)
+      panel?.removeEventListener('scroll', scheduleMeasureInlineCartVisibility)
+      if (frameId) {
+        window.cancelAnimationFrame(frameId)
+      }
+    }
+  }, [isMobile, product?.id])
+
+  useEffect(() => {
+    const contentArea = productContentAreaRef.current
+    if (!contentArea) {
+      setShowFloatingDock(false)
       return
     }
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        setShowFloatingCart(entry.intersectionRatio < 0.6)
+        setShowFloatingDock(!entry.isIntersecting)
       },
-      { threshold: [0, 0.6, 1] }
+      { threshold: 0.05 },
     )
 
-    observer.observe(addToCartRef.current)
+    observer.observe(contentArea)
     return () => observer.disconnect()
-  }, [isMobile, product?.id])
+  }, [product?.id])
 
   useEffect(() => {
     if (isMobile) return
@@ -989,6 +1091,32 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }, [isMobile, product?.id])
 
   useEffect(() => {
+    if (!isMobile) {
+      setIsMobileGalleryVisible(false)
+      return
+    }
+    const gallerySection = leftColumnRef.current
+    if (!gallerySection) {
+      setIsMobileGalleryVisible(false)
+      return
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsMobileGalleryVisible(entry.isIntersecting)
+      },
+      { threshold: 0.15 },
+    )
+    observer.observe(gallerySection)
+    return () => observer.disconnect()
+  }, [isMobile, product?.id])
+
+  useEffect(() => {
+    if (isMobile && isMobileGalleryVisible) {
+      setShowSellerChat(false)
+    }
+  }, [isMobile, isMobileGalleryVisible])
+
+  useEffect(() => {
     if (typeof window === 'undefined') return
     const previous = window.history.scrollRestoration
     window.history.scrollRestoration = 'manual'
@@ -1120,10 +1248,14 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }, [activeTab, product])
 
   useEffect(() => {
-    if (isSelectionComplete && shakeKeys.length) {
+    if (!isSelectionComplete) return
+    if (shakeKeys.length) {
       setShakeKeys([])
     }
-  }, [isSelectionComplete, shakeKeys.length])
+    if (showSelectionErrors) {
+      setShowSelectionErrors(false)
+    }
+  }, [isSelectionComplete, shakeKeys.length, showSelectionErrors])
 
   useEffect(() => {
     if (!product) return
@@ -1188,6 +1320,11 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
           )
         )
       : null
+  const createdAtTimestamp = new Date(String(product.createdAt || '')).getTime()
+  const ageMs = Number.isNaN(createdAtTimestamp)
+    ? Number.POSITIVE_INFINITY
+    : Date.now() - createdAtTimestamp
+  const isNewProduct = ageMs >= 0 && ageMs <= 12 * 60 * 60 * 1000
 
   const handleAddToCart = (quantity = 1) => {
     if (!isSelectionComplete) {
@@ -1196,10 +1333,12 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
         block: 'center',
       })
       setShakeKeys(['__all__'])
-      setVariationError('Select a variation to continue.')
+      setShowSelectionErrors(true)
+      setVariationError('')
       setTimeout(() => setShakeKeys([]), 650)
       return
     }
+    setShowSelectionErrors(false)
     addItem(
       {
         ...product,
@@ -1282,6 +1421,9 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }
   const cartEntry = findCartEntry(items, cartSelection)
   const cartQuantity = cartEntry?.quantity || 0
+  const storeReviewsCount = Number(reviewData?.summary?.totalReviews || 0)
+  const canWriteReview = Boolean(reviewData?.canWriteReview)
+  const shouldShowReviewsSection = storeReviewsCount > 0 || canWriteReview
   const totalReviewsCount =
     Number(reviewData?.summary?.totalReviews) > 0
       ? Number(reviewData.summary.totalReviews)
@@ -1293,63 +1435,47 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const hasReviews = totalReviewsCount > 0
   const hasRating = displayRating > 0
   const stockCount = Number(stockRemaining) || 0
-  const quantitySelectorMax = Math.max(1, Math.min(10, stockCount > 0 ? stockCount : 10))
+  const generalStockLimitRaw = Number(product.stockRemaining ?? product.stock)
+  const generalStockLimit =
+    Number.isFinite(generalStockLimitRaw) && generalStockLimitRaw > 0
+      ? Math.floor(generalStockLimitRaw)
+      : null
+  const variationStockLimitRaw = Number(selectedVariation?.stock)
+  const variationStockLimit =
+    Number.isFinite(variationStockLimitRaw) && variationStockLimitRaw > 0
+      ? Math.floor(variationStockLimitRaw)
+      : null
+  const quantitySelectorMax = variationStockLimit ?? generalStockLimit ?? 50
   const isAddedToCart = cartQuantity > 0
-  const displayQuantity = cartQuantity > 0 ? cartQuantity : pendingQuantity
+  const displayQuantity = cartQuantity > 0
+    ? cartQuantity
+    : Math.max(1, Math.min(quantitySelectorMax, pendingQuantity))
   const ctaLabel =
     isAddedToCart
       ? `Added to cart (${cartQuantity})`
       : isSelectionComplete
         ? 'Add to Cart'
         : 'Select an option'
+  const isWishlisted = isRecentlySaved(product?.id)
+  const shouldShowMobileFloatingCart =
+    isMobile && showFloatingCart && !showFloatingDock && !isMobileGalleryVisible
+  const shouldRenderFloatingDock = !isMobile || !isMobileGalleryVisible
 
-  const handleSetQuantity = (nextQuantity: number) => {
-    const safeQuantity = Math.max(1, Math.min(quantitySelectorMax, Number(nextQuantity) || 1))
-    if (!isSelectionComplete) {
-      variationSectionRef.current?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      })
-      setShakeKeys(['__all__'])
-      setVariationError('Select a variation to continue.')
-      setTimeout(() => setShakeKeys([]), 650)
-      return
-    }
+  const handleQuantitySelectChange = (nextQuantity: number) => {
+    const parsed = Number(nextQuantity)
+    if (!Number.isFinite(parsed)) return
+
     if (cartEntry?.key) {
-      updateQuantity(cartEntry.key, safeQuantity)
+      const safeCartQuantity = Math.max(0, parsed)
+      updateQuantity(cartEntry.key, safeCartQuantity)
+      if (safeCartQuantity <= 0) {
+        setPendingQuantity(1)
+      }
       return
     }
-    addItem(
-      {
-        ...product,
-        selectedColor,
-        selectedSize,
-        selectedAttributes: selectionMap,
-        image: selectedVariation?.image || product.image,
-        price: selectedVariation?.price || product.price,
-        originalPrice: selectedVariation?.originalPrice || product.originalPrice,
-        selectedVariationId: selectedVariation?.id,
-        selectedVariationLabel: selectedVariation?.label,
-      },
-      safeQuantity
-    )
-  }
-  const handleQuantityIncrement = () => {
-    const next = Math.min(quantitySelectorMax, displayQuantity + 1)
-    if (cartQuantity > 0) {
-      handleSetQuantity(next)
-      return
-    }
-    setPendingQuantity(next)
-  }
 
-  const handleQuantityDecrement = () => {
-    const next = Math.max(1, displayQuantity - 1)
-    if (cartQuantity > 0) {
-      handleSetQuantity(next)
-      return
-    }
-    setPendingQuantity(next)
+    const safePendingQuantity = Math.max(1, Math.min(quantitySelectorMax, parsed))
+    setPendingQuantity(safePendingQuantity)
   }
   const stockLabel =
     stockCount <= 0
@@ -1363,6 +1489,21 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     typeof window !== 'undefined'
       ? `${window.location.origin}/product/${product.slug}`
       : `/product/${product.slug}`
+  const handleWishlistClick = () => {
+    if (!product?.id) return
+    openSaveModal({
+      id: product.id,
+      name: product.name,
+      slug: product.slug,
+      price: activePrice,
+      image: activeImage || product.image,
+    })
+  }
+  const handleOpenSellerChat = () => setShowSellerChat(true)
+
+  const handleBackToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const tabs = [
     ...(hasDetailsDescription
@@ -1403,7 +1544,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                   collapseFrom={4}
                 />
               </div>
-            <div className='bg-white rounded-2xl shadow-sm'>
+            <div ref={productContentAreaRef} className='bg-white rounded-2xl shadow-sm'>
               <div
                 ref={sectionRef}
                 className='grid lg:grid-cols-[640px_1fr] lg:items-stretch'
@@ -1416,11 +1557,16 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     setCurrentImage={setCurrentImage}
                     productName={product.name}
                     badgeText={
-                      discountPercentage ? `-${discountPercentage}%` : null
+                      isNewProduct
+                        ? 'New'
+                        : discountPercentage
+                          ? `-${discountPercentage}%`
+                          : null
                     }
+                    badgeVariant={isNewProduct ? 'new' : 'discount'}
                     mainImageRef={galleryMainRef}
                   />
-                  {!isMobile && (
+                  {!isMobile && shouldShowReviewsSection && (
                     <div id='reviews-section'>
                       <CustomerReviews
                         data={reviewData}
@@ -1548,10 +1694,36 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     )}
                   </div>
 
+                  <button
+                    type='button'
+                    onClick={handleWishlistClick}
+                    aria-label={isWishlisted ? 'Saved to wishlist' : 'Add to wishlist'}
+                    aria-pressed={isWishlisted}
+                    className='mt-1 inline-flex items-center gap-1.5 pb-1 text-[17px] font-semibold text-gray-800 transition hover:text-gray-950'
+                  >
+                    <svg
+                      className='h-6 w-6'
+                      viewBox='0 0 24 24'
+                      fill={isWishlisted ? 'currentColor' : 'none'}
+                      stroke='currentColor'
+                      strokeWidth='2'
+                      aria-hidden='true'
+                    >
+                      <path
+                        d='M15.7 4C18.87 4 21 6.98 21 9.76C21 15.39 12.16 20 12 20C11.84 20 3 15.39 3 9.76C3 6.98 5.13 4 8.3 4C10.12 4 11.31 4.91 12 5.71C12.69 4.91 13.88 4 15.7 4Z'
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                      />
+                    </svg>
+                    <span>{isWishlisted ? 'Saved to Wishlist' : 'Add to Wishlist'}</span>
+                  </button>
+
                   <div
                     ref={variationSectionRef}
-                    className={`border-t border-gray-200 pt-3 space-y-3 ${
-                      shakeKeys.length ? 'ring-1 ring-rose-400/70 rounded-2xl' : ''
+                    className={`border-t border-gray-200 pt-3 space-y-3 transition ${
+                      shakeKeys.length
+                        ? 'rounded-2xl border border-rose-400 px-3 pb-3 oc-shake'
+                        : ''
                     }`}
                   >
                     <style jsx global>{`
@@ -1569,8 +1741,15 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     `}</style>
                     {hasCompleteVariationImages && colorVariationCards.length > 0 && (
                       <div className={`space-y-2 ${shakeKeys.length ? 'oc-shake' : ''}`}>
-                        <div className='text-sm font-semibold text-gray-900'>
-                          Variations
+                        <div className='space-y-1'>
+                          <div className='text-sm font-semibold text-gray-900'>
+                            Variations
+                          </div>
+                          {showSelectionErrors && missingSelectionKeySet.has('color') && (
+                            <p className='text-xs font-semibold text-rose-600'>
+                              {getSelectionErrorMessage('color')}
+                            </p>
+                          )}
                         </div>
                         <div className='flex flex-wrap gap-2'>
                           {colorVariationCards.map((variation: any) => {
@@ -1582,14 +1761,21 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                                 key={variation.id}
                                 type='button'
                                 onClick={() => {
-                                  if (variation?.color) {
-                                    setSelectedColor(variation.color)
+                                  const nextColor = String(variation?.color || '')
+                                  if (nextColor) {
+                                    setSelectedColor(nextColor)
                                   }
-                                  setSelectedSize('')
-                                  setSelectedAttributes({})
-                                  setSelectedVariation(null)
+                                  const nextSelectionMap = {
+                                    ...selectedAttributes,
+                                    ...(selectedSize ? { size: selectedSize } : {}),
+                                    ...(nextColor ? { color: nextColor } : {}),
+                                  }
+                                  if (hasSelectionConflict(nextSelectionMap)) {
+                                    setVariationError('The option you selected is sold out.')
+                                  } else {
+                                    setVariationError('')
+                                  }
                                   setCurrentImage(variation.image || product.image)
-                                  setVariationError('')
                                 }}
                                 className={`w-[76px] text-left border rounded-lg p-0.5 transition ${
                                   isSelected
@@ -1624,29 +1810,43 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                         <div className='flex flex-wrap items-start gap-4'>
                           {!hasCompleteVariationImages && (
                             <div className='flex-1 min-w-[220px]'>
-                              <div className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600'>
-                                Color
+                              <div className='mb-2 space-y-1'>
+                                <div className='text-xs font-semibold uppercase tracking-wide text-gray-600'>
+                                  Color
+                                </div>
+                                {showSelectionErrors && missingSelectionKeySet.has('color') && (
+                                  <p className='text-xs font-semibold text-rose-600'>
+                                    {getSelectionErrorMessage('color')}
+                                  </p>
+                                )}
                               </div>
                               <div className='flex flex-wrap gap-2'>
                                 {colorOptions.map((color: string) => {
                                   const isAvailable = isOptionAvailable('color', String(color))
+                                  const isSelected = selectedColor === color
                                   return (
                                   <button
                                     key={color}
                                     type='button'
-                                    disabled={!isAvailable}
+                                    aria-disabled={!isAvailable}
                                     onClick={() => {
-                                      if (!isAvailable) return
+                                      if (!isAvailable) {
+                                        setVariationError('The option you selected is sold out.')
+                                        return
+                                      }
+                                      setVariationError('')
                                       setSelectedColor((prev) =>
                                         String(prev) === String(color) ? '' : String(color),
                                       )
                                     }}
                                     className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
-                                      selectedColor === color
-                                        ? 'border-gray-900 text-gray-900'
-                                        : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                                    } ${!isAvailable ? 'opacity-40 cursor-not-allowed' : ''}`}
-                                    aria-pressed={selectedColor === color}
+                                      isSelected && !isAvailable
+                                        ? 'border-rose-500 bg-white text-gray-900'
+                                        : isSelected
+                                        ? 'border-gray-900 bg-white text-gray-900'
+                                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                                    } ${!isAvailable && !isSelected ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    aria-pressed={isSelected}
                                   >
                                     <span
                                       className='h-3.5 w-3.5 rounded-full border border-gray-300'
@@ -1665,23 +1865,37 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                             </div>
                           )}
                           <div className='flex-1 min-w-[220px]'>
-                            <div className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600'>
-                              Size
+                            <div className='mb-2 space-y-1'>
+                              <div className='text-xs font-semibold uppercase tracking-wide text-gray-600'>
+                                Size
+                              </div>
+                              {showSelectionErrors && missingSelectionKeySet.has('size') && (
+                                <p className='text-xs font-semibold text-rose-600'>
+                                  {getSelectionErrorMessage('size')}
+                                </p>
+                              )}
                             </div>
                             <div className='flex flex-wrap gap-2'>
                               {sizeOptions.map((size: string) => {
                                 const isAvailable = isOptionAvailable('size', String(size))
+                                const isSelected = selectedSize === size
                                 return (
                                 <button
                                   key={size}
-                                  disabled={!isAvailable}
-                                  className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
-                                    selectedSize === size
-                                      ? 'border-gray-900 bg-gray-900 text-white'
-                                      : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                                  } ${!isAvailable ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                  aria-disabled={!isAvailable}
+                                  className={`inline-flex min-w-[52px] items-center justify-center rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
+                                    isSelected && !isAvailable
+                                      ? 'border-rose-500 bg-white text-gray-900'
+                                      : isSelected
+                                      ? 'border-gray-900 bg-white text-gray-900'
+                                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                                  } ${!isAvailable && !isSelected ? 'opacity-40 cursor-not-allowed' : ''}`}
                                   onClick={() => {
-                                    if (!isAvailable) return
+                                    if (!isAvailable) {
+                                      setVariationError('The option you selected is sold out.')
+                                      return
+                                    }
+                                    setVariationError('')
                                     setSelectedSize((prev) =>
                                       String(prev) === String(size) ? '' : String(size),
                                     )
@@ -1700,8 +1914,15 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                           </div>
                           {extraAttributeOptions.map((attribute) => (
                             <div key={attribute.key} className='flex-1 min-w-[220px]'>
-                              <div className='mb-2 text-xs font-semibold uppercase tracking-wide text-gray-600'>
-                                {attribute.label}
+                              <div className='mb-2 space-y-1'>
+                                <div className='text-xs font-semibold uppercase tracking-wide text-gray-600'>
+                                  {attribute.label}
+                                </div>
+                                {showSelectionErrors && missingSelectionKeySet.has(attribute.key) && (
+                                  <p className='text-xs font-semibold text-rose-600'>
+                                    {getSelectionErrorMessage(attribute.key)}
+                                  </p>
+                                )}
                               </div>
                               <div className='flex flex-wrap gap-2'>
                                 {attribute.options.map((option) => {
@@ -1710,14 +1931,20 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                                   return (
                                   <button
                                     key={`${attribute.key}-${option}`}
-                                    disabled={!isAvailable}
-                                    className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
-                                      isSelected
-                                        ? 'border-gray-900 bg-gray-900 text-white'
-                                        : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                                    } ${!isAvailable ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    aria-disabled={!isAvailable}
+                                    className={`inline-flex min-w-[52px] items-center justify-center rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
+                                      isSelected && !isAvailable
+                                        ? 'border-rose-500 bg-white text-gray-900'
+                                        : isSelected
+                                        ? 'border-gray-900 bg-white text-gray-900'
+                                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                                    } ${!isAvailable && !isSelected ? 'opacity-40 cursor-not-allowed' : ''}`}
                                     onClick={() => {
-                                      if (!isAvailable) return
+                                      if (!isAvailable) {
+                                        setVariationError('The option you selected is sold out.')
+                                        return
+                                      }
+                                      setVariationError('')
                                       setSelectedAttributes((prev) => {
                                         const next = { ...prev }
                                         if (String(prev[attribute.key]) === String(option)) {
@@ -1748,36 +1975,21 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
 
                   <div
                     ref={addToCartRef}
-                    className='sticky bottom-0 bg-white/90 px-2 py-2 backdrop-blur border-t border-gray-100 shadow-[0_-8px_20px_rgba(0,0,0,0.05)]'
+                    className='sticky bottom-0 bg-white px-2 py-2 border-t border-gray-100 shadow-[0_-8px_20px_rgba(0,0,0,0.05)]'
                   >
-                    <div className='pointer-events-none absolute -top-4 left-0 right-0 h-4 bg-gradient-to-t from-white/90 to-transparent' />
+                    <div className='pointer-events-none absolute -top-4 left-0 right-0 h-4 bg-gradient-to-t from-white to-transparent' />
                     <div className='relative flex items-center gap-3'>
-                      <div className='inline-flex h-11 items-center overflow-hidden rounded-full border border-gray-300 bg-white'>
-                        <button
-                          type='button'
-                          onClick={handleQuantityDecrement}
-                          className='grid h-full w-11 place-items-center border-r border-gray-200 text-gray-700 hover:bg-gray-50'
-                          aria-label='Decrease quantity'
-                        >
-                          <span className='text-lg leading-none'>-</span>
-                        </button>
-                        <div className='grid h-full min-w-[52px] place-items-center text-sm font-medium text-gray-900'>
-                          {displayQuantity}
-                        </div>
-                        <button
-                          type='button'
-                          onClick={handleQuantityIncrement}
-                          className='grid h-full w-11 place-items-center border-l border-gray-200 text-gray-700 hover:bg-gray-50'
-                          aria-label='Increase quantity'
-                        >
-                          <span className='text-lg leading-none'>+</span>
-                        </button>
-                      </div>
+                      <CartQuantitySelect
+                        quantity={displayQuantity}
+                        onChange={handleQuantitySelectChange}
+                        maxQuantity={quantitySelectorMax}
+                        size='md'
+                      />
                       <button
                         onClick={() => handleAddToCart(displayQuantity)}
-                        disabled={!isSelectionComplete || isAddedToCart}
-                        className={`inline-flex h-11 flex-1 items-center justify-center rounded-full border border-gray-900 bg-white px-4 text-sm font-semibold text-gray-900 transition ${
-                          !isSelectionComplete || isAddedToCart ? 'opacity-60' : 'hover:bg-gray-50'
+                        disabled={isAddedToCart}
+                        className={`inline-flex h-11 flex-1 items-center justify-center rounded-full border border-black bg-black px-4 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-black disabled:border-black disabled:text-white ${
+                          isAddedToCart ? '' : 'hover:bg-gray-900'
                         }`}
                       >
                         {ctaLabel}
@@ -1909,7 +2121,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     </div>
                   </div>
 
-                  {isMobile && (
+                  {isMobile && shouldShowReviewsSection && (
                     <div id='reviews-section'>
                       <CustomerReviews
                         data={reviewData}
@@ -1925,7 +2137,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     soldCount={product.vendorSoldCount}
                     itemsCount={product.vendorItemsCount}
                     badge={product.vendorBadge}
-                    avatarUrl={product.image}
+                    avatarUrl={product.vendorLogoUrl}
                   />
                   <ShippingInfoCard shippingEstimate={shippingEstimate} />
                   </div>
@@ -1941,35 +2153,45 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
         </main>
       </div>
 
-      {showFloatingCart && (
-        <div className='lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3 shadow-[0_-6px_20px_rgba(0,0,0,0.08)]'>
+      <SellerChatPopup
+        isOpen={showSellerChat}
+        onClose={() => setShowSellerChat(false)}
+        vendorName={String(product?.vendor || 'Seller')}
+        vendorAvatarUrl={String(product?.vendorLogoUrl || '')}
+        hasBottomOffset={shouldShowMobileFloatingCart}
+        productPrice={Number(activePrice) || 0}
+        currencySymbol='$'
+      />
+
+      {shouldRenderFloatingDock && (
+        <ProductFloatingDock
+          isTopMode={showFloatingDock}
+          onMessageClick={handleOpenSellerChat}
+          onTopClick={handleBackToTop}
+          hasBottomOffset={shouldShowMobileFloatingCart}
+        />
+      )}
+
+      {isMobile && (
+        <div
+          className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] transition-all duration-300 ease-out ${
+            shouldShowMobileFloatingCart
+              ? 'translate-y-0 opacity-100'
+              : 'translate-y-full opacity-0 pointer-events-none'
+          }`}
+        >
           <div className='flex items-center gap-3'>
-            <div className='inline-flex h-11 items-center overflow-hidden rounded-full border border-gray-300 bg-white'>
-              <button
-                type='button'
-                onClick={handleQuantityDecrement}
-                className='grid h-full w-11 place-items-center border-r border-gray-200 text-gray-700 hover:bg-gray-50'
-                aria-label='Decrease quantity'
-              >
-                <span className='text-lg leading-none'>-</span>
-              </button>
-              <div className='grid h-full min-w-[52px] place-items-center text-sm font-medium text-gray-900'>
-                {displayQuantity}
-              </div>
-              <button
-                type='button'
-                onClick={handleQuantityIncrement}
-                className='grid h-full w-11 place-items-center border-l border-gray-200 text-gray-700 hover:bg-gray-50'
-                aria-label='Increase quantity'
-              >
-                <span className='text-lg leading-none'>+</span>
-              </button>
-            </div>
+            <CartQuantitySelect
+              quantity={displayQuantity}
+              onChange={handleQuantitySelectChange}
+              maxQuantity={quantitySelectorMax}
+              size='md'
+            />
             <button
               onClick={() => handleAddToCart(displayQuantity)}
-              disabled={!isSelectionComplete || isAddedToCart}
-              className={`inline-flex h-11 flex-1 items-center justify-center rounded-full border border-gray-900 bg-white px-4 text-sm font-semibold text-gray-900 transition ${
-                !isSelectionComplete || isAddedToCart ? 'opacity-60' : 'hover:bg-gray-50'
+              disabled={isAddedToCart}
+              className={`inline-flex h-11 flex-1 items-center justify-center rounded-full border border-black bg-black px-4 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-black disabled:border-black disabled:text-white ${
+                isAddedToCart ? '' : 'hover:bg-gray-900'
               }`}
             >
               {ctaLabel}

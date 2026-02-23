@@ -1,5 +1,6 @@
 'use client'
 
+import CustomSelect from '@/components/common/CustomSelect'
 import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import ProductCard from '@/components/product/ProductCard'
@@ -752,7 +753,7 @@ export default function WishlistPage() {
                 {countWords(newListDescription)}/50 words
               </div>
             </div>
-            <select
+            <CustomSelect
               value={newListVisibility}
               onChange={(event) => setNewListVisibility(event.target.value)}
               className='w-full rounded-full border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/10'
@@ -762,7 +763,7 @@ export default function WishlistPage() {
                   {option.label}
                 </option>
               ))}
-            </select>
+            </CustomSelect>
             <button
               type='button'
               onClick={async () => {

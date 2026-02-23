@@ -1,5 +1,6 @@
 'use client'
 
+import CustomSelect from '@/components/common/CustomSelect'
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import { useRouter, usePathname } from 'next/navigation'
@@ -295,7 +296,7 @@ export default function WishlistSaveModal() {
               placeholder='List name'
               className='w-full rounded-full border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10'
             />
-            <select
+            <CustomSelect
               value={newListVisibility}
               onChange={(event) => setNewListVisibility(event.target.value)}
               className='w-full rounded-full border border-gray-200 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/10'
@@ -305,7 +306,7 @@ export default function WishlistSaveModal() {
                   {option.label}
                 </option>
               ))}
-            </select>
+            </CustomSelect>
             <button
               type='button'
               onClick={async () => {

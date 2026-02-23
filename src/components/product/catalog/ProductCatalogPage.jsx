@@ -1,4 +1,5 @@
 'use client'
+import CustomSelect from '@/components/common/CustomSelect'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useOptionalCart } from '../../../context/CartContext'
 import ProductFilters from '../ProductFilters'
@@ -1510,7 +1511,7 @@ const ProductCatalogPage = ({
               </button>
               <div className='hidden items-center gap-1.5 text-xs text-gray-600 lg:flex'>
                 <span>Sort by</span>
-                <select
+                <CustomSelect
                   value={sortValue}
                   onChange={(event) => setSortValue(event.target.value)}
                   className='rounded border border-gray-300 bg-white px-1.5 py-0.5 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-300'
@@ -1522,7 +1523,7 @@ const ProductCatalogPage = ({
                   <option value='price_desc'>High to Low</option>
                   <option value='name_asc'>Name (A-Z)</option>
                   <option value='name_desc'>Name (Z-A)</option>
-                </select>
+                </CustomSelect>
               </div>
             </div>
             {sortedProducts.length ? (

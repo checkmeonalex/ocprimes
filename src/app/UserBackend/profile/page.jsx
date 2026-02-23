@@ -1,5 +1,6 @@
 'use client'
 
+import CustomSelect from '@/components/common/CustomSelect'
 import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import { useAlerts } from '@/context/AlertContext'
@@ -288,7 +289,7 @@ export default function ProfilePage() {
           <div>
             <label className={accountLabelClass}>Gender</label>
             <div className='relative mt-2'>
-              <select
+              <CustomSelect
                 value={form.gender}
                 onChange={(event) => updateField('gender', event.target.value)}
                 className={`${accountSelectClass} mt-0 bg-none pr-10`}
@@ -297,7 +298,7 @@ export default function ProfilePage() {
                 <option value='Female'>Female</option>
                 <option value='Male'>Male</option>
                 <option value='Other'>Other</option>
-              </select>
+              </CustomSelect>
               <svg
                 className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-700'
                 viewBox='0 0 20 20'
@@ -320,7 +321,7 @@ export default function ProfilePage() {
                   <span className='h-full w-1/3 bg-white' />
                   <span className='h-full w-1/3 bg-[#118647]' />
                 </span>
-                <select
+                <CustomSelect
                   value={form.country}
                   onChange={(event) => updateField('country', event.target.value)}
                   className={countrySelectInputClass}
@@ -331,7 +332,7 @@ export default function ProfilePage() {
                       {country}
                     </option>
                   ))}
-                </select>
+                </CustomSelect>
                 <svg
                   className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-700'
                   viewBox='0 0 20 20'

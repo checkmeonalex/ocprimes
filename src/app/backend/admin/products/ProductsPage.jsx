@@ -727,7 +727,7 @@ function WooCommerceProductsPage() {
       <div className="flex min-h-screen">
         {!shouldHideBottomNav && <AdminSidebar />}
 
-        <main className="flex-1 px-4 pb-6 sm:px-6 lg:px-10">
+        <main className="flex-1 pb-6 sm:px-6 lg:px-10">
                   <AdminDesktopHeader />
           <div className="mx-auto w-full max-w-6xl space-y-6">
             <div className="relative w-full md:hidden">

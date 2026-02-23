@@ -28,8 +28,8 @@ const formatDateTimeLabel = (value) => {
   })
 }
 
-const buildTrackingSteps = (paymentStatus) => {
-  const status = String(paymentStatus || '').toLowerCase()
+const buildTrackingSteps = (statusKey) => {
+  const status = String(statusKey || '').toLowerCase()
   const steps = [
     'Order accepted',
     'Order picked up',
@@ -40,7 +40,9 @@ const buildTrackingSteps = (paymentStatus) => {
   ]
 
   let activeCount = 2
-  if (status === 'paid') activeCount = steps.length
+  if (status === 'delivered' || status === 'completed') activeCount = steps.length
+  if (status === 'out_for_delivery') activeCount = 5
+  if (status === 'processing') activeCount = 4
   if (status === 'pending') activeCount = 3
   if (status === 'failed' || status === 'cancelled') activeCount = 1
 
@@ -101,12 +103,14 @@ export default function OrderDetailsPage() {
   }, [orderId, router])
 
   const statusTone = useMemo(() => {
-    const status = String(order?.paymentStatus || '').toLowerCase()
-    if (status === 'paid') return 'bg-emerald-100 text-emerald-700'
+    const status = String(order?.statusKey || '').toLowerCase()
+    if (status === 'delivered') return 'bg-emerald-100 text-emerald-700'
+    if (status === 'out_for_delivery') return 'bg-indigo-100 text-indigo-700'
+    if (status === 'processing' || status === 'pending') return 'bg-amber-100 text-amber-700'
     if (status === 'failed') return 'bg-rose-100 text-rose-700'
     if (status === 'cancelled') return 'bg-slate-200 text-slate-700'
     return 'bg-amber-100 text-amber-700'
-  }, [order?.paymentStatus])
+  }, [order?.statusKey])
 
   const primaryActionLabel = useMemo(() => {
     const status = String(order?.paymentStatus || '').toLowerCase()
@@ -118,8 +122,14 @@ export default function OrderDetailsPage() {
 
   const canReviewOrder = useMemo(() => {
     const status = String(order?.paymentStatus || '').toLowerCase()
-    return status === 'paid' || String(order?.status || '').toLowerCase() === 'completed'
-  }, [order?.paymentStatus, order?.status])
+    return (
+      status === 'paid' ||
+      String(order?.status || '').toLowerCase() === 'completed' ||
+      String(order?.statusKey || '').toLowerCase() === 'delivered'
+    )
+  }, [order?.paymentStatus, order?.status, order?.statusKey])
+
+  const hasOrderProtection = useMemo(() => Number(order?.protectionFee || 0) > 0, [order?.protectionFee])
 
   const handlePrimaryAction = () => {
     const status = String(order?.paymentStatus || '').toLowerCase()
@@ -174,11 +184,11 @@ export default function OrderDetailsPage() {
     setActionMessage(`Return request for "${itemName}" will be processed by support.`)
   }
 
-  const trackingSteps = buildTrackingSteps(order?.paymentStatus)
+  const trackingSteps = buildTrackingSteps(order?.statusKey)
 
   return (
     <section className='min-h-screen bg-[#f4f5f7]'>
-      <div className='mx-auto hidden w-full max-w-7xl px-4 pb-10 pt-4 lg:block'>
+      <div className='mx-auto hidden w-full max-w-7xl px-4 pb-10 pt-4 min-[641px]:block'>
         <div className='mb-3 flex items-center justify-between'>
           <div className='flex items-center gap-2 text-sm text-slate-700'>
             <Link href='/UserBackend/orders' className='inline-flex items-center gap-1 hover:text-slate-900'>
@@ -284,42 +294,48 @@ export default function OrderDetailsPage() {
               </div>
 
               <div className='border-y border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500'>Delivery info</div>
-              <div className='grid grid-cols-3 gap-3 border-b border-slate-200 px-4 py-3 text-sm'>
-                <div>
+              <div className='grid grid-cols-1 gap-3 border-b border-slate-200 px-4 py-3 text-sm sm:grid-cols-3'>
+                <div className='min-w-0'>
                   <p className='text-xs font-semibold uppercase tracking-[0.04em] text-slate-500'>Address</p>
-                  <p className='mt-1 text-slate-800'>{order.addressLabel || 'Address not available'}</p>
+                  <p className='mt-1 whitespace-normal break-words text-slate-800'>{order.addressLabel || 'Address not available'}</p>
                 </div>
-                <div>
+                <div className='min-w-0'>
                   <p className='text-xs font-semibold uppercase tracking-[0.04em] text-slate-500'>Contact</p>
-                  <p className='mt-1 text-slate-800'>{order.contactPhone || '-'}</p>
+                  <p className='mt-1 whitespace-normal break-words text-slate-800'>{order.contactPhone || '-'}</p>
                 </div>
-                <div>
+                <div className='min-w-0'>
                   <p className='text-xs font-semibold uppercase tracking-[0.04em] text-slate-500'>Delivery method</p>
-                  <p className='mt-1 text-slate-800'>{order.deliveryMethod || 'Standard delivery'}</p>
+                  <p className='mt-1 whitespace-normal break-words text-slate-800'>{order.deliveryMethod || 'Standard delivery'}</p>
                 </div>
               </div>
 
               <div className='border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500'>Order summary</div>
-              <div className='grid grid-cols-5 gap-3 px-4 py-3 text-sm text-slate-700'>
-                <div>
+              <div
+                className={`grid grid-cols-2 gap-3 px-4 py-3 text-sm text-slate-700 sm:grid-cols-3 ${
+                  hasOrderProtection ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
+                }`}
+              >
+                <div className='min-w-0'>
                   <p className='text-xs font-semibold uppercase tracking-[0.04em] text-slate-500'>Payment type</p>
-                  <p className='mt-1 font-semibold text-slate-900'>{order.paymentMode}</p>
+                  <p className='mt-1 whitespace-normal break-words font-semibold text-slate-900'>{order.paymentMode}</p>
                 </div>
-                <div>
+                <div className='min-w-0'>
                   <p className='text-xs font-semibold uppercase tracking-[0.04em] text-slate-500'>Subtotal</p>
-                  <p className='mt-1 font-semibold text-slate-900'>{formatMoney(order.subtotal)}</p>
+                  <p className='mt-1 whitespace-normal break-words font-semibold text-slate-900'>{formatMoney(order.subtotal)}</p>
                 </div>
-                <div>
+                <div className='min-w-0'>
                   <p className='text-xs font-semibold uppercase tracking-[0.04em] text-slate-500'>Shipping</p>
-                  <p className='mt-1 font-semibold text-slate-900'>{Number(order.shippingFee || 0) > 0 ? formatMoney(order.shippingFee) : 'FREE'}</p>
+                  <p className='mt-1 whitespace-normal break-words font-semibold text-slate-900'>{Number(order.shippingFee || 0) > 0 ? formatMoney(order.shippingFee) : 'FREE'}</p>
                 </div>
-                <div>
-                  <p className='text-xs font-semibold uppercase tracking-[0.04em] text-slate-500'>Order protection</p>
-                  <p className='mt-1 font-semibold text-slate-900'>{Number(order.protectionFee || 0) > 0 ? formatMoney(order.protectionFee) : 'FREE'}</p>
-                </div>
-                <div>
+                {hasOrderProtection ? (
+                  <div className='min-w-0'>
+                    <p className='text-xs font-semibold uppercase tracking-[0.04em] text-slate-500'>Order protection</p>
+                    <p className='mt-1 whitespace-normal break-words font-semibold text-slate-900'>{formatMoney(order.protectionFee)}</p>
+                  </div>
+                ) : null}
+                <div className='min-w-0'>
                   <p className='text-xs font-semibold uppercase tracking-[0.04em] text-slate-500'>Total</p>
-                  <p className='mt-1 text-base font-bold text-slate-900'>{formatMoney(order.totalAmount)}</p>
+                  <p className='mt-1 whitespace-normal break-words text-base font-bold text-slate-900'>{formatMoney(order.totalAmount)}</p>
                 </div>
               </div>
             </div>
@@ -379,7 +395,7 @@ export default function OrderDetailsPage() {
         ) : null}
       </div>
 
-      <div className='mx-auto w-full max-w-md pb-28 lg:hidden'>
+      <div className='w-full pb-28 min-[641px]:hidden'>
         <div className='space-y-3 px-3 pt-3'>
           {error ? (
             <div className='rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700'>{error}</div>
@@ -535,8 +551,8 @@ export default function OrderDetailsPage() {
         </div>
       </div>
 
-      <div className='fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-2 backdrop-blur lg:hidden'>
-        <div className='mx-auto flex w-full max-w-md gap-2'>
+      <div className='fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-2 backdrop-blur min-[641px]:hidden'>
+        <div className='flex w-full gap-2'>
           <button
             type='button'
             onClick={handlePrimaryAction}

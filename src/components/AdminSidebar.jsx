@@ -9,6 +9,7 @@ import { getProfileIdentityImageUrl, getProfileIdentityInitials } from '@/lib/us
 const DESKTOP_NAV_ITEMS = [
   { label: 'Dashboard', href: '/backend/admin/dashboard', icon: 'dashboard' },
   { label: 'Orders', href: '/backend/admin/orders', icon: 'orders' },
+  { label: 'Messages', href: '/backend/admin/messages', icon: 'messages' },
   { label: 'Products', href: '/backend/admin/products', icon: 'products' },
   { label: 'Notifications', href: '/backend/admin/notifications', icon: 'notifications' },
   { label: 'Reviews', href: '/backend/admin/reviews', icon: 'reviews' },
@@ -52,6 +53,13 @@ const NavIcon = ({ icon }) => {
         <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
           <rect x="4" y="4.5" width="16" height="15" rx="2" />
           <path d="M8 9h8M8 13h8M8 17h5" />
+        </svg>
+      );
+    case 'messages':
+      return (
+        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M5.5 6.5h13a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H12l-4.5 3v-3H5.5A1.5 1.5 0 0 1 4 15V8a1.5 1.5 0 0 1 1.5-1.5Z" />
+          <path d="M8 10.5h8M8 13.5h5" strokeLinecap="round" />
         </svg>
       );
     case 'products':
