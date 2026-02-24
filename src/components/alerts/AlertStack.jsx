@@ -26,7 +26,7 @@ export default function AlertStack() {
 
   return (
     <div
-      className={`fixed left-1/2 z-[1300] flex w-[min(94vw,420px)] -translate-x-1/2 flex-col gap-2.5 ${
+      className={`fixed left-1/2 z-[20000] flex w-[min(94vw,420px)] -translate-x-1/2 flex-col gap-2.5 ${
         isUserBackendRoute
           ? 'top-[calc(env(safe-area-inset-top)+4rem)] lg:top-3'
           : 'top-3'

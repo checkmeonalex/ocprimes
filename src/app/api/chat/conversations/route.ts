@@ -6,6 +6,8 @@ import {
 } from '@/lib/chat/schema'
 import {
   findOrCreateConversation,
+  getConversationForUser,
+  loadVendorDisplayNameMap,
   listConversationsForUser,
   listMessagesForConversation,
   resolveVendorUserIdForProduct,
@@ -13,6 +15,12 @@ import {
   toChatMessagePayload,
 } from '@/lib/chat/chat-server'
 import { resolveSellerStatusForConversation } from '@/lib/chat/seller-status'
+import {
+  getConversationClosureState,
+  maybeAutoCloseConversation,
+  purgeExpiredClosedConversations,
+} from '@/lib/chat/conversation-closure'
+import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,14 +31,39 @@ export async function GET(request: NextRequest) {
       return jsonError('Unauthorized.', 401)
     }
 
+    await purgeExpiredClosedConversations()
+
     const listResult = await listConversationsForUser(supabase, auth.user.id)
     if (listResult.error) {
       return jsonError('Unable to load conversations.', 500)
     }
 
+    const roleInfo = await getUserRoleInfoSafe(supabase, auth.user.id, auth.user.email || '')
+    const vendorNameMap = await loadVendorDisplayNameMap(
+      listResult.data.map((row) => String(row?.vendor_user_id || '').trim()),
+    )
+    const conversations = listResult.data
+      .map((row) => {
+        const closure = getConversationClosureState({
+          conversation: row,
+          isAdmin: roleInfo.isAdmin,
+        })
+        return {
+          ...toChatConversationPayload(row),
+          vendorName: vendorNameMap.get(String(row?.vendor_user_id || '').trim()) || '',
+          isClosed: closure.isClosed,
+          canView: closure.canView,
+          canSend: closure.canSend,
+          participantNotice: closure.participantNotice,
+          participantVisibleUntil: closure.participantVisibleUntil,
+          adminRetentionUntil: closure.adminRetentionUntil,
+        }
+      })
+      .filter((conversation) => Boolean(conversation.canView))
+
     const response = jsonOk({
       currentUserId: auth.user.id,
-      conversations: listResult.data.map(toChatConversationPayload),
+      conversations,
     })
     applyCookies(response)
     return response
@@ -48,6 +81,8 @@ export async function POST(request: NextRequest) {
     if (authError || !auth.user) {
       return jsonError('Unauthorized.', 401)
     }
+
+    await purgeExpiredClosedConversations()
 
     const body = await request.json().catch(() => null)
     const parsed = chatConversationInitSchema.safeParse(body)
@@ -94,9 +129,21 @@ export async function POST(request: NextRequest) {
       return jsonError('Unable to start conversation.', 500)
     }
 
+    const autoCloseResult = await maybeAutoCloseConversation(conversationResult.data)
+    if (autoCloseResult.error) {
+      return jsonError('Unable to start conversation.', 500)
+    }
+    const resolvedConversation =
+      autoCloseResult.changed
+        ? (await getConversationForUser(supabase, conversationResult.data.id, auth.user.id)).data
+        : conversationResult.data
+    if (!resolvedConversation?.id) {
+      return jsonError('Conversation not found.', 404)
+    }
+
     const messagesResult = await listMessagesForConversation(
       supabase,
-      conversationResult.data.id,
+      resolvedConversation.id,
       50,
     )
 
@@ -109,10 +156,31 @@ export async function POST(request: NextRequest) {
       customerUserId: auth.user.id,
       vendorUserId: vendorResult.vendorUserId,
     })
+    const roleInfo = await getUserRoleInfoSafe(supabase, auth.user.id, auth.user.email || '')
+    const vendorNameMap = await loadVendorDisplayNameMap([
+      String(resolvedConversation.vendor_user_id || '').trim(),
+    ])
+    const closure = getConversationClosureState({
+      conversation: resolvedConversation,
+      isAdmin: roleInfo.isAdmin,
+    })
+    if (!closure.canView) {
+      return jsonError('This chat is no longer available.', 410)
+    }
 
     const response = jsonOk({
       currentUserId: auth.user.id,
-      conversation: toChatConversationPayload(conversationResult.data),
+      conversation: {
+        ...toChatConversationPayload(resolvedConversation),
+        vendorName:
+          vendorNameMap.get(String(resolvedConversation.vendor_user_id || '').trim()) || '',
+        isClosed: closure.isClosed,
+        canView: closure.canView,
+        canSend: closure.canSend,
+        participantNotice: closure.participantNotice,
+        participantVisibleUntil: closure.participantVisibleUntil,
+        adminRetentionUntil: closure.adminRetentionUntil,
+      },
       messages: messagesResult.data.map((row) => toChatMessagePayload(row, auth.user.id)),
       sellerStatusLabel: sellerStatus.sellerStatusLabel,
       sellerOnline: sellerStatus.sellerOnline,

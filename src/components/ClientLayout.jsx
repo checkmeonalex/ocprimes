@@ -3,6 +3,7 @@ import Navbar from './Navbar'
 import MobileNavbar from './mobile/Navbar'
 import Sidebar from './Sidebar'
 import AdminMobileHeader from './admin/AdminMobileHeader'
+import UserPresenceHeartbeat from './presence/UserPresenceHeartbeat'
 import { useScreenSize } from '../hooks/useScreenSize'
 import { usePathname, useSearchParams } from 'next/navigation'
 
@@ -27,6 +28,7 @@ export default function ClientLayout({ children }) {
   if (isAuthRoute || isBackendAdmin) {
     return (
       <>
+        <UserPresenceHeartbeat />
         {isBackendAdmin ? <AdminMobileHeader /> : null}
         <main
           className={`min-h-screen ${
@@ -40,11 +42,17 @@ export default function ClientLayout({ children }) {
   }
 
   if (isEmbedPreview) {
-    return <main className='min-h-screen'>{children}</main>
+    return (
+      <>
+        <UserPresenceHeartbeat />
+        <main className='min-h-screen'>{children}</main>
+      </>
+    )
   }
 
   return (
     <>
+      <UserPresenceHeartbeat />
       {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute ? <MobileNavbar /> : null}
       {!isMobile || isCheckoutFlowRoute ? <Navbar /> : null}
       <div

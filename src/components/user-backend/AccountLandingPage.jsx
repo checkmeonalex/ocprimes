@@ -9,7 +9,7 @@ import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { translateMenuLabel } from '@/lib/i18n/messages'
 
 const getPrimaryActions = ({ shopHref }) => [
-  { label: 'Message', href: '/UserBackend/coupons-offers', iconLabel: 'Message' },
+  { label: 'Message', href: '/UserBackend/messages', iconLabel: 'Message' },
   { label: 'Wishlist', href: '/UserBackend/wishlist', iconLabel: 'Wishlist' },
   { label: 'Orders', href: '/UserBackend/orders', iconLabel: 'Your orders' },
   { label: 'Shop', href: shopHref, iconLabel: 'Followed stores' },

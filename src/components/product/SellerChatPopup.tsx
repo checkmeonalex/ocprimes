@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
 import MakeOfferModal from './MakeOfferModal'
+import { useAlerts } from '@/context/AlertContext'
 
 type SellerChatPopupProps = {
   isOpen: boolean
@@ -40,7 +41,17 @@ const QUICK_START_MESSAGES = [
   'Is this in stock?',
   "What's your return policy?",
 ]
-const HELP_CENTER_BODY_PROMPT = 'Ask your question and we will help you'
+const REPORT_REASONS = [
+  { value: 'fraudulent_activity', label: 'Fraudulent activity' },
+  { value: 'misleading_information', label: 'Misleading information' },
+  { value: 'wrong_or_fake_product', label: 'Wrong or fake product' },
+  { value: 'poor_quality_or_damaged', label: 'Poor quality or damaged item' },
+  { value: 'abusive_or_threatening_behavior', label: 'Abusive or threatening behavior' },
+  { value: 'high_pricing', label: 'High pricing' },
+  { value: 'scam', label: 'Scam' },
+  { value: 'other', label: 'Other' },
+] as const
+type ReportReasonValue = (typeof REPORT_REASONS)[number]['value']
 
 const CHAT_SAFETY_RULES = [
   'Never share sensitive information (card details, OTPs, passwords, or bank details).',
@@ -149,6 +160,7 @@ export default function SellerChatPopup({
   currencySymbol = '$',
 }: SellerChatPopupProps) {
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
+  const { confirmAlert, pushAlert } = useAlerts()
   const [draft, setDraft] = useState('')
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [showOfferModal, setShowOfferModal] = useState(false)
@@ -159,15 +171,29 @@ export default function SellerChatPopup({
   const [isInitializing, setIsInitializing] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [chatError, setChatError] = useState('')
+  const [chatNotice, setChatNotice] = useState('')
   const [conversationId, setConversationId] = useState('')
   const [currentUserId, setCurrentUserId] = useState('')
   const [customerUserId, setCustomerUserId] = useState('')
+  const [isConversationClosed, setIsConversationClosed] = useState(false)
+  const [closedConversationNotice, setClosedConversationNotice] = useState('')
+  const [isClosingConversation, setIsClosingConversation] = useState(false)
   const [hasAcceptedSafetyNotice, setHasAcceptedSafetyNotice] = useState(false)
   const [safetyChecked, setSafetyChecked] = useState(false)
   const [isSafetyDecisionReady, setIsSafetyDecisionReady] = useState(false)
+  const [isSafetyNoticeOpen, setIsSafetyNoticeOpen] = useState(false)
   const [sellerStatusLabel, setSellerStatusLabel] = useState('')
   const [sellerStatusAnimationKey, setSellerStatusAnimationKey] = useState(0)
+  const [isConversationMenuOpen, setIsConversationMenuOpen] = useState(false)
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false)
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+  const [selectedReportReason, setSelectedReportReason] = useState<ReportReasonValue>(
+    'fraudulent_activity',
+  )
+  const [reportOtherDetails, setReportOtherDetails] = useState('')
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false)
   const messageBodyRef = useRef<HTMLDivElement | null>(null)
+  const conversationMenuRef = useRef<HTMLDivElement | null>(null)
 
   const updateSellerStatusLabel = (nextValue: unknown) => {
     const normalized = String(nextValue || '').trim()
@@ -197,16 +223,25 @@ export default function SellerChatPopup({
     const initializeConversation = async () => {
       setIsInitializing(true)
       setChatError('')
+      setChatNotice('')
       setConversationId('')
       setCurrentUserId('')
       setCustomerUserId('')
+      setIsConversationClosed(false)
+      setClosedConversationNotice('')
+      setIsClosingConversation(false)
       setMessages([])
       setHasUserSentMessage(false)
       setShowQuickStarters(true)
       setHasAcceptedSafetyNotice(false)
       setSafetyChecked(false)
       setIsSafetyDecisionReady(false)
+      setIsSafetyNoticeOpen(false)
       updateSellerStatusLabel('')
+      setIsReportModalOpen(false)
+      setSelectedReportReason('fraudulent_activity')
+      setReportOtherDetails('')
+      setIsSubmittingReport(false)
 
       if (!String(productId || '').trim()) {
         setChatError('Chat is unavailable for this product.')
@@ -249,6 +284,11 @@ export default function SellerChatPopup({
       setCurrentUserId(nextUserId)
       setConversationId(nextConversationId)
       setCustomerUserId(nextCustomerUserId)
+      const canSend = payload?.conversation?.canSend !== false
+      setIsConversationClosed(!canSend)
+      setClosedConversationNotice(
+        String(payload?.conversation?.participantNotice || '').trim(),
+      )
       updateSellerStatusLabel(payload?.sellerStatusLabel)
 
       const nextMessages = Array.isArray(payload?.messages)
@@ -275,6 +315,7 @@ export default function SellerChatPopup({
       setSafetyChecked((previous) =>
         previous === shouldSkipSafetyNotice ? previous : shouldSkipSafetyNotice,
       )
+      setIsSafetyNoticeOpen(!shouldSkipSafetyNotice)
       setIsSafetyDecisionReady(true)
       setIsInitializing(false)
     }
@@ -379,9 +420,60 @@ export default function SellerChatPopup({
   }, [conversationId, currentUserId, customerUserId, isOpen, supabase])
 
   useEffect(() => {
+    if (!isOpen || !conversationId) return
+
+    const channel = supabase
+      .channel(`chat-conversation-status-${conversationId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'chat_conversations',
+          filter: `id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const closedAt = String(payload.new?.closed_at || '').trim()
+          const closedReason = String(payload.new?.closed_reason || '').trim()
+          const isClosed = Boolean(closedAt)
+          setIsConversationClosed(isClosed)
+          if (isClosed) {
+            const reasonNotice =
+              closedReason === 'product_unavailable'
+                ? 'This chat was closed because this product is unavailable and will disappear in 7 days.'
+                : closedReason === 'inactive'
+                  ? 'This chat was closed due to inactivity and will disappear in 7 days.'
+                  : 'This chat is closed and will disappear in 7 days.'
+            setClosedConversationNotice(reasonNotice)
+          } else {
+            setClosedConversationNotice('')
+          }
+        },
+      )
+
+    channel.subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [conversationId, isOpen, supabase])
+
+  useEffect(() => {
     if (!isOpen) return
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
+      if (isGuideModalOpen) {
+        setIsGuideModalOpen(false)
+        return
+      }
+      if (isReportModalOpen) {
+        setIsReportModalOpen(false)
+        return
+      }
+      if (isSafetyNoticeOpen) {
+        setIsSafetyNoticeOpen(false)
+        return
+      }
       if (showOfferModal) {
         setShowOfferModal(false)
         return
@@ -390,7 +482,20 @@ export default function SellerChatPopup({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isOpen, onClose, showOfferModal])
+  }, [isGuideModalOpen, isOpen, isReportModalOpen, isSafetyNoticeOpen, onClose, showOfferModal])
+
+  useEffect(() => {
+    if (!isConversationMenuOpen) return
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!conversationMenuRef.current) return
+      if (conversationMenuRef.current.contains(event.target as Node)) return
+      setIsConversationMenuOpen(false)
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [isConversationMenuOpen])
 
   useEffect(() => {
     if (!isOpen || !conversationId) return
@@ -409,6 +514,11 @@ export default function SellerChatPopup({
       const payload = await response.json().catch(() => null)
       if (cancelled || !response.ok) return
       updateSellerStatusLabel(payload?.sellerStatusLabel)
+      const canSend = payload?.conversation?.canSend !== false
+      setIsConversationClosed(!canSend)
+      setClosedConversationNotice(
+        String(payload?.conversation?.participantNotice || '').trim(),
+      )
     }
 
     void refreshSellerPresence()
@@ -438,6 +548,13 @@ export default function SellerChatPopup({
     const body = String(rawMessage || '').trim()
     if (!hasAcceptedSafetyNotice) {
       setChatError('Please accept the chat safety notice before sending messages.')
+      setIsSafetyNoticeOpen(true)
+      return
+    }
+    if (isConversationClosed) {
+      setChatError(
+        closedConversationNotice || 'This chat is closed. You can no longer send messages.',
+      )
       return
     }
     if (!body || !conversationId || isSending || isInitializing) return
@@ -453,6 +570,7 @@ export default function SellerChatPopup({
 
     setMessages((previous) => [...previous, optimisticMessage])
     setDraft('')
+    setChatNotice('')
     onSend?.(body)
 
     if (!hasUserSentMessage) {
@@ -526,6 +644,13 @@ export default function SellerChatPopup({
   const handleQuickStartClick = (message: string) => {
     if (!hasAcceptedSafetyNotice) {
       setChatError('Please accept the chat safety notice before sending messages.')
+      setIsSafetyNoticeOpen(true)
+      return
+    }
+    if (isConversationClosed) {
+      setChatError(
+        closedConversationNotice || 'This chat is closed. You can no longer send messages.',
+      )
       return
     }
     if (message === 'Make an Offer') {
@@ -538,6 +663,7 @@ export default function SellerChatPopup({
   const acceptSafetyNotice = () => {
     if (!safetyChecked || hasAcceptedSafetyNotice) return
     setHasAcceptedSafetyNotice((previous) => (previous ? previous : true))
+    setIsSafetyNoticeOpen(false)
     writeSafetyAcceptance(conversationId, true)
     if (chatError) {
       setChatError('')
@@ -547,10 +673,133 @@ export default function SellerChatPopup({
   const sendDisabled =
     !isSafetyDecisionReady ||
     !hasAcceptedSafetyNotice ||
+    isConversationClosed ||
     draft.trim().length === 0 ||
     !conversationId ||
     isSending ||
     isInitializing
+
+  const handleOpenGuide = () => {
+    setIsConversationMenuOpen(false)
+    setIsGuideModalOpen(true)
+  }
+
+  const handleReportConversation = () => {
+    setIsConversationMenuOpen(false)
+    setIsReportModalOpen(true)
+    setChatError('')
+    setChatNotice('')
+  }
+
+  const handleSubmitReport = async () => {
+    if (isSubmittingReport) return
+    if (selectedReportReason === 'other' && !reportOtherDetails.trim()) {
+      setChatError('Please describe the issue before submitting report.')
+      setChatNotice('')
+      return
+    }
+    const confirmed = await confirmAlert({
+      type: 'warning',
+      title: 'Confirm report',
+      message:
+        'OCPRIMES takes reporting very seriously and will investigate this complaint. Please make sure your suspicion is accurate before proceeding.',
+      confirmLabel: 'Continue',
+      cancelLabel: 'Cancel',
+    })
+    if (!confirmed) return
+
+    setIsSubmittingReport(true)
+    setChatError('')
+    setChatNotice('')
+
+    const response = await fetch('/api/chat/help-center/report', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        reason: selectedReportReason,
+        otherDetails: reportOtherDetails,
+        reportedSellerName: vendorName,
+        productId: String(productId || '').trim() || undefined,
+        sourceConversationId: String(conversationId || '').trim() || undefined,
+      }),
+    }).catch(() => null)
+
+    if (!response) {
+      setChatError('Unable to submit report right now.')
+      setIsSubmittingReport(false)
+      return
+    }
+
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) {
+      setChatError(String(payload?.error || 'Unable to submit report.'))
+      setIsSubmittingReport(false)
+      return
+    }
+
+    setIsReportModalOpen(false)
+    setSelectedReportReason('fraudulent_activity')
+    setReportOtherDetails('')
+    setChatError('')
+    setChatNotice('Report sent to Help Center successfully.')
+    pushAlert({
+      type: 'success',
+      title: 'Report submitted',
+      message: 'Your report has been sent to Help Center.',
+    })
+    setIsSubmittingReport(false)
+  }
+
+  const handleCloseConversation = async () => {
+    if (!conversationId || isClosingConversation) {
+      setIsConversationMenuOpen(false)
+      return
+    }
+    const confirmed = await confirmAlert({
+      type: 'warning',
+      title: 'End chat',
+      message:
+        'End this chat for this product? You and the seller will not be able to send messages, and it will disappear in 7 days.',
+      confirmLabel: 'End chat',
+      cancelLabel: 'Cancel',
+    })
+    if (!confirmed) {
+      setIsConversationMenuOpen(false)
+      return
+    }
+    setIsConversationMenuOpen(false)
+    setIsClosingConversation(true)
+
+    const response = await fetch(
+      `/api/chat/conversations/${encodeURIComponent(conversationId)}/close`,
+      {
+        method: 'POST',
+      },
+    ).catch(() => null)
+
+    if (!response) {
+      setChatError('Unable to close chat right now.')
+      setIsClosingConversation(false)
+      return
+    }
+
+    const payload = await response.json().catch(() => null)
+    if (!response.ok) {
+      setChatError(String(payload?.error || 'Unable to close chat.'))
+      setIsClosingConversation(false)
+      return
+    }
+
+    const notice = String(payload?.conversation?.participantNotice || '').trim()
+    setIsConversationClosed(true)
+    setClosedConversationNotice(
+      notice || 'This chat is closed and will disappear in 7 days.',
+    )
+    setChatError('')
+    setIsClosingConversation(false)
+  }
 
   return (
     <>
@@ -624,17 +873,46 @@ export default function SellerChatPopup({
                 </div>
               </div>
             </div>
-            <button
-              type='button'
-              aria-label='Conversation info'
-              className='inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-slate-100/80 text-slate-500 transition hover:bg-white hover:text-slate-700'
-            >
-              <svg viewBox='0 0 20 20' className='h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
-                <circle cx='10' cy='10' r='7' />
-                <path d='M10 8.2v5' strokeLinecap='round' />
-                <circle cx='10' cy='5.7' r='0.8' fill='currentColor' stroke='none' />
-              </svg>
-            </button>
+            <div className='relative' ref={conversationMenuRef}>
+              <button
+                type='button'
+                aria-label='Conversation info'
+                onClick={() => setIsConversationMenuOpen((previous) => !previous)}
+                className='inline-flex h-7 w-7 items-center justify-center text-slate-500 transition hover:text-slate-700'
+              >
+                <svg viewBox='0 0 20 20' className='h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                  <circle cx='10' cy='10' r='7' />
+                  <path d='M10 8.2v5' strokeLinecap='round' />
+                  <circle cx='10' cy='5.7' r='0.8' fill='currentColor' stroke='none' />
+                </svg>
+              </button>
+              {isConversationMenuOpen ? (
+                <div className='absolute right-0 top-8 z-20 min-w-[150px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg'>
+                  <button
+                    type='button'
+                    onClick={handleOpenGuide}
+                    className='block w-full px-3 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50'
+                  >
+                    Open Guide
+                  </button>
+                  <button
+                    type='button'
+                    onClick={handleCloseConversation}
+                    disabled={isClosingConversation}
+                    className='block w-full px-3 py-2 text-left text-xs font-medium text-slate-700 transition hover:bg-slate-50'
+                  >
+                    {isClosingConversation ? 'Ending chat...' : 'End chat'}
+                  </button>
+                  <button
+                    type='button'
+                    onClick={handleReportConversation}
+                    className='block w-full px-3 py-2 text-left text-xs font-medium text-rose-600 transition hover:bg-rose-50'
+                  >
+                    Report
+                  </button>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -655,17 +933,18 @@ export default function SellerChatPopup({
               {chatError}
             </div>
           ) : null}
-
+          {chatNotice ? (
+            <div className='mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700'>
+              {chatNotice}
+            </div>
+          ) : null}
           {isInitializing ? (
             <div className='py-6 text-center text-sm text-gray-500'>Connecting to chat...</div>
           ) : (
             <div className='space-y-2.5'>
               {messages.length === 0 ? (
-                <div className='flex justify-start'>
-                  <div className='max-w-[85%] rounded-2xl rounded-bl-md border border-slate-200 bg-white px-3 py-2 text-sm leading-snug text-gray-900 shadow-sm'>
-                    <p className='mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500'>Help Center</p>
-                    <p>{HELP_CENTER_BODY_PROMPT}</p>
-                  </div>
+                <div className='flex min-h-[28dvh] items-center justify-center px-4 text-center sm:min-h-[12rem]'>
+                  <p className='text-base font-medium text-slate-500'>Ask question about this product</p>
                 </div>
               ) : null}
               {messages.map((message) => {
@@ -709,13 +988,32 @@ export default function SellerChatPopup({
                   </div>
                 )
               })}
+              {isConversationClosed ? (
+                <div className='flex justify-center pt-1'>
+                  <div className='max-w-[92%] rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-center text-xs text-slate-700'>
+                    {closedConversationNotice || 'This chat is closed and will disappear in 7 days.'}
+                  </div>
+                </div>
+              ) : null}
             </div>
           )}
-          {isSafetyDecisionReady && !hasAcceptedSafetyNotice ? (
+          {isSafetyDecisionReady && !hasAcceptedSafetyNotice && isSafetyNoticeOpen ? (
             <div className='absolute inset-0 z-20 p-2'>
               <div className='h-full rounded-xl bg-black/15 p-1'>
-                <div className='h-full overflow-y-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-sm'>
-                  <p className='mb-1 text-sm font-semibold text-amber-950'>Chat Safety Notice</p>
+                <div className='modal-thin-scrollbar h-full overflow-y-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-sm'>
+                  <div className='mb-1 flex items-start justify-between gap-3'>
+                    <p className='text-sm font-semibold text-amber-950'>Chat Safety Notice</p>
+                    <button
+                      type='button'
+                      onClick={() => setIsSafetyNoticeOpen(false)}
+                      aria-label='Close safety notice'
+                      className='inline-flex h-6 w-6 items-center justify-center rounded-full text-amber-800 transition hover:bg-amber-100'
+                    >
+                      <svg viewBox='0 0 20 20' className='h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                        <path d='M6 6l8 8M14 6l-8 8' strokeLinecap='round' />
+                      </svg>
+                    </button>
+                  </div>
                   <p className='mb-2 text-[11px] text-amber-900'>Before continuing, please note:</p>
                   <ul className='mb-2 list-disc space-y-1 pl-4 text-[11px] leading-relaxed'>
                     {CHAT_SAFETY_RULES.map((rule) => (
@@ -749,6 +1047,18 @@ export default function SellerChatPopup({
         </div>
 
           <div className='border-t border-gray-200 bg-transparent p-2.5'>
+            {isSafetyDecisionReady && !hasAcceptedSafetyNotice && !isSafetyNoticeOpen ? (
+              <div className='mb-2 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800'>
+                <span>Accept safety notice to start chat.</span>
+                <button
+                  type='button'
+                  onClick={() => setIsSafetyNoticeOpen(true)}
+                  className='shrink-0 rounded-md bg-amber-700 px-2 py-1 text-[10px] font-semibold text-white transition hover:bg-amber-800'
+                >
+                  Open Safety Notice
+                </button>
+              </div>
+            ) : null}
             <div
               className={`overflow-hidden transition-all duration-300 ease-out ${
                 hasAcceptedSafetyNotice && showQuickStarters
@@ -762,7 +1072,7 @@ export default function SellerChatPopup({
                     key={message}
                     type='button'
                     onClick={() => handleQuickStartClick(message)}
-                    disabled={!hasAcceptedSafetyNotice}
+                    disabled={!hasAcceptedSafetyNotice || isConversationClosed}
                     className='shrink-0 rounded-[10px] border border-green-500 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 transition hover:bg-green-100'
                   >
                     {message}
@@ -797,11 +1107,13 @@ export default function SellerChatPopup({
                 placeholder={
                   hasAcceptedSafetyNotice
                     ? conversationId
-                      ? `Message ${vendorName}...`
+                      ? isConversationClosed
+                        ? 'This chat is closed'
+                        : `Message ${vendorName}...`
                       : 'Sign in to start chat'
                     : 'Accept safety notice to start chat'
                 }
-                disabled={!hasAcceptedSafetyNotice || !conversationId || isInitializing}
+                disabled={!hasAcceptedSafetyNotice || !conversationId || isInitializing || isConversationClosed}
                 className='min-w-0 flex-1 appearance-none border-0 bg-white text-sm text-gray-800 shadow-none outline-none ring-0 placeholder:text-gray-500 focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60'
                 aria-label='Type a message'
                 onKeyDown={(event) => {
@@ -866,16 +1178,47 @@ export default function SellerChatPopup({
             background: rgba(148, 163, 184, 0.8);
             border-radius: 9999px;
           }
+          .modal-thin-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.85) transparent;
+          }
+          .modal-thin-scrollbar::-webkit-scrollbar {
+            width: 3px;
+            height: 3px;
+          }
+          .modal-thin-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .modal-thin-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.85);
+            border-radius: 9999px;
+          }
+          .modal-thin-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.95);
+          }
         `}</style>
         <style jsx>{`
           .seller-status-animate {
             animation: sellerStatusIn 220ms ease-out;
+          }
+          .report-sheet-animate {
+            animation: reportSheetIn 240ms ease-out;
           }
 
           @keyframes sellerStatusIn {
             from {
               opacity: 0;
               transform: translateY(3px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          @keyframes reportSheetIn {
+            from {
+              opacity: 0;
+              transform: translateY(22px);
             }
             to {
               opacity: 1;
@@ -896,12 +1239,150 @@ export default function SellerChatPopup({
             setShowOfferModal(false)
             return
           }
+          if (isConversationClosed) {
+            setChatError(
+              closedConversationNotice || 'This chat is closed. You can no longer send messages.',
+            )
+            setShowOfferModal(false)
+            return
+          }
           void sendMessage(
             `I'd like to offer ${currencySymbol}${amount.toLocaleString('en-US')}.`,
           )
           setShowOfferModal(false)
         }}
       />
+      {isGuideModalOpen ? (
+        <div
+          className='fixed inset-0 z-[90] flex items-center justify-center bg-black/50 px-4'
+          role='dialog'
+          aria-modal='true'
+          aria-label='Chat safety guide'
+        >
+          <div className='w-full max-w-sm rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-2xl'>
+            <div className='mb-2 flex items-start justify-between gap-3'>
+              <div>
+                <p className='text-sm font-semibold text-amber-950'>Chat Safety Guide</p>
+                <p className='text-[11px] text-amber-900'>Reminder of the rules you already accepted.</p>
+              </div>
+              <button
+                type='button'
+                onClick={() => setIsGuideModalOpen(false)}
+                aria-label='Close guide'
+                className='inline-flex h-7 w-7 items-center justify-center rounded-full text-amber-800 transition hover:bg-amber-100'
+              >
+                <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                  <path d='M6 6l8 8M14 6l-8 8' strokeLinecap='round' />
+                </svg>
+              </button>
+            </div>
+            <ul className='list-disc space-y-1 pl-4 text-[12px] leading-relaxed'>
+              {CHAT_SAFETY_RULES.map((rule) => (
+                <li key={rule}>{rule}</li>
+              ))}
+            </ul>
+            <div className='mt-3 flex justify-end'>
+              <button
+                type='button'
+                onClick={() => setIsGuideModalOpen(false)}
+                className='inline-flex items-center rounded-md bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-800'
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {isReportModalOpen ? (
+        <div
+          className='fixed inset-0 z-[9999] flex items-end justify-center overflow-hidden bg-black/50 px-0 pt-[max(env(safe-area-inset-top),0.25rem)] sm:items-center sm:overflow-y-auto sm:px-4 sm:pb-4 sm:pt-[max(env(safe-area-inset-top),1rem)]'
+          role='dialog'
+          aria-modal='true'
+          aria-label='Report this product'
+        >
+          <div className='modal-thin-scrollbar report-sheet-animate w-full max-w-none rounded-t-2xl border border-slate-200 bg-white p-4 shadow-2xl max-h-[84dvh] overflow-y-auto sm:my-auto sm:max-w-md sm:rounded-2xl sm:max-h-[calc(100dvh-2rem)]'>
+            <div className='mb-3 flex items-start justify-between gap-3'>
+              <div>
+                <p className='text-sm font-semibold text-slate-900'>Report this product</p>
+                <p className='text-xs text-slate-500'>Select what happened and send to Help Center.</p>
+              </div>
+              <button
+                type='button'
+                onClick={() => setIsReportModalOpen(false)}
+                aria-label='Close report dialog'
+                className='inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700'
+              >
+                <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                  <path d='M6 6l8 8M14 6l-8 8' strokeLinecap='round' />
+                </svg>
+              </button>
+            </div>
+
+            <div className='space-y-2 pr-1'>
+              {REPORT_REASONS.map((reason) => {
+                const checked = selectedReportReason === reason.value
+                return (
+                  <label
+                    key={reason.value}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                      checked
+                        ? 'border-blue-200 bg-blue-50 text-blue-800'
+                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <input
+                      type='radio'
+                      name='report-reason'
+                      value={reason.value}
+                      checked={checked}
+                      onChange={() => setSelectedReportReason(reason.value)}
+                      className='h-4 w-4 accent-blue-600'
+                    />
+                    <span>{reason.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+
+            {selectedReportReason === 'other' ? (
+              <div className='mt-3'>
+                <label className='mb-1 block text-xs font-medium text-slate-600'>
+                  Describe the issue
+                </label>
+                <textarea
+                  value={reportOtherDetails}
+                  onChange={(event) => setReportOtherDetails(event.target.value)}
+                  rows={3}
+                  maxLength={600}
+                  placeholder='Tell us what happened...'
+                  className='w-full resize-none rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-blue-400'
+                />
+              </div>
+            ) : null}
+            <div className='mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800'>
+              OCPRIMES takes reporting very seriously and investigates complaints. Please make sure your suspicion is accurate before proceeding.
+            </div>
+
+            <div className='mt-4 flex justify-end gap-2'>
+              <button
+                type='button'
+                onClick={() => setIsReportModalOpen(false)}
+                className='rounded-md border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50'
+              >
+                Cancel
+              </button>
+              <button
+                type='button'
+                onClick={handleSubmitReport}
+                disabled={isSubmittingReport}
+                className='rounded-md bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60'
+              >
+                {isSubmittingReport ? 'Sending report...' : 'Send Report'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }

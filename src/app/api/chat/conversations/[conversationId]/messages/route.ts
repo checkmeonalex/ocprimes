@@ -6,10 +6,17 @@ import {
   getConversationForUser,
   insertConversationMessage,
   listMessagesForConversation,
+  loadVendorDisplayNameMap,
   toChatConversationPayload,
   toChatMessagePayload,
 } from '@/lib/chat/chat-server'
 import { notifyVendorOnCustomerChatMessage } from '@/lib/chat/notifications'
+import {
+  getConversationClosureState,
+  maybeAutoCloseConversation,
+  purgeExpiredClosedConversations,
+} from '@/lib/chat/conversation-closure'
+import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 
 export async function GET(
   request: NextRequest,
@@ -22,6 +29,7 @@ export async function GET(
     if (authError || !auth.user) {
       return jsonError('Unauthorized.', 401)
     }
+    await purgeExpiredClosedConversations()
 
     const { conversationId } = await context.params
     if (!conversationId) {
@@ -39,6 +47,26 @@ export async function GET(
     }
 
     if (!conversationResult.data?.id) {
+      return jsonError('Conversation not found.', 404)
+    }
+    const autoCloseResult = await maybeAutoCloseConversation(conversationResult.data)
+    if (autoCloseResult.error) {
+      return jsonError('Unable to load conversation.', 500)
+    }
+    const resolvedConversation =
+      autoCloseResult.changed
+        ? (await getConversationForUser(supabase, conversationId, auth.user.id)).data
+        : conversationResult.data
+    if (!resolvedConversation?.id) {
+      return jsonError('Conversation not found.', 404)
+    }
+
+    const roleInfo = await getUserRoleInfoSafe(supabase, auth.user.id, auth.user.email || '')
+    const closure = getConversationClosureState({
+      conversation: resolvedConversation,
+      isAdmin: roleInfo.isAdmin,
+    })
+    if (!closure.canView) {
       return jsonError('Conversation not found.', 404)
     }
 
@@ -60,9 +88,23 @@ export async function GET(
       return jsonError('Unable to load messages.', 500)
     }
 
+    const vendorNameMap = await loadVendorDisplayNameMap([
+      String(resolvedConversation.vendor_user_id || '').trim(),
+    ])
+
     const response = jsonOk({
       currentUserId: auth.user.id,
-      conversation: toChatConversationPayload(conversationResult.data),
+      conversation: {
+        ...toChatConversationPayload(resolvedConversation),
+        vendorName:
+          vendorNameMap.get(String(resolvedConversation.vendor_user_id || '').trim()) || '',
+        isClosed: closure.isClosed,
+        canView: closure.canView,
+        canSend: closure.canSend,
+        participantNotice: closure.participantNotice,
+        participantVisibleUntil: closure.participantVisibleUntil,
+        adminRetentionUntil: closure.adminRetentionUntil,
+      },
       messages: messagesResult.data.map((row) => toChatMessagePayload(row, auth.user.id)),
     })
     applyCookies(response)
@@ -84,6 +126,7 @@ export async function POST(
     if (authError || !auth.user) {
       return jsonError('Unauthorized.', 401)
     }
+    await purgeExpiredClosedConversations()
 
     const { conversationId } = await context.params
     if (!conversationId) {
@@ -102,6 +145,29 @@ export async function POST(
 
     if (!conversationResult.data?.id) {
       return jsonError('Conversation not found.', 404)
+    }
+    const autoCloseResult = await maybeAutoCloseConversation(conversationResult.data)
+    if (autoCloseResult.error) {
+      return jsonError('Unable to load conversation.', 500)
+    }
+    const resolvedConversation =
+      autoCloseResult.changed
+        ? (await getConversationForUser(supabase, conversationId, auth.user.id)).data
+        : conversationResult.data
+    if (!resolvedConversation?.id) {
+      return jsonError('Conversation not found.', 404)
+    }
+
+    const roleInfo = await getUserRoleInfoSafe(supabase, auth.user.id, auth.user.email || '')
+    const closure = getConversationClosureState({
+      conversation: resolvedConversation,
+      isAdmin: roleInfo.isAdmin,
+    })
+    if (!closure.canSend) {
+      return jsonError(
+        closure.participantNotice || 'This chat is closed. You can no longer send messages.',
+        403,
+      )
     }
 
     const body = await request.json().catch(() => null)
@@ -123,17 +189,31 @@ export async function POST(
 
     try {
       await notifyVendorOnCustomerChatMessage({
-        conversation: conversationResult.data,
+        conversation: resolvedConversation,
         senderUserId: auth.user.id,
       })
     } catch (notificationError) {
       console.error('chat message vendor notification failed:', notificationError)
     }
 
+    const vendorNameMap = await loadVendorDisplayNameMap([
+      String(resolvedConversation.vendor_user_id || '').trim(),
+    ])
+
     const response = jsonOk({
       currentUserId: auth.user.id,
       message: toChatMessagePayload(insertResult.data, auth.user.id),
-      conversation: toChatConversationPayload(conversationResult.data),
+      conversation: {
+        ...toChatConversationPayload(resolvedConversation),
+        vendorName:
+          vendorNameMap.get(String(resolvedConversation.vendor_user_id || '').trim()) || '',
+        isClosed: closure.isClosed,
+        canView: closure.canView,
+        canSend: closure.canSend,
+        participantNotice: closure.participantNotice,
+        participantVisibleUntil: closure.participantVisibleUntil,
+        adminRetentionUntil: closure.adminRetentionUntil,
+      },
     })
     applyCookies(response)
     return response

@@ -2,10 +2,16 @@ import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import {
-  deleteDashboardConversation,
   getDashboardConversationById,
   setDashboardConversationAdminTakeover,
 } from '@/lib/chat/dashboard'
+import {
+  closeConversation,
+  getConversationClosureState,
+  purgeExpiredClosedConversations,
+  isSupportConversationRecord,
+  reopenConversation,
+} from '@/lib/chat/conversation-closure'
 
 export async function DELETE(
   request: NextRequest,
@@ -21,6 +27,7 @@ export async function DELETE(
     if (!isAdmin && !isVendor) {
       return jsonError('Forbidden.', 403)
     }
+    await purgeExpiredClosedConversations()
 
     const { conversationId } = await context.params
     if (!conversationId) {
@@ -35,14 +42,46 @@ export async function DELETE(
     if (!existing.data?.id) {
       return jsonError('Conversation not found.', 404)
     }
-
-    const deleted = await deleteDashboardConversation(conversationId)
-    if (deleted.error) {
-      return jsonError('Unable to delete conversation.', 500)
+    const isParticipant =
+      String(existing.data.vendorUserId || '').trim() === String(user.id || '').trim() ||
+      String(existing.data.customerUserId || '').trim() === String(user.id || '').trim()
+    if (!isAdmin && !isParticipant) {
+      return jsonError('Forbidden.', 403)
+    }
+    const supportConversation = await isSupportConversationRecord(existing.data)
+    if (supportConversation) {
+      return jsonError('Help Center chats cannot be ended.', 403)
     }
 
+    const closeResult = await closeConversation({
+      conversationId,
+      closedByUserId: user.id,
+      closedReason: 'ended_by_user',
+    })
+    if (closeResult.error) {
+      return jsonError('Unable to close conversation.', 500)
+    }
+
+    const refreshed = await getDashboardConversationById(conversationId)
+    if (refreshed.error || !refreshed.data?.id) {
+      return jsonError('Unable to load updated conversation.', 500)
+    }
+    const closure = getConversationClosureState({
+      conversation: refreshed.data,
+      isAdmin,
+    })
+
     const response = jsonOk({
-      deletedConversationId: conversationId,
+      conversation: {
+        ...refreshed.data,
+        isClosed: closure.isClosed,
+        canView: closure.canView,
+        canSend: closure.canSend,
+        participantNotice: closure.participantNotice,
+        participantVisibleUntil: closure.participantVisibleUntil,
+        adminRetentionUntil: closure.adminRetentionUntil,
+      },
+      closed: true,
     })
     applyCookies(response)
     return response
@@ -66,6 +105,7 @@ export async function PATCH(
     if (!isAdmin) {
       return jsonError('Forbidden.', 403)
     }
+    await purgeExpiredClosedConversations()
 
     const { conversationId } = await context.params
     if (!conversationId) {
@@ -74,6 +114,7 @@ export async function PATCH(
 
     const body = await request.json().catch(() => null)
     const enabled = Boolean(body?.adminTakeoverEnabled)
+    const shouldReopen = Boolean(body?.reopenChat)
 
     const existing = await getDashboardConversationById(conversationId)
     if (existing.error) {
@@ -82,6 +123,33 @@ export async function PATCH(
 
     if (!existing.data?.id) {
       return jsonError('Conversation not found.', 404)
+    }
+    if (shouldReopen) {
+      const reopened = await reopenConversation({ conversationId })
+      if (reopened.error) {
+        return jsonError('Unable to reopen chat.', 500)
+      }
+      const refreshedAfterReopen = await getDashboardConversationById(conversationId)
+      if (refreshedAfterReopen.error || !refreshedAfterReopen.data?.id) {
+        return jsonError('Unable to load updated conversation.', 500)
+      }
+      const closureAfterReopen = getConversationClosureState({
+        conversation: refreshedAfterReopen.data,
+        isAdmin,
+      })
+      const response = jsonOk({
+        conversation: {
+          ...refreshedAfterReopen.data,
+          isClosed: closureAfterReopen.isClosed,
+          canView: closureAfterReopen.canView,
+          canSend: closureAfterReopen.canSend,
+          participantNotice: closureAfterReopen.participantNotice,
+          participantVisibleUntil: closureAfterReopen.participantVisibleUntil,
+          adminRetentionUntil: closureAfterReopen.adminRetentionUntil,
+        },
+      })
+      applyCookies(response)
+      return response
     }
 
     const updated = await setDashboardConversationAdminTakeover(conversationId, {
@@ -96,9 +164,21 @@ export async function PATCH(
     if (refreshed.error || !refreshed.data?.id) {
       return jsonError('Unable to load updated conversation.', 500)
     }
+    const closure = getConversationClosureState({
+      conversation: refreshed.data,
+      isAdmin,
+    })
 
     const response = jsonOk({
-      conversation: refreshed.data,
+      conversation: {
+        ...refreshed.data,
+        isClosed: closure.isClosed,
+        canView: closure.canView,
+        canSend: closure.canSend,
+        participantNotice: closure.participantNotice,
+        participantVisibleUntil: closure.participantVisibleUntil,
+        adminRetentionUntil: closure.adminRetentionUntil,
+      },
     })
     applyCookies(response)
     return response

@@ -37,6 +37,36 @@ const VerifiedBadge = () => (
   </svg>
 );
 
+const REPORT_TITLE = 'Support Report';
+
+const parseReportMessage = (rawText) => {
+  const text = String(rawText || '').trim();
+  if (!text) return null;
+  const lines = text.split('\n').map((line) => String(line || '').trim()).filter(Boolean);
+  if (!lines.length || lines[0] !== REPORT_TITLE) return null;
+
+  const getField = (prefix) =>
+    lines.find((line) => line.toLowerCase().startsWith(`${prefix.toLowerCase()}:`))?.slice(prefix.length + 1).trim() || '';
+
+  const reason = getField('Reason');
+  const reportedSeller = getField('Reported seller');
+  const productId = getField('Product ID');
+  const sourceChatId = getField('Source chat ID');
+  const conversationUrl = getField('Conversation URL');
+  const productUrl = getField('Product URL');
+  const details = getField('Details');
+
+  return {
+    reason,
+    reportedSeller,
+    productId,
+    sourceChatId,
+    conversationUrl,
+    productUrl,
+    details,
+  };
+};
+
 export default function SellerConversationThread({
   conversation,
   draftMessage,
@@ -44,11 +74,16 @@ export default function SellerConversationThread({
   onSendMessage,
   onBack,
   onDeleteConversation,
+  onClearConversation,
   isDeletingConversation = false,
+  isClearingConversation = false,
   isVendorTakeoverBlocked = false,
+  blockedNotice = '',
   isAdmin = false,
   onToggleTakeover,
   isTogglingTakeover = false,
+  onReopenConversation,
+  isReopeningConversation = false,
 }) {
   const bodyRef = useRef(null);
   const menuRef = useRef(null);
@@ -81,6 +116,8 @@ export default function SellerConversationThread({
   const customerAvatar = getInitials(conversation.customerName);
   const sellerAvatar = 'OC';
   const sellerName = String(conversation.sellerName || '').trim() || 'Seller';
+  const effectiveBlockedNotice = String(blockedNotice || '').trim();
+  const isComposerBlocked = isVendorTakeoverBlocked || Boolean(effectiveBlockedNotice);
 
   return (
     <section className="flex h-full min-h-0 flex-col bg-white">
@@ -129,17 +166,33 @@ export default function SellerConversationThread({
           {isMenuOpen ? (
             <div className="absolute right-0 top-9 z-30 min-w-[180px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
               {isAdmin ? (
-                <button
-                  type="button"
-                  disabled={isTogglingTakeover}
-                  onClick={() => {
-                    setIsMenuOpen(false);
-                    onToggleTakeover?.();
-                  }}
-                  className="flex w-full items-center px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {conversation.adminTakeoverEnabled ? 'Return access to seller' : 'Take over chat'}
-                </button>
+                <>
+                  {conversation.closedAt ? (
+                    <button
+                      type="button"
+                      disabled={isReopeningConversation}
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onReopenConversation?.();
+                      }}
+                      className="flex w-full items-center px-3 py-2 text-left text-sm text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Reopen chat
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={isTogglingTakeover}
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        onToggleTakeover?.();
+                      }}
+                      className="flex w-full items-center px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {conversation.adminTakeoverEnabled ? 'Return access to seller' : 'Take over chat'}
+                    </button>
+                  )}
+                </>
               ) : null}
               <button
                 type="button"
@@ -150,15 +203,26 @@ export default function SellerConversationThread({
                 }}
                 className="flex w-full items-center px-3 py-2 text-left text-sm text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Delete chat
+                End chat
+              </button>
+              <button
+                type="button"
+                disabled={isClearingConversation}
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onClearConversation?.();
+                }}
+                className="flex w-full items-center px-3 py-2 text-left text-sm text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Clear chat
               </button>
             </div>
           ) : null}
         </div>
       </header>
-      {isVendorTakeoverBlocked ? (
+      {isComposerBlocked ? (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs font-medium text-amber-800">
-          Admin has taken over this chat. You can no longer send messages in this conversation.
+          {effectiveBlockedNotice || 'Admin has taken over this chat. You can no longer send messages in this conversation.'}
         </div>
       ) : null}
 
@@ -177,6 +241,7 @@ export default function SellerConversationThread({
             const senderLabel =
               String(message.senderLabel || '').trim() ||
               (isSellerMessage ? sellerName : conversation.customerName);
+            const report = parseReportMessage(message.text);
 
             return (
               <div
@@ -209,7 +274,54 @@ export default function SellerConversationThread({
                   >
                     {senderLabel}
                   </p>
-                  <p>{message.text}</p>
+                  {report ? (
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold">Support Report</p>
+                      {report.reason ? (
+                        <p>
+                          <span className="font-medium">Reason:</span> {report.reason}
+                        </p>
+                      ) : null}
+                      {report.reportedSeller ? (
+                        <p>
+                          <span className="font-medium">Reported seller:</span> {report.reportedSeller}
+                        </p>
+                      ) : null}
+                      {report.details ? (
+                        <p>
+                          <span className="font-medium">Details:</span> {report.details}
+                        </p>
+                      ) : null}
+                      <div className="flex flex-wrap gap-2">
+                        {(report.conversationUrl || report.sourceChatId) ? (
+                          <a
+                            href={report.conversationUrl || `/backend/admin/messages?conversation=${encodeURIComponent(report.sourceChatId)}`}
+                            className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] font-semibold transition ${
+                              isSellerMessage
+                                ? 'bg-white/20 text-white hover:bg-white/30'
+                                : 'bg-slate-900 text-white hover:bg-slate-800'
+                            }`}
+                          >
+                            Open conversation
+                          </a>
+                        ) : null}
+                        {(report.productUrl || report.productId) ? (
+                          <a
+                            href={report.productUrl || `/product/${encodeURIComponent(report.productId)}`}
+                            className={`inline-flex items-center rounded-md px-2 py-1 text-[11px] font-semibold transition ${
+                              isSellerMessage
+                                ? 'bg-white/20 text-white hover:bg-white/30'
+                                : 'bg-slate-900 text-white hover:bg-slate-800'
+                            }`}
+                          >
+                            Open product
+                          </a>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap break-words">{message.text}</p>
+                  )}
                   <p
                     className={`mt-1 text-right text-[10px] ${
                       isSellerMessage ? 'text-slate-100/80' : 'text-slate-400'
@@ -245,19 +357,25 @@ export default function SellerConversationThread({
             value={draftMessage}
             onChange={(event) => onDraftMessageChange(event.target.value)}
             onKeyDown={(event) => {
-              if (isVendorTakeoverBlocked) return;
+              if (isComposerBlocked) return;
               if (event.key !== 'Enter') return;
               event.preventDefault();
               onSendMessage();
             }}
-            placeholder={isVendorTakeoverBlocked ? 'Admin has taken over this chat' : 'Type a message'}
-            disabled={isVendorTakeoverBlocked}
+            placeholder={
+              isVendorTakeoverBlocked
+                ? 'Admin has taken over this chat'
+                : isComposerBlocked
+                  ? 'Chat is closed'
+                  : 'Type a message'
+            }
+            disabled={isComposerBlocked}
             className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
           />
           <button
             type="button"
             onClick={onSendMessage}
-            disabled={isVendorTakeoverBlocked}
+            disabled={isComposerBlocked}
             className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-white transition hover:bg-slate-800"
             aria-label="Send message"
           >

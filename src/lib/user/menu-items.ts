@@ -1,4 +1,5 @@
 export const USER_MENU_ITEMS = [
+  { label: 'Messages', href: '/UserBackend/messages' },
   { label: 'Notifications', href: '/UserBackend/notifications' },
   { label: 'Your profile', href: '/UserBackend/profile' },
   { label: 'Your orders', href: '/UserBackend/orders' },

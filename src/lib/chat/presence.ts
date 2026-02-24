@@ -1,3 +1,5 @@
+import { getNowMs } from '@/lib/time/virtual-now'
+
 type PresenceInput = {
   lastActiveAt?: string | null
   nowMs?: number
@@ -30,7 +32,7 @@ const toDateMs = (value: string | null | undefined) => {
 const pluralize = (count: number, singular: string, plural: string) =>
   count === 1 ? singular : plural
 
-export const getLastSeenLabel = ({ lastActiveAt, nowMs = Date.now() }: PresenceInput) => {
+export const getLastSeenLabel = ({ lastActiveAt, nowMs = getNowMs() }: PresenceInput) => {
   const lastActiveMs = toDateMs(lastActiveAt || null)
   if (!lastActiveMs) {
     return {
@@ -79,7 +81,7 @@ export const getSellerResponseLabel = ({
   isOnline,
   averageResponseMinutes,
   lastActiveAt,
-  nowMs = Date.now(),
+  nowMs = getNowMs(),
 }: SellerResponseInput) => {
   if (isOnline) return 'Online'
   if (averageResponseMinutes == null || Number.isNaN(averageResponseMinutes)) {

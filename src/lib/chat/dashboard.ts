@@ -1,11 +1,14 @@
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { getLastSeenLabel } from '@/lib/chat/presence'
+import { getSuperAdminEmail } from '@/lib/auth/superAdmin'
+import { getNowIso } from '@/lib/time/virtual-now'
 
 const DASHBOARD_CONVERSATION_COLUMNS =
-  'id, customer_user_id, vendor_user_id, product_id, created_at, updated_at, last_message_at, last_message_preview, admin_takeover_enabled, admin_takeover_by, admin_takeover_at'
+  'id, customer_user_id, vendor_user_id, product_id, created_at, updated_at, last_message_at, last_message_preview, admin_takeover_enabled, admin_takeover_by, admin_takeover_at, closed_at, closed_by_user_id, closed_reason'
 
 const DASHBOARD_MESSAGE_COLUMNS =
   'id, conversation_id, sender_user_id, body, created_at'
+const UNIQUE_VIOLATION_CODE = '23505'
 
 const formatIso = (value: unknown) => {
   if (typeof value !== 'string') return null
@@ -28,10 +31,105 @@ const toEmailAlias = (email: string) => {
   return normalized.replace(/@/g, '')
 }
 
+const findSuperAdminUserId = async (adminDb: ReturnType<typeof createAdminSupabaseClient>) => {
+  const targetEmail = getSuperAdminEmail()
+  const roleQuery = await adminDb
+    .from('user_roles')
+    .select('user_id')
+    .eq('role', 'admin')
+    .limit(50)
+
+  const roleRows = Array.isArray(roleQuery.data) ? roleQuery.data : []
+  const roleError = roleQuery.error
+  const candidateUserIds = new Set<string>()
+  roleRows.forEach((row: any) => {
+    const candidateUserId = safeText(row?.user_id)
+    if (candidateUserId) candidateUserIds.add(candidateUserId)
+  })
+
+  if (candidateUserIds.size === 0) {
+    const profileQuery = await adminDb
+      .from('profiles')
+      .select('id')
+      .eq('role', 'admin')
+      .limit(50)
+    const profileRows = Array.isArray(profileQuery.data) ? profileQuery.data : []
+    profileRows.forEach((row: any) => {
+      const candidateUserId = safeText(row?.id)
+      if (candidateUserId) candidateUserIds.add(candidateUserId)
+    })
+  }
+
+  for (const candidateUserId of candidateUserIds) {
+    const { data: userRow, error: userError } = await adminDb.auth.admin.getUserById(candidateUserId)
+    if (userError || !userRow?.user?.id) continue
+    const email = safeText(userRow.user.email).toLowerCase()
+    if (email && email === targetEmail) {
+      return { data: candidateUserId, error: null }
+    }
+  }
+
+  const listUsersResult = await adminDb.auth.admin.listUsers({ page: 1, perPage: 200 })
+  if (!listUsersResult.error && Array.isArray(listUsersResult.data?.users)) {
+    const matched = listUsersResult.data.users.find(
+      (user: any) => safeText(user?.email).toLowerCase() === targetEmail,
+    )
+    const matchedId = safeText(matched?.id)
+    if (matchedId) {
+      return { data: matchedId, error: null }
+    }
+  }
+
+  return { data: '', error: new Error('Super admin account not found.') }
+}
+
+const resolveSupportProductId = async (
+  adminDb: ReturnType<typeof createAdminSupabaseClient>,
+  vendorUserId: string,
+) => {
+  const chatLinkedProduct = await adminDb
+    .from('chat_conversations')
+    .select('product_id')
+    .or(`customer_user_id.eq.${vendorUserId},vendor_user_id.eq.${vendorUserId}`)
+    .not('product_id', 'is', null)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (chatLinkedProduct.data?.product_id) {
+    return { data: safeText(chatLinkedProduct.data.product_id), error: null }
+  }
+
+  const ownProduct = await adminDb
+    .from('products')
+    .select('id')
+    .eq('created_by', vendorUserId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (ownProduct.data?.id) {
+    return { data: safeText(ownProduct.data.id), error: null }
+  }
+
+  const fallbackProduct = await adminDb
+    .from('products')
+    .select('id')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (fallbackProduct.error) {
+    return { data: '', error: fallbackProduct.error }
+  }
+
+  return { data: safeText(fallbackProduct.data?.id), error: null }
+}
+
 export const loadUserIdentityMap = async (userIds: string[]) => {
   const adminDb = createAdminSupabaseClient()
   const uniqueIds = Array.from(new Set(userIds.map((id) => String(id || '').trim()).filter(Boolean)))
-  const identityMap = new Map<string, { email: string; name: string; lastSignInAt: string | null }>()
+  const identityMap = new Map<string, { email: string; name: string }>()
 
   await Promise.all(
     uniqueIds.map(async (userId) => {
@@ -42,7 +140,6 @@ export const loadUserIdentityMap = async (userIds: string[]) => {
         identityMap.set(String(data.user.id), {
           email,
           name: toEmailAlias(email),
-          lastSignInAt: formatIso(data.user.last_sign_in_at),
         })
       } catch {
         // Ignore single-user lookup failures and keep fallback labels.
@@ -51,6 +148,28 @@ export const loadUserIdentityMap = async (userIds: string[]) => {
   )
 
   return identityMap
+}
+
+const loadUserPresenceMap = async (userIds: string[]) => {
+  const adminDb = createAdminSupabaseClient()
+  const uniqueIds = Array.from(new Set(userIds.map((id) => String(id || '').trim()).filter(Boolean)))
+  if (!uniqueIds.length) return new Map<string, string>()
+
+  const { data, error } = await adminDb
+    .from('user_presence')
+    .select('user_id, last_seen_at')
+    .in('user_id', uniqueIds)
+
+  if (error || !Array.isArray(data)) return new Map<string, string>()
+
+  const presenceByUserId = new Map<string, string>()
+  data.forEach((row: any) => {
+    const userId = safeText(row?.user_id)
+    const lastSeenAt = formatIso(row?.last_seen_at)
+    if (!userId || !lastSeenAt) return
+    presenceByUserId.set(userId, lastSeenAt)
+  })
+  return presenceByUserId
 }
 
 const loadVendorStoreNameMap = async (vendorUserIds: string[]) => {
@@ -142,6 +261,12 @@ export const listDashboardConversations = async () => {
       String(row?.vendor_user_id || ''),
     ]),
   )
+  const presenceMap = await loadUserPresenceMap(
+    conversations.flatMap((row: any) => [
+      String(row?.customer_user_id || ''),
+      String(row?.vendor_user_id || ''),
+    ]),
+  )
   const vendorStoreMap = await loadVendorStoreNameMap(
     conversations.map((row: any) => String(row?.vendor_user_id || '')),
   )
@@ -160,7 +285,7 @@ export const listDashboardConversations = async () => {
     const customerAlias = toEmailAlias(customerEmail)
     const vendorStoreName = safeText(vendorStoreMap.get(vendorUserId))
     const customerPresence = getLastSeenLabel({
-      lastActiveAt: customerIdentity?.lastSignInAt || null,
+      lastActiveAt: presenceMap.get(customerUserId) || null,
     })
 
     return {
@@ -176,6 +301,9 @@ export const listDashboardConversations = async () => {
       adminTakeoverEnabled: Boolean(row?.admin_takeover_enabled),
       adminTakeoverBy: safeText(row?.admin_takeover_by),
       adminTakeoverAt: formatIso(row?.admin_takeover_at),
+      closedAt: formatIso(row?.closed_at),
+      closedByUserId: safeText(row?.closed_by_user_id),
+      closedReason: safeText(row?.closed_reason),
       createdAt: formatIso(row?.created_at),
       updatedAt: formatIso(row?.updated_at),
       lastMessageAt: formatIso(row?.last_message_at),
@@ -209,13 +337,14 @@ export const getDashboardConversationById = async (conversationId: string) => {
   const customerUserId = safeText(data.customer_user_id)
   const vendorUserId = safeText(data.vendor_user_id)
   const identityMap = await loadUserIdentityMap([customerUserId, vendorUserId])
+  const presenceMap = await loadUserPresenceMap([customerUserId, vendorUserId])
   const vendorStoreMap = await loadVendorStoreNameMap([vendorUserId])
   const customerIdentity = identityMap.get(customerUserId)
   const customerEmail = safeText(customerIdentity?.email)
   const customerAlias = toEmailAlias(customerEmail)
   const vendorStoreName = safeText(vendorStoreMap.get(vendorUserId))
   const customerPresence = getLastSeenLabel({
-    lastActiveAt: customerIdentity?.lastSignInAt || null,
+    lastActiveAt: presenceMap.get(customerUserId) || null,
   })
   const unreadCountMap = await loadVendorUnreadCountMap([
     {
@@ -238,6 +367,9 @@ export const getDashboardConversationById = async (conversationId: string) => {
       adminTakeoverEnabled: Boolean(data.admin_takeover_enabled),
       adminTakeoverBy: safeText(data.admin_takeover_by),
       adminTakeoverAt: formatIso(data.admin_takeover_at),
+      closedAt: formatIso(data.closed_at),
+      closedByUserId: safeText(data.closed_by_user_id),
+      closedReason: safeText(data.closed_reason),
       createdAt: formatIso(data.created_at),
       updatedAt: formatIso(data.updated_at),
       lastMessageAt: formatIso(data.last_message_at),
@@ -358,7 +490,7 @@ export const enableDashboardConversationAdminTakeover = async (
   adminUserId: string,
 ) => {
   const adminDb = createAdminSupabaseClient()
-  const takeoverAt = new Date().toISOString()
+  const takeoverAt = getNowIso()
 
   const { data, error } = await adminDb
     .from('chat_conversations')
@@ -390,7 +522,7 @@ export const setDashboardConversationAdminTakeover = async (
   },
 ) => {
   const adminDb = createAdminSupabaseClient()
-  const nowIso = new Date().toISOString()
+  const nowIso = getNowIso()
 
   const { data, error } = await adminDb
     .from('chat_conversations')
@@ -409,4 +541,109 @@ export const setDashboardConversationAdminTakeover = async (
   }
 
   return { data: data || null, error: null }
+}
+
+export const findOrCreateDashboardHelpCenterConversation = async (vendorUserId: string) => {
+  const safeVendorUserId = safeText(vendorUserId)
+  if (!safeVendorUserId) {
+    return { data: null, error: new Error('Missing vendor user.') }
+  }
+
+  const adminDb = createAdminSupabaseClient()
+  const adminLookup = await findSuperAdminUserId(adminDb)
+  if (adminLookup.error || !adminLookup.data) {
+    return { data: null, error: adminLookup.error || new Error('Admin account unavailable.') }
+  }
+
+  const adminUserId = safeText(adminLookup.data)
+  if (!adminUserId) {
+    return { data: null, error: new Error('Admin account unavailable.') }
+  }
+
+  if (adminUserId === safeVendorUserId) {
+    return { data: null, error: new Error('Admin cannot open Help Center with self.') }
+  }
+
+  const existingResult = await adminDb
+    .from('chat_conversations')
+    .select(DASHBOARD_CONVERSATION_COLUMNS)
+    .eq('customer_user_id', safeVendorUserId)
+    .eq('vendor_user_id', adminUserId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (existingResult.error) {
+    return { data: null, error: existingResult.error }
+  }
+
+  if (existingResult.data?.id) {
+    const resolved = await getDashboardConversationById(safeText(existingResult.data.id))
+    return { data: resolved.data, error: resolved.error }
+  }
+
+  const reverseExistingResult = await adminDb
+    .from('chat_conversations')
+    .select(DASHBOARD_CONVERSATION_COLUMNS)
+    .eq('customer_user_id', adminUserId)
+    .eq('vendor_user_id', safeVendorUserId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (reverseExistingResult.error) {
+    return { data: null, error: reverseExistingResult.error }
+  }
+
+  if (reverseExistingResult.data?.id) {
+    const resolved = await getDashboardConversationById(safeText(reverseExistingResult.data.id))
+    return { data: resolved.data, error: resolved.error }
+  }
+
+  const supportProduct = await resolveSupportProductId(adminDb, safeVendorUserId)
+  if (supportProduct.error || !supportProduct.data) {
+    return {
+      data: null,
+      error: supportProduct.error || new Error('No product available to initialize Help Center chat.'),
+    }
+  }
+
+  const inserted = await adminDb
+    .from('chat_conversations')
+    .insert({
+      customer_user_id: safeVendorUserId,
+      vendor_user_id: adminUserId,
+      product_id: supportProduct.data,
+    })
+    .select(DASHBOARD_CONVERSATION_COLUMNS)
+    .maybeSingle()
+
+  if (inserted.error) {
+    if (String(inserted.error.code || '') === UNIQUE_VIOLATION_CODE) {
+      const conflictResult = await adminDb
+        .from('chat_conversations')
+        .select(DASHBOARD_CONVERSATION_COLUMNS)
+        .eq('customer_user_id', safeVendorUserId)
+        .eq('vendor_user_id', adminUserId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (conflictResult.error || !conflictResult.data?.id) {
+        return {
+          data: null,
+          error: conflictResult.error || new Error('Unable to resolve Help Center conversation.'),
+        }
+      }
+      const resolved = await getDashboardConversationById(safeText(conflictResult.data.id))
+      return { data: resolved.data, error: resolved.error }
+    }
+    return { data: null, error: inserted.error }
+  }
+
+  if (!inserted.data?.id) {
+    return { data: null, error: new Error('Unable to create Help Center conversation.') }
+  }
+
+  const resolved = await getDashboardConversationById(safeText(inserted.data.id))
+  return { data: resolved.data, error: resolved.error }
 }

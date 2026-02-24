@@ -6,6 +6,7 @@ const FILTER_TABS = [
 ];
 const HELP_CENTER_VIRTUAL_CONVERSATION_ID = '__help_center__';
 const HELP_CENTER_PREVIEW = 'Ask your question and we will help you';
+const EMPTY_CHAT_PREVIEW = 'No messages yet.';
 
 const getInitials = (name) =>
   String(name || '')
@@ -32,6 +33,7 @@ export default function SellerConversationList({
   selectedConversationId,
   onSelectConversation,
   showHelpCenter = false,
+  helpCenterConversation = null,
   searchValue,
   onSearchChange,
   activeFilter,
@@ -40,6 +42,18 @@ export default function SellerConversationList({
   const isHelpCenterActive =
     showHelpCenter &&
     String(selectedConversationId || '').trim() === HELP_CENTER_VIRTUAL_CONVERSATION_ID;
+  const hasHelpCenterMessages =
+    Boolean(helpCenterConversation?.id) &&
+    String(helpCenterConversation?.lastMessagePreview || '').trim().length > 0 &&
+    String(helpCenterConversation?.lastMessagePreview || '').trim().toLowerCase() !==
+      HELP_CENTER_PREVIEW.toLowerCase() &&
+    String(helpCenterConversation?.lastMessagePreview || '').trim().toLowerCase() !==
+      EMPTY_CHAT_PREVIEW.toLowerCase();
+  const helpCenterPreviewText = hasHelpCenterMessages
+    ? String(helpCenterConversation?.lastMessagePreview || '').trim()
+    : HELP_CENTER_PREVIEW;
+  const helpCenterUnreadCount = Number(helpCenterConversation?.unreadCount || 0);
+  const helpCenterLastMessageAtLabel = String(helpCenterConversation?.lastMessageAtLabel || '').trim();
 
   return (
     <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white">
@@ -103,12 +117,24 @@ export default function SellerConversationList({
                 </svg>
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-1">
-                  <span className="truncate text-sm font-semibold text-slate-900">Help Center</span>
-                  <VerifiedBadge />
+                <span className="flex items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-1">
+                    <span className="truncate text-sm font-semibold text-slate-900">Help Center</span>
+                    <VerifiedBadge />
+                  </span>
+                  {helpCenterLastMessageAtLabel ? (
+                    <span className="shrink-0 text-[11px] text-slate-400">{helpCenterLastMessageAtLabel}</span>
+                  ) : null}
                 </span>
                 <span className="mt-0.5 block truncate text-[11px] font-medium uppercase tracking-wide text-slate-500">ocprimes</span>
-                <span className="mt-1 block truncate text-xs text-slate-500">{HELP_CENTER_PREVIEW}</span>
+                <span className="mt-1 flex items-center gap-2">
+                  <span className="block truncate text-xs text-slate-500">{helpCenterPreviewText}</span>
+                  {helpCenterUnreadCount > 0 ? (
+                    <span className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-semibold text-white">
+                      {helpCenterUnreadCount}
+                    </span>
+                  ) : null}
+                </span>
               </span>
             </button>
           </div>

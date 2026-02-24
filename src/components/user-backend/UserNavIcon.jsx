@@ -21,6 +21,20 @@ export default function UserNavIcon({ label, className = 'h-5 w-5' }) {
     )
   }
 
+  if (label === 'Messages') {
+    return (
+      <svg {...iconProps}>
+        <path
+          d='M4 6.5h16v10H9l-5 3v-13z'
+          stroke='currentColor'
+          strokeWidth='1.5'
+          strokeLinejoin='round'
+        />
+        <path d='M8 10h8M8 13h6' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+      </svg>
+    )
+  }
+
   if (label === 'Your orders') {
     return (
       <svg {...iconProps}>
@@ -112,4 +126,3 @@ export default function UserNavIcon({ label, className = 'h-5 w-5' }) {
     </svg>
   )
 }
-

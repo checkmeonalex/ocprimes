@@ -25,13 +25,17 @@ const getLatestIso = (values: Array<string | null | undefined>) => {
   return latestIso
 }
 
-const getUserLastSignInAt = async (userId: string) => {
+const getUserLastSeenAt = async (userId: string) => {
   const safeUserId = String(userId || '').trim()
   if (!safeUserId) return null
   const adminDb = createAdminSupabaseClient()
-  const { data, error } = await adminDb.auth.admin.getUserById(safeUserId)
-  if (error || !data?.user?.id) return null
-  const value = String(data.user.last_sign_in_at || '').trim()
+  const { data, error } = await adminDb
+    .from('user_presence')
+    .select('last_seen_at')
+    .eq('user_id', safeUserId)
+    .maybeSingle()
+  if (error || !data) return null
+  const value = String(data.last_seen_at || '').trim()
   return value || null
 }
 
@@ -114,9 +118,9 @@ export const resolveSellerStatusForConversation = async ({
     }
   }
 
-  const [sellerLastSignInAt, sellerRecentChatActivityAt, sellerAverageResponseMinutes] =
+  const [sellerLastSeenAt, sellerRecentChatActivityAt, sellerAverageResponseMinutes] =
     await Promise.all([
-      getUserLastSignInAt(safeVendorUserId),
+      getUserLastSeenAt(safeVendorUserId),
       getSellerRecentChatActivityAt(safeConversationId, safeVendorUserId),
       getAverageSellerResponseMinutes(
         safeConversationId,
@@ -125,7 +129,7 @@ export const resolveSellerStatusForConversation = async ({
       ),
     ])
 
-  const sellerLastActiveAt = getLatestIso([sellerLastSignInAt, sellerRecentChatActivityAt])
+  const sellerLastActiveAt = getLatestIso([sellerLastSeenAt, sellerRecentChatActivityAt])
   const sellerPresence = getLastSeenLabel({ lastActiveAt: sellerLastActiveAt })
   const sellerStatusLabel = getSellerResponseLabel({
     isOnline: sellerPresence.isOnline,

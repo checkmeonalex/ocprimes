@@ -1,6 +1,7 @@
 import type { LanguageCode } from '@/lib/i18n/locale-config'
 
 export const MENU_LABEL_KEY_BY_LABEL: Record<string, MessageKey> = {
+  Messages: 'menu.messages',
   Notifications: 'menu.notifications',
   'Your profile': 'menu.profile',
   'Your orders': 'menu.orders',
@@ -22,6 +23,7 @@ const EN_MESSAGES = {
   'auth.logout': 'Logout',
   'auth.requestAdmin': 'Request admin access',
   'auth.submitting': 'Submitting...',
+  'menu.messages': 'Messages',
   'menu.notifications': 'Notifications',
   'menu.profile': 'Your profile',
   'menu.orders': 'Your orders',
@@ -61,6 +63,7 @@ const FR_MESSAGES: Partial<Record<MessageKey, string>> = {
   'auth.logout': 'Se déconnecter',
   'auth.requestAdmin': 'Demander un accès administrateur',
   'auth.submitting': 'Envoi...',
+  'menu.messages': 'Messages',
   'menu.notifications': 'Notifications',
   'menu.profile': 'Votre profil',
   'menu.orders': 'Vos commandes',
@@ -100,6 +103,7 @@ const AR_MESSAGES: Partial<Record<MessageKey, string>> = {
   'auth.logout': 'تسجيل الخروج',
   'auth.requestAdmin': 'طلب صلاحية مشرف',
   'auth.submitting': 'جارٍ الإرسال...',
+  'menu.messages': 'الرسائل',
   'menu.notifications': 'الإشعارات',
   'menu.profile': 'ملفك الشخصي',
   'menu.orders': 'طلباتك',

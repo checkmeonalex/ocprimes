@@ -1,7 +1,8 @@
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
+import { getNowIso } from '@/lib/time/virtual-now'
 
 const CHAT_CONVERSATION_COLUMNS =
-  'id, customer_user_id, vendor_user_id, product_id, created_at, updated_at, last_message_at, last_message_preview'
+  'id, customer_user_id, vendor_user_id, product_id, created_at, updated_at, last_message_at, last_message_preview, closed_at, closed_by_user_id, closed_reason'
 
 const CHAT_MESSAGE_COLUMNS =
   'id, conversation_id, sender_user_id, body, created_at, vendor_received_at, vendor_read_at'
@@ -14,6 +15,14 @@ const toIsoString = (value: unknown) => {
   return trimmed || null
 }
 
+const toEmailAlias = (email: string) => {
+  const normalized = String(email || '').trim().toLowerCase()
+  if (!normalized) return ''
+  const [localPart] = normalized.split('@')
+  if (localPart) return localPart
+  return normalized.replace(/@/g, '')
+}
+
 export const toChatConversationPayload = (row: any) => ({
   id: String(row?.id || ''),
   customerUserId: String(row?.customer_user_id || ''),
@@ -23,6 +32,9 @@ export const toChatConversationPayload = (row: any) => ({
   updatedAt: toIsoString(row?.updated_at),
   lastMessageAt: toIsoString(row?.last_message_at),
   lastMessagePreview: String(row?.last_message_preview || ''),
+  closedAt: toIsoString(row?.closed_at),
+  closedByUserId: String(row?.closed_by_user_id || ''),
+  closedReason: String(row?.closed_reason || ''),
 })
 
 export const toChatMessagePayload = (row: any, currentUserId: string) => ({
@@ -216,7 +228,7 @@ export const markVendorConversationMessageReceipts = async (
   conversationId: string,
   vendorUserId: string,
 ) => {
-  const nowIso = new Date().toISOString()
+  const nowIso = getNowIso()
   const { error } = await supabase
     .from('chat_messages')
     .update({
@@ -228,4 +240,45 @@ export const markVendorConversationMessageReceipts = async (
     .is('vendor_read_at', null)
 
   return { error }
+}
+
+export const loadVendorDisplayNameMap = async (vendorUserIds: string[]) => {
+  const adminDb = createAdminSupabaseClient()
+  const uniqueVendorIds = Array.from(
+    new Set(vendorUserIds.map((id) => String(id || '').trim()).filter(Boolean)),
+  )
+  const nameMap = new Map<string, string>()
+
+  if (!uniqueVendorIds.length) return nameMap
+
+  const { data: brandRows } = await adminDb
+    .from('admin_brands')
+    .select('created_by, name, created_at')
+    .in('created_by', uniqueVendorIds)
+    .order('created_at', { ascending: true })
+
+  ;(Array.isArray(brandRows) ? brandRows : []).forEach((row: any) => {
+    const vendorUserId = String(row?.created_by || '').trim()
+    const storeName = String(row?.name || '').trim()
+    if (!vendorUserId || !storeName || nameMap.has(vendorUserId)) return
+    nameMap.set(vendorUserId, storeName)
+  })
+
+  const fallbackIds = uniqueVendorIds.filter((id) => !nameMap.has(id))
+  if (!fallbackIds.length) return nameMap
+
+  await Promise.all(
+    fallbackIds.map(async (vendorUserId) => {
+      try {
+        const { data, error } = await adminDb.auth.admin.getUserById(vendorUserId)
+        if (error || !data?.user?.id) return
+        const alias = toEmailAlias(String(data.user.email || '').trim())
+        if (alias) nameMap.set(vendorUserId, alias)
+      } catch {
+        // Ignore fallback lookup failures.
+      }
+    }),
+  )
+
+  return nameMap
 }

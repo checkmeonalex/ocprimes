@@ -9,6 +9,11 @@ import {
   listDashboardMessages,
 } from '@/lib/chat/dashboard'
 import { markVendorConversationMessageReceipts } from '@/lib/chat/chat-server'
+import {
+  getConversationClosureState,
+  maybeAutoCloseConversation,
+  purgeExpiredClosedConversations,
+} from '@/lib/chat/conversation-closure'
 
 export async function GET(
   request: NextRequest,
@@ -24,6 +29,7 @@ export async function GET(
     if (!isAdmin && !isVendor) {
       return jsonError('Forbidden.', 403)
     }
+    await purgeExpiredClosedConversations()
 
     const { conversationId } = await context.params
     if (!conversationId) {
@@ -38,12 +44,35 @@ export async function GET(
     if (!conversationResult.data?.id) {
       return jsonError('Conversation not found.', 404)
     }
+    const isParticipant =
+      String(conversationResult.data.vendorUserId || '').trim() === String(user.id || '').trim() ||
+      String(conversationResult.data.customerUserId || '').trim() === String(user.id || '').trim()
+    if (!isAdmin && !isParticipant) {
+      return jsonError('Forbidden.', 403)
+    }
+    const autoCloseResult = await maybeAutoCloseConversation(conversationResult.data)
+    if (autoCloseResult.error) {
+      return jsonError('Unable to load conversation.', 500)
+    }
+    const resolvedConversation = autoCloseResult.changed
+      ? (await getDashboardConversationById(conversationId)).data
+      : conversationResult.data
+    if (!resolvedConversation?.id) {
+      return jsonError('Conversation not found.', 404)
+    }
+    const closure = getConversationClosureState({
+      conversation: resolvedConversation,
+      isAdmin,
+    })
+    if (!closure.canView) {
+      return jsonError('Conversation not found.', 404)
+    }
 
     const isConversationVendor =
       role === 'vendor' &&
       !isAdmin &&
       isVendor &&
-      String(conversationResult.data.vendorUserId || '').trim() === String(user.id || '').trim()
+      String(resolvedConversation.vendorUserId || '').trim() === String(user.id || '').trim()
 
     if (isConversationVendor) {
       const adminDb = createAdminSupabaseClient()
@@ -66,7 +95,15 @@ export async function GET(
     const response = jsonOk({
       currentUserId: user.id,
       role: isAdmin ? 'admin' : 'vendor',
-      conversation: conversationResult.data,
+      conversation: {
+        ...resolvedConversation,
+        isClosed: closure.isClosed,
+        canView: closure.canView,
+        canSend: closure.canSend,
+        participantNotice: closure.participantNotice,
+        participantVisibleUntil: closure.participantVisibleUntil,
+        adminRetentionUntil: closure.adminRetentionUntil,
+      },
       messages: messagesResult.data,
     })
     applyCookies(response)
@@ -91,6 +128,7 @@ export async function POST(
     if (!isAdmin && !isVendor) {
       return jsonError('Forbidden.', 403)
     }
+    await purgeExpiredClosedConversations()
 
     const { conversationId } = await context.params
     if (!conversationId) {
@@ -105,8 +143,34 @@ export async function POST(
     if (!conversationResult.data?.id) {
       return jsonError('Conversation not found.', 404)
     }
+    const isParticipant =
+      String(conversationResult.data.vendorUserId || '').trim() === String(user.id || '').trim() ||
+      String(conversationResult.data.customerUserId || '').trim() === String(user.id || '').trim()
+    if (!isAdmin && !isParticipant) {
+      return jsonError('Forbidden.', 403)
+    }
+    const autoCloseResult = await maybeAutoCloseConversation(conversationResult.data)
+    if (autoCloseResult.error) {
+      return jsonError('Unable to load conversation.', 500)
+    }
+    const resolvedConversation = autoCloseResult.changed
+      ? (await getDashboardConversationById(conversationId)).data
+      : conversationResult.data
+    if (!resolvedConversation?.id) {
+      return jsonError('Conversation not found.', 404)
+    }
+    const closure = getConversationClosureState({
+      conversation: resolvedConversation,
+      isAdmin,
+    })
+    if (!closure.canSend) {
+      return jsonError(
+        closure.participantNotice || 'This chat is closed. You can no longer send messages.',
+        403,
+      )
+    }
 
-    if (isVendor && conversationResult.data.adminTakeoverEnabled) {
+    if (isVendor && resolvedConversation.adminTakeoverEnabled) {
       return jsonError('Admin has taken over this chat. You can no longer send messages.', 403)
     }
 
@@ -124,7 +188,15 @@ export async function POST(
     const response = jsonOk({
       currentUserId: user.id,
       role: isAdmin ? 'admin' : 'vendor',
-      conversation: conversationResult.data,
+      conversation: {
+        ...resolvedConversation,
+        isClosed: closure.isClosed,
+        canView: closure.canView,
+        canSend: closure.canSend,
+        participantNotice: closure.participantNotice,
+        participantVisibleUntil: closure.participantVisibleUntil,
+        adminRetentionUntil: closure.adminRetentionUntil,
+      },
       message: insertResult.data,
     })
     applyCookies(response)
