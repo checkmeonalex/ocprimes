@@ -4,7 +4,7 @@ const CHAT_CONVERSATION_COLUMNS =
   'id, customer_user_id, vendor_user_id, product_id, created_at, updated_at, last_message_at, last_message_preview'
 
 const CHAT_MESSAGE_COLUMNS =
-  'id, conversation_id, sender_user_id, body, created_at'
+  'id, conversation_id, sender_user_id, body, created_at, vendor_received_at, vendor_read_at'
 
 const UNIQUE_VIOLATION_CODE = '23505'
 
@@ -32,6 +32,8 @@ export const toChatMessagePayload = (row: any, currentUserId: string) => ({
   sender: String(row?.sender_user_id || '') === currentUserId ? 'self' : 'other',
   body: String(row?.body || ''),
   createdAt: toIsoString(row?.created_at),
+  vendorReceivedAt: toIsoString(row?.vendor_received_at),
+  vendorReadAt: toIsoString(row?.vendor_read_at),
 })
 
 export const listConversationsForUser = async (supabase: any, userId: string) => {
@@ -208,3 +210,22 @@ export const insertConversationMessage = async (
     })
     .select(CHAT_MESSAGE_COLUMNS)
     .single()
+
+export const markVendorConversationMessageReceipts = async (
+  supabase: any,
+  conversationId: string,
+  vendorUserId: string,
+) => {
+  const nowIso = new Date().toISOString()
+  const { error } = await supabase
+    .from('chat_messages')
+    .update({
+      vendor_received_at: nowIso,
+      vendor_read_at: nowIso,
+    })
+    .eq('conversation_id', conversationId)
+    .neq('sender_user_id', vendorUserId)
+    .is('vendor_read_at', null)
+
+  return { error }
+}

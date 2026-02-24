@@ -4,6 +4,8 @@ const FILTER_TABS = [
   { key: 'all', label: 'All' },
   { key: 'unread', label: 'Unread' },
 ];
+const HELP_CENTER_VIRTUAL_CONVERSATION_ID = '__help_center__';
+const HELP_CENTER_PREVIEW = 'Ask your question and we will help you';
 
 const getInitials = (name) =>
   String(name || '')
@@ -13,15 +15,32 @@ const getInitials = (name) =>
     .map((part) => part.charAt(0).toUpperCase())
     .join('') || 'C';
 
+const VerifiedBadge = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" aria-hidden="true">
+    <path
+      d="M12 2.8l2.2 1.3 2.6-.2 1.3 2.2 2.2 1.3-.2 2.6 1.3 2.2-1.3 2.2.2 2.6-2.2 1.3-1.3 2.2-2.6-.2L12 21.2l-2.2-1.3-2.6.2-1.3-2.2-2.2-1.3.2-2.6L2.8 12l1.3-2.2-.2-2.6 2.2-1.3 1.3-2.2 2.6.2L12 2.8Z"
+      fill="#c4b5fd"
+      stroke="#60a5fa"
+      strokeWidth="0.8"
+    />
+    <path d="m8.4 12.1 2.1 2.1 5-5" stroke="#fff" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export default function SellerConversationList({
   conversations,
   selectedConversationId,
   onSelectConversation,
+  showHelpCenter = false,
   searchValue,
   onSearchChange,
   activeFilter,
   onFilterChange,
 }) {
+  const isHelpCenterActive =
+    showHelpCenter &&
+    String(selectedConversationId || '').trim() === HELP_CENTER_VIRTUAL_CONVERSATION_ID;
+
   return (
     <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white">
       <div className="border-b border-slate-200 p-3">
@@ -61,6 +80,39 @@ export default function SellerConversationList({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {showHelpCenter ? (
+          <div className="border-b border-slate-100">
+            <button
+              type="button"
+              onClick={() => onSelectConversation(HELP_CENTER_VIRTUAL_CONVERSATION_ID)}
+              className={`flex w-full items-start gap-3 px-3 py-3 text-left transition ${
+                isHelpCenterActive ? 'bg-slate-100' : 'hover:bg-slate-50'
+              }`}
+              aria-label="Help Center pinned conversation"
+            >
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white">
+                <svg className="h-5 w-5 text-[#f5d10b]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <circle cx="12" cy="3.2" r="2.2"></circle>
+                  <circle cx="12" cy="20.8" r="2.2"></circle>
+                  <circle cx="3.2" cy="12" r="2.2"></circle>
+                  <circle cx="20.8" cy="12" r="2.2"></circle>
+                  <circle cx="6.3" cy="6.3" r="2.2"></circle>
+                  <circle cx="17.7" cy="17.7" r="2.2"></circle>
+                  <circle cx="17.7" cy="6.3" r="2.2"></circle>
+                  <circle cx="6.3" cy="17.7" r="2.2"></circle>
+                </svg>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1">
+                  <span className="truncate text-sm font-semibold text-slate-900">Help Center</span>
+                  <VerifiedBadge />
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] font-medium uppercase tracking-wide text-slate-500">ocprimes</span>
+                <span className="mt-1 block truncate text-xs text-slate-500">{HELP_CENTER_PREVIEW}</span>
+              </span>
+            </button>
+          </div>
+        ) : null}
         {conversations.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-slate-400">No chats found.</div>
         ) : (

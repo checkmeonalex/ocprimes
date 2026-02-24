@@ -1,5 +1,5 @@
 'use client'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 export default function MobileGallery({
@@ -18,6 +18,11 @@ export default function MobileGallery({
   badgeText = null,
   badgeVariant = 'discount',
 }) {
+  const imageList = useMemo(() => {
+    return Array.isArray(images) ? images : []
+  }, [images])
+  const imageCount = imageList.length
+  const imageSignature = useMemo(() => imageList.join('||'), [imageList])
   const [activeIndex, setActiveIndex] = useState(0)
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const [isClient, setIsClient] = useState(false)
@@ -37,17 +42,18 @@ export default function MobileGallery({
   }
 
   const handleSwipe = () => {
+    if (imageCount <= 1) return
     const delta = touchStartX.current - touchEndX.current
     const threshold = 40
     if (Math.abs(delta) < threshold) return
 
     if (delta > 0) {
       setActiveIndex((prev) => {
-        return (prev + 1) % images.length
+        return (prev + 1) % imageCount
       })
     } else {
       setActiveIndex((prev) => {
-        return prev === 0 ? images.length - 1 : prev - 1
+        return prev === 0 ? imageCount - 1 : prev - 1
       })
     }
   }
@@ -85,14 +91,16 @@ export default function MobileGallery({
   }
 
   const goToPrevious = () => {
+    if (!imageCount) return
     setLightboxCurrentIndex((prev) =>
-      prev === 0 ? images.length - 1 : prev - 1
+      prev === 0 ? imageCount - 1 : prev - 1
     )
   }
 
   const goToNext = () => {
+    if (!imageCount) return
     setLightboxCurrentIndex((prev) =>
-      prev === images.length - 1 ? 0 : prev + 1
+      prev === imageCount - 1 ? 0 : prev + 1
     )
   }
 
@@ -121,19 +129,21 @@ export default function MobileGallery({
   }
 
   useEffect(() => {
-    const currentIndex = currentImage ? images.indexOf(currentImage) : 0
-    if (currentIndex >= 0) {
+    if (!imageCount) return
+    const currentIndex = currentImage ? imageList.indexOf(currentImage) : 0
+    if (currentIndex >= 0 && currentIndex !== activeIndex) {
       setActiveIndex(currentIndex)
     }
-  }, [currentImage, images])
+  }, [activeIndex, currentImage, imageCount, imageSignature])
 
   useEffect(() => {
+    if (!imageCount) return
     if (!setCurrentImage) return
-    const nextImage = images[activeIndex] || images[0]
+    const nextImage = imageList[activeIndex] || imageList[0]
     if (nextImage && nextImage !== currentImage) {
       setCurrentImage(nextImage)
     }
-  }, [activeIndex, currentImage, images, setCurrentImage])
+  }, [activeIndex, currentImage, imageCount, imageSignature, setCurrentImage])
 
   useEffect(() => {
     setIsClient(true)
@@ -170,7 +180,7 @@ export default function MobileGallery({
               className='flex h-full w-full transition-transform duration-300 ease-out'
               style={{ transform: `translateX(-${activeIndex * 100}%)` }}
             >
-              {images.map((imageSrc, index) => (
+              {imageList.map((imageSrc, index) => (
                 <img
                   key={`${imageSrc}-${index}`}
                   src={imageSrc}
@@ -196,7 +206,7 @@ export default function MobileGallery({
           )}
 
           <div className='absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2'>
-            {images.map((_, index) => (
+            {imageList.map((_, index) => (
               <button
                 key={index}
                 type='button'
@@ -239,7 +249,7 @@ export default function MobileGallery({
                 </svg>
               </button>
               <span className='text-lg font-medium'>
-                {lightboxCurrentIndex + 1} of {images.length}
+                {lightboxCurrentIndex + 1} of {imageCount}
               </span>
             </div>
             <button
@@ -327,7 +337,7 @@ export default function MobileGallery({
               style={{ cursor: isLightboxZooming ? 'zoom-out' : 'zoom-in' }}
             >
               <img
-                src={images[lightboxCurrentIndex]}
+                src={imageList[lightboxCurrentIndex]}
                 alt={`${productName} ${lightboxCurrentIndex + 1}`}
                 className='max-w-full max-h-full object-contain transition-transform duration-300'
                 style={

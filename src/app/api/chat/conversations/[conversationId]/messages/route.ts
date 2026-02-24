@@ -9,6 +9,7 @@ import {
   toChatConversationPayload,
   toChatMessagePayload,
 } from '@/lib/chat/chat-server'
+import { notifyVendorOnCustomerChatMessage } from '@/lib/chat/notifications'
 
 export async function GET(
   request: NextRequest,
@@ -118,6 +119,15 @@ export async function POST(
 
     if (insertResult.error || !insertResult.data?.id) {
       return jsonError('Unable to send message.', 500)
+    }
+
+    try {
+      await notifyVendorOnCustomerChatMessage({
+        conversation: conversationResult.data,
+        senderUserId: auth.user.id,
+      })
+    } catch (notificationError) {
+      console.error('chat message vendor notification failed:', notificationError)
     }
 
     const response = jsonOk({

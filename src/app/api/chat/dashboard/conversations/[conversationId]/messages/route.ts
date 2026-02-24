@@ -2,18 +2,20 @@ import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { chatMessageCreateSchema, chatMessagesQuerySchema } from '@/lib/chat/schema'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import {
   getDashboardConversationById,
   insertDashboardMessage,
   listDashboardMessages,
 } from '@/lib/chat/dashboard'
+import { markVendorConversationMessageReceipts } from '@/lib/chat/chat-server'
 
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ conversationId: string }> },
 ) {
   try {
-    const { applyCookies, user, isAdmin, isVendor } = await requireDashboardUser(request)
+    const { applyCookies, user, isAdmin, isVendor, role } = await requireDashboardUser(request)
 
     if (!user?.id) {
       return jsonError('Unauthorized.', 401)
@@ -35,6 +37,17 @@ export async function GET(
 
     if (!conversationResult.data?.id) {
       return jsonError('Conversation not found.', 404)
+    }
+
+    const isConversationVendor =
+      role === 'vendor' &&
+      !isAdmin &&
+      isVendor &&
+      String(conversationResult.data.vendorUserId || '').trim() === String(user.id || '').trim()
+
+    if (isConversationVendor) {
+      const adminDb = createAdminSupabaseClient()
+      await markVendorConversationMessageReceipts(adminDb, conversationId, user.id)
     }
 
     const parsed = chatMessagesQuerySchema.safeParse({
@@ -91,6 +104,10 @@ export async function POST(
 
     if (!conversationResult.data?.id) {
       return jsonError('Conversation not found.', 404)
+    }
+
+    if (isVendor && conversationResult.data.adminTakeoverEnabled) {
+      return jsonError('Admin has taken over this chat. You can no longer send messages.', 403)
     }
 
     const body = await request.json().catch(() => null)

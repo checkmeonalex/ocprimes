@@ -12,6 +12,7 @@ import {
   toChatConversationPayload,
   toChatMessagePayload,
 } from '@/lib/chat/chat-server'
+import { resolveSellerStatusForConversation } from '@/lib/chat/seller-status'
 
 export async function GET(request: NextRequest) {
   try {
@@ -103,10 +104,18 @@ export async function POST(request: NextRequest) {
       return jsonError('Unable to load conversation messages.', 500)
     }
 
+    const sellerStatus = await resolveSellerStatusForConversation({
+      conversationId: conversationResult.data.id,
+      customerUserId: auth.user.id,
+      vendorUserId: vendorResult.vendorUserId,
+    })
+
     const response = jsonOk({
       currentUserId: auth.user.id,
       conversation: toChatConversationPayload(conversationResult.data),
       messages: messagesResult.data.map((row) => toChatMessagePayload(row, auth.user.id)),
+      sellerStatusLabel: sellerStatus.sellerStatusLabel,
+      sellerOnline: sellerStatus.sellerOnline,
     })
     applyCookies(response)
     return response

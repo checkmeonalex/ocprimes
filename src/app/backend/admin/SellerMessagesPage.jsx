@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import AdminSidebar from '@/components/AdminSidebar';
 import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser';
@@ -14,32 +15,63 @@ const FILTER_HANDLERS = {
   favorites: (conversation) => Boolean(conversation.isFavorite),
   groups: (conversation) => Boolean(conversation.isGroup),
 };
+const HELP_CENTER_VIRTUAL_CONVERSATION_ID = '__help_center__';
+const HELP_CENTER_BODY_PROMPT = 'Ask your question and we will help you';
+const ADMIN_EMAIL = 'ocprimes@gmail.com';
 
 const formatTimeLabel = (value) => {
-  if (!value) return '--:--';
+  if (!value) return '';
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '--:--';
+  if (Number.isNaN(parsed.getTime())) return '';
   return parsed.toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
   });
 };
 
+const toEmailAlias = (email) => {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) return '';
+  const [localPart] = normalized.split('@');
+  if (localPart) return localPart;
+  return normalized.replace(/@/g, '');
+};
+
+const normalizeValue = (value) => String(value || '').trim().toLowerCase();
+
 const mapConversation = (row) => {
-  const customerName = String(row?.customerEmail || '').trim() || 'Customer';
+  const customerEmail = String(row?.customerEmail || '').trim();
+  const customerName =
+    String(row?.customerName || '').trim() ||
+    toEmailAlias(customerEmail) ||
+    'Customer';
+  const sellerName =
+    String(row?.vendorName || '').trim() ||
+    'Seller';
   const vendorEmail = String(row?.vendorEmail || '').trim();
   const productId = String(row?.productId || '').trim();
+  const customerUserId = String(row?.customerUserId || '').trim();
+  const vendorUserId = String(row?.vendorUserId || '').trim();
   const lastMessageAt = row?.lastMessageAt || row?.updatedAt || null;
 
   return {
     id: String(row?.id || ''),
+    customerUserId,
+    vendorUserId,
+    customerEmail,
+    vendorEmail,
     customerName,
+    sellerName,
     customerHandle: vendorEmail ? `Vendor: ${vendorEmail}` : 'Vendor chat',
-    online: false,
+    online: Boolean(row?.customerOnline),
+    presenceLabel: String(row?.customerPresenceLabel || '').trim() || 'Last seen recently',
     unreadCount: Math.max(0, Number(row?.unreadCount || 0)),
     isFavorite: false,
     isGroup: false,
     productId,
+    adminTakeoverEnabled: Boolean(row?.adminTakeoverEnabled),
+    adminTakeoverBy: String(row?.adminTakeoverBy || '').trim(),
+    adminTakeoverAt: row?.adminTakeoverAt || null,
     updatedAt: row?.updatedAt || lastMessageAt || new Date().toISOString(),
     lastMessageAtLabel: formatTimeLabel(lastMessageAt),
     lastMessagePreview: String(row?.lastMessagePreview || '').trim() || 'No messages yet.',
@@ -50,11 +82,17 @@ const mapConversation = (row) => {
 const mapMessage = (row, currentUserId, conversation) => {
   const senderUserId = String(row?.senderUserId || '').trim();
   const senderEmail = String(row?.senderEmail || '').trim();
+  const senderName = String(row?.senderName || '').trim();
   const customerName = String(conversation?.customerName || '').trim();
+  const sellerName = String(conversation?.sellerName || '').trim();
+  const customerUserId = String(conversation?.customerUserId || '').trim();
+  const vendorUserId = String(conversation?.vendorUserId || '').trim();
   const resolvedCurrentUserId = String(currentUserId || '').trim();
 
   let isSeller = false;
-  if (senderUserId && resolvedCurrentUserId) {
+  if (senderUserId && customerUserId) {
+    isSeller = senderUserId !== customerUserId;
+  } else if (senderUserId && resolvedCurrentUserId) {
     isSeller = senderUserId === resolvedCurrentUserId;
   } else if (row?.sender === 'self') {
     isSeller = true;
@@ -63,7 +101,14 @@ const mapMessage = (row, currentUserId, conversation) => {
   }
 
   const sender = isSeller ? 'seller' : 'customer';
-  const senderLabel = isSeller ? 'OCPRIMES' : customerName || senderEmail || 'Customer';
+  const isAdminMessage =
+    isSeller && vendorUserId && senderUserId && senderUserId !== vendorUserId;
+  const customerFallback = toEmailAlias(senderEmail) || 'Customer';
+  const senderLabel = isSeller
+    ? isAdminMessage
+      ? 'OCPRIMES'
+      : sellerName || senderEmail || 'Seller'
+    : customerName || senderName || customerFallback;
 
   return {
     id: String(row?.id || ''),
@@ -76,6 +121,7 @@ const mapMessage = (row, currentUserId, conversation) => {
 
 export default function SellerMessagesPage() {
   const supabase = useMemo(() => createBrowserSupabaseClient(), []);
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState('');
   const [searchText, setSearchText] = useState('');
@@ -85,8 +131,33 @@ export default function SellerMessagesPage() {
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isDeletingConversation, setIsDeletingConversation] = useState(false);
+  const [isTogglingTakeover, setIsTogglingTakeover] = useState(false);
   const [pageError, setPageError] = useState('');
   const [currentUserId, setCurrentUserId] = useState('');
+  const [currentRole, setCurrentRole] = useState('');
+  const [isHelpCenterOpen, setIsHelpCenterOpen] = useState(false);
+  const requestedConversationId = useMemo(
+    () => String(searchParams.get('conversation') || '').trim(),
+    [searchParams],
+  );
+  const isHelpCenterEnabled = Boolean(currentRole) && currentRole !== 'admin';
+  const helpCenterTargetConversation = useMemo(
+    () =>
+      conversations.find((conversation) => {
+        const customerEmail = normalizeValue(conversation.customerEmail);
+        const vendorEmail = normalizeValue(conversation.vendorEmail);
+        const customerAlias = normalizeValue(toEmailAlias(conversation.customerEmail));
+        const customerName = normalizeValue(conversation.customerName);
+        return (
+          customerEmail === ADMIN_EMAIL ||
+          vendorEmail === ADMIN_EMAIL ||
+          customerAlias === 'ocprimes' ||
+          customerName === 'ocprimes'
+        );
+      }) || null,
+    [conversations],
+  );
 
   const loadConversations = useCallback(async () => {
     setIsLoadingConversations(true);
@@ -112,15 +183,20 @@ export default function SellerMessagesPage() {
     }
 
     const nextUserId = String(payload?.currentUserId || '').trim();
+    const nextRole = String(payload?.role || '').trim();
     const mapped = Array.isArray(payload?.conversations)
       ? payload.conversations.map(mapConversation).filter((item) => item.id)
       : [];
 
     setCurrentUserId(nextUserId);
+    setCurrentRole(nextRole);
     setConversations(mapped);
+    if (nextRole === 'admin') {
+      setIsHelpCenterOpen(false);
+    }
     setActiveConversationId((previousId) => {
       if (previousId && mapped.some((item) => item.id === previousId)) return previousId;
-      return mapped[0]?.id || '';
+      return '';
     });
     setIsLoadingConversations(false);
   }, []);
@@ -176,7 +252,13 @@ export default function SellerMessagesPage() {
             return previous.map((conversation) => {
               if (conversation.id !== conversationId) return conversation;
 
-              const isSelf = senderUserId === currentUserId;
+              const conversationCustomerUserId = String(conversation.customerUserId || '').trim();
+              const conversationVendorUserId = String(conversation.vendorUserId || '').trim();
+              const isSellerMessage = conversationCustomerUserId
+                ? senderUserId !== conversationCustomerUserId
+                : senderUserId === currentUserId;
+              const isAdminMessage =
+                conversationVendorUserId && senderUserId && senderUserId !== conversationVendorUserId;
               const nextMessages = Array.isArray(conversation.messages)
                 ? conversation.messages.some((message) => message.id === messageId)
                   ? conversation.messages
@@ -184,8 +266,12 @@ export default function SellerMessagesPage() {
                       ...conversation.messages,
                       {
                         id: messageId,
-                        sender: isSelf ? 'seller' : 'customer',
-                        senderLabel: isSelf ? 'OCPRIMES' : conversation.customerName,
+                        sender: isSellerMessage ? 'seller' : 'customer',
+                        senderLabel: isSellerMessage
+                          ? isAdminMessage
+                            ? 'OCPRIMES'
+                            : conversation.sellerName || 'Seller'
+                          : conversation.customerName,
                         text: body,
                         timeLabel: formatTimeLabel(createdAt),
                       },
@@ -199,7 +285,7 @@ export default function SellerMessagesPage() {
                 lastMessageAtLabel: formatTimeLabel(createdAt || new Date().toISOString()),
                 lastMessagePreview: body,
                 unreadCount:
-                  activeConversationId === conversationId || isSelf
+                  activeConversationId === conversationId || isSellerMessage
                     ? conversation.unreadCount
                     : conversation.unreadCount + 1,
               };
@@ -232,6 +318,64 @@ export default function SellerMessagesPage() {
     () => conversations.find((conversation) => conversation.id === activeConversationId) || null,
     [activeConversationId, conversations],
   );
+  const helpCenterConversation = useMemo(
+    () => ({
+      id: HELP_CENTER_VIRTUAL_CONVERSATION_ID,
+      customerUserId: helpCenterTargetConversation?.customerUserId || '',
+      vendorUserId: helpCenterTargetConversation?.vendorUserId || '',
+      customerEmail: helpCenterTargetConversation?.customerEmail || '',
+      vendorEmail: helpCenterTargetConversation?.vendorEmail || '',
+      customerName: 'Help Center',
+      sellerName: 'OCPRIMES',
+      customerHandle: 'ocprimes',
+      online: false,
+      presenceLabel: helpCenterTargetConversation ? 'Available' : 'Connecting...',
+      unreadCount: 0,
+      isFavorite: false,
+      isGroup: false,
+      productId: helpCenterTargetConversation?.productId || '',
+      adminTakeoverEnabled: false,
+      adminTakeoverBy: '',
+      adminTakeoverAt: null,
+      updatedAt: helpCenterTargetConversation?.updatedAt || new Date().toISOString(),
+      lastMessageAtLabel: helpCenterTargetConversation?.lastMessageAtLabel || '',
+      lastMessagePreview: helpCenterTargetConversation?.lastMessagePreview || HELP_CENTER_BODY_PROMPT,
+      messages:
+        Array.isArray(helpCenterTargetConversation?.messages) &&
+        helpCenterTargetConversation.messages.length > 0
+          ? helpCenterTargetConversation.messages
+          : [
+              {
+                id: 'help-center-intro',
+                sender: 'customer',
+                senderLabel: 'Help Center',
+                text: HELP_CENTER_BODY_PROMPT,
+                timeLabel: '',
+              },
+            ],
+      isHelpCenter: true,
+      linkedConversationId: helpCenterTargetConversation?.id || '',
+    }),
+    [helpCenterTargetConversation],
+  );
+  const selectedConversation = isHelpCenterOpen ? helpCenterConversation : activeConversation;
+
+  useEffect(() => {
+    if (!requestedConversationId) return;
+    if (activeConversationId === requestedConversationId) return;
+    const exists = conversations.some((conversation) => conversation.id === requestedConversationId);
+    if (!exists) return;
+
+    setActiveConversationId(requestedConversationId);
+    setIsMobileThreadOpen(true);
+    setConversations((previous) =>
+      previous.map((conversation) =>
+        conversation.id === requestedConversationId
+          ? { ...conversation, unreadCount: 0 }
+          : conversation,
+      ),
+    );
+  }, [activeConversationId, conversations, requestedConversationId]);
 
   const loadMessages = async (conversationId) => {
     if (!conversationId) return;
@@ -262,8 +406,12 @@ export default function SellerMessagesPage() {
     }
 
     const resolvedCurrentUserId = String(payload?.currentUserId || currentUserId || '').trim();
+    const resolvedRole = String(payload?.role || currentRole || '').trim();
     if (resolvedCurrentUserId && resolvedCurrentUserId !== currentUserId) {
       setCurrentUserId(resolvedCurrentUserId);
+    }
+    if (resolvedRole && resolvedRole !== currentRole) {
+      setCurrentRole(resolvedRole);
     }
 
     const selectedConversation =
@@ -280,6 +428,9 @@ export default function SellerMessagesPage() {
         conversation.id === conversationId
           ? {
               ...conversation,
+              adminTakeoverEnabled: Boolean(payload?.conversation?.adminTakeoverEnabled),
+              adminTakeoverBy: String(payload?.conversation?.adminTakeoverBy || '').trim(),
+              adminTakeoverAt: payload?.conversation?.adminTakeoverAt || null,
               messages,
             }
           : conversation,
@@ -297,7 +448,26 @@ export default function SellerMessagesPage() {
     void loadMessages(activeConversationId);
   }, [activeConversationId, conversations]);
 
+  useEffect(() => {
+    if (!isHelpCenterOpen) return;
+    if (!helpCenterTargetConversation?.id) return;
+    if (
+      Array.isArray(helpCenterTargetConversation.messages) &&
+      helpCenterTargetConversation.messages.length > 0
+    ) {
+      return;
+    }
+    void loadMessages(helpCenterTargetConversation.id);
+  }, [helpCenterTargetConversation, isHelpCenterOpen]);
+
   const selectConversation = (conversationId) => {
+    if (conversationId === HELP_CENTER_VIRTUAL_CONVERSATION_ID && isHelpCenterEnabled) {
+      setIsHelpCenterOpen(true);
+      setActiveConversationId('');
+      setIsMobileThreadOpen(true);
+      return;
+    }
+    setIsHelpCenterOpen(false);
     setActiveConversationId(conversationId);
     setIsMobileThreadOpen(true);
     setConversations((previous) =>
@@ -307,15 +477,124 @@ export default function SellerMessagesPage() {
     );
   };
 
+  const deleteActiveConversation = async () => {
+    if (!activeConversationId || isDeletingConversation) return;
+    const selectedConversation = conversations.find(
+      (conversation) => conversation.id === activeConversationId,
+    );
+    const label = String(selectedConversation?.customerName || '').trim() || 'this customer';
+    const confirmed = window.confirm(
+      `Delete this conversation with ${label}? This will remove all messages permanently.`,
+    );
+    if (!confirmed) return;
+
+    setIsDeletingConversation(true);
+    setPageError('');
+
+    const response = await fetch(
+      `/api/chat/dashboard/conversations/${encodeURIComponent(activeConversationId)}`,
+      {
+        method: 'DELETE',
+      },
+    ).catch(() => null);
+
+    if (!response) {
+      setPageError('Unable to delete conversation right now.');
+      setIsDeletingConversation(false);
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      setPageError(String(payload?.error || 'Unable to delete conversation.'));
+      setIsDeletingConversation(false);
+      return;
+    }
+
+    const deletedConversationId = String(
+      payload?.deletedConversationId || activeConversationId,
+    ).trim();
+
+    setConversations((previous) =>
+      previous.filter((conversation) => conversation.id !== deletedConversationId),
+    );
+    setActiveConversationId('');
+    setDraftMessage('');
+    setIsMobileThreadOpen(false);
+    setIsDeletingConversation(false);
+  };
+
+  const toggleAdminTakeover = async () => {
+    if (!activeConversationId || currentRole !== 'admin' || isTogglingTakeover) return;
+    const nextTakeoverState = !Boolean(activeConversation?.adminTakeoverEnabled);
+    const confirmText = nextTakeoverState
+      ? 'Take over this chat? Seller will no longer be able to send messages.'
+      : 'Return access to the seller for this chat?';
+    if (!window.confirm(confirmText)) return;
+
+    setIsTogglingTakeover(true);
+    setPageError('');
+
+    const response = await fetch(
+      `/api/chat/dashboard/conversations/${encodeURIComponent(activeConversationId)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ adminTakeoverEnabled: nextTakeoverState }),
+      },
+    ).catch(() => null);
+
+    if (!response) {
+      setPageError('Unable to update takeover status right now.');
+      setIsTogglingTakeover(false);
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      setPageError(String(payload?.error || 'Unable to update takeover status.'));
+      setIsTogglingTakeover(false);
+      return;
+    }
+
+    const updatedConversationId = String(payload?.conversation?.id || activeConversationId).trim();
+    setConversations((previous) =>
+      previous.map((conversation) =>
+        conversation.id === updatedConversationId
+          ? {
+              ...conversation,
+              adminTakeoverEnabled: Boolean(payload?.conversation?.adminTakeoverEnabled),
+              adminTakeoverBy: String(payload?.conversation?.adminTakeoverBy || '').trim(),
+              adminTakeoverAt: payload?.conversation?.adminTakeoverAt || null,
+            }
+          : conversation,
+      ),
+    );
+    setIsTogglingTakeover(false);
+  };
+
   const sendMessage = async () => {
     const text = draftMessage.trim();
-    if (!text || !activeConversationId || isSending) return;
+    const isVendorTakeoverBlocked =
+      !isHelpCenterOpen && currentRole === 'vendor' && Boolean(activeConversation?.adminTakeoverEnabled);
+    const destinationConversationId = isHelpCenterOpen
+      ? String(helpCenterTargetConversation?.id || '').trim()
+      : String(activeConversationId || '').trim();
+    const destinationConversation = isHelpCenterOpen ? helpCenterTargetConversation : activeConversation;
+    if (!text || !destinationConversationId || isSending || isDeletingConversation || isVendorTakeoverBlocked) {
+      if (text && isHelpCenterOpen && !destinationConversationId) {
+        setPageError('Help Center chat is still connecting. Try again in a moment.');
+      }
+      return;
+    }
 
     setIsSending(true);
     setPageError('');
 
     const response = await fetch(
-      `/api/chat/dashboard/conversations/${encodeURIComponent(activeConversationId)}/messages`,
+      `/api/chat/dashboard/conversations/${encodeURIComponent(destinationConversationId)}/messages`,
       {
         method: 'POST',
         headers: {
@@ -340,11 +619,15 @@ export default function SellerMessagesPage() {
     }
 
     const resolvedCurrentUserId = String(payload?.currentUserId || currentUserId || '').trim();
+    const resolvedRole = String(payload?.role || currentRole || '').trim();
     if (resolvedCurrentUserId && resolvedCurrentUserId !== currentUserId) {
       setCurrentUserId(resolvedCurrentUserId);
     }
+    if (resolvedRole && resolvedRole !== currentRole) {
+      setCurrentRole(resolvedRole);
+    }
 
-    const inserted = mapMessage(payload?.message, resolvedCurrentUserId, activeConversation);
+    const inserted = mapMessage(payload?.message, resolvedCurrentUserId, destinationConversation);
     if (!inserted.id || !inserted.text) {
       setIsSending(false);
       setDraftMessage('');
@@ -353,13 +636,16 @@ export default function SellerMessagesPage() {
 
     setConversations((previous) =>
       previous.map((conversation) => {
-        if (conversation.id !== activeConversationId) return conversation;
+        if (conversation.id !== destinationConversationId) return conversation;
         const alreadyExists = conversation.messages.some((message) => message.id === inserted.id);
         const nextMessages = alreadyExists
           ? conversation.messages
           : [...conversation.messages, inserted];
         return {
           ...conversation,
+          adminTakeoverEnabled: Boolean(payload?.conversation?.adminTakeoverEnabled),
+          adminTakeoverBy: String(payload?.conversation?.adminTakeoverBy || '').trim(),
+          adminTakeoverAt: payload?.conversation?.adminTakeoverAt || null,
           messages: nextMessages,
           updatedAt: payload?.message?.createdAt || new Date().toISOString(),
           lastMessageAtLabel: formatTimeLabel(payload?.message?.createdAt || new Date().toISOString()),
@@ -372,7 +658,7 @@ export default function SellerMessagesPage() {
     setIsSending(false);
   };
 
-  const showThreadOnMobile = Boolean(isMobileThreadOpen && activeConversation);
+  const showThreadOnMobile = Boolean(isMobileThreadOpen && selectedConversation);
 
   return (
     <div className="h-[calc(100dvh-4rem)] overflow-hidden bg-white text-slate-900 lg:h-[100dvh]">
@@ -387,12 +673,17 @@ export default function SellerMessagesPage() {
                   {pageError}
                 </div>
               ) : null}
-              <div className="grid h-full min-h-0 lg:grid-cols-[360px_1fr]">
-                <div className={showThreadOnMobile ? 'hidden lg:block' : 'block'}>
+              <div className="grid h-full min-h-0 grid-rows-[minmax(0,1fr)] lg:grid-cols-[360px_minmax(0,1fr)]">
+                <div
+                  className={`${showThreadOnMobile ? 'hidden lg:block' : 'block'} h-full min-h-0 overflow-hidden`}
+                >
                   <SellerConversationList
                     conversations={filteredConversations}
-                    selectedConversationId={activeConversationId}
+                    selectedConversationId={
+                      isHelpCenterOpen ? HELP_CENTER_VIRTUAL_CONVERSATION_ID : activeConversationId
+                    }
                     onSelectConversation={selectConversation}
+                    showHelpCenter={isHelpCenterEnabled}
                     searchValue={searchText}
                     onSearchChange={setSearchText}
                     activeFilter={activeFilter}
@@ -400,11 +691,13 @@ export default function SellerMessagesPage() {
                   />
                 </div>
 
-                {activeConversation ? (
-                  <div className={showThreadOnMobile ? 'block' : 'hidden lg:block'}>
+                {selectedConversation ? (
+                  <div
+                    className={`${showThreadOnMobile ? 'block' : 'hidden lg:block'} h-full min-h-0 overflow-hidden`}
+                  >
                     <SellerConversationThread
                       conversation={
-                        isLoadingMessages && activeConversation.messages.length === 0
+                        isLoadingMessages && !isHelpCenterOpen && activeConversation?.messages.length === 0
                           ? {
                               ...activeConversation,
                               messages: [
@@ -413,20 +706,32 @@ export default function SellerMessagesPage() {
                                   sender: 'customer',
                                   senderLabel: activeConversation.customerName,
                                   text: 'Loading messages...',
-                                  timeLabel: '--:--',
+                                  timeLabel: '',
                                 },
                               ],
                             }
-                          : activeConversation
+                          : selectedConversation
                       }
                       draftMessage={draftMessage}
                       onDraftMessageChange={setDraftMessage}
                       onSendMessage={sendMessage}
                       onBack={() => setIsMobileThreadOpen(false)}
+                      onDeleteConversation={deleteActiveConversation}
+                      isDeletingConversation={isDeletingConversation}
+                      isVendorTakeoverBlocked={
+                        isHelpCenterOpen
+                          ? false
+                          : currentRole === 'vendor' && Boolean(activeConversation?.adminTakeoverEnabled)
+                      }
+                      isAdmin={currentRole === 'admin'}
+                      onToggleTakeover={toggleAdminTakeover}
+                      isTogglingTakeover={isTogglingTakeover}
                     />
                   </div>
                 ) : (
-                  <SellerConversationPlaceholder />
+                  <div className="h-full min-h-0">
+                    <SellerConversationPlaceholder />
+                  </div>
                 )}
               </div>
             </div>
@@ -437,6 +742,12 @@ export default function SellerMessagesPage() {
           ) : null}
           {isSending ? (
             <div className="px-2 py-2 text-xs text-slate-400">Sending message...</div>
+          ) : null}
+          {isDeletingConversation ? (
+            <div className="px-2 py-2 text-xs text-slate-400">Deleting conversation...</div>
+          ) : null}
+          {isTogglingTakeover ? (
+            <div className="px-2 py-2 text-xs text-slate-400">Updating chat access...</div>
           ) : null}
         </main>
       </div>
