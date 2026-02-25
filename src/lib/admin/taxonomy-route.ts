@@ -27,7 +27,12 @@ export async function listTaxonomy(request: NextRequest, config: TaxonomyConfig)
   if (!canManageCatalog) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db =
+    config.table === 'admin_brands'
+      ? createAdminSupabaseClient()
+      : isAdmin
+        ? supabase
+        : createAdminSupabaseClient()
 
   const parseResult = listQuerySchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),

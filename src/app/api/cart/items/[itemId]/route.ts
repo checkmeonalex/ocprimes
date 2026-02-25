@@ -56,7 +56,15 @@ export async function PATCH(
       return jsonError('Unable to load cart.', 500)
     }
 
-    if (cart.cart_version !== expectedVersion) {
+    const strictConflict = request.headers.get('x-cart-conflict-strict') === '1'
+    const resolvedVersion =
+      cart.cart_version !== expectedVersion
+        ? strictConflict
+          ? null
+          : cart.cart_version
+        : expectedVersion
+
+    if (resolvedVersion === null) {
       return buildConflictResponse(supabase, cart.id, cart.cart_version)
     }
 
@@ -124,7 +132,7 @@ export async function PATCH(
     const nextVersion = await bumpCartVersion(
       supabase,
       cart.id,
-      cart.cart_version,
+      resolvedVersion,
     )
 
     if (idempotencyKey) {

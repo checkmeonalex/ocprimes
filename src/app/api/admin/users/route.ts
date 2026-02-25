@@ -13,14 +13,146 @@ const createAdminUserSchema = z.object({
   brand_name: z.string().trim().min(2).max(120).optional(),
 })
 
+const MAX_AUTH_PAGES = 20
+const AUTH_PAGE_SIZE = 200
+const MISSING_COLUMN_CODE = '42703'
+
+const listUsersFromAdminAuth = async (adminDb: ReturnType<typeof createAdminSupabaseClient>) => {
+  const users: Array<{
+    id: string
+    email: string
+    created_at: string
+    user_metadata?: Record<string, unknown> | null
+  }> = []
+
+  for (let page = 1; page <= MAX_AUTH_PAGES; page += 1) {
+    const { data, error } = await adminDb.auth.admin.listUsers({
+      page,
+      perPage: AUTH_PAGE_SIZE,
+    })
+    if (error) {
+      throw new Error(error.message || 'Unable to list auth users.')
+    }
+    const pageUsers = Array.isArray(data?.users) ? data.users : []
+    if (!pageUsers.length) break
+    pageUsers.forEach((entry) => {
+      users.push({
+        id: String(entry.id || ''),
+        email: String(entry.email || ''),
+        created_at: String(entry.created_at || ''),
+        user_metadata:
+          entry.user_metadata && typeof entry.user_metadata === 'object'
+            ? (entry.user_metadata as Record<string, unknown>)
+            : null,
+      })
+    })
+    if (pageUsers.length < AUTH_PAGE_SIZE) break
+  }
+
+  const userIds = users.map((entry) => entry.id).filter(Boolean)
+  const roleByUserId = new Map<string, string>()
+  const profileByUserId = new Map<string, { full_name: string; role: string }>()
+
+  if (userIds.length) {
+    const [{ data: roleRows, error: roleError }, profileResult] = await Promise.all([
+      adminDb
+        .from('user_roles')
+        .select('user_id, role')
+        .in('user_id', userIds),
+      adminDb.from('profiles').select('id, full_name, role').in('id', userIds),
+    ])
+    if (roleError) {
+      throw new Error(roleError.message || 'Unable to load user roles.')
+    }
+
+    let profileRows: Array<{ id?: string; full_name?: string; role?: string }> = []
+    const profileErrorCode = String((profileResult.error as { code?: string } | null)?.code || '')
+    if (profileResult.error && profileErrorCode !== MISSING_COLUMN_CODE) {
+      throw new Error(profileResult.error.message || 'Unable to load user profiles.')
+    }
+    if (!profileResult.error) {
+      profileRows = Array.isArray(profileResult.data)
+        ? (profileResult.data as Array<{ id?: string; full_name?: string; role?: string }>)
+        : []
+    } else {
+      const fallbackProfileRes = await adminDb.from('profiles').select('id, role').in('id', userIds)
+      if (fallbackProfileRes.error) {
+        throw new Error(fallbackProfileRes.error.message || 'Unable to load user profiles.')
+      }
+      profileRows = Array.isArray(fallbackProfileRes.data)
+        ? (fallbackProfileRes.data as Array<{ id?: string; role?: string }>)
+        : []
+    }
+
+    ;(Array.isArray(roleRows) ? roleRows : []).forEach((row) => {
+      const userId = String((row as { user_id?: string }).user_id || '').trim()
+      if (!userId || roleByUserId.has(userId)) return
+      roleByUserId.set(userId, String((row as { role?: string }).role || '').trim().toLowerCase())
+    })
+    ;(profileRows || []).forEach((row) => {
+      const userId = String((row as { id?: string }).id || '').trim()
+      if (!userId || profileByUserId.has(userId)) return
+      profileByUserId.set(userId, {
+        full_name: String((row as { full_name?: string }).full_name || '').trim(),
+        role: String((row as { role?: string }).role || '').trim().toLowerCase(),
+      })
+    })
+  }
+
+  const items = users.map((entry) => {
+    const profile = profileByUserId.get(entry.id)
+    const metadataProfile =
+      entry.user_metadata?.profile && typeof entry.user_metadata.profile === 'object'
+        ? (entry.user_metadata.profile as Record<string, unknown>)
+        : {}
+    const metadataContact =
+      metadataProfile?.contactInfo && typeof metadataProfile.contactInfo === 'object'
+        ? (metadataProfile.contactInfo as Record<string, unknown>)
+        : {}
+    const metadataName = String(
+      entry.user_metadata?.full_name || metadataContact?.fullName || metadataProfile?.full_name || '',
+    ).trim()
+    const role =
+      roleByUserId.get(entry.id) ||
+      String(profile?.role || '').trim().toLowerCase() ||
+      'customer'
+    return {
+      id: entry.id,
+      email: entry.email,
+      full_name: metadataName || String(profile?.full_name || '').trim(),
+      role,
+      created_at: entry.created_at,
+    }
+  })
+
+  return items.sort((a, b) => {
+    const left = new Date(a.created_at || '').getTime()
+    const right = new Date(b.created_at || '').getTime()
+    return right - left
+  })
+}
+
 export async function GET(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { applyCookies, isAdmin } = await requireAdmin(request)
 
   if (!isAdmin) {
     return jsonError('Forbidden.', 403)
   }
 
-  const { data, error } = await supabase.rpc('list_admin_users')
+  let data: unknown[] | null = null
+  let error: { message?: string } | null = null
+  try {
+    const adminDb = createAdminSupabaseClient()
+    const rpcResponse = await adminDb.rpc('list_admin_users')
+    if (!rpcResponse.error) {
+      data = (rpcResponse.data as unknown[] | null) ?? []
+    } else {
+      const fallback = await listUsersFromAdminAuth(adminDb)
+      data = fallback
+    }
+  } catch (clientError) {
+    error = { message: (clientError as Error)?.message || 'Admin client unavailable.' }
+  }
 
   if (error) {
     console.error('Admin users fetch failed:', error.message)

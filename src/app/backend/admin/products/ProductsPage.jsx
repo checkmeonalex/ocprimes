@@ -137,6 +137,7 @@ function WooCommerceProductsPage() {
   const [previewProduct, setPreviewProduct] = useState(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [actionMenuId, setActionMenuId] = useState(null);
+  const [productActionState, setProductActionState] = useState({ productId: '', action: '' });
   const [duplicatingProductId, setDuplicatingProductId] = useState(null);
   const [duplicateProgressMessage, setDuplicateProgressMessage] = useState('');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -362,13 +363,22 @@ function WooCommerceProductsPage() {
 
   const handleProductAction = useCallback(
     async (product, action) => {
+      const targetId = String(product?.id || '');
+      if (!targetId || productActionState.productId) return;
+      setProductActionState({ productId: targetId, action: String(action || '') });
       try {
         const updates = {};
         if (action === 'out_of_stock') updates.stock_quantity = 0;
         if (action === 'draft') updates.status = 'draft';
+        if (action === 'go_live') updates.status = 'publish';
         if (action === 'delete') {
           await deleteProduct({ id: product.id });
           setProducts((prev) => prev.filter((item) => item.id !== product.id));
+          pushAlert({
+            type: 'success',
+            title: 'Product removed',
+            message: 'Product deleted permanently.',
+          });
         } else {
           const updated = await updateProduct({
             id: product.id,
@@ -377,14 +387,31 @@ function WooCommerceProductsPage() {
           setProducts((prev) =>
             prev.map((item) => (item.id === product.id ? { ...item, ...updated } : item)),
           );
+          if (action === 'go_live') {
+            const finalStatus = String(updated?.status || '').trim().toLowerCase();
+            if (finalStatus === 'publish') {
+              pushAlert({
+                type: 'success',
+                title: 'Product is live',
+                message: 'Product has been published successfully.',
+              });
+            } else {
+              pushAlert({
+                type: 'info',
+                title: 'Publish submitted',
+                message: 'Product is awaiting admin review and remains in draft.',
+              });
+            }
+          }
         }
       } catch (err) {
         notifyError(err?.message || 'Unable to update product.');
       } finally {
+        setProductActionState({ productId: '', action: '' });
         setActionMenuId(null);
       }
     },
-    [notifyError],
+    [notifyError, productActionState.productId, pushAlert],
   );
 
   const handleBulkAction = useCallback(
@@ -1245,6 +1272,11 @@ function WooCommerceProductsPage() {
                       const imageUrl = getPrimaryImage(product);
                       const stockMeta = getStockMeta(product, lowStockThreshold);
                       const statusBadge = getProductStatusBadge(product.status);
+                      const productStatus = String(product?.status || '').trim().toLowerCase();
+                      const isDraftProduct = productStatus === 'draft';
+                      const isGoLivePending =
+                        productActionState.productId === String(product.id) &&
+                        productActionState.action === 'go_live';
                       return (
                         <div
                           key={product.id}
@@ -1397,17 +1429,35 @@ function WooCommerceProductsPage() {
                                         onTouchEnd={handleActionSheetTouchEnd}
                                       />
                                       <div className="max-h-[72vh] space-y-1 overflow-y-auto pb-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleProductAction(product, 'out_of_stock')}
-                                        className="flex w-full items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-slate-700 transition active:bg-slate-100 [WebkitTapHighlightColor:rgba(15,23,42,0.14)]"
-                                      >
-                                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                                          <path d="M4 12h16" />
-                                          <path d="M12 4v16" />
-                                        </svg>
-                                        Mark out of stock
-                                      </button>
+                                      {isDraftProduct ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleProductAction(product, 'go_live')}
+                                          disabled={isGoLivePending}
+                                          className="flex w-full items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-slate-700 transition active:bg-slate-100 disabled:opacity-60 [WebkitTapHighlightColor:rgba(15,23,42,0.14)]"
+                                        >
+                                          {isGoLivePending ? (
+                                            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
+                                          ) : (
+                                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                                              <path d="M8 5v14l11-7-11-7Z" />
+                                            </svg>
+                                          )}
+                                          {isGoLivePending ? 'Going live...' : 'Go Live'}
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleProductAction(product, 'out_of_stock')}
+                                          className="flex w-full items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-slate-700 transition active:bg-slate-100 [WebkitTapHighlightColor:rgba(15,23,42,0.14)]"
+                                        >
+                                          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M4 12h16" />
+                                            <path d="M12 4v16" />
+                                          </svg>
+                                          Mark out of stock
+                                        </button>
+                                      )}
                                       <button
                                         type="button"
                                         onClick={() => handleViewOnStorefront(product)}
@@ -1465,18 +1515,20 @@ function WooCommerceProductsPage() {
                                         </svg>
                                         Add to menu
                                       </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleProductAction(product, 'draft')}
-                                        className="flex w-full items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-slate-700 transition active:bg-slate-100 [WebkitTapHighlightColor:rgba(15,23,42,0.14)]"
-                                      >
-                                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                                          <path d="M4 6h16" />
-                                          <path d="M4 12h10" />
-                                          <path d="M4 18h8" />
-                                        </svg>
-                                        Move to draft
-                                      </button>
+                                      {!isDraftProduct ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleProductAction(product, 'draft')}
+                                          className="flex w-full items-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold text-slate-700 transition active:bg-slate-100 [WebkitTapHighlightColor:rgba(15,23,42,0.14)]"
+                                        >
+                                          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M4 6h16" />
+                                            <path d="M4 12h10" />
+                                            <path d="M4 18h8" />
+                                          </svg>
+                                          Move to draft
+                                        </button>
+                                      ) : null}
                                       <button
                                         type="button"
                                         onClick={() => handleProductAction(product, 'delete')}
@@ -1496,17 +1548,35 @@ function WooCommerceProductsPage() {
                                   </div>
 
                                   <div className="absolute right-0 top-10 z-20 hidden w-52 rounded-2xl border border-slate-200 bg-white p-2 text-xs shadow-xl sm:block">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleProductAction(product, 'out_of_stock')}
-                                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-slate-700 transition hover:bg-white active:bg-slate-100 [WebkitTapHighlightColor:rgba(15,23,42,0.14)]"
-                                    >
-                                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M4 12h16" />
-                                        <path d="M12 4v16" />
-                                      </svg>
-                                      Mark out of stock
-                                    </button>
+                                    {isDraftProduct ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleProductAction(product, 'go_live')}
+                                        disabled={isGoLivePending}
+                                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-slate-700 transition hover:bg-white active:bg-slate-100 disabled:opacity-60 [WebkitTapHighlightColor:rgba(15,23,42,0.14)]"
+                                      >
+                                        {isGoLivePending ? (
+                                          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
+                                        ) : (
+                                          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M8 5v14l11-7-11-7Z" />
+                                          </svg>
+                                        )}
+                                        {isGoLivePending ? 'Going live...' : 'Go Live'}
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleProductAction(product, 'out_of_stock')}
+                                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-slate-700 transition hover:bg-white active:bg-slate-100 [WebkitTapHighlightColor:rgba(15,23,42,0.14)]"
+                                      >
+                                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <path d="M4 12h16" />
+                                          <path d="M12 4v16" />
+                                        </svg>
+                                        Mark out of stock
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
                                       onClick={() => handleViewOnStorefront(product)}
@@ -1564,18 +1634,20 @@ function WooCommerceProductsPage() {
                                       </svg>
                                       Add to menu
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleProductAction(product, 'draft')}
-                                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-slate-700 transition hover:bg-white active:bg-slate-100 [WebkitTapHighlightColor:rgba(15,23,42,0.14)]"
-                                    >
-                                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M4 6h16" />
-                                        <path d="M4 12h10" />
-                                        <path d="M4 18h8" />
-                                      </svg>
-                                      Move to draft
-                                    </button>
+                                    {!isDraftProduct ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleProductAction(product, 'draft')}
+                                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-slate-700 transition hover:bg-white active:bg-slate-100 [WebkitTapHighlightColor:rgba(15,23,42,0.14)]"
+                                      >
+                                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                                          <path d="M4 6h16" />
+                                          <path d="M4 12h10" />
+                                          <path d="M4 18h8" />
+                                        </svg>
+                                        Move to draft
+                                      </button>
+                                    ) : null}
                                     <button
                                       type="button"
                                       onClick={() => handleProductAction(product, 'delete')}

@@ -371,6 +371,8 @@ export default function Navbar() {
   const showDashboardPrimaryBar = lastScrollY < 20
   const checkoutCurrentStep = isCartRoute
     ? 'account'
+    : pathname?.startsWith('/checkout/awaiting-payment')
+      ? 'review'
     : pathname?.startsWith('/checkout/review')
       ? 'review'
       : pathname?.startsWith('/checkout/payment')
@@ -383,6 +385,8 @@ export default function Navbar() {
   )
   const checkoutBackHref = isCartRoute
     ? '/'
+    : pathname?.startsWith('/checkout/awaiting-payment')
+      ? '/checkout/payment'
     : pathname?.startsWith('/checkout/review')
       ? '/checkout/payment'
       : pathname?.startsWith('/checkout/payment')

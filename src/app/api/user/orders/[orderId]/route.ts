@@ -3,6 +3,9 @@ import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { isReturnPolicyDisabled, normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
 
+const PAYMENT_WINDOW_MINUTES = 2
+const PAYMENT_WINDOW_MS = PAYMENT_WINDOW_MINUTES * 60 * 1000
+
 const getManualStatus = (shippingAddress: Record<string, unknown>) =>
   String(
     shippingAddress?.orderStatus ||
@@ -13,19 +16,34 @@ const getManualStatus = (shippingAddress: Record<string, unknown>) =>
     .trim()
     .toLowerCase()
 
-const toStatusKey = (paymentStatus: string, shippingAddress: Record<string, unknown>) => {
+const isPendingExpired = (paymentStatus: string, createdAt: unknown) => {
+  const normalized = String(paymentStatus || '').toLowerCase()
+  if (normalized !== 'pending') return false
+  const createdAtMs = new Date(String(createdAt || '')).getTime()
+  if (!Number.isFinite(createdAtMs)) return false
+  return Date.now() - createdAtMs >= PAYMENT_WINDOW_MS
+}
+
+const toStatusKey = (
+  paymentStatus: string,
+  shippingAddress: Record<string, unknown>,
+  createdAt: unknown,
+) => {
   const manual = getManualStatus(shippingAddress)
   if (manual === 'delivered') return 'delivered'
   if (manual === 'out_for_delivery') return 'out_for_delivery'
   if (manual === 'processing') return 'processing'
   if (manual === 'cancelled') return 'cancelled'
   if (manual === 'pending') return 'pending'
+  if (manual === 'awaiting_payment') return 'awaiting_payment'
   if (manual === 'failed') return 'failed'
+  if (isPendingExpired(paymentStatus, createdAt)) return 'failed'
 
   const normalized = String(paymentStatus || '').toLowerCase()
   if (normalized === 'paid') return 'delivered'
   if (normalized === 'failed') return 'failed'
   if (normalized === 'cancelled') return 'cancelled'
+  if (normalized === 'pending') return 'awaiting_payment'
   return 'pending'
 }
 
@@ -34,9 +52,11 @@ const toStatusLabel = (statusKey: string) => {
   if (normalized === 'delivered') return 'Completed'
   if (normalized === 'out_for_delivery') return 'Out for delivery'
   if (normalized === 'processing') return 'Processing'
+  if (normalized === 'pending') return 'Pending'
+  if (normalized === 'awaiting_payment') return 'Awaiting Payment'
   if (normalized === 'cancelled') return 'Cancelled'
-  if (normalized === 'failed') return 'Failed'
-  return 'Awaiting Payment'
+  if (normalized === 'failed') return 'Payment Failed'
+  return 'Pending'
 }
 
 type BrandLinkRow = {
@@ -164,7 +184,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
   }
 
   const shippingAddress = (orderRow.shipping_address || {}) as Record<string, unknown>
-  const statusKey = toStatusKey(String(orderRow.payment_status || ''), shippingAddress)
+  const statusKey = toStatusKey(
+    String(orderRow.payment_status || ''),
+    shippingAddress,
+    orderRow.created_at,
+  )
   const contactPhone = String(
     shippingAddress?.phone ||
       shippingAddress?.phoneNumber ||

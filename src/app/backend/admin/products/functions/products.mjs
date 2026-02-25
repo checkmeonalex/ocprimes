@@ -158,7 +158,11 @@ export const createProduct = async ({ form }) => {
     const message = resolveApiErrorMessage(result, 'Unable to save product.');
     throw new Error(message);
   }
-  return result?.item || result?.product || result;
+  const item = result?.item || result?.product || result;
+  if (item && result?.publish_meta && typeof item === 'object') {
+    return { ...item, __publishMeta: result.publish_meta };
+  }
+  return item;
 };
 
 export const updateProduct = async ({ id, updates }) => {
@@ -175,7 +179,11 @@ export const updateProduct = async ({ id, updates }) => {
     const message = resolveApiErrorMessage(result, 'Unable to update product.');
     throw new Error(message);
   }
-  return result?.item || result?.product || result;
+  const item = result?.item || result?.product || result;
+  if (item && result?.publish_meta && typeof item === 'object') {
+    return { ...item, __publishMeta: result.publish_meta };
+  }
+  return item;
 };
 
 export const deleteProduct = async ({ id }) => {

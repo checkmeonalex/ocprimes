@@ -28,6 +28,9 @@ type VendorItemUpdateRow = {
   created_at: string
 }
 
+const PAYMENT_WINDOW_MINUTES = 2
+const PAYMENT_WINDOW_MS = PAYMENT_WINDOW_MINUTES * 60 * 1000
+
 const orderIdParamsSchema = z.object({
   orderId: z.string().trim().min(1),
 })
@@ -70,7 +73,15 @@ const getManualStatus = (shippingAddress: AnyRecord) =>
     .trim()
     .toLowerCase()
 
-const normalizeStatus = (paymentStatus: string, shippingAddress: AnyRecord) => {
+const isPendingExpired = (paymentStatus: string, createdAt: unknown) => {
+  const normalized = String(paymentStatus || '').trim().toLowerCase()
+  if (normalized !== 'pending') return false
+  const createdMs = new Date(String(createdAt || '')).getTime()
+  if (!Number.isFinite(createdMs)) return false
+  return Date.now() - createdMs >= PAYMENT_WINDOW_MS
+}
+
+const normalizeStatus = (paymentStatus: string, shippingAddress: AnyRecord, createdAt: unknown) => {
   const manual = getManualStatus(shippingAddress)
   if (manual === 'pending') return 'pending'
   if (manual === 'awaiting_payment') return 'awaiting_payment'
@@ -81,10 +92,13 @@ const normalizeStatus = (paymentStatus: string, shippingAddress: AnyRecord) => {
   if (manual === 'processing') return 'processing'
   if (manual === 'refunded') return 'refunded'
   if (manual === 'cancelled') return 'cancelled'
+  if (isPendingExpired(paymentStatus, createdAt)) return 'payment_failed'
 
   const pay = String(paymentStatus || '').trim().toLowerCase()
   if (pay === 'paid') return 'pending'
   if (pay === 'failed') return 'payment_failed'
+  if (pay === 'cancelled') return 'cancelled'
+  if (pay === 'refunded') return 'refunded'
   return 'awaiting_payment'
 }
 
@@ -370,7 +384,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
     })
   }
 
-  const status = normalizeStatus(String(orderRow.payment_status || ''), shippingAddress)
+  const status = normalizeStatus(
+    String(orderRow.payment_status || ''),
+    shippingAddress,
+    orderRow.created_at,
+  )
   const itemCount = Math.max(1, Number(orderRow.item_count || itemRows?.length || 1))
   const customerName = buildName(
     shippingAddress,
@@ -491,7 +509,11 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
       ? 'Paid'
       : paymentStatusNormalized === 'failed'
         ? 'Failed'
-        : 'Awaiting Payment'
+        : paymentStatusNormalized === 'cancelled'
+          ? 'Cancelled'
+          : paymentStatusNormalized === 'refunded'
+            ? 'Refunded'
+            : 'Awaiting Payment'
   const totalSpent = (Array.isArray(spendRowsQuery.data) ? (spendRowsQuery.data as CustomerSpendRow[]) : []).reduce(
     (sum, row) => sum + toNumberSafe(row?.total_amount),
     0,

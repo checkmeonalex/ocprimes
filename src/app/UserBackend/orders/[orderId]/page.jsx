@@ -5,6 +5,11 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
+import {
+  getCustomerOrderStatusLabel,
+  getCustomerOrderStatusMessage,
+  normalizeCustomerOrderStatusKey,
+} from '@/lib/orders/customer-status'
 
 const formatDate = (value) => {
   const timestamp = new Date(value || '').getTime()
@@ -43,6 +48,7 @@ const buildTrackingSteps = (statusKey) => {
   if (status === 'delivered' || status === 'completed') activeCount = steps.length
   if (status === 'out_for_delivery') activeCount = 5
   if (status === 'processing') activeCount = 4
+  if (status === 'awaiting_payment') activeCount = 2
   if (status === 'pending') activeCount = 3
   if (status === 'failed' || status === 'cancelled') activeCount = 1
 
@@ -103,22 +109,32 @@ export default function OrderDetailsPage() {
   }, [orderId, router])
 
   const statusTone = useMemo(() => {
-    const status = String(order?.statusKey || '').toLowerCase()
+    const status = normalizeCustomerOrderStatusKey(order?.statusKey || order?.status)
     if (status === 'delivered') return 'bg-emerald-100 text-emerald-700'
     if (status === 'out_for_delivery') return 'bg-indigo-100 text-indigo-700'
+    if (status === 'awaiting_payment') return 'bg-amber-100 text-amber-700'
     if (status === 'processing' || status === 'pending') return 'bg-amber-100 text-amber-700'
     if (status === 'failed') return 'bg-rose-100 text-rose-700'
     if (status === 'cancelled') return 'bg-slate-200 text-slate-700'
     return 'bg-amber-100 text-amber-700'
-  }, [order?.statusKey])
+  }, [order?.statusKey, order?.status])
+
+  const statusLabel = useMemo(
+    () => getCustomerOrderStatusLabel(order?.statusKey || order?.status),
+    [order?.statusKey, order?.status],
+  )
+
+  const statusMessage = useMemo(
+    () => getCustomerOrderStatusMessage(order?.statusKey || order?.status),
+    [order?.statusKey, order?.status],
+  )
 
   const primaryActionLabel = useMemo(() => {
-    const status = String(order?.paymentStatus || '').toLowerCase()
-    if (status === 'paid') return 'Track Order'
-    if (status === 'pending') return 'Proceed to Payment'
+    const status = String(order?.statusKey || '').toLowerCase()
+    if (status === 'awaiting_payment') return 'Proceed to Payment'
     if (status === 'failed' || status === 'cancelled') return 'Retry Payment'
-    return 'Proceed to Payment'
-  }, [order?.paymentStatus])
+    return 'Track Order'
+  }, [order?.statusKey])
 
   const canReviewOrder = useMemo(() => {
     const status = String(order?.paymentStatus || '').toLowerCase()
@@ -132,8 +148,8 @@ export default function OrderDetailsPage() {
   const hasOrderProtection = useMemo(() => Number(order?.protectionFee || 0) > 0, [order?.protectionFee])
 
   const handlePrimaryAction = () => {
-    const status = String(order?.paymentStatus || '').toLowerCase()
-    if (status === 'paid') {
+    const status = String(order?.statusKey || '').toLowerCase()
+    if (status !== 'awaiting_payment' && status !== 'failed' && status !== 'cancelled') {
       router.push('/UserBackend/orders')
       return
     }
@@ -237,9 +253,10 @@ export default function OrderDetailsPage() {
                   <p className='mt-0.5 text-xs text-slate-500'>{formatDateTimeLabel(order.createdAt)}</p>
                 </div>
                 <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusTone}`}>
-                  {order.status}
+                  {statusLabel}
                 </span>
               </div>
+              <p className='px-4 pb-2 text-xs text-slate-500'>{statusMessage}</p>
 
               <div className='border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500'>Order info</div>
               <div>
@@ -433,9 +450,10 @@ export default function OrderDetailsPage() {
                   <div className='flex items-center justify-between'>
                     <p className='text-slate-500'>Status:</p>
                     <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusTone}`}>
-                      {order.status}
+                      {statusLabel}
                     </span>
                   </div>
+                  <p className='mt-1 text-xs text-slate-500'>{statusMessage}</p>
                 </div>
 
                 <div className='mt-1 space-y-1 text-sm'>

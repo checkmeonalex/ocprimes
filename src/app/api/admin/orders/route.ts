@@ -7,6 +7,8 @@ import { loadVendorOrderIds, loadVendorProductIds } from '@/lib/orders/vendor-sc
 
 const DEFAULT_PER_PAGE = 10
 const MAX_PER_PAGE = 50
+const PAYMENT_WINDOW_MINUTES = 2
+const PAYMENT_WINDOW_MS = PAYMENT_WINDOW_MINUTES * 60 * 1000
 const VALID_STATUSES = new Set([
   'pending',
   'awaiting_payment',
@@ -48,13 +50,28 @@ const getManualStatus = (shippingAddress: Record<string, unknown>) =>
     .trim()
     .toLowerCase()
 
-const deriveStatus = (paymentStatus: string, shippingAddress: Record<string, unknown>) => {
+const isPendingExpired = (paymentStatus: string, createdAt: unknown) => {
+  const normalized = String(paymentStatus || '').trim().toLowerCase()
+  if (normalized !== 'pending') return false
+  const createdMs = new Date(String(createdAt || '')).getTime()
+  if (!Number.isFinite(createdMs)) return false
+  return Date.now() - createdMs >= PAYMENT_WINDOW_MS
+}
+
+const deriveStatus = (
+  paymentStatus: string,
+  shippingAddress: Record<string, unknown>,
+  createdAt: unknown,
+) => {
   const stored = getManualStatus(shippingAddress)
   if (VALID_STATUSES.has(stored)) return stored
+  if (isPendingExpired(paymentStatus, createdAt)) return 'payment_failed'
 
   const pay = String(paymentStatus || '').trim().toLowerCase()
   if (pay === 'paid') return 'pending'
   if (pay === 'failed') return 'payment_failed'
+  if (pay === 'cancelled') return 'cancelled'
+  if (pay === 'refunded') return 'refunded'
   return 'awaiting_payment'
 }
 
@@ -86,6 +103,8 @@ const resolvePaymentText = (paymentStatus: string) => {
   if (status === 'paid') return 'Paid online'
   if (status === 'pending') return 'Awaiting Payment'
   if (status === 'failed') return 'Payment failed'
+  if (status === 'cancelled') return 'Payment cancelled'
+  if (status === 'refunded') return 'Payment refunded'
   return 'Payment'
 }
 
@@ -183,7 +202,11 @@ export async function GET(request: NextRequest) {
 
       const statusFilteredRows = (Array.isArray(scopedOrderRows) ? scopedOrderRows : []).filter((row: any) => {
         const shippingAddress = parseAddressJson(row?.shipping_address)
-        const status = deriveStatus(String(row?.payment_status || ''), shippingAddress)
+        const status = deriveStatus(
+          String(row?.payment_status || ''),
+          shippingAddress,
+          row?.created_at,
+        )
         return statusFilter === 'all' ? true : status === statusFilter
       })
 
@@ -225,7 +248,11 @@ export async function GET(request: NextRequest) {
 
       const mapped = pageRows.map((row: any) => {
         const shippingAddress = parseAddressJson(row.shipping_address)
-        const status = deriveStatus(String(row.payment_status || ''), shippingAddress)
+        const status = deriveStatus(
+          String(row.payment_status || ''),
+          shippingAddress,
+          row.created_at,
+        )
         const items = itemsByOrderId.get(String(row.id)) || []
         const firstItem = items[0]
         const scopedAmount = items.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0)
@@ -319,7 +346,11 @@ export async function GET(request: NextRequest) {
   const mapped = rows
     .map((row: any) => {
       const shippingAddress = parseAddressJson(row.shipping_address)
-      const status = deriveStatus(String(row.payment_status || ''), shippingAddress)
+      const status = deriveStatus(
+        String(row.payment_status || ''),
+        shippingAddress,
+        row.created_at,
+      )
       const items = itemsByOrderId.get(String(row.id)) || []
       const firstItem = items[0]
       return {
@@ -376,7 +407,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: existingOrder, error: existingError } = await adminDb
     .from('checkout_orders')
-    .select('id, user_id, order_number, payment_status, shipping_address')
+    .select('id, user_id, order_number, payment_status, shipping_address, created_at')
     .eq('id', orderId)
     .maybeSingle()
 
@@ -387,7 +418,11 @@ export async function PATCH(request: NextRequest) {
   }
 
   const shippingAddress = parseAddressJson(existingOrder.shipping_address)
-  const previousStatus = deriveStatus(String(existingOrder.payment_status || ''), shippingAddress)
+  const previousStatus = deriveStatus(
+    String(existingOrder.payment_status || ''),
+    shippingAddress,
+    existingOrder.created_at,
+  )
   const hasStatusChanged = previousStatus !== nextStatus
   const nextShippingAddress = {
     ...shippingAddress,

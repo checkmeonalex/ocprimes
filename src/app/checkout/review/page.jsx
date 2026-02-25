@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 
 const formatShipRange = (createdAt) => {
@@ -27,6 +27,7 @@ const formatShipRange = (createdAt) => {
 }
 
 export default function CheckoutReviewPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const { formatMoney } = useUserI18n()
   const reference = String(
@@ -65,9 +66,11 @@ export default function CheckoutReviewPage() {
         }
 
         if (!response.ok || !payload?.order) {
-          setError(payload?.error || 'Unable to confirm payment.')
-          setOrder(null)
-          setIsLoading(false)
+          const failedParams = new URLSearchParams()
+          failedParams.set('source', 'review')
+          failedParams.set('reason', String(payload?.error || 'Unable to confirm payment.'))
+          if (reference) failedParams.set('reference', reference)
+          router.replace(`/checkout/payment-failed?${failedParams.toString()}`)
           return
         }
 
@@ -79,9 +82,11 @@ export default function CheckoutReviewPage() {
         await runVerifyAttempt()
       } catch {
         if (!cancelled) {
-          setError('Unable to confirm payment.')
-          setOrder(null)
-          setIsLoading(false)
+          const failedParams = new URLSearchParams()
+          failedParams.set('source', 'review')
+          failedParams.set('reason', 'Unable to confirm payment.')
+          if (reference) failedParams.set('reference', reference)
+          router.replace(`/checkout/payment-failed?${failedParams.toString()}`)
         }
       }
     }
@@ -90,7 +95,7 @@ export default function CheckoutReviewPage() {
     return () => {
       cancelled = true
     }
-  }, [reference])
+  }, [reference, router])
 
   const shippingWindow = useMemo(() => formatShipRange(order?.createdAt), [order?.createdAt])
   const shippingAddressLine = useMemo(() => {

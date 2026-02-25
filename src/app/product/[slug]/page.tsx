@@ -218,6 +218,11 @@ const extractAttributeValue = (
 
 const mapApiProduct = (item: any) => {
   if (!item) return null
+  const rawTags = Array.isArray(item.tags)
+    ? item.tags
+    : Array.isArray(item.admin_tags)
+      ? item.admin_tags
+      : []
   const images = Array.isArray(item.images) ? item.images : []
   const imageUrls = images.map((image) => image?.url).filter(Boolean)
   const basePrice = Number(item.price) || 0
@@ -303,9 +308,9 @@ const mapApiProduct = (item: any) => {
     image: fallbackImage,
     gallery: imageUrls.length ? imageUrls : fallbackImage ? [fallbackImage] : [],
     stock: Number.isFinite(Number(item.stock_quantity)) ? Number(item.stock_quantity) : 0,
-    tags: Array.isArray(item.tags) ? item.tags.map((tag: any) => tag?.name).filter(Boolean) : [],
-    tagLinks: Array.isArray(item.tags)
-      ? item.tags
+    tags: rawTags.map((tag: any) => tag?.name).filter(Boolean),
+    tagLinks: rawTags.length
+      ? rawTags
           .map((tag: any) => {
             const name = String(tag?.name || '').trim()
             if (!name) return null

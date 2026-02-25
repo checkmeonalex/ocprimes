@@ -10,7 +10,7 @@ const verifyPayloadSchema = z.object({
   reference: z.string().trim().min(1, 'Payment reference is required.'),
 })
 
-const PAYMENT_WINDOW_MINUTES = 30
+const PAYMENT_WINDOW_MINUTES = 2
 const PAYMENT_WINDOW_MS = PAYMENT_WINDOW_MINUTES * 60 * 1000
 
 type CheckoutOrderRow = {
@@ -219,16 +219,16 @@ export async function POST(request: NextRequest) {
   if (paymentStatus === 'pending' && expiry.isExpired && adminDb) {
     const cancelUpdate = await adminDb
       .from('checkout_orders')
-      .update({ payment_status: 'cancelled', updated_at: new Date().toISOString() })
+      .update({ payment_status: 'failed', updated_at: new Date().toISOString() })
       .eq('id', orderRow.id)
       .select('*')
       .single()
 
     if (!cancelUpdate.error && cancelUpdate.data?.id) {
       orderRow = cancelUpdate.data as CheckoutOrderRow
-      paymentStatus = 'cancelled'
+      paymentStatus = 'failed'
     } else {
-      paymentStatus = 'cancelled'
+      paymentStatus = 'failed'
     }
   }
 
@@ -316,8 +316,8 @@ export async function POST(request: NextRequest) {
 
   if (paymentStatus === 'failed' || paymentStatus === 'cancelled' || paymentStatus === 'refunded') {
     const response = jsonError(
-      paymentStatus === 'cancelled'
-        ? 'Payment window expired. This order has been cancelled.'
+      paymentStatus === 'failed'
+        ? 'Payment window expired. This order payment failed.'
         : 'Payment was not successful.',
       402,
     )

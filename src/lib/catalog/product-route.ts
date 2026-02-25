@@ -6,7 +6,7 @@ import { publicProductListSchema, publicProductSlugSchema } from '@/lib/catalog/
 import {
   findSeedProduct,
 } from '@/lib/catalog/seed-products'
-import { getUserRole } from '@/lib/auth/roles'
+import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 import { countBrandFollowers } from '@/lib/catalog/brand-following'
 import { personalizationSignalsSchema } from '@/lib/personalization/signal-schema'
 import {
@@ -489,27 +489,49 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
     request.nextUrl.searchParams.get('preview') === '1' ||
     request.nextUrl.searchParams.get('preview') === 'true'
 
+  let previewViewerUserId = ''
+  let previewViewerIsAdmin = false
+  let previewViewerIsVendor = false
+
   if (previewRequested) {
     const { data: userData, error: userError } = await supabase.auth.getUser()
     if (userError || !userData?.user?.id) {
       return jsonError('Product not found.', 404)
     }
-    const role = await getUserRole(supabase, userData.user.id)
-    if (role !== 'admin') {
+    previewViewerUserId = String(userData.user.id || '').trim()
+    const roleInfo = await getUserRoleInfoSafe(
+      supabase,
+      previewViewerUserId,
+      String(userData.user.email || ''),
+    )
+    previewViewerIsAdmin = Boolean(roleInfo.isAdmin)
+    previewViewerIsVendor = Boolean(roleInfo.isVendor)
+    if (!previewViewerIsAdmin && !previewViewerIsVendor) {
       return jsonError('Product not found.', 404)
     }
   }
 
-  let query = supabase
+  let readDb: any = supabase
+  if (previewRequested) {
+    try {
+      readDb = createAdminSupabaseClient()
+    } catch {
+      return jsonError('Unable to load product.', 500)
+    }
+  }
+
+  let query = readDb
     .from(PRODUCT_TABLE)
     .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at, created_by')
     .eq('slug', parsed.data.slug)
 
   if (!previewRequested) {
     query = query.eq('status', 'publish')
+  } else if (previewViewerIsVendor && !previewViewerIsAdmin && previewViewerUserId) {
+    query = query.eq('created_by', previewViewerUserId)
   }
 
-  const { data, error } = await query.single()
+  const { data, error } = await query.maybeSingle()
 
   if (error && error.code !== 'PGRST116') {
     console.error('public product fetch failed:', error.message)
@@ -526,9 +548,9 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
     return response
   }
 
-  const [item] = await attachRelations(supabase, [data])
-  const itemWithCategoryPath = await attachPrimaryCategoryPath(supabase, item)
-  const itemWithVendorProfile = await attachVendorProfile(supabase, itemWithCategoryPath)
+  const [item] = await attachRelations(readDb, [data])
+  const itemWithCategoryPath = await attachPrimaryCategoryPath(readDb, item)
+  const itemWithVendorProfile = await attachVendorProfile(readDb, itemWithCategoryPath)
   const response = jsonOk({ item: itemWithVendorProfile })
   applyCookies(response)
   return response

@@ -7,6 +7,11 @@ import { useMemo, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { useOptionalCart } from '@/context/CartContext'
+import {
+  getCustomerOrderStatusLabel,
+  getCustomerOrderStatusMessage,
+  normalizeCustomerOrderStatusKey,
+} from '@/lib/orders/customer-status'
 
 const DATE_FILTERS = [
   { key: 'latest', label: 'Latest' },
@@ -19,8 +24,9 @@ const DATE_FILTERS = [
 const STATUS_OPTIONS = [
   { key: 'all', label: 'All' },
   { key: 'completed', label: 'Completed' },
-  { key: 'pending', label: 'Awaiting Payment' },
-  { key: 'failed', label: 'Failed' },
+  { key: 'awaiting_payment', label: 'Awaiting Payment' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'failed', label: 'Payment Failed' },
   { key: 'cancelled', label: 'Cancelled' },
 ]
 
@@ -56,8 +62,9 @@ const getOrdersTitle = (filterKey) => {
   if (key === 'all') return 'All orders'
   if (key === 'cancelled') return 'Cancel'
   if (key === 'completed') return 'Completed'
-  if (key === 'pending') return 'Awaiting Payment'
-  if (key === 'failed') return 'Failed'
+  if (key === 'awaiting_payment') return 'Awaiting Payment'
+  if (key === 'pending') return 'Pending'
+  if (key === 'failed') return 'Payment Failed'
   return 'All orders'
 }
 
@@ -70,29 +77,20 @@ const matchesStatusFilter = (entry, filterKey) => {
   if (key === 'all') return true
   if (key === 'delivery') return orderType === 'delivery'
   if (key === 'completed') return paymentStatus === 'paid' || uiStatus === 'completed'
-  if (key === 'pending') return paymentStatus === 'pending' || uiStatus === 'pending'
+  if (key === 'awaiting_payment') return uiStatus === 'awaiting_payment'
+  if (key === 'pending') return uiStatus === 'pending'
   if (key === 'failed') return paymentStatus === 'failed' || uiStatus === 'failed'
   if (key === 'cancelled') return paymentStatus === 'cancelled' || uiStatus === 'cancelled'
   return false
 }
 
 const statusPillTone = (status) => {
-  const normalized = String(status || '').toLowerCase()
-  if (normalized === 'completed') return 'bg-emerald-100 text-emerald-700'
-  if (normalized === 'pending') return 'bg-amber-100 text-amber-700'
+  const normalized = normalizeCustomerOrderStatusKey(status)
+  if (normalized === 'completed' || normalized === 'delivered') return 'bg-emerald-100 text-emerald-700'
+  if (normalized === 'awaiting_payment' || normalized === 'pending') return 'bg-amber-100 text-amber-700'
+  if (normalized === 'processing' || normalized === 'ready_to_ship' || normalized === 'out_for_delivery') return 'bg-indigo-100 text-indigo-700'
   if (normalized === 'failed') return 'bg-rose-100 text-rose-700'
   return 'bg-slate-100 text-slate-700'
-}
-
-const statusDisplayLabel = (status) => {
-  const normalized = String(status || '').toLowerCase()
-  if (normalized === 'completed') return 'Success'
-  if (normalized === 'pending') return 'Awaiting Payment'
-  if (normalized === 'out_for_delivery') return 'Out for Delivery'
-  if (normalized === 'processing') return 'Processing'
-  if (normalized === 'failed') return 'Failed'
-  if (normalized === 'cancelled') return 'Cancelled'
-  return String(status || 'Status')
 }
 
 export default function OrdersPage() {
@@ -345,7 +343,7 @@ export default function OrdersPage() {
                   <span
                     className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusPillTone(order.status)}`}
                   >
-                    {statusDisplayLabel(order.status)}
+                    {getCustomerOrderStatusLabel(order.status)}
                   </span>
                   <Link href={`/UserBackend/orders/${order.id}`} className='inline-flex items-center gap-1 text-sm font-medium text-slate-800'>
                     <span>See Details</span>
@@ -354,6 +352,7 @@ export default function OrdersPage() {
                     </svg>
                   </Link>
                 </div>
+                <p className='mt-1 text-[11px] leading-4 text-slate-500'>{getCustomerOrderStatusMessage(order.status)}</p>
 
                 <div className='mt-2 min-w-0'>
                   <p className='line-clamp-2 text-[21px] leading-7 font-medium text-slate-900 sm:text-base sm:leading-6'>
@@ -436,8 +435,9 @@ export default function OrdersPage() {
                   </div>
                   <div>
                     <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusPillTone(order.status)}`}>
-                      {statusDisplayLabel(order.status)}
+                      {getCustomerOrderStatusLabel(order.status)}
                     </span>
+                    <p className='mt-1 text-[11px] leading-4 text-slate-500'>{getCustomerOrderStatusMessage(order.status)}</p>
                   </div>
                   <div className='text-sm text-slate-900'>
                     <p className='font-semibold'>{formatMoney(order.totalAmount)}</p>

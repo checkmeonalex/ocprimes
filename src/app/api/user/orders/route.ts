@@ -22,6 +22,9 @@ type RawOrderItem = {
   quantity: number | string
 }
 
+const PAYMENT_WINDOW_MINUTES = 2
+const PAYMENT_WINDOW_MS = PAYMENT_WINDOW_MINUTES * 60 * 1000
+
 const getManualStatus = (shippingAddress: Record<string, unknown>) =>
   String(
     shippingAddress?.orderStatus ||
@@ -32,18 +35,32 @@ const getManualStatus = (shippingAddress: Record<string, unknown>) =>
     .trim()
     .toLowerCase()
 
-const toUiStatus = (paymentStatus: string, shippingAddress: Record<string, unknown>) => {
+const isPendingExpired = (paymentStatus: string, createdAt: unknown) => {
+  const normalized = String(paymentStatus || '').toLowerCase()
+  if (normalized !== 'pending') return false
+  const createdAtMs = new Date(String(createdAt || '')).getTime()
+  if (!Number.isFinite(createdAtMs)) return false
+  return Date.now() - createdAtMs >= PAYMENT_WINDOW_MS
+}
+
+const toUiStatus = (
+  paymentStatus: string,
+  shippingAddress: Record<string, unknown>,
+  createdAt: unknown,
+) => {
   const manual = getManualStatus(shippingAddress)
   if (manual === 'delivered') return 'completed'
   if (manual === 'cancelled') return 'cancelled'
   if (manual === 'failed') return 'failed'
   if (manual === 'processing' || manual === 'out_for_delivery' || manual === 'pending') return 'pending'
+  if (manual === 'awaiting_payment') return 'awaiting_payment'
+  if (isPendingExpired(paymentStatus, createdAt)) return 'failed'
 
   const normalized = String(paymentStatus || '').toLowerCase()
   if (normalized === 'paid') return 'completed'
   if (normalized === 'failed') return 'failed'
   if (normalized === 'cancelled') return 'cancelled'
-  if (normalized === 'pending') return 'pending'
+  if (normalized === 'pending') return 'awaiting_payment'
   return 'pending'
 }
 
@@ -105,7 +122,11 @@ export async function GET(request: NextRequest) {
       id: order.id,
       orderNumber: String(order.order_number || '').trim() || `#${String(order.id || '').replace(/-/g, '').toUpperCase()}`,
       paystackReference: String(order.paystack_reference || ''),
-      status: toUiStatus(order.payment_status, (order.shipping_address || {}) as Record<string, unknown>),
+      status: toUiStatus(
+        order.payment_status,
+        (order.shipping_address || {}) as Record<string, unknown>,
+        order.created_at,
+      ),
       paymentStatus: String(order.payment_status || ''),
       totalAmount: Number(order.total_amount || 0),
       subtotal: Number(order.subtotal || 0),

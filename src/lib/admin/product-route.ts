@@ -929,7 +929,16 @@ export async function createProduct(request: NextRequest) {
       createdBy: user.id,
     })
   }
-  const response = jsonOk({ item })
+  const response = jsonOk({
+    item,
+    publish_meta: {
+      requested_status: requestedCreateStatus,
+      final_status: createStatus,
+      review_required: createReviewRequired,
+      review_brand_id: createReviewBrandId,
+      review_brand_name: createReviewBrandName,
+    },
+  })
   applyCookies(response)
   return response
 }
@@ -1222,7 +1231,16 @@ export async function updateProduct(request: NextRequest, id: string) {
       createdBy: user.id,
     })
   }
-  const response = jsonOk({ item })
+  const response = jsonOk({
+    item,
+    publish_meta: {
+      requested_status: updates.status || '',
+      final_status: nextUpdateStatus || '',
+      review_required: updateReviewRequired,
+      review_brand_id: updateReviewBrandId,
+      review_brand_name: updateReviewBrandName,
+    },
+  })
   applyCookies(response)
   return response
 }
