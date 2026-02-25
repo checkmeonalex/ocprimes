@@ -33,29 +33,120 @@ const formatDateTimeLabel = (value) => {
   })
 }
 
+const normalizeTrackingStatus = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+
+const TRACKING_STEPS = [
+  {
+    key: 'accepted',
+    label: 'Order accepted',
+    currentText: 'Your order has been accepted and queued for fulfillment.',
+    pendingText: 'Waiting for order acceptance.',
+  },
+  {
+    key: 'picked_up',
+    label: 'Order picked up',
+    currentText: 'Seller is now handling your order.',
+    pendingText: 'Waiting for seller to pick your items.',
+  },
+  {
+    key: 'packed',
+    label: 'Order packed',
+    currentText: 'Your order has been packed and is being prepared for dispatch.',
+    pendingText: 'Waiting for packaging.',
+  },
+  {
+    key: 'in_location',
+    label: 'Order currently in your country/location',
+    currentText: 'Your shipment reached your destination hub.',
+    pendingText: 'Shipment has not reached your destination hub yet.',
+  },
+  {
+    key: 'out_for_delivery',
+    label: 'Order enroute for delivery',
+    currentText: 'Your order is out for delivery.',
+    pendingText: 'Waiting for dispatch to delivery rider.',
+  },
+  {
+    key: 'delivered',
+    label: 'Order delivered',
+    currentText: 'Your order was delivered successfully.',
+    pendingText: 'Delivery is still in progress.',
+  },
+]
+
+const TERMINAL_STATUS_COPY = {
+  failed: 'Payment failed. This order could not continue.',
+  payment_failed: 'Payment failed. This order could not continue.',
+  cancelled: 'This order was cancelled.',
+  canceled: 'This order was cancelled.',
+  refunded: 'This order has been refunded.',
+}
+
+const CURRENT_STEP_INDEX_BY_STATUS = {
+  awaiting_payment: -1,
+  pending: 0,
+  paid: 0,
+  processing: 2,
+  ready_to_ship: 3,
+  out_for_delivery: 4,
+  delivered: 5,
+  completed: 5,
+}
+
+const getCompletedStepIndexForTerminalStatus = (status) => {
+  if (status === 'failed' || status === 'payment_failed') return -1
+  if (status === 'cancelled' || status === 'canceled') return 0
+  if (status === 'refunded') return 1
+  return -1
+}
+
 const buildTrackingSteps = (statusKey) => {
-  const status = String(statusKey || '').toLowerCase()
-  const steps = [
-    'Order accepted',
-    'Order picked up',
-    'Order packed',
-    'Order currently in your country/location',
-    'Order enroute for delivery',
-    'Order delivered',
-  ]
+  const status = normalizeTrackingStatus(statusKey)
+  const terminalMessage = TERMINAL_STATUS_COPY[status] || ''
+  const isTerminal = Boolean(terminalMessage)
+  const currentIndex = Number(CURRENT_STEP_INDEX_BY_STATUS[status] ?? -1)
+  const completedForTerminal = getCompletedStepIndexForTerminalStatus(status)
 
-  let activeCount = 2
-  if (status === 'delivered' || status === 'completed') activeCount = steps.length
-  if (status === 'out_for_delivery') activeCount = 5
-  if (status === 'processing') activeCount = 4
-  if (status === 'awaiting_payment') activeCount = 2
-  if (status === 'pending') activeCount = 3
-  if (status === 'failed' || status === 'cancelled') activeCount = 1
+  const steps = TRACKING_STEPS.map((step, index) => {
+    if (isTerminal) {
+      const isComplete = index <= completedForTerminal
+      return {
+        ...step,
+        isActive: isComplete,
+        isCurrent: false,
+        description: isComplete ? 'Completed before status change.' : terminalMessage,
+      }
+    }
 
-  return steps.map((label, index) => ({
-    label,
-    isActive: index < activeCount,
-  }))
+    const isComplete = currentIndex >= 0 && index < currentIndex
+    const isCurrent = currentIndex >= 0 && index === currentIndex
+    const isActive = isComplete || isCurrent
+    let description = step.pendingText
+
+    if (status === 'awaiting_payment') {
+      if (index === 0) description = 'Waiting for your payment confirmation.'
+      return { ...step, isActive: false, isCurrent: false, description }
+    }
+
+    if (isComplete) description = 'Completed.'
+    if (isCurrent) description = step.currentText
+
+    return {
+      ...step,
+      isActive,
+      isCurrent,
+      description,
+    }
+  })
+
+  return {
+    steps,
+    terminalMessage,
+  }
 }
 
 export default function OrderDetailsPage() {
@@ -200,7 +291,8 @@ export default function OrderDetailsPage() {
     setActionMessage(`Return request for "${itemName}" will be processed by support.`)
   }
 
-  const trackingSteps = buildTrackingSteps(order?.statusKey)
+  const trackingActivity = buildTrackingSteps(order?.statusKey || order?.status)
+  const trackingSteps = trackingActivity.steps
 
   return (
     <section className='min-h-screen bg-[#f4f5f7]'>
@@ -372,6 +464,11 @@ export default function OrderDetailsPage() {
               </div>
               <div className='border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-500'>Order Activity</div>
               <div className='px-4 py-3'>
+                {trackingActivity.terminalMessage ? (
+                  <div className='mb-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700'>
+                    {trackingActivity.terminalMessage}
+                  </div>
+                ) : null}
                 {trackingSteps.map((step, index) => (
                   <div key={`${step.label}-${index}`} className='relative pl-6'>
                     {index < trackingSteps.length - 1 ? (
@@ -385,7 +482,7 @@ export default function OrderDetailsPage() {
                     />
                     <div className='pb-5'>
                       <p className={`text-sm font-semibold ${step.isActive ? 'text-slate-900' : 'text-slate-500'}`}>{step.label}</p>
-                      <p className='text-xs text-slate-500'>Order is being processed.</p>
+                      <p className='text-xs text-slate-500'>{step.description}</p>
                     </div>
                   </div>
                 ))}
