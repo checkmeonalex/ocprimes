@@ -11,33 +11,50 @@ const PER_PAGE = 10
 
 const STATUS_TABS = [
   { key: 'all', label: 'All Order' },
-  { key: 'pending', label: 'Awaiting Payment' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'awaiting_payment', label: 'Awaiting Payment' },
+  { key: 'payment_failed', label: 'Payment Failed' },
   { key: 'processing', label: 'Processing' },
+  { key: 'ready_to_ship', label: 'Ready To Ship' },
   { key: 'out_for_delivery', label: 'Out for Delivery' },
   { key: 'delivered', label: 'Delivered' },
+  { key: 'refunded', label: 'Refunded' },
+  { key: 'cancelled', label: 'Cancelled' },
 ]
 
 const STATUS_OPTIONS = [
-  { key: 'pending', label: 'Awaiting Payment' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'awaiting_payment', label: 'Awaiting Payment' },
+  { key: 'payment_failed', label: 'Payment Failed' },
   { key: 'processing', label: 'Processing' },
+  { key: 'ready_to_ship', label: 'Ready To Ship' },
   { key: 'out_for_delivery', label: 'Out for Delivery' },
   { key: 'delivered', label: 'Delivered' },
+  { key: 'refunded', label: 'Refunded' },
   { key: 'cancelled', label: 'Cancelled' },
 ]
 
 const STATUS_TONES = {
   pending: 'bg-amber-100 text-amber-700 border border-amber-200',
+  awaiting_payment: 'bg-amber-100 text-amber-700 border border-amber-200',
+  payment_failed: 'bg-rose-100 text-rose-700 border border-rose-200',
   processing: 'bg-sky-100 text-sky-700 border border-sky-200',
+  ready_to_ship: 'bg-cyan-100 text-cyan-700 border border-cyan-200',
   out_for_delivery: 'bg-indigo-100 text-indigo-700 border border-indigo-200',
   delivered: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
+  refunded: 'bg-orange-100 text-orange-700 border border-orange-200',
   cancelled: 'bg-rose-100 text-rose-700 border border-rose-200',
 }
 
 const MOBILE_STATUS_TONES = {
   pending: 'bg-amber-50 text-amber-700 border border-amber-200',
+  awaiting_payment: 'bg-amber-50 text-amber-700 border border-amber-200',
+  payment_failed: 'bg-rose-50 text-rose-700 border border-rose-200',
   processing: 'bg-sky-50 text-sky-700 border border-sky-200',
+  ready_to_ship: 'bg-cyan-50 text-cyan-700 border border-cyan-200',
   out_for_delivery: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
   delivered: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  refunded: 'bg-orange-50 text-orange-700 border border-orange-200',
   cancelled: 'bg-rose-50 text-rose-700 border border-rose-200',
 }
 
@@ -103,8 +120,12 @@ const MOBILE_DATE_RANGE_OPTIONS = [
 const MOBILE_STATUS_OPTIONS = [
   { key: 'all', label: 'All Statuses' },
   { key: 'pending', label: 'Pending' },
+  { key: 'awaiting_payment', label: 'Awaiting Payment' },
+  { key: 'payment_failed', label: 'Payment Failed' },
   { key: 'in_progress', label: 'In Progress' },
+  { key: 'ready_to_ship', label: 'Ready To Ship' },
   { key: 'delivered', label: 'Completed' },
+  { key: 'refunded', label: 'Refunded' },
   { key: 'cancelled', label: 'Canceled' },
 ]
 
@@ -168,6 +189,10 @@ const isDateWithinRange = (value, dateRange) => {
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([])
+  const [capabilities, setCapabilities] = useState({
+    isSellerScoped: false,
+    canUpdateStatus: true,
+  })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -177,10 +202,14 @@ export default function OrdersPage() {
   const [isActionMenuOpenFor, setIsActionMenuOpenFor] = useState('')
   const [statusUpdatingById, setStatusUpdatingById] = useState({})
   const [summaryCounts, setSummaryCounts] = useState({
-    pending: 0,
+    awaiting_payment: 0,
+    payment_failed: 0,
+    paid: 0,
     processing: 0,
+    ready_to_ship: 0,
     out_for_delivery: 0,
     delivered: 0,
+    refunded: 0,
     cancelled: 0,
   })
   const [mobileActiveFilterTab, setMobileActiveFilterTab] = useState('product')
@@ -195,7 +224,17 @@ export default function OrdersPage() {
   const hasNext = page * PER_PAGE < totalCount
 
   const loadSummaryCounts = async () => {
-    const statuses = ['pending', 'processing', 'out_for_delivery', 'delivered', 'cancelled']
+    const statuses = [
+      'awaiting_payment',
+      'payment_failed',
+      'paid',
+      'processing',
+      'ready_to_ship',
+      'out_for_delivery',
+      'delivered',
+      'refunded',
+      'cancelled',
+    ]
     try {
       const results = await Promise.all(
         statuses.map(async (status) => {
@@ -244,9 +283,14 @@ export default function OrdersPage() {
 
       setOrders(Array.isArray(payload?.items) ? payload.items : [])
       setTotalCount(Math.max(0, Number(payload?.totalCount || 0)))
+      setCapabilities({
+        isSellerScoped: Boolean(payload?.capabilities?.isSellerScoped),
+        canUpdateStatus: payload?.capabilities?.canUpdateStatus !== false,
+      })
     } catch (nextError) {
       setOrders([])
       setTotalCount(0)
+      setCapabilities({ isSellerScoped: false, canUpdateStatus: true })
       setError(nextError?.message || 'Unable to load orders.')
     } finally {
       setIsLoading(false)
@@ -284,6 +328,7 @@ export default function OrdersPage() {
   }, [mobileOverviewExpanded])
 
   const handleStatusUpdate = async (orderId, status) => {
+    if (!capabilities.canUpdateStatus) return
     const safeOrderId = String(orderId || '').trim()
     const safeStatus = String(status || '').trim().toLowerCase()
     if (!safeOrderId || !safeStatus) return
@@ -329,8 +374,11 @@ export default function OrdersPage() {
 
   const mobileSummary = useMemo(
     () => ({
-      pending: Number(summaryCounts.pending || 0),
-      in_progress: Number(summaryCounts.processing || 0) + Number(summaryCounts.out_for_delivery || 0),
+      pending: Number(summaryCounts.awaiting_payment || 0),
+      in_progress:
+        Number(summaryCounts.processing || 0) +
+        Number(summaryCounts.ready_to_ship || 0) +
+        Number(summaryCounts.out_for_delivery || 0),
       delivered: Number(summaryCounts.delivered || 0),
       cancelled: Number(summaryCounts.cancelled || 0),
     }),
@@ -588,12 +636,14 @@ export default function OrdersPage() {
               <div className='border-b border-slate-200 bg-white py-4'>
               <div className='flex flex-wrap items-center justify-between gap-3'>
                 <h1 className='text-[30px] font-semibold text-slate-900'>Orders List</h1>
-                <button
-                  type='button'
-                  className='inline-flex h-10 items-center justify-center rounded-full bg-emerald-500 px-5 text-sm font-semibold text-white'
-                >
-                  + Add Order
-                </button>
+                {!capabilities.isSellerScoped ? (
+                  <button
+                    type='button'
+                    className='inline-flex h-10 items-center justify-center rounded-full bg-emerald-500 px-5 text-sm font-semibold text-white'
+                  >
+                    + Add Order
+                  </button>
+                ) : null}
               </div>
 
               <div className='mt-5 flex flex-wrap items-center justify-between gap-3'>
@@ -747,17 +797,19 @@ export default function OrdersPage() {
                               >
                                 View details
                               </Link>
-                              {STATUS_OPTIONS.map((option) => (
-                                <button
-                                  key={option.key}
-                                  type='button'
-                                  onClick={() => handleStatusUpdate(order.id, option.key)}
-                                  disabled={Boolean(statusUpdatingById[order.id])}
-                                  className='block w-full rounded-md px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60'
-                                >
-                                  Mark as {option.label}
-                                </button>
-                              ))}
+                              {capabilities.canUpdateStatus
+                                ? STATUS_OPTIONS.map((option) => (
+                                    <button
+                                      key={option.key}
+                                      type='button'
+                                      onClick={() => handleStatusUpdate(order.id, option.key)}
+                                      disabled={Boolean(statusUpdatingById[order.id])}
+                                      className='block w-full rounded-md px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60'
+                                    >
+                                      Mark as {option.label}
+                                    </button>
+                                  ))
+                                : null}
                             </div>
                           ) : null}
                         </td>

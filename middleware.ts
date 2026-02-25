@@ -17,6 +17,7 @@ const AUTH_PUBLIC_PATHS = [
 ]
 const ADMIN_ONLY_PAGE_PREFIXES = ['/backend/admin/admin', '/backend/admin/customers']
 const VENDOR_API_PREFIXES = [
+  '/api/admin/orders',
   '/api/admin/products',
   '/api/admin/categories',
   '/api/admin/tags',

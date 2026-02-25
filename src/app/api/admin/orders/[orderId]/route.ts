@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { jsonError, jsonOk } from '@/lib/http/response'
-import { requireAdmin } from '@/lib/auth/require-admin'
+import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { createNotifications } from '@/lib/admin/notifications'
 
@@ -17,6 +17,15 @@ type BrandLinkRow = {
 
 type CustomerSpendRow = {
   total_amount: number | string | null
+}
+
+type VendorItemUpdateRow = {
+  id: string
+  order_item_id: string
+  vendor_user_id: string
+  status: string
+  note: string | null
+  created_at: string
 }
 
 const orderIdParamsSchema = z.object({
@@ -63,25 +72,40 @@ const getManualStatus = (shippingAddress: AnyRecord) =>
 
 const normalizeStatus = (paymentStatus: string, shippingAddress: AnyRecord) => {
   const manual = getManualStatus(shippingAddress)
+  if (manual === 'pending') return 'pending'
+  if (manual === 'awaiting_payment') return 'awaiting_payment'
+  if (manual === 'payment_failed') return 'payment_failed'
   if (manual === 'delivered') return 'delivered'
+  if (manual === 'ready_to_ship') return 'ready_to_ship'
   if (manual === 'out_for_delivery') return 'out_for_delivery'
   if (manual === 'processing') return 'processing'
+  if (manual === 'refunded') return 'refunded'
   if (manual === 'cancelled') return 'cancelled'
-  if (manual === 'pending') return 'pending'
 
   const pay = String(paymentStatus || '').trim().toLowerCase()
-  if (pay === 'paid') return 'processing'
-  if (pay === 'failed') return 'cancelled'
-  return 'pending'
+  if (pay === 'paid') return 'pending'
+  if (pay === 'failed') return 'payment_failed'
+  return 'awaiting_payment'
 }
 
 const toStatusLabel = (status: string) => {
+  if (status === 'pending') return 'Pending'
+  if (status === 'awaiting_payment') return 'Awaiting Payment'
+  if (status === 'payment_failed') return 'Payment Failed'
+  if (status === 'ready_to_ship') return 'Ready To Ship'
   if (status === 'out_for_delivery') return 'Out for delivery'
-  if (status === 'pending') return 'Awaiting Payment'
   return status
     .split('_')
     .map((chunk) => chunk.charAt(0).toUpperCase() + chunk.slice(1))
     .join(' ')
+}
+
+const toSellerItemStatusLabel = (status: string) => {
+  if (status === 'item_not_available') return 'Item not available'
+  if (status === 'packaged_ready_for_shipment') return 'Packaged and ready for shipment'
+  if (status === 'handed_to_delivery') return 'Handed to delivery'
+  if (status === 'delivered') return 'Delivered'
+  return 'Updated'
 }
 
 const toOrderNumber = (orderId: string, orderNumber: string) => {
@@ -221,19 +245,25 @@ const toNumberSafe = (value: unknown) => {
 }
 
 export async function GET(request: NextRequest, context: { params: Promise<{ orderId: string }> }) {
-  const admin = await requireAdmin(request)
-  if (!admin.user || !admin.isAdmin) {
+  const actor = await requireDashboardUser(request)
+  if (!actor.user) {
     const response = jsonError('Unauthorized', 401)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
+  if (!actor.isAdmin && !actor.isVendor) {
+    const response = jsonError('Forbidden', 403)
+    actor.applyCookies(response)
+    return response
+  }
+  const isSellerScoped = actor.isVendor && !actor.isAdmin
 
   const params = await context.params
   const adminDb = createAdminSupabaseClient()
   const parsedParams = orderIdParamsSchema.safeParse(params)
   if (!parsedParams.success) {
     const response = jsonError('Order id is required.', 400)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
   const safeOrderId = parsedParams.data.orderId
@@ -248,13 +278,13 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
 
   if (orderError) {
     const response = jsonError('Unable to load order.', 500)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
   if (!orderRow?.id) {
     const response = jsonError('Order not found.', 404)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -298,7 +328,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
 
   if (itemError) {
     const response = jsonError('Unable to load order items.', 500)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -373,6 +403,43 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
     lineTotal: Number(entry.line_total || 0),
     isProtected: Number(orderRow.protection_fee || 0) > 0,
   }))
+  const scopedItems = isSellerScoped
+    ? items.filter((entry) => String(entry.vendorUserId || '').trim() === String(actor.user?.id || '').trim())
+    : items
+  if (isSellerScoped && scopedItems.length === 0) {
+    const response = jsonError('Order not found.', 404)
+    actor.applyCookies(response)
+    return response
+  }
+  const scopedItemCount = Math.max(1, scopedItems.reduce((sum, entry) => sum + Number(entry.quantity || 0), 0))
+  const scopedItemsTotal = scopedItems.reduce((sum, entry) => sum + Number(entry.lineTotal || 0), 0)
+  const scopedItemIds = scopedItems.map((entry) => String(entry.id || '')).filter(Boolean)
+
+  const { data: vendorUpdateRows } = scopedItemIds.length
+    ? await adminDb
+        .from('checkout_order_item_vendor_updates')
+        .select('id, order_item_id, vendor_user_id, status, note, created_at')
+        .in('order_item_id', scopedItemIds)
+        .order('created_at', { ascending: false })
+    : { data: [] }
+
+  const latestVendorUpdateByItemId = new Map<string, VendorItemUpdateRow>()
+  ;(Array.isArray(vendorUpdateRows) ? (vendorUpdateRows as VendorItemUpdateRow[]) : []).forEach((row) => {
+    const key = String(row.order_item_id || '').trim()
+    if (!key || latestVendorUpdateByItemId.has(key)) return
+    latestVendorUpdateByItemId.set(key, row)
+  })
+
+  const scopedItemsWithUpdates = scopedItems.map((entry) => {
+    const update = latestVendorUpdateByItemId.get(String(entry.id || '').trim())
+    return {
+      ...entry,
+      sellerStatus: update ? String(update.status || '').trim() : '',
+      sellerStatusLabel: update ? toSellerItemStatusLabel(String(update.status || '').trim()) : '',
+      sellerStatusNote: update ? String(update.note || '').trim() : '',
+      sellerStatusAt: update ? String(update.created_at || '') : '',
+    }
+  })
 
   const activity = [
     {
@@ -400,6 +467,15 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
       at: String(orderRow.updated_at || orderRow.created_at || ''),
       tone: status === 'cancelled' ? 'danger' : 'active',
     },
+    ...(Array.isArray(vendorUpdateRows)
+      ? (vendorUpdateRows as VendorItemUpdateRow[]).slice(0, 8).map((row) => ({
+          key: `seller-${String(row.id || '')}`,
+          title: `Seller marked item as ${toSellerItemStatusLabel(String(row.status || '').trim())}`,
+          detail: String(row.note || '').trim() || 'Seller shared a product update for fulfillment.',
+          at: String(row.created_at || ''),
+          tone: String(row.status || '').trim() === 'item_not_available' ? 'danger' : 'active',
+        }))
+      : []),
   ]
 
   const deliveryMethod = String(
@@ -438,60 +514,73 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
       seller: 'OCPRIMES',
       customer: {
         name: customerName,
-        email: String(
-          shippingAddress?.email ||
-            billingAddress?.email ||
-            shippingAddress?.contactEmail ||
-            billingAddress?.contactEmail ||
-            userEmail ||
-            '',
-        ).trim(),
-        phone: String(orderRow.contact_phone || shippingAddress?.phone || shippingAddress?.phoneNumber || '').trim(),
-        ordersCount: Math.max(1, Number(ordersCountQuery.count || 1)),
-        totalSpent,
-        lastSeenAt,
-        lastSeenLabel,
+        email: isSellerScoped
+          ? ''
+          : String(
+              shippingAddress?.email ||
+                billingAddress?.email ||
+                shippingAddress?.contactEmail ||
+                billingAddress?.contactEmail ||
+                userEmail ||
+                '',
+            ).trim(),
+        phone: isSellerScoped
+          ? ''
+          : String(orderRow.contact_phone || shippingAddress?.phone || shippingAddress?.phoneNumber || '').trim(),
+        ordersCount: isSellerScoped ? 0 : Math.max(1, Number(ordersCountQuery.count || 1)),
+        totalSpent: isSellerScoped ? 0 : totalSpent,
+        lastSeenAt: isSellerScoped ? '' : lastSeenAt,
+        lastSeenLabel: isSellerScoped ? '' : lastSeenLabel,
       },
       shippingAddress: {
         name: customerName,
-        text: shippingText || 'Address not available',
+        text: isSellerScoped ? 'Address hidden for seller' : shippingText || 'Address not available',
         method: deliveryMethod,
-        fullName: shippingShape.fullName || customerName,
-        phone: shippingShape.phone,
-        line1: shippingShape.line1,
-        line2: shippingShape.line2,
-        city: shippingShape.city,
-        state: shippingShape.state,
-        postalCode: shippingShape.postalCode,
-        country: shippingShape.country,
+        fullName: isSellerScoped ? '' : shippingShape.fullName || customerName,
+        phone: isSellerScoped ? '' : shippingShape.phone,
+        line1: isSellerScoped ? '' : shippingShape.line1,
+        line2: isSellerScoped ? '' : shippingShape.line2,
+        city: isSellerScoped ? '' : shippingShape.city,
+        state: isSellerScoped ? '' : shippingShape.state,
+        postalCode: isSellerScoped ? '' : shippingShape.postalCode,
+        country: isSellerScoped ? '' : shippingShape.country,
       },
       billingAddress: {
         name: customerName,
-        text: billingText || 'Address not available',
+        text: isSellerScoped ? 'Hidden' : billingText || 'Address not available',
       },
       paymentMode: toPaymentMode(shippingAddress),
-      itemCount,
-      unfulfilledCount: status === 'delivered' ? 0 : itemCount,
+      itemCount: isSellerScoped ? scopedItemCount : itemCount,
+      unfulfilledCount: status === 'delivered' ? 0 : isSellerScoped ? scopedItemCount : itemCount,
       currency: String(orderRow.currency || 'NGN'),
-      subtotal: Number(orderRow.subtotal || 0),
+      subtotal: isSellerScoped ? scopedItemsTotal : Number(orderRow.subtotal || 0),
       shippingFee: Number(orderRow.shipping_fee || 0),
       taxAmount: Number(orderRow.tax_amount || 0),
       protectionFee: Number(orderRow.protection_fee || 0),
-      totalAmount: Number(orderRow.total_amount || 0),
-      items,
+      totalAmount: isSellerScoped ? scopedItemsTotal : Number(orderRow.total_amount || 0),
+      items: scopedItemsWithUpdates,
       activity,
+      permissions: {
+        isSellerScoped,
+        canUpdateStatus: !isSellerScoped,
+        canViewCustomerContact: !isSellerScoped,
+        canViewBillingAddress: !isSellerScoped,
+        canViewShippingAddress: !isSellerScoped,
+        canEditShippingAddress: !isSellerScoped,
+        canUpdateItemStatus: isSellerScoped,
+      },
     },
   })
 
-  admin.applyCookies(response)
+  actor.applyCookies(response)
   return response
 }
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ orderId: string }> }) {
-  const admin = await requireAdmin(request)
-  if (!admin.user || !admin.isAdmin) {
+  const actor = await requireDashboardUser(request)
+  if (!actor.user || !actor.isAdmin) {
     const response = jsonError('Unauthorized', 401)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -500,7 +589,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
   const parsedParams = orderIdParamsSchema.safeParse(params)
   if (!parsedParams.success) {
     const response = jsonError('Order id is required.', 400)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -508,7 +597,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
   const parsedBody = patchBodySchema.safeParse(body)
   if (!parsedBody.success) {
     const response = jsonError(parsedBody.error.issues[0]?.message || 'Invalid shipping address payload.', 400)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -523,13 +612,13 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
 
   if (currentOrderError) {
     const response = jsonError('Unable to load order.', 500)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
   if (!currentOrder?.id) {
     const response = jsonError('Order not found.', 404)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -595,7 +684,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
 
   if (updateError) {
     const response = jsonError('Unable to update shipping address.', 500)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -618,7 +707,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
           change_type: 'shipping_address',
           action_url: `/UserBackend/orders/${String(currentOrder.id)}`,
         },
-        created_by: admin.user?.id || null,
+        created_by: actor.user?.id || null,
       },
     ])
   }
@@ -653,6 +742,6 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
       },
     },
   })
-  admin.applyCookies(response)
+  actor.applyCookies(response)
   return response
 }

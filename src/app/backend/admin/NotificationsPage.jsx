@@ -34,6 +34,21 @@ const formatRelativeTime = (value) => {
   return `${years}y ago`;
 };
 
+const formatCurrency = (value, currency = 'NGN') => {
+  const amount = Number(value || 0);
+  const safeCurrency = String(currency || 'NGN').toUpperCase();
+  if (!Number.isFinite(amount)) return safeCurrency === 'NGN' ? 'NGN 0.00' : '$0.00';
+  try {
+    return new Intl.NumberFormat('en-NG', {
+      style: 'currency',
+      currency: safeCurrency,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${safeCurrency} ${amount.toFixed(2)}`;
+  }
+};
+
 const iconToneClasses = {
   info: 'bg-sky-100 text-sky-700',
   success: 'bg-emerald-100 text-emerald-700',
@@ -115,6 +130,7 @@ export default function NotificationsPage() {
   const [reviewingRequestId, setReviewingRequestId] = useState('');
   const [rejectTarget, setRejectTarget] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [expandedTemplateById, setExpandedTemplateById] = useState({});
 
   const loadNotifications = useCallback(
     async (page = 1, signal) => {
@@ -301,6 +317,13 @@ export default function NotificationsPage() {
                   const requestSlug = String(metadata?.request_slug || '').trim();
                   const isCategoryRequest = String(item?.type || '') === 'category_request_created';
                   const canOpenAction = actionUrl.startsWith('/backend/admin');
+                  const templateKey = String(metadata?.template_key || '').trim();
+                  const isVendorOrderTemplate = templateKey === 'vendor_order_received';
+                  const templateProducts = Array.isArray(metadata?.products) ? metadata.products : [];
+                  const templateCurrency = String(metadata?.currency || 'NGN').trim().toUpperCase();
+                  const senderName = String(metadata?.sender_name || 'OCPRIMES').trim();
+                  const orderNumber = String(metadata?.order_number || '').trim();
+                  const templateExpanded = Boolean(expandedTemplateById[String(item.id)]);
                   const canReviewCategoryRequest =
                     Boolean(permissions?.can_review_category_requests) &&
                     isCategoryRequest &&
@@ -336,6 +359,48 @@ export default function NotificationsPage() {
                           </div>
                           <h3 className="text-base font-semibold text-slate-900">{item?.title || 'Notification'}</h3>
                           <p className="mt-1 text-sm text-slate-700">{item?.message || ''}</p>
+                          {isVendorOrderTemplate ? (
+                            <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                              <p className="text-xs font-semibold uppercase tracking-[0.06em] text-slate-500">
+                                Sender
+                              </p>
+                              <p className="text-sm font-semibold text-slate-900">{senderName}</p>
+                              {orderNumber ? (
+                                <p className="mt-1 text-xs font-semibold text-indigo-700">Order {orderNumber}</p>
+                              ) : null}
+                              <div className="mt-2 space-y-1.5">
+                                {(templateExpanded ? templateProducts : templateProducts.slice(0, 2)).map(
+                                  (product, index) => (
+                                    <div
+                                      key={`${item.id}-product-${index}`}
+                                      className="flex items-center justify-between gap-2 text-xs"
+                                    >
+                                      <span className="truncate text-slate-700">
+                                        {String(product?.name || 'Product')} x{Math.max(1, Number(product?.quantity || 1))}
+                                      </span>
+                                      <span className="shrink-0 font-semibold text-slate-900">
+                                        {formatCurrency(product?.line_total, templateCurrency)}
+                                      </span>
+                                    </div>
+                                  ),
+                                )}
+                                {templateProducts.length > 2 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedTemplateById((prev) => ({
+                                        ...prev,
+                                        [String(item.id)]: !templateExpanded,
+                                      }))
+                                    }
+                                    className="text-xs font-semibold text-indigo-700 hover:text-indigo-800"
+                                  >
+                                    {templateExpanded ? 'View less' : 'View more'}
+                                  </button>
+                                ) : null}
+                              </div>
+                            </div>
+                          ) : null}
                           {isCategoryRequest ? (
                             <p className="mt-1 text-xs text-slate-500">
                               {requesterBrandName
@@ -383,7 +448,7 @@ export default function NotificationsPage() {
                                 }}
                                 className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
                               >
-                                View
+                                {isVendorOrderTemplate ? 'View order' : 'View'}
                               </button>
                             ) : null}
                             {!item?.is_read ? (

@@ -189,7 +189,6 @@ function CheckoutPaymentPageContent() {
   const [contactPhoneLocal, setContactPhoneLocal] = useState('')
   const [isStartingPayment, setIsStartingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState('')
-  const [isPaystackReady, setIsPaystackReady] = useState(false)
   const [shippingProgressConfig, setShippingProgressConfig] = useState({
     enabled: true,
     standardFreeShippingThreshold: 50,
@@ -243,7 +242,6 @@ function CheckoutPaymentPageContent() {
   const normalizedEmail = String(user?.email || '').trim()
   const paystackEmail =
     normalizedEmail || (contactPhoneDigits ? `customer_${contactPhoneDigits}@checkout.ocprimes.com` : '')
-  const paystackPublicKey = String(process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || '').trim()
   const phoneCountryOptions = useMemo(
     () =>
       ACCEPTED_COUNTRIES.map((country) => ({
@@ -283,27 +281,6 @@ function CheckoutPaymentPageContent() {
     () => activeBillingAddressPool.find((entry) => entry.id === selectedBillingAddressId) || null,
     [activeBillingAddressPool, selectedBillingAddressId],
   )
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (window.PaystackPop) {
-      setIsPaystackReady(true)
-      return
-    }
-    const script = document.createElement('script')
-    script.src = 'https://js.paystack.co/v1/inline.js'
-    script.async = true
-    script.onload = () => setIsPaystackReady(true)
-    script.onerror = () => {
-      setIsPaystackReady(false)
-      setPaymentError('Unable to load Paystack. Please refresh and try again.')
-    }
-    document.body.appendChild(script)
-    return () => {
-      script.onload = null
-      script.onerror = null
-    }
-  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -458,12 +435,6 @@ function CheckoutPaymentPageContent() {
     if (isStartingPayment) {
       return {
         message: 'Payment is already starting. Please wait.',
-        sectionRef: paymentMethodSectionRef,
-      }
-    }
-    if (!isPaystackReady) {
-      return {
-        message: 'Paystack is still loading. Please try again.',
         sectionRef: paymentMethodSectionRef,
       }
     }
@@ -674,16 +645,6 @@ function CheckoutPaymentPageContent() {
       scrollToSection(paymentMethodSectionRef)
       return
     }
-    if (!paystackPublicKey) {
-      setPaymentError('Missing Paystack public key configuration.')
-      scrollToSection(paymentMethodSectionRef)
-      return
-    }
-    if (!window.PaystackPop || !isPaystackReady) {
-      setPaymentError('Paystack is still loading. Please try again.')
-      scrollToSection(paymentMethodSectionRef)
-      return
-    }
     if (!selectedPaymentMethodId) {
       setPaymentError('Select a payment method to continue.')
       scrollToSection(paymentMethodSectionRef)
@@ -726,56 +687,79 @@ function CheckoutPaymentPageContent() {
 
     setIsStartingPayment(true)
     setPaymentError('')
-    try {
-      const amountInKobo = Math.round(Number(totalAmount || 0) * 100)
-      if (!Number.isFinite(amountInKobo) || amountInKobo < 100) {
-        throw new Error('Amount must be at least 1.00.')
+    const paystackWindow = typeof window !== 'undefined' ? window.open('', '_blank') : null
+    if (paystackWindow && !paystackWindow.closed) {
+      try {
+        paystackWindow.document.write(
+          '<!doctype html><html><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Redirecting to Paystack</title></head><body style="margin:0;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:#0f172a;background:#f8fafc"><main style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px"><div style="width:100%;max-width:440px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:24px;text-align:center;box-shadow:0 8px 30px rgba(15,23,42,.06)"><div style="width:42px;height:42px;border-radius:999px;border:3px solid #cbd5e1;border-top-color:#0f172a;margin:0 auto 12px;animation:spin 0.8s linear infinite"></div><h1 style="margin:0 0 8px;font-size:18px;font-weight:700">Preparing secure checkout</h1><p style="margin:0;font-size:14px;color:#475569">Redirecting you to Paystack in a moment...</p></div></main><style>@keyframes spin{to{transform:rotate(360deg)}}</style></body></html>',
+        )
+        paystackWindow.document.close()
+      } catch {
+        // ignore preview write errors
       }
-
-      const reference = `ocp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
-      const handler = window.PaystackPop.setup({
-        key: paystackPublicKey,
-        email,
-        amount: amountInKobo,
-        currency: 'NGN',
-        ref: reference,
-        ...(selectedPaystackChannels.length > 0 ? { channels: selectedPaystackChannels } : {}),
-        metadata: {
-          source: 'checkout_payment_page',
-          item_count: checkoutSummary.itemCount,
-          protection_item_count: Number(checkoutSummary.protectedItemCount || 0),
-          protection_fee: protectionFee,
-          selected_payment_method: selectedPaymentMethodId,
-          selected_payment_channel: selectedPaystackChannels[0] || '',
-          contact_phone: `+${phone}`,
-          billing_address_id: selectedBillingAddress.id,
-          billing_address_label: selectedBillingAddress.label,
-          billing_address_country: selectedBillingAddress.country,
-          billing_address_line1: selectedBillingAddress.line1,
-          shipping_address_label: resolvedShippingAddress?.label || '',
-          shipping_address_line1: resolvedShippingAddress?.line1 || '',
-          shipping_address_line2: resolvedShippingAddress?.line2 || '',
-          shipping_address_city: resolvedShippingAddress?.city || '',
-          shipping_address_state: resolvedShippingAddress?.state || '',
-          shipping_address_postal_code: resolvedShippingAddress?.postalCode || '',
-          shipping_address_country: resolvedShippingAddress?.country || '',
-        },
-        callback: (response) => {
-          const ref = String(response?.reference || reference).trim()
-          const selected = String(searchParams?.get('selected') || '').trim()
-          router.push(
-            selected
-              ? `/checkout/review?payment_reference=${encodeURIComponent(ref)}&selected=${encodeURIComponent(selected)}`
-              : `/checkout/review?payment_reference=${encodeURIComponent(ref)}`,
-          )
-        },
-        onClose: () => {
-          setIsStartingPayment(false)
-        },
+    }
+    try {
+      const selected = String(searchParams?.get('selected') || '').trim()
+      const response = await fetch('/api/payments/paystack/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          selected: selected || undefined,
+          metadata: {
+            source: 'checkout_payment_page',
+            item_count: checkoutSummary.itemCount,
+            protection_item_count: Number(checkoutSummary.protectedItemCount || 0),
+            protection_fee: protectionFee,
+            selected_payment_method: selectedPaymentMethodId,
+            selected_payment_channel: selectedPaystackChannels[0] || '',
+            contact_phone: `+${phone}`,
+            contact_email: email,
+            billing_address_id: selectedBillingAddress.id,
+            billing_address_label: selectedBillingAddress.label,
+            billing_address_country: selectedBillingAddress.country,
+            billing_address_line1: selectedBillingAddress.line1,
+            shipping_address_label: resolvedShippingAddress?.label || '',
+            shipping_address_line1: resolvedShippingAddress?.line1 || '',
+            shipping_address_line2: resolvedShippingAddress?.line2 || '',
+            shipping_address_city: resolvedShippingAddress?.city || '',
+            shipping_address_state: resolvedShippingAddress?.state || '',
+            shipping_address_postal_code: resolvedShippingAddress?.postalCode || '',
+            shipping_address_country: resolvedShippingAddress?.country || '',
+          },
+        }),
       })
-      handler.openIframe()
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to initialize payment.')
+      }
+      const authorizationUrl = String(payload?.authorization_url || '').trim()
+      const reference = String(payload?.reference || '').trim()
+      if (!authorizationUrl) {
+        try {
+          paystackWindow?.close()
+        } catch {
+          // ignore popup close errors
+        }
+        throw new Error('Missing payment authorization URL.')
+      }
+      if (paystackWindow && !paystackWindow.closed) {
+        paystackWindow.location.href = authorizationUrl
+      }
+      if (!reference) {
+        if (!paystackWindow || paystackWindow.closed) {
+          window.location.assign(authorizationUrl)
+        }
+        return
+      }
+      const awaitingUrl = `/checkout/awaiting-payment?reference=${encodeURIComponent(reference)}&redirect=${encodeURIComponent(authorizationUrl)}`
       setIsStartingPayment(false)
+      router.push(awaitingUrl)
     } catch (error) {
+      try {
+        if (paystackWindow && !paystackWindow.closed) paystackWindow.close()
+      } catch {
+        // ignore popup close errors
+      }
       setPaymentError(error?.message || 'Unable to initialize payment.')
       setIsStartingPayment(false)
     }

@@ -2,69 +2,16 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
-import {
-  fetchCartSnapshot,
-  getCartForUser,
-} from '@/lib/cart/cart-server'
-import { parseCheckoutSelectionParam, filterItemsByCheckoutSelection } from '@/lib/cart/checkout-selection'
-import {
-  calculateOrderProtectionFee,
-  isDigitalProductLike,
-  ORDER_PROTECTION_DEFAULTS,
-} from '@/lib/order-protection/config'
-import {
-  CART_SHIPPING_PROGRESS_DEFAULTS,
-  normalizeCartShippingProgressConfig,
-} from '@/lib/cart/shipping-progress-config'
-
-const SHIPPING_FEE = 5
-const TAX_RATE = 0.05
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
+import { fetchCartSnapshot, getCartForUser } from '@/lib/cart/cart-server'
+import { filterItemsByCheckoutSelection, parseCheckoutSelectionParam } from '@/lib/cart/checkout-selection'
 
 const verifyPayloadSchema = z.object({
   reference: z.string().trim().min(1, 'Payment reference is required.'),
-  selected: z.string().trim().optional(),
 })
 
-const paystackVerifyResponseSchema = z.object({
-  status: z.boolean(),
-  message: z.string().optional(),
-  data: z
-    .object({
-      id: z.union([z.number(), z.string()]).optional(),
-      status: z.string().optional(),
-      reference: z.string().optional(),
-      amount: z.union([z.number(), z.string()]).optional(),
-      currency: z.string().optional(),
-      metadata: z.record(z.string(), z.unknown()).optional(),
-    })
-    .optional(),
-})
-
-const toOrderNumber = (id: string) => `#${String(id || '').replace(/-/g, '').toUpperCase()}`
-const ORDER_NUMBER_PREFIX = 'OCP'
-const ORDER_NUMBER_SUFFIX_LENGTH = 5
-const ORDER_NUMBER_MAX_ATTEMPTS = 8
-
-const buildShortOrderNumber = () => {
-  const now = new Date()
-  const yy = String(now.getFullYear()).slice(-2)
-  const mm = String(now.getMonth() + 1).padStart(2, '0')
-  const dd = String(now.getDate()).padStart(2, '0')
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let suffix = ''
-  for (let index = 0; index < ORDER_NUMBER_SUFFIX_LENGTH; index += 1) {
-    const pointer = Math.floor(Math.random() * alphabet.length)
-    suffix += alphabet[pointer]
-  }
-  return `${ORDER_NUMBER_PREFIX}-${yy}${mm}${dd}-${suffix}`
-}
-
-const isUniqueViolation = (error: unknown, constraintLike: string) => {
-  const next = error && typeof error === 'object' ? (error as { code?: string; message?: string }) : {}
-  const code = String(next.code || '').trim()
-  const message = String(next.message || '').toLowerCase()
-  return code === '23505' || message.includes(String(constraintLike || '').toLowerCase())
-}
+const PAYMENT_WINDOW_MINUTES = 30
+const PAYMENT_WINDOW_MS = PAYMENT_WINDOW_MINUTES * 60 * 1000
 
 type CheckoutOrderRow = {
   id: string
@@ -81,6 +28,7 @@ type CheckoutOrderRow = {
   item_count: number | string
   shipping_address?: Record<string, unknown> | null
   billing_address?: Record<string, unknown> | null
+  checkout_selection?: string | null
 }
 
 type CheckoutOrderItemRow = {
@@ -98,16 +46,23 @@ type CheckoutOrderItemRow = {
 type CheckoutCartItem = {
   itemId?: string
   key: string
-  id: string
-  name: string
-  price: number
-  originalPrice: number | null
-  image: string | null
-  selectedVariationLabel: string | null
-  isProtected: boolean
-  isDigital?: boolean
-  productType?: string | null
-  quantity: number
+}
+
+const toOrderNumber = (id: string) => `#${String(id || '').replace(/-/g, '').toUpperCase()}`
+
+const normalizeAddressObject = (input: unknown) => {
+  const source = input && typeof input === 'object' ? (input as Record<string, unknown>) : {}
+  return {
+    label: String(source.label || ''),
+    line1: String(source.line1 || source.address1 || ''),
+    line2: String(source.line2 || source.address2 || ''),
+    city: String(source.city || ''),
+    state: String(source.state || ''),
+    postalCode: String(source.postalCode || source.zip || ''),
+    country: String(source.country || ''),
+    paymentMethod: String(source.paymentMethod || source.selectedPaymentMethod || ''),
+    paymentChannel: String(source.paymentChannel || source.selectedPaymentChannel || ''),
+  }
 }
 
 const mapOrderItemsForClient = (items: CheckoutOrderItemRow[]) =>
@@ -128,27 +83,12 @@ const mapOrderItemsForClient = (items: CheckoutOrderItemRow[]) =>
     lineTotal: Number(item.line_total || 0),
   }))
 
-const normalizeAddressObject = (input: unknown) => {
-  const source = input && typeof input === 'object' ? (input as Record<string, unknown>) : {}
-  return {
-    label: String(source.label || ''),
-    line1: String(source.line1 || source.address1 || ''),
-    line2: String(source.line2 || source.address2 || ''),
-    city: String(source.city || ''),
-    state: String(source.state || ''),
-    postalCode: String(source.postalCode || source.zip || ''),
-    country: String(source.country || ''),
-    paymentMethod: String(source.paymentMethod || source.selectedPaymentMethod || ''),
-    paymentChannel: String(source.paymentChannel || source.selectedPaymentChannel || ''),
-  }
-}
-
 const buildOrderResponse = (order: CheckoutOrderRow, orderItems: CheckoutOrderItemRow[]) => ({
   id: String(order.id),
   orderNumber: String(order.order_number || '').trim() || toOrderNumber(order.id),
   reference: String(order.paystack_reference || ''),
   createdAt: String(order.created_at || ''),
-  paymentStatus: String(order.payment_status || 'paid'),
+  paymentStatus: String(order.payment_status || 'pending'),
   currency: String(order.currency || 'NGN'),
   subtotal: Number(order.subtotal || 0),
   shippingFee: Number(order.shipping_fee || 0),
@@ -161,12 +101,67 @@ const buildOrderResponse = (order: CheckoutOrderRow, orderItems: CheckoutOrderIt
   items: mapOrderItemsForClient(orderItems),
 })
 
-export async function POST(request: NextRequest) {
-  const secretKey = String(process.env.PAYSTACK_SECRET_KEY || '').trim()
-  if (!secretKey) {
-    return jsonError('Payment gateway is not configured.', 500)
+const getExpiryDetails = (createdAt: string) => {
+  const createdMs = new Date(createdAt).getTime()
+  const expiryMs = Number.isFinite(createdMs) ? createdMs + PAYMENT_WINDOW_MS : Date.now()
+  const remainingMs = Math.max(0, expiryMs - Date.now())
+  return {
+    expiresAt: new Date(expiryMs).toISOString(),
+    remainingSeconds: Math.ceil(remainingMs / 1000),
+    isExpired: remainingMs <= 0,
   }
+}
 
+const paystackVerifyResponseSchema = z.object({
+  status: z.boolean().optional(),
+  data: z
+    .object({
+      id: z.union([z.string(), z.number()]).optional(),
+      status: z.string().optional(),
+      amount: z.union([z.string(), z.number()]).optional(),
+      currency: z.string().optional(),
+      reference: z.string().optional(),
+    })
+    .optional(),
+})
+
+const clearPurchasedItemsFromCart = async (
+  supabase: any,
+  userId: string,
+  checkoutSelection: string,
+) => {
+  if (!userId || !checkoutSelection) return
+  const cartQuery = await getCartForUser(supabase, userId)
+  if (cartQuery.error || !cartQuery.data?.id) return
+
+  const snapshot = await fetchCartSnapshot(supabase, cartQuery.data.id)
+  if (snapshot.error) return
+
+  const selectedKeys = parseCheckoutSelectionParam(checkoutSelection)
+  const snapshotItems = (snapshot.items || []) as CheckoutCartItem[]
+  const checkoutItems = filterItemsByCheckoutSelection<CheckoutCartItem>(snapshotItems, selectedKeys)
+  const itemIdsToDelete = checkoutItems
+    .map((item) => String(item.itemId || '').trim())
+    .filter(Boolean)
+
+  if (itemIdsToDelete.length === 0) return
+
+  await supabase
+    .from('cart_items')
+    .delete()
+    .eq('cart_id', cartQuery.data.id)
+    .in('id', itemIdsToDelete)
+
+  await supabase
+    .from('carts')
+    .update({
+      cart_version: Number(cartQuery.data.cart_version || 1) + 1,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', cartQuery.data.id)
+}
+
+export async function POST(request: NextRequest) {
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
   const { data: auth, error: authError } = await supabase.auth.getUser()
   if (authError || !auth?.user) {
@@ -191,325 +186,155 @@ export async function POST(request: NextRequest) {
     return response
   }
 
-  const reference = parsed.data.reference.trim()
-  const selectedParam = String(parsed.data.selected || '').trim()
-
-  const existingOrderQuery = await supabase
+  const reference = parsed.data.reference
+  const orderQuery = await supabase
     .from('checkout_orders')
     .select('*')
     .eq('user_id', auth.user.id)
     .eq('paystack_reference', reference)
     .maybeSingle()
 
-  if (existingOrderQuery.data?.id) {
-    const existingItemsQuery = await supabase
-      .from('checkout_order_items')
-      .select('*')
-      .eq('order_id', existingOrderQuery.data.id)
-      .order('created_at', { ascending: true })
-    const response = jsonOk({
-      order: buildOrderResponse(existingOrderQuery.data, existingItemsQuery.data || []),
-      alreadyProcessed: true,
-    })
+  if (orderQuery.error) {
+    const response = jsonError('Unable to load payment order.', 500)
     applyCookies(response)
     return response
   }
 
-  const cartQuery = await getCartForUser(supabase, auth.user.id)
-  if (cartQuery.error) {
-    const response = jsonError('Unable to load your cart for verification.', 500)
-    applyCookies(response)
-    return response
-  }
-  if (!cartQuery.data?.id) {
-    const response = jsonError('Your checkout cart is empty.', 400)
+  if (!orderQuery.data?.id) {
+    const response = jsonError('Payment order not found.', 404)
     applyCookies(response)
     return response
   }
 
-  const snapshot = await fetchCartSnapshot(supabase, cartQuery.data.id)
-  if (snapshot.error) {
-    const response = jsonError('Unable to load your cart items.', 500)
-    applyCookies(response)
-    return response
-  }
-
-  const selectedKeys = parseCheckoutSelectionParam(selectedParam || null)
-  const snapshotItems = (snapshot.items || []) as CheckoutCartItem[]
-  const checkoutItems = filterItemsByCheckoutSelection<CheckoutCartItem>(snapshotItems, selectedKeys).filter(
-    (item) => Number(item.quantity || 0) > 0,
-  )
-  if (checkoutItems.length === 0) {
-    const response = jsonError('Your checkout selection is empty.', 400)
-    applyCookies(response)
-    return response
-  }
-
-  const shippingSettingsQuery = await supabase
-    .from('cart_shipping_progress_settings')
-    .select('enabled, standard_free_shipping_threshold, express_free_shipping_threshold')
-    .eq('id', 1)
-    .maybeSingle()
-  const shippingConfig = shippingSettingsQuery.error || !shippingSettingsQuery.data
-    ? normalizeCartShippingProgressConfig(CART_SHIPPING_PROGRESS_DEFAULTS)
-    : normalizeCartShippingProgressConfig({
-        enabled: shippingSettingsQuery.data.enabled,
-        standardFreeShippingThreshold: shippingSettingsQuery.data.standard_free_shipping_threshold,
-        expressFreeShippingThreshold: shippingSettingsQuery.data.express_free_shipping_threshold,
-      })
-
-  const protectionSettingsQuery = await supabase
-    .from('order_protection_settings')
-    .select('protection_percentage, minimum_fee, maximum_fee, claim_window_hours')
-    .eq('id', 1)
-    .maybeSingle()
-  const protectionConfig = protectionSettingsQuery.error || !protectionSettingsQuery.data
-    ? ORDER_PROTECTION_DEFAULTS
-    : {
-        percentage: Number(protectionSettingsQuery.data.protection_percentage),
-        minimumFee: Number(protectionSettingsQuery.data.minimum_fee),
-        maximumFee: Number(protectionSettingsQuery.data.maximum_fee),
-        claimWindowHours: Number(protectionSettingsQuery.data.claim_window_hours),
-      }
-
-  const subtotal = checkoutItems.reduce(
-    (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
-    0,
-  )
-  const protectedSubtotal = checkoutItems.reduce((sum, item) => {
-    if (!item.isProtected || isDigitalProductLike(item)) return sum
-    return sum + Number(item.price || 0) * Number(item.quantity || 0)
-  }, 0)
-  const protectionFee = calculateOrderProtectionFee(protectedSubtotal, protectionConfig)
-  const shippingFee =
-    subtotal >= Number(shippingConfig.standardFreeShippingThreshold || 50) ? 0 : SHIPPING_FEE
-  const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100
-  const expectedTotal = subtotal + shippingFee + taxAmount + protectionFee
-  const expectedAmountKobo = Math.round(expectedTotal * 100)
-
-  let paystackVerified: z.infer<typeof paystackVerifyResponseSchema> | null = null
+  let orderRow = orderQuery.data as CheckoutOrderRow
+  let paymentStatus = String(orderRow.payment_status || '').trim().toLowerCase()
+  let adminDb: ReturnType<typeof createAdminSupabaseClient> | null = null
   try {
-    const verifyResponse = await fetch(
-      `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
-      {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${secretKey}`,
-          'Content-Type': 'application/json',
-        },
-      },
-    )
-    const result = await verifyResponse.json().catch(() => null)
-    const parsedVerify = paystackVerifyResponseSchema.safeParse(result)
-    if (!verifyResponse.ok || !parsedVerify.success) {
-      const response = jsonError('Unable to verify payment with gateway.', 502)
-      applyCookies(response)
-      return response
-    }
-    paystackVerified = parsedVerify.data
+    adminDb = createAdminSupabaseClient()
   } catch {
-    const response = jsonError('Unable to verify payment with gateway.', 502)
-    applyCookies(response)
-    return response
+    adminDb = null
   }
+  const expiry = getExpiryDetails(String(orderRow.created_at || ''))
 
-  if (!paystackVerified?.status || String(paystackVerified?.data?.status || '').toLowerCase() !== 'success') {
-    const response = jsonError('Payment is not marked as successful by Paystack.', 402)
-    applyCookies(response)
-    return response
-  }
-
-  const paidAmountKobo = Number(paystackVerified?.data?.amount || 0)
-  if (!Number.isFinite(paidAmountKobo) || paidAmountKobo !== expectedAmountKobo) {
-    const response = jsonError('Payment amount does not match checkout total.', 409)
-    applyCookies(response)
-    return response
-  }
-
-  const paidCurrency = String(paystackVerified?.data?.currency || '').toUpperCase()
-  if (paidCurrency !== 'NGN') {
-    const response = jsonError('Unsupported payment currency.', 409)
-    applyCookies(response)
-    return response
-  }
-
-  const metadata = paystackVerified?.data?.metadata || {}
-  const userProfile =
-    auth.user?.user_metadata && typeof auth.user.user_metadata === 'object'
-      ? (auth.user.user_metadata as Record<string, unknown>).profile
-      : null
-  const profileObject =
-    userProfile && typeof userProfile === 'object'
-      ? (userProfile as Record<string, unknown>)
-      : {}
-  const profileShippingAddress = normalizeAddressObject(
-    profileObject.deliveryAddress ||
-      (Array.isArray(profileObject.addresses) ? profileObject.addresses[0] : {}) ||
-      {},
-  )
-  const profileBillingAddress = normalizeAddressObject(
-    profileObject.billingAddress ||
-      (Array.isArray(profileObject.billingAddresses) ? profileObject.billingAddresses[0] : {}) ||
-      {},
-  )
-  const billingAddress = normalizeAddressObject({
-    ...profileBillingAddress,
-    label: String(metadata.billing_address_label || profileBillingAddress.label || ''),
-    line1: String(metadata.billing_address_line1 || profileBillingAddress.line1 || ''),
-    country: String(metadata.billing_address_country || profileBillingAddress.country || ''),
-  })
-  const selectedPaymentMethod = String(metadata.selected_payment_method || '').trim()
-  const selectedPaymentChannel = String(metadata.selected_payment_channel || '').trim()
-  const shippingAddress = normalizeAddressObject({
-    ...profileShippingAddress,
-    label: String(metadata.shipping_address_label || profileShippingAddress.label || ''),
-    line1: String(metadata.shipping_address_line1 || profileShippingAddress.line1 || ''),
-    line2: String(metadata.shipping_address_line2 || profileShippingAddress.line2 || ''),
-    city: String(metadata.shipping_address_city || profileShippingAddress.city || ''),
-    state: String(metadata.shipping_address_state || profileShippingAddress.state || ''),
-    postalCode: String(
-      metadata.shipping_address_postal_code || profileShippingAddress.postalCode || '',
-    ),
-    country: String(metadata.shipping_address_country || profileShippingAddress.country || ''),
-    paymentMethod: selectedPaymentMethod,
-    paymentChannel: selectedPaymentChannel,
-  })
-  const contactPhone = String(metadata.contact_phone || '').trim()
-
-  let orderInsert:
-    | {
-        data: CheckoutOrderRow | null
-        error: unknown
-      }
-    | {
-        data: CheckoutOrderRow
-        error: null
-      } = { data: null, error: null }
-
-  for (let attempt = 0; attempt < ORDER_NUMBER_MAX_ATTEMPTS; attempt += 1) {
-    const candidateOrderNumber = buildShortOrderNumber()
-    const insertResult = await supabase
+  if (paymentStatus === 'pending' && expiry.isExpired && adminDb) {
+    const cancelUpdate = await adminDb
       .from('checkout_orders')
-      .insert({
-        user_id: auth.user.id,
-        order_number: candidateOrderNumber,
-        paystack_reference: reference,
-        paystack_transaction_id:
-          paystackVerified?.data?.id !== undefined && paystackVerified?.data?.id !== null
-            ? String(paystackVerified.data.id)
-            : null,
-        payment_status: 'paid',
-        currency: 'NGN',
-        subtotal,
-        shipping_fee: shippingFee,
-        tax_amount: taxAmount,
-        protection_fee: protectionFee,
-        total_amount: expectedTotal,
-        item_count: checkoutItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
-        shipping_address: shippingAddress,
-        billing_address: billingAddress,
-        contact_phone: contactPhone || null,
-        checkout_selection: selectedParam || null,
-      })
+      .update({ payment_status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', orderRow.id)
       .select('*')
       .single()
 
-    if (!insertResult.error && insertResult.data?.id) {
-      orderInsert = {
-        data: insertResult.data as CheckoutOrderRow,
-        error: null,
-      }
-      break
-    }
-
-    if (!isUniqueViolation(insertResult.error, 'order_number')) {
-      orderInsert = {
-        data: null,
-        error: insertResult.error,
-      }
-      break
+    if (!cancelUpdate.error && cancelUpdate.data?.id) {
+      orderRow = cancelUpdate.data as CheckoutOrderRow
+      paymentStatus = 'cancelled'
+    } else {
+      paymentStatus = 'cancelled'
     }
   }
 
-  if (orderInsert.error || !orderInsert.data?.id) {
-    const duplicateOrder = await supabase
-      .from('checkout_orders')
-      .select('*')
-      .eq('user_id', auth.user.id)
-      .eq('paystack_reference', reference)
-      .maybeSingle()
-    if (!duplicateOrder.data?.id) {
-      const response = jsonError('Unable to create checkout order.', 500)
-      applyCookies(response)
-      return response
+  if (paymentStatus === 'pending') {
+    const secretKey = String(process.env.PAYSTACK_SECRET_KEY || '').trim()
+    if (secretKey) {
+      try {
+        const verifyResponse = await fetch(
+          `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization: `Bearer ${secretKey}`,
+              'Content-Type': 'application/json',
+            },
+            cache: 'no-store',
+          },
+        )
+        const verifyPayload = await verifyResponse.json().catch(() => null)
+        const parsedVerify = paystackVerifyResponseSchema.safeParse(verifyPayload)
+        const verifyStatus = String(parsedVerify.data?.data?.status || '').toLowerCase()
+        const paidAmountKobo = Number(parsedVerify.data?.data?.amount || 0)
+        const paidCurrency = String(parsedVerify.data?.data?.currency || '').toUpperCase()
+        const expectedAmountKobo = Math.round(Number(orderRow.total_amount || 0) * 100)
+        const expectedCurrency = String(orderRow.currency || 'NGN').toUpperCase()
+        const isValidSuccess =
+          verifyResponse.ok &&
+          parsedVerify.success &&
+          verifyStatus === 'success' &&
+          paidAmountKobo === expectedAmountKobo &&
+          paidCurrency === expectedCurrency
+
+        if (isValidSuccess) {
+          if (!adminDb) {
+            throw new Error('Admin database client unavailable')
+          }
+          const updatedOrder = await adminDb
+            .from('checkout_orders')
+            .update({
+              payment_status: 'paid',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', orderRow.id)
+            .select('*')
+            .single()
+
+          if (!updatedOrder.error && updatedOrder.data?.id) {
+            orderRow = updatedOrder.data as CheckoutOrderRow
+            paymentStatus = 'paid'
+            await clearPurchasedItemsFromCart(
+              supabase,
+              String(auth.user.id || ''),
+              String(orderRow.checkout_selection || ''),
+            )
+          }
+        }
+      } catch {
+        // keep awaiting state when gateway verification is temporarily unavailable
+      }
     }
-    const duplicateItems = await supabase
-      .from('checkout_order_items')
-      .select('*')
-      .eq('order_id', duplicateOrder.data.id)
-      .order('created_at', { ascending: true })
+  }
+
+  const itemsQuery = await supabase
+    .from('checkout_order_items')
+    .select('*')
+    .eq('order_id', orderRow.id)
+    .order('created_at', { ascending: true })
+
+  if (itemsQuery.error) {
+    const response = jsonError('Unable to load payment order items.', 500)
+    applyCookies(response)
+    return response
+  }
+
+  const order = buildOrderResponse(orderRow, (itemsQuery.data || []) as CheckoutOrderItemRow[])
+
+  if (paymentStatus === 'paid') {
     const response = jsonOk({
-      order: buildOrderResponse(duplicateOrder.data, duplicateItems.data || []),
+      order,
       alreadyProcessed: true,
     })
     applyCookies(response)
     return response
   }
 
-  const orderId = orderInsert.data.id
-  const orderItemsPayload = checkoutItems.map((item) => ({
-    order_id: orderId,
-    item_key: String(item.key || ''),
-    product_id: String(item.id || ''),
-    name: String(item.name || ''),
-    image: item.image ? String(item.image) : null,
-    selected_variation_label: item.selectedVariationLabel ? String(item.selectedVariationLabel) : null,
-    quantity: Number(item.quantity || 0),
-    unit_price: Number(item.price || 0),
-    original_unit_price:
-      item.originalPrice !== null && item.originalPrice !== undefined
-        ? Number(item.originalPrice)
-        : null,
-    line_total: Number(item.price || 0) * Number(item.quantity || 0),
-  }))
-
-  if (orderItemsPayload.length > 0) {
-    const orderItemsInsert = await supabase.from('checkout_order_items').insert(orderItemsPayload)
-    if (orderItemsInsert.error) {
-      const response = jsonError('Unable to save order items.', 500)
-      applyCookies(response)
-      return response
-    }
+  if (paymentStatus === 'failed' || paymentStatus === 'cancelled' || paymentStatus === 'refunded') {
+    const response = jsonError(
+      paymentStatus === 'cancelled'
+        ? 'Payment window expired. This order has been cancelled.'
+        : 'Payment was not successful.',
+      402,
+    )
+    applyCookies(response)
+    return response
   }
 
-  const itemIdsToDelete = checkoutItems
-    .map((item) => String(item.itemId || '').trim())
-    .filter(Boolean)
-  if (itemIdsToDelete.length > 0) {
-    await supabase
-      .from('cart_items')
-      .delete()
-      .eq('cart_id', cartQuery.data.id)
-      .in('id', itemIdsToDelete)
-    await supabase
-      .from('carts')
-      .update({
-        cart_version: Number(cartQuery.data.cart_version || 1) + 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', cartQuery.data.id)
-  }
-
-  const savedItemsQuery = await supabase
-    .from('checkout_order_items')
-    .select('*')
-    .eq('order_id', orderId)
-    .order('created_at', { ascending: true })
-
-  const response = jsonOk({
-    order: buildOrderResponse(orderInsert.data, savedItemsQuery.data || []),
-    alreadyProcessed: false,
-  })
+  const response = jsonOk(
+    {
+      awaitingConfirmation: true,
+      paymentStatus,
+      expiresAt: expiry.expiresAt,
+      remainingSeconds: expiry.remainingSeconds,
+      order,
+    },
+    202,
+  )
   applyCookies(response)
   return response
 }

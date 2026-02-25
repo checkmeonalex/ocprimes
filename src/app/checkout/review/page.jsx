@@ -29,8 +29,9 @@ const formatShipRange = (createdAt) => {
 export default function CheckoutReviewPage() {
   const searchParams = useSearchParams()
   const { formatMoney } = useUserI18n()
-  const reference = String(searchParams?.get('payment_reference') || '').trim()
-  const selected = String(searchParams?.get('selected') || '').trim()
+  const reference = String(
+    searchParams?.get('reference') || searchParams?.get('payment_reference') || '',
+  ).trim()
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [order, setOrder] = useState(null)
@@ -47,30 +48,41 @@ export default function CheckoutReviewPage() {
     const verifyAndLoadOrder = async () => {
       setIsLoading(true)
       setError('')
-      try {
+      const runVerifyAttempt = async () => {
         const response = await fetch('/api/payments/paystack/verify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            reference,
-            selected: selected || undefined,
-          }),
+          body: JSON.stringify({ reference }),
         })
         const payload = await response.json().catch(() => null)
         if (cancelled) return
+
+        if (response.status === 202 || payload?.awaitingConfirmation) {
+          setTimeout(() => {
+            void runVerifyAttempt()
+          }, 1500)
+          return
+        }
+
         if (!response.ok || !payload?.order) {
           setError(payload?.error || 'Unable to confirm payment.')
           setOrder(null)
+          setIsLoading(false)
           return
         }
+
         setOrder(payload.order)
+        setIsLoading(false)
+      }
+
+      try {
+        await runVerifyAttempt()
       } catch {
         if (!cancelled) {
           setError('Unable to confirm payment.')
           setOrder(null)
+          setIsLoading(false)
         }
-      } finally {
-        if (!cancelled) setIsLoading(false)
       }
     }
 
@@ -78,7 +90,7 @@ export default function CheckoutReviewPage() {
     return () => {
       cancelled = true
     }
-  }, [reference, selected])
+  }, [reference])
 
   const shippingWindow = useMemo(() => formatShipRange(order?.createdAt), [order?.createdAt])
   const shippingAddressLine = useMemo(() => {

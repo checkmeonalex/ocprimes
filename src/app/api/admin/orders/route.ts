@@ -1,16 +1,21 @@
 import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
-import { requireAdmin } from '@/lib/auth/require-admin'
+import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { createNotifications } from '@/lib/admin/notifications'
+import { loadVendorOrderIds, loadVendorProductIds } from '@/lib/orders/vendor-scope'
 
 const DEFAULT_PER_PAGE = 10
 const MAX_PER_PAGE = 50
 const VALID_STATUSES = new Set([
   'pending',
+  'awaiting_payment',
+  'payment_failed',
   'processing',
+  'ready_to_ship',
   'out_for_delivery',
   'delivered',
+  'refunded',
   'cancelled',
 ])
 
@@ -48,14 +53,17 @@ const deriveStatus = (paymentStatus: string, shippingAddress: Record<string, unk
   if (VALID_STATUSES.has(stored)) return stored
 
   const pay = String(paymentStatus || '').trim().toLowerCase()
-  if (pay === 'paid') return 'delivered'
-  if (pay === 'failed') return 'cancelled'
-  return 'pending'
+  if (pay === 'paid') return 'pending'
+  if (pay === 'failed') return 'payment_failed'
+  return 'awaiting_payment'
 }
 
 const toStatusLabel = (status: string) => {
+  if (status === 'pending') return 'Pending'
+  if (status === 'awaiting_payment') return 'Awaiting Payment'
+  if (status === 'payment_failed') return 'Payment Failed'
+  if (status === 'ready_to_ship') return 'Ready To Ship'
   if (status === 'out_for_delivery') return 'Out for Delivery'
-  if (status === 'pending') return 'Awaiting Payment'
   return status
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
@@ -91,15 +99,22 @@ const toOrderNumberLabel = (orderId: string, orderNumber: string) => {
 
 const toNotificationSeverity = (status: string): 'info' | 'success' | 'warning' => {
   if (status === 'delivered') return 'success'
+  if (status === 'refunded') return 'warning'
   if (status === 'cancelled') return 'warning'
+  if (status === 'payment_failed') return 'warning'
   return 'info'
 }
 
 export async function GET(request: NextRequest) {
-  const admin = await requireAdmin(request)
-  if (!admin.user || !admin.isAdmin) {
+  const actor = await requireDashboardUser(request)
+  if (!actor.user) {
     const response = jsonError('Unauthorized', 401)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
+    return response
+  }
+  if (!actor.isAdmin && !actor.isVendor) {
+    const response = jsonError('Forbidden', 403)
+    actor.applyCookies(response)
     return response
   }
 
@@ -109,6 +124,147 @@ export async function GET(request: NextRequest) {
   const perPage = Math.min(parsePositiveInt(params.get('perPage'), DEFAULT_PER_PAGE), MAX_PER_PAGE)
   const statusFilter = String(params.get('status') || 'all').trim().toLowerCase()
   const searchTerm = String(params.get('search') || '').trim().toLowerCase()
+  const isSellerScoped = actor.isVendor && !actor.isAdmin
+
+  if (isSellerScoped) {
+    try {
+      const vendorProductIds = await loadVendorProductIds(adminDb, actor.user.id)
+      if (vendorProductIds.length === 0) {
+        const response = jsonOk({
+          items: [],
+          totalCount: 0,
+          page,
+          perPage,
+          hasMore: false,
+          capabilities: {
+            isSellerScoped: true,
+            canUpdateStatus: false,
+          },
+        })
+        actor.applyCookies(response)
+        return response
+      }
+
+      const vendorOrderIds = await loadVendorOrderIds(adminDb, vendorProductIds)
+      if (vendorOrderIds.length === 0) {
+        const response = jsonOk({
+          items: [],
+          totalCount: 0,
+          page,
+          perPage,
+          hasMore: false,
+          capabilities: {
+            isSellerScoped: true,
+            canUpdateStatus: false,
+          },
+        })
+        actor.applyCookies(response)
+        return response
+      }
+
+      let scopedOrdersQuery = adminDb
+        .from('checkout_orders')
+        .select('id, order_number, payment_status, currency, created_at, shipping_address')
+        .in('id', vendorOrderIds)
+        .order('created_at', { ascending: false })
+
+      if (searchTerm) {
+        scopedOrdersQuery = scopedOrdersQuery.or(
+          `order_number.ilike.%${searchTerm}%,paystack_reference.ilike.%${searchTerm}%`,
+        )
+      }
+
+      const { data: scopedOrderRows, error: scopedOrderError } = await scopedOrdersQuery
+      if (scopedOrderError) {
+        const response = jsonError('Unable to load orders.', 500)
+        actor.applyCookies(response)
+        return response
+      }
+
+      const statusFilteredRows = (Array.isArray(scopedOrderRows) ? scopedOrderRows : []).filter((row: any) => {
+        const shippingAddress = parseAddressJson(row?.shipping_address)
+        const status = deriveStatus(String(row?.payment_status || ''), shippingAddress)
+        return statusFilter === 'all' ? true : status === statusFilter
+      })
+
+      const totalCount = statusFilteredRows.length
+      const startIndex = (page - 1) * perPage
+      const pageRows = statusFilteredRows.slice(startIndex, startIndex + perPage)
+      const pageOrderIds = pageRows.map((row: any) => String(row.id || '')).filter(Boolean)
+
+      const { data: pageItemRows, error: pageItemsError } = pageOrderIds.length
+        ? await adminDb
+            .from('checkout_order_items')
+            .select('order_id, product_id, name, image, quantity, line_total')
+            .in('order_id', pageOrderIds)
+            .in('product_id', vendorProductIds)
+        : { data: [], error: null as unknown }
+
+      if (pageItemsError) {
+        const response = jsonError('Unable to load order items.', 500)
+        actor.applyCookies(response)
+        return response
+      }
+
+      const itemsByOrderId = new Map<
+        string,
+        Array<{ name: string; image: string | null; quantity: number; lineTotal: number }>
+      >()
+      ;(Array.isArray(pageItemRows) ? pageItemRows : []).forEach((row: any) => {
+        const key = String(row.order_id || '')
+        if (!key) return
+        const list = itemsByOrderId.get(key) || []
+        list.push({
+          name: String(row.name || 'Product'),
+          image: row.image ? String(row.image) : null,
+          quantity: Math.max(1, Number(row.quantity || 1)),
+          lineTotal: Number(row.line_total || 0),
+        })
+        itemsByOrderId.set(key, list)
+      })
+
+      const mapped = pageRows.map((row: any) => {
+        const shippingAddress = parseAddressJson(row.shipping_address)
+        const status = deriveStatus(String(row.payment_status || ''), shippingAddress)
+        const items = itemsByOrderId.get(String(row.id)) || []
+        const firstItem = items[0]
+        const scopedAmount = items.reduce((sum, item) => sum + Number(item.lineTotal || 0), 0)
+        return {
+          id: String(row.id),
+          orderId: String(row.order_number || row.id),
+          date: String(row.created_at || ''),
+          amount: scopedAmount,
+          currency: String(row.currency || 'NGN'),
+          status,
+          statusLabel: toStatusLabel(status),
+          paymentText: resolvePaymentText(String(row.payment_status || '')),
+          customerName: resolveCustomerName(shippingAddress),
+          customerTag: 'Customer',
+          productName: firstItem?.name || 'Order',
+          productImage: firstItem?.image || null,
+          itemCount: Math.max(1, items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)),
+        }
+      })
+
+      const response = jsonOk({
+        items: mapped,
+        totalCount,
+        page,
+        perPage,
+        hasMore: page * perPage < totalCount,
+        capabilities: {
+          isSellerScoped: true,
+          canUpdateStatus: false,
+        },
+      })
+      actor.applyCookies(response)
+      return response
+    } catch {
+      const response = jsonError('Unable to load orders.', 500)
+      actor.applyCookies(response)
+      return response
+    }
+  }
 
   let query = adminDb
     .from('checkout_orders')
@@ -127,7 +283,7 @@ export async function GET(request: NextRequest) {
 
   if (ordersError) {
     const response = jsonError('Unable to load orders.', 500)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -143,7 +299,7 @@ export async function GET(request: NextRequest) {
 
   if (itemsError) {
     const response = jsonError('Unable to load order items.', 500)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -190,16 +346,20 @@ export async function GET(request: NextRequest) {
     page,
     perPage,
     hasMore: page * perPage < Number(count || 0),
+    capabilities: {
+      isSellerScoped: false,
+      canUpdateStatus: true,
+    },
   })
-  admin.applyCookies(response)
+  actor.applyCookies(response)
   return response
 }
 
 export async function PATCH(request: NextRequest) {
-  const admin = await requireAdmin(request)
-  if (!admin.user || !admin.isAdmin) {
+  const actor = await requireDashboardUser(request)
+  if (!actor.user || !actor.isAdmin) {
     const response = jsonError('Unauthorized', 401)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -210,7 +370,7 @@ export async function PATCH(request: NextRequest) {
 
   if (!orderId || !VALID_STATUSES.has(nextStatus)) {
     const response = jsonError('Invalid order status update request.', 400)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -222,7 +382,7 @@ export async function PATCH(request: NextRequest) {
 
   if (existingError || !existingOrder?.id) {
     const response = jsonError('Order not found.', 404)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -246,7 +406,7 @@ export async function PATCH(request: NextRequest) {
 
   if (updateError) {
     const response = jsonError('Unable to update order status.', 500)
-    admin.applyCookies(response)
+    actor.applyCookies(response)
     return response
   }
 
@@ -271,7 +431,7 @@ export async function PATCH(request: NextRequest) {
           status_label: statusLabel,
           action_url: `/UserBackend/orders/${String(existingOrder.id)}`,
         },
-        created_by: admin.user?.id || null,
+        created_by: actor.user?.id || null,
       },
     ])
   }
@@ -281,6 +441,6 @@ export async function PATCH(request: NextRequest) {
     status: nextStatus,
     statusLabel: toStatusLabel(nextStatus),
   })
-  admin.applyCookies(response)
+  actor.applyCookies(response)
   return response
 }

@@ -10,9 +10,14 @@ import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
 
 const STATUS_TONES = {
   pending: 'bg-amber-100 text-amber-700',
+  awaiting_payment: 'bg-amber-100 text-amber-700',
+  payment_failed: 'bg-rose-100 text-rose-700',
+  paid: 'bg-emerald-100 text-emerald-700',
   processing: 'bg-sky-100 text-sky-700',
+  ready_to_ship: 'bg-cyan-100 text-cyan-700',
   out_for_delivery: 'bg-indigo-100 text-indigo-700',
   delivered: 'bg-emerald-100 text-emerald-700',
+  refunded: 'bg-orange-100 text-orange-700',
   cancelled: 'bg-rose-100 text-rose-700',
 }
 
@@ -23,11 +28,29 @@ const PAYMENT_TONES = {
 }
 
 const STATUS_OPTIONS = [
-  { key: 'pending', label: 'Awaiting Payment' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'awaiting_payment', label: 'Awaiting Payment' },
+  { key: 'payment_failed', label: 'Payment Failed' },
   { key: 'processing', label: 'Processing' },
+  { key: 'ready_to_ship', label: 'Ready To Ship' },
   { key: 'out_for_delivery', label: 'Out for delivery' },
   { key: 'delivered', label: 'Delivered' },
+  { key: 'refunded', label: 'Refunded' },
   { key: 'cancelled', label: 'Cancelled' },
+]
+
+const PAID_BADGE_ALLOWED_STATUSES = new Set([
+  'processing',
+  'ready_to_ship',
+  'out_for_delivery',
+  'delivered',
+])
+
+const SELLER_ITEM_STATUS_OPTIONS = [
+  { key: 'item_not_available', label: 'Item not available' },
+  { key: 'packaged_ready_for_shipment', label: 'Packaged and ready for shipment' },
+  { key: 'handed_to_delivery', label: 'Handed to delivery' },
+  { key: 'delivered', label: 'Delivered' },
 ]
 
 const formatCurrency = (value, currency) => {
@@ -134,6 +157,18 @@ export default function OrderDetailPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [sellerMessagingByItemId, setSellerMessagingByItemId] = useState({})
+  const [sellerItemStatusByItemId, setSellerItemStatusByItemId] = useState({})
+  const [sellerItemNoteByItemId, setSellerItemNoteByItemId] = useState({})
+  const [sellerItemSavingByItemId, setSellerItemSavingByItemId] = useState({})
+  const permissions = order?.permissions || {
+    isSellerScoped: false,
+    canUpdateStatus: true,
+    canViewCustomerContact: true,
+    canViewBillingAddress: true,
+    canViewShippingAddress: true,
+    canEditShippingAddress: true,
+    canUpdateItemStatus: false,
+  }
 
   const loadOrder = useCallback(async () => {
     if (!orderId) return
@@ -162,6 +197,7 @@ export default function OrderDetailPage() {
   }, [loadOrder])
 
   const handleStatusChange = async (status) => {
+    if (!permissions.canUpdateStatus) return
     if (!order?.id || !status) return
     setIsUpdating(true)
     setError('')
@@ -207,27 +243,114 @@ export default function OrderDetailPage() {
     setNotice('')
     try {
       const orderLabel = normalizeOrderNumber(order?.orderNumber)
+      const vendorItems = (order?.items || []).filter(
+        (entry) => String(entry?.vendorUserId || '').trim() === vendorUserId,
+      )
       const response = await fetch(`/api/admin/vendors/${vendorUserId}/notify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: `Order inquiry ${orderLabel}`,
-          message: `Please review "${String(item?.name || 'Product')}" for order ${orderLabel}.`,
-          type: 'order_vendor_message',
-          severity: 'info',
-          entity_type: 'order',
-          entity_id: String(order.id),
+          title: `New order received ${orderLabel}`,
+          message: `You received a new order from OCPRIMES.`,
+          template_key: 'vendor_order_received',
+          template_payload: {
+            orderId: String(order.id),
+            orderNumber: orderLabel,
+            currency: String(order?.currency || 'NGN'),
+            actionUrl: `/backend/admin/orders/${String(order.id)}`,
+            products: (vendorItems.length > 0 ? vendorItems : [item]).map((entry) => ({
+              name: String(entry?.name || 'Product'),
+              quantity: Number(entry?.quantity || 1),
+              lineTotal: Number(entry?.lineTotal || 0),
+              image: entry?.image || '',
+            })),
+          },
         }),
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to message seller.')
       }
-      setNotice(`Message sent to ${String(item?.vendor || 'seller')}.`)
+      setNotice(`Order template sent to ${String(item?.vendor || 'seller')}.`)
     } catch (nextError) {
       setError(nextError?.message || 'Unable to message seller.')
     } finally {
       setSellerMessagingByItemId((prev) => ({ ...prev, [itemId]: false }))
+    }
+  }
+
+  useEffect(() => {
+    const nextStatus = {}
+    const nextNote = {}
+    ;(Array.isArray(order?.items) ? order.items : []).forEach((item) => {
+      const itemId = String(item?.id || '').trim()
+      if (!itemId) return
+      nextStatus[itemId] = String(item?.sellerStatus || 'packaged_ready_for_shipment').trim()
+      nextNote[itemId] = String(item?.sellerStatusNote || '').trim()
+    })
+    setSellerItemStatusByItemId(nextStatus)
+    setSellerItemNoteByItemId(nextNote)
+  }, [order?.items])
+
+  const handleSellerItemStatusSave = async (item) => {
+    const orderIdSafe = String(order?.id || '').trim()
+    const itemId = String(item?.id || '').trim()
+    if (!orderIdSafe || !itemId) return
+
+    const status = String(sellerItemStatusByItemId[itemId] || '').trim()
+    const note = String(sellerItemNoteByItemId[itemId] || '').trim()
+    if (!status) {
+      setError('Select a seller item status before saving.')
+      return
+    }
+
+    setSellerItemSavingByItemId((prev) => ({ ...prev, [itemId]: true }))
+    setError('')
+    setNotice('')
+    try {
+      const response = await fetch(`/api/admin/orders/${orderIdSafe}/items/${itemId}/vendor-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, note }),
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to save seller item status.')
+      }
+
+      setOrder((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          items: (prev.items || []).map((entry) =>
+            String(entry?.id || '') === itemId
+              ? {
+                  ...entry,
+                  sellerStatus: payload?.update?.status || status,
+                  sellerStatusLabel: payload?.update?.statusLabel || entry.sellerStatusLabel,
+                  sellerStatusNote: note,
+                  sellerStatusAt: payload?.update?.createdAt || new Date().toISOString(),
+                }
+              : entry,
+          ),
+          activity: [
+            {
+              key: `seller-ui-${itemId}-${Date.now()}`,
+              title: `Seller marked item as ${payload?.update?.statusLabel || 'Updated'}`,
+              detail: note || 'Seller shared a product update for fulfillment.',
+              at: payload?.update?.createdAt || new Date().toISOString(),
+              tone: String(payload?.update?.status || status) === 'item_not_available' ? 'danger' : 'active',
+            },
+            ...(Array.isArray(prev.activity) ? prev.activity : []),
+          ],
+        }
+      })
+
+      setNotice('Item status saved and sent to admin.')
+    } catch (nextError) {
+      setError(nextError?.message || 'Unable to save seller item status.')
+    } finally {
+      setSellerItemSavingByItemId((prev) => ({ ...prev, [itemId]: false }))
     }
   }
 
@@ -281,6 +404,9 @@ export default function OrderDetailPage() {
   }, [order])
 
   const orderNumber = normalizeOrderNumber(order?.orderNumber)
+  const shouldShowPaidBadge =
+    String(order?.paymentStatusLabel || '').trim().toLowerCase() === 'paid' &&
+    PAID_BADGE_ALLOWED_STATUSES.has(String(order?.status || '').trim().toLowerCase())
 
   const handleShippingInputChange = (field, value) => {
     setShippingForm((prev) => ({ ...prev, [field]: value }))
@@ -411,10 +537,12 @@ export default function OrderDetailPage() {
                       <h1 className='break-words text-[28px] font-semibold leading-[1.02] tracking-[-0.02em] text-[#354a75] sm:text-[32px]'>
                         Order {orderNumber}
                       </h1>
-                      <DetailPill
-                        tone={PAYMENT_TONES[String(order.paymentStatus || '').toLowerCase()] || 'bg-slate-100 text-slate-700'}
-                        label={order.paymentStatusLabel || 'Paid'}
-                      />
+                      {shouldShowPaidBadge ? (
+                        <DetailPill
+                          tone={PAYMENT_TONES[String(order.paymentStatus || '').toLowerCase()] || 'bg-slate-100 text-slate-700'}
+                          label={order.paymentStatusLabel || 'Paid'}
+                        />
+                      ) : null}
                       <DetailPill
                         tone={STATUS_TONES[order.status] || 'bg-slate-100 text-slate-700'}
                         label={order.statusLabel || 'Awaiting Payment'}
@@ -429,51 +557,53 @@ export default function OrderDetailPage() {
                     </div>
                   </div>
 
-                  <div className='flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end'>
-                    <button
-                      type='button'
-                      disabled
-                      className='hidden h-8 w-8 items-center justify-center rounded-full border border-[#d9e4f3] bg-white text-slate-400 sm:inline-flex'
-                      aria-label='Previous order'
-                    >
-                      <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2'>
-                        <path d='m11.5 4.5-5 5 5 5' strokeLinecap='round' strokeLinejoin='round' />
-                      </svg>
-                    </button>
-                    <button
-                      type='button'
-                      disabled
-                      className='hidden h-8 w-8 items-center justify-center rounded-full border border-[#d9e4f3] bg-white text-slate-400 sm:inline-flex'
-                      aria-label='Next order'
-                    >
-                      <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2'>
-                        <path d='m8.5 4.5 5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
-                      </svg>
-                    </button>
+                  {permissions.canUpdateStatus ? (
+                    <div className='flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end'>
+                      <button
+                        type='button'
+                        disabled
+                        className='hidden h-8 w-8 items-center justify-center rounded-full border border-[#d9e4f3] bg-white text-slate-400 sm:inline-flex'
+                        aria-label='Previous order'
+                      >
+                        <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2'>
+                          <path d='m11.5 4.5-5 5 5 5' strokeLinecap='round' strokeLinejoin='round' />
+                        </svg>
+                      </button>
+                      <button
+                        type='button'
+                        disabled
+                        className='hidden h-8 w-8 items-center justify-center rounded-full border border-[#d9e4f3] bg-white text-slate-400 sm:inline-flex'
+                        aria-label='Next order'
+                      >
+                        <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2'>
+                          <path d='m8.5 4.5 5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
+                        </svg>
+                      </button>
 
-                    <CustomSelect
-                      value={order.status}
-                      disabled={isUpdating}
-                      onChange={(event) => handleStatusChange(event.target.value)}
-                      className='h-9 min-w-0 flex-1 rounded-lg border border-[#d9e4f3] bg-white px-2.5 text-xs font-semibold text-slate-600 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] sm:w-[190px] sm:flex-none'
-                      aria-label='Order status'
-                    >
-                      {STATUS_OPTIONS.map((option) => (
-                        <option key={option.key} value={option.key}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </CustomSelect>
+                      <CustomSelect
+                        value={order.status}
+                        disabled={isUpdating}
+                        onChange={(event) => handleStatusChange(event.target.value)}
+                        className='h-9 min-w-0 flex-1 rounded-lg border border-[#d9e4f3] bg-white px-2.5 text-xs font-semibold text-slate-600 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] sm:w-[190px] sm:flex-none'
+                        aria-label='Order status'
+                      >
+                        {STATUS_OPTIONS.map((option) => (
+                          <option key={option.key} value={option.key}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </CustomSelect>
 
-                    <button
-                      type='button'
-                      disabled={isUpdating || order.status === 'delivered'}
-                      onClick={() => handleStatusChange('delivered')}
-                      className='inline-flex h-9 items-center justify-center rounded-lg bg-[#3f6cf4] px-4 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(63,108,244,0.25)] disabled:cursor-not-allowed disabled:opacity-60'
-                    >
-                      Fulfill
-                    </button>
-                  </div>
+                      <button
+                        type='button'
+                        disabled={isUpdating || order.status === 'delivered'}
+                        onClick={() => handleStatusChange('delivered')}
+                        className='inline-flex h-9 items-center justify-center rounded-lg bg-[#3f6cf4] px-4 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(63,108,244,0.25)] disabled:cursor-not-allowed disabled:opacity-60'
+                      >
+                        Fulfill
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className='grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]'>
@@ -485,6 +615,63 @@ export default function OrderDetailPage() {
                     >
                       {(order.items || []).map((item) => {
                         const lineTotal = formatCurrency(item.lineTotal, order.currency)
+                        const sellerControls = (
+                          <div className='pt-0.5 text-left sm:text-right'>
+                            {permissions.canUpdateStatus ? (
+                              <button
+                                type='button'
+                                onClick={() => handleMessageSeller(item)}
+                                disabled={Boolean(sellerMessagingByItemId[item.id]) || !item.vendorUserId}
+                                className='inline-flex h-7 items-center justify-center rounded-md border border-[#d9e4f3] bg-white px-2 text-[11px] font-semibold text-[#3f6cf4] disabled:cursor-not-allowed disabled:opacity-50'
+                              >
+                                {!item.vendorUserId
+                                  ? 'Seller unavailable'
+                                  : sellerMessagingByItemId[item.id]
+                                    ? 'Messaging...'
+                                    : 'Message Seller'}
+                              </button>
+                            ) : null}
+                            {permissions.canUpdateItemStatus ? (
+                              <div className='mt-2 w-full space-y-1'>
+                                <CustomSelect
+                                  value={sellerItemStatusByItemId[item.id] || 'packaged_ready_for_shipment'}
+                                  onChange={(event) =>
+                                    setSellerItemStatusByItemId((prev) => ({
+                                      ...prev,
+                                      [item.id]: String(event.target.value || ''),
+                                    }))
+                                  }
+                                  className='h-8 w-full rounded-md border border-[#d9e4f3] bg-white px-2 text-[11px] font-semibold text-slate-700'
+                                >
+                                  {SELLER_ITEM_STATUS_OPTIONS.map((option) => (
+                                    <option key={option.key} value={option.key}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </CustomSelect>
+                                <input
+                                  value={sellerItemNoteByItemId[item.id] || ''}
+                                  onChange={(event) =>
+                                    setSellerItemNoteByItemId((prev) => ({
+                                      ...prev,
+                                      [item.id]: event.target.value,
+                                    }))
+                                  }
+                                  placeholder='Add note for admin (optional)'
+                                  className='h-8 w-full rounded-md border border-[#d9e4f3] px-2 text-[11px] text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff]'
+                                />
+                                <button
+                                  type='button'
+                                  onClick={() => handleSellerItemStatusSave(item)}
+                                  disabled={Boolean(sellerItemSavingByItemId[item.id])}
+                                  className='inline-flex h-8 w-full items-center justify-center rounded-md border border-[#d9e4f3] bg-white px-2 text-[11px] font-semibold text-indigo-700 disabled:opacity-60'
+                                >
+                                  {sellerItemSavingByItemId[item.id] ? 'Saving...' : 'Save & Notify Admin'}
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        )
 
                         return (
                           <article
@@ -501,24 +688,26 @@ export default function OrderDetailPage() {
                               <p className='line-clamp-2 text-sm font-semibold text-slate-900'>{item.name}</p>
                               <p className='mt-1 text-xs text-slate-500'>Color: {item.variation || 'Standard option'}</p>
                               <p className='text-xs text-slate-500'>Vendor: {item.vendor || 'OCPRIMES'}</p>
+                              {item.sellerStatusLabel ? (
+                                <p className='mt-1 text-[11px] font-semibold text-indigo-700'>
+                                  Seller status: {item.sellerStatusLabel}
+                                </p>
+                              ) : null}
                             </div>
 
-                            <div className='col-span-2 grid grid-cols-3 gap-2 text-xs sm:col-auto sm:contents sm:text-sm'>
-                              <div className='pt-0.5 text-left sm:text-right'>
-                                <button
-                                  type='button'
-                                  onClick={() => handleMessageSeller(item)}
-                                  disabled={Boolean(sellerMessagingByItemId[item.id]) || !item.vendorUserId}
-                                  className='inline-flex h-7 items-center justify-center rounded-md border border-[#d9e4f3] bg-white px-2 text-[11px] font-semibold text-[#3f6cf4] disabled:cursor-not-allowed disabled:opacity-50'
-                                >
-                                  {!item.vendorUserId
-                                    ? 'Seller unavailable'
-                                    : sellerMessagingByItemId[item.id]
-                                      ? 'Messaging...'
-                                      : 'Message Seller'}
-                                </button>
+                            <div className='col-span-2 space-y-2 text-xs sm:hidden'>
+                              {sellerControls}
+                              <div className='flex items-center justify-end gap-4 pt-0.5'>
+                                <p className='min-w-10 text-center font-semibold text-slate-700'>
+                                  <span className='mr-1 text-[11px] font-medium text-slate-500'>Qty</span>
+                                  {item.quantity}
+                                </p>
+                                <p className='font-semibold text-slate-900'>{lineTotal}</p>
                               </div>
+                            </div>
 
+                            <div className='hidden sm:col-auto sm:contents'>
+                              {sellerControls}
                               <p className='min-w-10 pt-0.5 text-center font-semibold text-slate-700'>
                                 <span className='mr-1 text-[11px] font-medium text-slate-500 sm:hidden'>Qty</span>
                                 {item.quantity}
@@ -551,7 +740,9 @@ export default function OrderDetailPage() {
                         </div>
 
                         <div className='mt-2 flex items-center justify-between border-t border-[#e9eef5] pt-3 text-sm'>
-                          <span className='font-semibold text-slate-900'>Total paid by customer</span>
+                          <span className='font-semibold text-slate-900'>
+                            {permissions.isSellerScoped ? 'Total for your products' : 'Total paid by customer'}
+                          </span>
                           <span className='font-bold text-slate-900'>{totals?.total}</span>
                         </div>
                       </div>
@@ -581,38 +772,41 @@ export default function OrderDetailPage() {
                       </div>
                     </Card>
 
-                    <Card title='Activity'>
-                      <div>
-                        <p className='mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500'>Today</p>
-                        <div className='space-y-3'>
-                          {(order.activity || []).length > 0 ? (
-                            (order.activity || []).map((entry) => (
-                              <div key={entry.key} className='grid grid-cols-[16px_1fr] items-start gap-2'>
-                                <span
-                                  className={`mt-1.5 inline-flex h-2.5 w-2.5 rounded-full ${
-                                    entry.tone === 'danger'
-                                      ? 'bg-rose-500'
-                                      : entry.tone === 'active'
-                                        ? 'bg-indigo-500'
-                                        : 'bg-sky-500'
-                                  }`}
-                                />
-                                <div>
-                                  <p className='text-sm font-semibold text-slate-900'>{entry.title}</p>
-                                  <p className='text-xs text-slate-500'>{entry.detail}</p>
-                                  <p className='mt-0.5 text-[11px] text-slate-400'>{formatDate(entry.at)}</p>
+                    {!permissions.isSellerScoped ? (
+                      <Card title='Activity'>
+                        <div>
+                          <p className='mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500'>Today</p>
+                          <div className='space-y-3'>
+                            {(order.activity || []).length > 0 ? (
+                              (order.activity || []).map((entry) => (
+                                <div key={entry.key} className='grid grid-cols-[16px_1fr] items-start gap-2'>
+                                  <span
+                                    className={`mt-1.5 inline-flex h-2.5 w-2.5 rounded-full ${
+                                      entry.tone === 'danger'
+                                        ? 'bg-rose-500'
+                                        : entry.tone === 'active'
+                                          ? 'bg-indigo-500'
+                                          : 'bg-sky-500'
+                                    }`}
+                                  />
+                                  <div>
+                                    <p className='text-sm font-semibold text-slate-900'>{entry.title}</p>
+                                    <p className='text-xs text-slate-500'>{entry.detail}</p>
+                                    <p className='mt-0.5 text-[11px] text-slate-400'>{formatDate(entry.at)}</p>
+                                  </div>
                                 </div>
-                              </div>
-                            ))
-                          ) : (
-                            <p className='text-sm text-slate-500'>No activity yet.</p>
-                          )}
+                              ))
+                            ) : (
+                              <p className='text-sm text-slate-500'>No activity yet.</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </Card>
+                      </Card>
+                    ) : null}
                   </div>
 
-                  <aside className='w-full overflow-visible rounded-none border-0 bg-white shadow-none sm:overflow-hidden sm:rounded-2xl sm:border sm:border-[#e4ecf5] sm:bg-white sm:shadow-[0_1px_4px_rgba(15,23,42,0.04)]'>
+                  {!permissions.isSellerScoped ? (
+                    <aside className='w-full overflow-visible rounded-none border-0 bg-white shadow-none sm:overflow-hidden sm:rounded-2xl sm:border sm:border-[#e4ecf5] sm:bg-white sm:shadow-[0_1px_4px_rgba(15,23,42,0.04)]'>
                     <div className='border-b border-[#e9eef5] px-4 py-4 sm:px-5'>
                       <p className='text-lg font-semibold text-slate-800'>Customer</p>
 
@@ -707,7 +901,7 @@ export default function OrderDetailPage() {
                       <section>
                         <div className='flex items-center justify-between gap-2'>
                           <p className='text-sm font-semibold text-slate-900'>Shipping Address</p>
-                          {!isEditingShipping ? (
+                          {!isEditingShipping && permissions.canEditShippingAddress ? (
                             <button
                               type='button'
                               onClick={() => {
@@ -820,7 +1014,40 @@ export default function OrderDetailPage() {
                         </div>
                       </section>
                     </div>
-                  </aside>
+                    </aside>
+                  ) : (
+                    <aside className='space-y-4'>
+                      <Card title='Activity'>
+                        <div>
+                          <p className='mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500'>Today</p>
+                          <div className='space-y-3'>
+                            {(order.activity || []).length > 0 ? (
+                              (order.activity || []).map((entry) => (
+                                <div key={entry.key} className='grid grid-cols-[16px_1fr] items-start gap-2'>
+                                  <span
+                                    className={`mt-1.5 inline-flex h-2.5 w-2.5 rounded-full ${
+                                      entry.tone === 'danger'
+                                        ? 'bg-rose-500'
+                                        : entry.tone === 'active'
+                                          ? 'bg-indigo-500'
+                                          : 'bg-sky-500'
+                                    }`}
+                                  />
+                                  <div>
+                                    <p className='text-sm font-semibold text-slate-900'>{entry.title}</p>
+                                    <p className='text-xs text-slate-500'>{entry.detail}</p>
+                                    <p className='mt-0.5 text-[11px] text-slate-400'>{formatDate(entry.at)}</p>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <p className='text-sm text-slate-500'>No activity yet.</p>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    </aside>
+                  )}
                 </div>
               </div>
             ) : null}
