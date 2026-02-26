@@ -556,6 +556,8 @@ function WooCommerceProductsPage() {
         brand_ids: brandIds,
         image_id: imageIds[0] || '',
         image_ids: imageIds,
+        product_video_key: String(productItem.product_video_key || '').trim(),
+        product_video_url: String(productItem.product_video_url || '').trim(),
         stock_quantity: Number.isFinite(Number(productItem.stock_quantity))
           ? String(productItem.stock_quantity)
           : '0',

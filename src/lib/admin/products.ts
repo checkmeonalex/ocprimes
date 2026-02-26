@@ -9,6 +9,12 @@ const normalizeBlank = (value: unknown) => {
   return trimmed === '' ? undefined : trimmed
 }
 
+const normalizeNullableBlank = (value: unknown) => {
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  return trimmed === '' ? null : trimmed
+}
+
 export const listProductsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   per_page: z.coerce.number().int().min(1).max(50).default(20),
@@ -36,6 +42,14 @@ const baseProductSchema = z.object({
   brand_ids: z.array(z.string().uuid()).optional(),
   image_ids: z.array(z.string().uuid()).optional(),
   main_image_id: z.preprocess(normalizeBlank, z.string().uuid().optional()),
+  product_video_key: z.preprocess(
+    normalizeNullableBlank,
+    z.string().max(500).nullable().optional(),
+  ),
+  product_video_url: z.preprocess(
+    normalizeNullableBlank,
+    z.string().url().max(2000).nullable().optional(),
+  ),
   variations: z
     .array(
       z.object({

@@ -4,7 +4,7 @@ import { Agent as HttpsAgent } from 'https'
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 export const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
-export const MAX_VIDEO_UPLOAD_BYTES = 5 * 1024 * 1024
+export const MAX_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024
 export const ALLOWED_VIDEO_TYPES = new Set([
   'video/mp4',
   'video/webm',
@@ -60,16 +60,23 @@ export const buildObjectKey = (file: File, prefix: string) => {
   return `${safePrefix}/${Date.now()}-${stamp}.${safeExt || 'bin'}`
 }
 
-export const uploadToR2 = async (file: File, key: string) => {
+type UploadOptions = {
+  bucketName?: string
+  publicBaseUrl?: string
+  cacheControl?: string
+}
+
+export const uploadToR2 = async (file: File, key: string, options: UploadOptions = {}) => {
   const r2Config = getR2Config()
   const body = Buffer.from(await file.arrayBuffer())
   const client = createR2Client(r2Config)
+  const bucketName = options.bucketName || r2Config.bucketName
   const command = new PutObjectCommand({
-    Bucket: r2Config.bucketName,
+    Bucket: bucketName,
     Key: key,
     Body: body,
     ContentType: file.type,
-    CacheControl: 'public, max-age=31536000, immutable',
+    CacheControl: options.cacheControl || 'public, max-age=31536000, immutable',
   })
   try {
     await client.send(command)
@@ -81,10 +88,10 @@ export const uploadToR2 = async (file: File, key: string) => {
     await client.send(command)
   }
 
-  const publicBase = r2Config.publicBaseUrl
+  const publicBase = options.publicBaseUrl || r2Config.publicBaseUrl
   const url = publicBase
     ? `${publicBase.replace(/\/+$/, '')}/${key}`
-    : `${r2Config.endpoint.replace(/\/+$/, '')}/${r2Config.bucketName}/${key}`
+    : `${r2Config.endpoint.replace(/\/+$/, '')}/${bucketName}/${key}`
 
   return { key, url }
 }

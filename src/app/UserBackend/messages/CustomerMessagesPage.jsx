@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
 import { useAlerts } from '@/context/AlertContext'
 import CustomerConversationList from './components/CustomerConversationList'
@@ -61,6 +62,7 @@ const mapMessage = (row, currentUserId) => {
 }
 
 export default function CustomerMessagesPage() {
+  const searchParams = useSearchParams()
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
   const { confirmAlert, pushAlert } = useAlerts()
   const [conversations, setConversations] = useState([])
@@ -80,7 +82,9 @@ export default function CustomerMessagesPage() {
   const [helpCenterConversationId, setHelpCenterConversationId] = useState('')
   const [isConnectingHelpCenter, setIsConnectingHelpCenter] = useState(false)
   const [hasAttemptedHelpCenterConnect, setHasAttemptedHelpCenterConnect] = useState(false)
+  const [inquiryContext, setInquiryContext] = useState(null)
   const pageContainerRef = useRef(null)
+  const hasAppliedInquiryIntentRef = useRef(false)
 
   const helpCenterTargetConversation = useMemo(
     () =>
@@ -202,6 +206,30 @@ export default function CustomerMessagesPage() {
   useEffect(() => {
     void loadConversations()
   }, [loadConversations])
+
+  useEffect(() => {
+    if (hasAppliedInquiryIntentRef.current) return
+    const shouldOpenHelpCenter =
+      String(searchParams?.get('help_center') || '').trim() === '1' ||
+      String(searchParams?.get('intent') || '').trim().toLowerCase() === 'order_inquiry'
+    if (!shouldOpenHelpCenter) return
+    hasAppliedInquiryIntentRef.current = true
+
+    const orderNumber = String(searchParams?.get('order_number') || '').trim()
+    const orderId = String(searchParams?.get('order_id') || '').trim()
+    const trackId = String(searchParams?.get('track_id') || '').trim()
+    const orderStatus = String(searchParams?.get('order_status') || '').trim()
+
+    setIsHelpCenterOpen(true)
+    setActiveConversationId('')
+    setIsMobileThreadOpen(true)
+    setInquiryContext({
+      orderId,
+      orderNumber,
+      trackId,
+      orderStatus,
+    })
+  }, [searchParams])
 
   useEffect(() => {
     const updatePanelHeight = () => {
@@ -514,6 +542,25 @@ export default function CustomerMessagesPage() {
     if (!text || !destinationConversationId || isSending) return
     if (selected?.canSend === false) return
 
+    const contextOrderLabel = String(inquiryContext?.orderNumber || inquiryContext?.orderId || '').trim()
+    const contextOrderId = String(inquiryContext?.orderId || '').trim()
+    const contextTrack = String(inquiryContext?.trackId || '').trim()
+    const contextStatus = String(inquiryContext?.orderStatus || '').trim()
+    const hasInquiryContext = Boolean(contextOrderLabel || contextTrack || contextStatus)
+    const bodyText = hasInquiryContext
+      ? [
+          '[Order Inquiry]',
+          contextOrderId ? `Order ID: ${contextOrderId}` : '',
+          contextOrderLabel ? `Order: ${contextOrderLabel}` : '',
+          contextTrack ? `Reference: ${contextTrack}` : '',
+          contextStatus ? `Status: ${contextStatus}` : '',
+          '',
+          `Question: ${text}`,
+        ]
+          .filter(Boolean)
+          .join('\n')
+      : text
+
     setIsSending(true)
     setPageError('')
 
@@ -522,7 +569,7 @@ export default function CustomerMessagesPage() {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body: text }),
+        body: JSON.stringify({ body: bodyText }),
       },
     ).catch(() => null)
 
@@ -557,6 +604,9 @@ export default function CustomerMessagesPage() {
     }
 
     setDraftMessage('')
+    if (hasInquiryContext) {
+      setInquiryContext(null)
+    }
     setIsSending(false)
   }
 
@@ -670,6 +720,8 @@ export default function CustomerMessagesPage() {
               draftMessage={draftMessage}
               onDraftMessageChange={setDraftMessage}
               onSendMessage={sendMessage}
+              inquiryContext={isHelpCenterOpen ? inquiryContext : null}
+              onClearInquiryContext={() => setInquiryContext(null)}
               onBack={() => setIsMobileThreadOpen(false)}
               onEndChat={endActiveConversation}
               allowEndChat={!isHelpCenterOpen}

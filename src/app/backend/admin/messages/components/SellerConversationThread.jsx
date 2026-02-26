@@ -67,6 +67,32 @@ const parseReportMessage = (rawText) => {
   };
 };
 
+const parseOrderInquiryMessage = (rawText) => {
+  const text = String(rawText || '').trim();
+  if (!text.startsWith('[Order Inquiry]')) return null;
+  const lines = text
+    .split('\n')
+    .map((line) => String(line || '').trim())
+    .filter(Boolean);
+
+  const getField = (prefix) =>
+    lines.find((line) => line.toLowerCase().startsWith(`${prefix.toLowerCase()}:`))?.slice(prefix.length + 1).trim() || '';
+
+  const orderId = getField('Order ID');
+  const order = getField('Order');
+  const reference = getField('Reference');
+  const status = getField('Status');
+  const question = getField('Question');
+
+  return {
+    orderId,
+    order,
+    reference,
+    status,
+    question,
+  };
+};
+
 export default function SellerConversationThread({
   conversation,
   draftMessage,
@@ -88,6 +114,7 @@ export default function SellerConversationThread({
   const bodyRef = useRef(null);
   const menuRef = useRef(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [openingOrderMessageId, setOpeningOrderMessageId] = useState('');
 
   useEffect(() => {
     const container = bodyRef.current;
@@ -118,6 +145,43 @@ export default function SellerConversationThread({
   const sellerName = String(conversation.sellerName || '').trim() || 'Seller';
   const effectiveBlockedNotice = String(blockedNotice || '').trim();
   const isComposerBlocked = isVendorTakeoverBlocked || Boolean(effectiveBlockedNotice);
+  const openOrderFromInquiry = async (inquiry, messageId) => {
+    if (!inquiry) return;
+    const orderId = String(inquiry.orderId || '').trim();
+    const orderRef = String(inquiry.order || inquiry.reference || '').trim();
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+    if (orderId && uuidPattern.test(orderId)) {
+      window.location.href = `/backend/admin/orders/${encodeURIComponent(orderId)}`;
+      return;
+    }
+
+    setOpeningOrderMessageId(String(messageId || ''));
+    try {
+      const searchTarget = orderRef || orderId;
+      if (!searchTarget) {
+        window.location.href = '/backend/admin/orders';
+        return;
+      }
+      const response = await fetch(
+        `/api/admin/orders?page=1&per_page=1&search=${encodeURIComponent(searchTarget)}`,
+        { method: 'GET', cache: 'no-store' },
+      ).catch(() => null);
+      if (!response?.ok) {
+        window.location.href = '/backend/admin/orders';
+        return;
+      }
+      const payload = await response.json().catch(() => null);
+      const resolvedId = String(payload?.items?.[0]?.id || '').trim();
+      if (resolvedId) {
+        window.location.href = `/backend/admin/orders/${encodeURIComponent(resolvedId)}`;
+        return;
+      }
+      window.location.href = '/backend/admin/orders';
+    } finally {
+      setOpeningOrderMessageId('');
+    }
+  };
 
   return (
     <section className="flex h-full min-h-0 flex-col bg-white">
@@ -242,6 +306,7 @@ export default function SellerConversationThread({
               String(message.senderLabel || '').trim() ||
               (isSellerMessage ? sellerName : conversation.customerName);
             const report = parseReportMessage(message.text);
+            const orderInquiry = parseOrderInquiryMessage(message.text);
 
             return (
               <div
@@ -318,6 +383,52 @@ export default function SellerConversationThread({
                           </a>
                         ) : null}
                       </div>
+                    </div>
+                  ) : orderInquiry ? (
+                    <div className="space-y-2">
+                      <div
+                        className={`rounded-md border p-2 ${
+                          isSellerMessage
+                            ? 'border-emerald-300 bg-emerald-700/25'
+                            : 'border-emerald-200 bg-emerald-50 text-slate-900'
+                        }`}
+                      >
+                        <p className={`text-sm font-semibold ${isSellerMessage ? 'text-emerald-100' : 'text-emerald-700'}`}>
+                          Order Inquiry
+                        </p>
+                        {orderInquiry.order ? (
+                          <p className={`mt-1 text-xs ${isSellerMessage ? 'text-emerald-50' : 'text-slate-700'}`}>
+                            Order: {orderInquiry.order}
+                          </p>
+                        ) : null}
+                        {orderInquiry.reference ? (
+                          <p className={`text-xs ${isSellerMessage ? 'text-emerald-50' : 'text-slate-600'}`}>
+                            Ref: {orderInquiry.reference}
+                          </p>
+                        ) : null}
+                        {orderInquiry.status ? (
+                          <p className={`text-xs ${isSellerMessage ? 'text-emerald-50' : 'text-slate-600'}`}>
+                            Status: {orderInquiry.status}
+                          </p>
+                        ) : null}
+                        {orderInquiry.orderId || orderInquiry.order || orderInquiry.reference ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void openOrderFromInquiry(orderInquiry, message.id);
+                            }}
+                            disabled={openingOrderMessageId === String(message.id || '')}
+                            className={`mt-2 inline-flex items-center rounded-md px-2 py-1 text-[11px] font-semibold transition ${
+                              isSellerMessage
+                                ? 'bg-white/20 text-white hover:bg-white/30'
+                                : 'bg-slate-900 text-white hover:bg-slate-800'
+                            }`}
+                          >
+                            {openingOrderMessageId === String(message.id || '') ? 'Opening...' : 'View order'}
+                          </button>
+                        ) : null}
+                      </div>
+                      {orderInquiry.question ? <p className="whitespace-pre-wrap break-words">{orderInquiry.question}</p> : null}
                     </div>
                   ) : (
                     <p className="whitespace-pre-wrap break-words">{message.text}</p>

@@ -53,3 +53,35 @@ export const uploadMediaFile = async ({ file, productId, endpoint = '/api/admin/
     unattached: payload?.unattached ?? true,
   };
 };
+
+export const uploadProductVideoFile = async ({
+  file,
+  productId,
+  endpoint = '/api/admin/media/video/upload',
+} = {}) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (productId) {
+    formData.append('product_id', productId);
+  }
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    body: formData,
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    const message =
+      payload?.message ||
+      payload?.error ||
+      (response.status === 403 ? 'Admin access required to upload videos.' : 'Unable to upload video.');
+    throw new Error(message);
+  }
+  return {
+    id: payload?.id || '',
+    key: payload?.key || '',
+    url: payload?.url || '',
+    title: file?.name || 'Video',
+    media_type: 'video',
+    productId: payload?.product_id || null,
+  };
+};

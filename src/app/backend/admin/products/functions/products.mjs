@@ -123,6 +123,14 @@ export const buildProductPayload = (form, options = {}) => {
   if (Array.isArray(imageIds) && imageIds.length) {
     payload.image_ids = imageIds;
   }
+  if (typeof form.product_video_key === 'string') {
+    const normalized = form.product_video_key.trim();
+    payload.product_video_key = normalized || (mode === 'update' ? null : undefined);
+  }
+  if (typeof form.product_video_url === 'string') {
+    const normalized = form.product_video_url.trim();
+    payload.product_video_url = normalized || (mode === 'update' ? null : undefined);
+  }
   if (Array.isArray(form.attributes) && form.attributes.length) {
     payload.attributes = form.attributes;
   }

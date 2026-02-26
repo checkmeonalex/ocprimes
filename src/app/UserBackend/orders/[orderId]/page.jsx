@@ -59,12 +59,6 @@ const TRACKING_STEPS = [
     pendingText: 'Waiting for packaging.',
   },
   {
-    key: 'in_location',
-    label: 'Order currently in your country/location',
-    currentText: 'Your shipment reached your destination hub.',
-    pendingText: 'Shipment has not reached your destination hub yet.',
-  },
-  {
     key: 'out_for_delivery',
     label: 'Order enroute for delivery',
     currentText: 'Your order is out for delivery.',
@@ -91,10 +85,10 @@ const CURRENT_STEP_INDEX_BY_STATUS = {
   pending: 0,
   paid: 0,
   processing: 2,
-  ready_to_ship: 3,
-  out_for_delivery: 4,
-  delivered: 5,
-  completed: 5,
+  ready_to_ship: 2,
+  out_for_delivery: 3,
+  delivered: 4,
+  completed: 4,
 }
 
 const getCompletedStepIndexForTerminalStatus = (status) => {
@@ -224,7 +218,7 @@ export default function OrderDetailsPage() {
     const status = String(order?.statusKey || '').toLowerCase()
     if (status === 'awaiting_payment') return 'Proceed to Payment'
     if (status === 'failed' || status === 'cancelled') return 'Retry Payment'
-    return 'Track Order'
+    return 'Make Inquiry'
   }, [order?.statusKey])
 
   const canReviewOrder = useMemo(() => {
@@ -241,7 +235,22 @@ export default function OrderDetailsPage() {
   const handlePrimaryAction = () => {
     const status = String(order?.statusKey || '').toLowerCase()
     if (status !== 'awaiting_payment' && status !== 'failed' && status !== 'cancelled') {
-      router.push('/UserBackend/orders')
+      const params = new URLSearchParams()
+      params.set('help_center', '1')
+      const orderIdValue = String(order?.id || '').trim()
+      const orderNumberValue = String(order?.orderNumber || '').trim()
+      const trackIdValue = String(order?.trackId || '').trim()
+      const statusValue = String(order?.status || '').trim()
+      if (orderIdValue) params.set('order_id', orderIdValue)
+      if (orderNumberValue) params.set('order_number', orderNumberValue)
+      if (trackIdValue) params.set('track_id', trackIdValue)
+      if (statusValue) params.set('order_status', statusValue)
+      const seed =
+        orderNumberValue || orderIdValue
+          ? `Hello Support, I need help with order ${orderNumberValue || orderIdValue}.`
+          : 'Hello Support, I need help with my order.'
+      params.set('prefill', seed)
+      router.push(`/UserBackend/messages?${params.toString()}`)
       return
     }
     router.push('/checkout/payment')
@@ -452,8 +461,8 @@ export default function OrderDetailsPage() {
             <div className='overflow-hidden rounded-xl border border-slate-200 bg-white'>
               <div className='flex items-center justify-between border-b border-slate-200 px-4 py-3'>
                 <div>
-                  <p className='text-sm font-semibold text-slate-900'>Track Order</p>
-                  <p className='mt-0.5 text-xs text-slate-500'>Tracking No: {order.trackId}</p>
+                  <p className='text-sm font-semibold text-slate-900'>Order Inquiry</p>
+                  <p className='mt-0.5 text-xs text-slate-500'>Order Ref: {order.trackId}</p>
                 </div>
                 <button
                   type='button'
@@ -472,7 +481,12 @@ export default function OrderDetailsPage() {
                 {trackingSteps.map((step, index) => (
                   <div key={`${step.label}-${index}`} className='relative pl-6'>
                     {index < trackingSteps.length - 1 ? (
-                      <span className='absolute left-[7px] top-4 h-[calc(100%-4px)] w-[2px] bg-slate-200' aria-hidden='true' />
+                      <span
+                        className={`absolute left-[7px] top-4 h-[calc(100%-4px)] w-[2.5px] rounded-full ${
+                          step.isActive && trackingSteps[index + 1]?.isActive ? 'bg-sky-400' : 'bg-slate-300'
+                        }`}
+                        aria-hidden='true'
+                      />
                     ) : null}
                     <span
                       className={`absolute left-0 top-1.5 h-4 w-4 rounded-full border-2 ${

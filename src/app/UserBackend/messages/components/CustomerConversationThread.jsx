@@ -10,11 +10,42 @@ const getInitials = (name) =>
     .map((part) => part.charAt(0).toUpperCase())
     .join('') || 'S'
 
+const parseOrderInquiryMessage = (value) => {
+  const raw = String(value || '')
+  if (!raw.startsWith('[Order Inquiry]')) return null
+  const lines = raw.split('\n')
+  const order = String(lines.find((line) => line.startsWith('Order: ')) || '')
+    .replace('Order: ', '')
+    .trim()
+  const reference = String(lines.find((line) => line.startsWith('Reference: ')) || '')
+    .replace('Reference: ', '')
+    .trim()
+  const status = String(lines.find((line) => line.startsWith('Status: ')) || '')
+    .replace('Status: ', '')
+    .trim()
+  const questionLineIndex = lines.findIndex((line) => line.startsWith('Question: '))
+  const question =
+    questionLineIndex >= 0
+      ? [String(lines[questionLineIndex] || '').replace('Question: ', ''), ...lines.slice(questionLineIndex + 1)]
+          .join('\n')
+          .trim()
+      : ''
+
+  return {
+    order,
+    reference,
+    status,
+    question,
+  }
+}
+
 export default function CustomerConversationThread({
   conversation,
   draftMessage,
   onDraftMessageChange,
   onSendMessage,
+  inquiryContext = null,
+  onClearInquiryContext = () => {},
   onBack,
   onEndChat,
   allowEndChat = true,
@@ -71,6 +102,10 @@ export default function CustomerConversationThread({
   if (!conversation) return null
 
   const blockedNotice = String(conversation.participantNotice || '').trim()
+  const inquiryOrderLabel = String(inquiryContext?.orderNumber || inquiryContext?.orderId || '').trim()
+  const inquiryReference = String(inquiryContext?.trackId || '').trim()
+  const inquiryStatus = String(inquiryContext?.orderStatus || '').trim()
+  const hasInquiryContext = Boolean(inquiryOrderLabel || inquiryReference || inquiryStatus)
   const composerStyle = useMemo(() => {
     if (!isFloatingComposer) return undefined
     return {
@@ -140,6 +175,7 @@ export default function CustomerConversationThread({
           {conversation.messages.map((message) => {
             const isCustomer = message.sender === 'customer'
             const senderLabel = isCustomer ? 'You' : conversation.sellerName
+            const inquiryMessage = parseOrderInquiryMessage(message.text)
 
             return (
               <div
@@ -160,7 +196,41 @@ export default function CustomerConversationThread({
                   >
                     {senderLabel}
                   </p>
-                  <p className='whitespace-pre-wrap break-words'>{message.text}</p>
+                  {inquiryMessage ? (
+                    <div className='space-y-2'>
+                      <div
+                        className={`rounded-md border p-2 ${
+                          isCustomer
+                            ? 'border-emerald-300 bg-emerald-700/25'
+                            : 'border-emerald-200 bg-emerald-50 text-slate-900'
+                        }`}
+                      >
+                        <p className={`text-[11px] font-semibold ${isCustomer ? 'text-emerald-100' : 'text-emerald-700'}`}>
+                          Order inquiry
+                        </p>
+                        {inquiryMessage.order ? (
+                          <p className={`mt-0.5 text-xs ${isCustomer ? 'text-emerald-50' : 'text-slate-700'}`}>
+                            Order: {inquiryMessage.order}
+                          </p>
+                        ) : null}
+                        {inquiryMessage.reference ? (
+                          <p className={`text-xs ${isCustomer ? 'text-emerald-50' : 'text-slate-600'}`}>
+                            Ref: {inquiryMessage.reference}
+                          </p>
+                        ) : null}
+                        {inquiryMessage.status ? (
+                          <p className={`text-xs ${isCustomer ? 'text-emerald-50' : 'text-slate-600'}`}>
+                            Status: {inquiryMessage.status}
+                          </p>
+                        ) : null}
+                      </div>
+                      {inquiryMessage.question ? (
+                        <p className='whitespace-pre-wrap break-words'>{inquiryMessage.question}</p>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className='whitespace-pre-wrap break-words'>{message.text}</p>
+                  )}
                   <p
                     className={`mt-1 text-right text-[10px] ${
                       isCustomer ? 'text-blue-100/80' : 'text-slate-400'
@@ -180,6 +250,30 @@ export default function CustomerConversationThread({
         className='pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-[calc(env(safe-area-inset-bottom)+0.6rem)] pt-2'
         style={composerStyle}
       >
+        {hasInquiryContext ? (
+          <div className='pointer-events-auto mb-2 overflow-hidden rounded-xl border border-emerald-200 bg-white/95 shadow-[0_-8px_20px_rgba(15,23,42,0.08)] backdrop-blur'>
+            <div className='flex items-start justify-between gap-3 px-3 py-2'>
+              <div className='min-w-0 border-l-2 border-emerald-500 pl-2'>
+                <p className='text-xs font-semibold text-emerald-700'>Order inquiry</p>
+                <p className='truncate text-xs text-slate-700'>
+                  {inquiryOrderLabel ? `Order ${inquiryOrderLabel}` : 'Order support request'}
+                </p>
+                {inquiryReference ? <p className='truncate text-[11px] text-slate-500'>Ref: {inquiryReference}</p> : null}
+                {inquiryStatus ? <p className='truncate text-[11px] text-slate-500'>Status: {inquiryStatus}</p> : null}
+              </div>
+              <button
+                type='button'
+                onClick={onClearInquiryContext}
+                className='inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-700'
+                aria-label='Remove inquiry context'
+              >
+                <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2'>
+                  <path d='M5 5l10 10M15 5 5 15' strokeLinecap='round' />
+                </svg>
+              </button>
+            </div>
+          </div>
+        ) : null}
         <div className='pointer-events-auto flex items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-2 shadow-[0_-8px_20px_rgba(15,23,42,0.08)] backdrop-blur'>
           <input
             type='text'

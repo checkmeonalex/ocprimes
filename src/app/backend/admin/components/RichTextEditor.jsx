@@ -280,7 +280,7 @@ const RichTextEditor = forwardRef(function RichTextEditor({
       {showFloatingFormatMenu && (
         <BubbleMenu
           editor={editor}
-          tippyOptions={{ placement: 'top', duration: 100 }}
+          options={{ placement: 'top' }}
           shouldShow={({ editor: tiptapEditor }) => {
             const { empty } = tiptapEditor.state.selection;
             return !empty && tiptapEditor.isFocused;

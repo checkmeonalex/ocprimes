@@ -137,6 +137,8 @@ const buildInitialForm = (product) => {
       return_policy: 'not_returnable',
       categories: '',
       image_id: '',
+      product_video_key: '',
+      product_video_url: '',
     };
   }
   return {
@@ -162,6 +164,8 @@ const buildInitialForm = (product) => {
     ),
     categories: normalizeEntityNames(product.categories).join(', '),
     image_id: product?.images?.[0]?.id ? String(product.images[0].id) : '',
+    product_video_key: String(product?.product_video_key || '').trim(),
+    product_video_url: String(product?.product_video_url || '').trim(),
   };
 };
 
@@ -212,6 +216,21 @@ const normalizeEntityNames = (value) =>
         })
         .filter(Boolean)
     : [];
+
+const isVendorOnlyRolePayload = (payload) => {
+  const primaryRole = String(payload?.role || '').trim().toLowerCase();
+  const roles = Array.isArray(payload?.roles)
+    ? payload.roles.map((item) => String(item || '').trim().toLowerCase())
+    : [];
+  const isAdmin = Boolean(payload?.is_admin) || primaryRole === 'admin' || roles.includes('admin');
+  const isVendor =
+    Boolean(payload?.is_vendor) ||
+    primaryRole === 'vendor' ||
+    primaryRole === 'seller' ||
+    roles.includes('vendor') ||
+    roles.includes('seller');
+  return isVendor && !isAdmin;
+};
 
 const normalizeGallery = (images) => {
   const seen = new Set();
@@ -277,6 +296,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   const [brandsLoading, setBrandsLoading] = useState(false);
   const [brandsError, setBrandsError] = useState('');
   const [brandsLoaded, setBrandsLoaded] = useState(false);
+  const [isVendorOnlyUser, setIsVendorOnlyUser] = useState(false);
   const [variationEnabled, setVariationEnabled] = useState(false);
   const [availableAttributes, setAvailableAttributes] = useState([]);
   const [selectedAttributes, setSelectedAttributes] = useState([]);
@@ -404,6 +424,32 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
       setSelectedTags([]);
     }
   }, [product]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    fetch('/api/auth/role', {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'include',
+    })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null);
+        if (!active) return;
+        if (!response.ok) {
+          setIsVendorOnlyUser(false);
+          return;
+        }
+        setIsVendorOnlyUser(isVendorOnlyRolePayload(payload || {}));
+      })
+      .catch(() => {
+        if (!active) return;
+        setIsVendorOnlyUser(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (product?.brands) {
@@ -724,6 +770,27 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   }, [brandsLoaded, brandsLoading]);
 
   useEffect(() => {
+    if (!isOpen) return;
+    if (!isVendorOnlyUser) return;
+    handleLoadBrands();
+  }, [handleLoadBrands, isOpen, isVendorOnlyUser]);
+
+  useEffect(() => {
+    if (!isVendorOnlyUser) return;
+    if (!availableBrands.length) return;
+    const allowedIds = new Set(availableBrands.map((item) => String(item?.id || '').trim()).filter(Boolean));
+    const preferredId = String(availableBrands[0]?.id || '').trim();
+    if (!preferredId) return;
+    setSelectedBrands((prev) => {
+      const normalized = (Array.isArray(prev) ? prev : [])
+        .map((id) => String(id || '').trim())
+        .filter((id) => id && allowedIds.has(id));
+      if (normalized.length === 1 && normalized[0] === preferredId) return prev;
+      return [preferredId];
+    });
+  }, [availableBrands, isVendorOnlyUser]);
+
+  useEffect(() => {
     if (!product?.variations || !Array.isArray(product.variations)) {
       setVariations([]);
       return;
@@ -951,6 +1018,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
 
   const previewSlug = useMemo(() => slug || toSlug(form.name), [form.name, slug]);
   const previewImage = selectedImage?.url || product?.images?.[0]?.url || product?.images?.[0]?.src || '';
+  const hasProductVideo = Boolean(String(form.product_video_url || '').trim());
   const previewCandidateUrl = useMemo(
     () => buildProductUrl(savedProduct || { slug: previewSlug }, previewSlug, { preview: true }),
     [previewSlug, savedProduct],
@@ -1173,6 +1241,8 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         packaging_style: form.packaging_style || '',
         return_policy: form.return_policy || '',
         image_id: form.image_id || '',
+        product_video_key: form.product_video_key || '',
+        product_video_url: form.product_video_url || '',
       },
       selectedCategories: [...selectedCategories].map((item) => String(item)).sort(),
       pendingCategoryRequestIds: [...pendingCategoryRequestIds].map((item) => String(item)).sort(),
@@ -2365,7 +2435,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
           >
             {(isIdentityStep || isReviewStep) && (
             <div className={isIdentityStep ? bodyCardClass : cardClass}>
-              <p className="text-xs font-semibold text-slate-500">Upload image</p>
+              <p className="text-xs font-semibold text-slate-500">Media</p>
               <button
                 type="button"
                 onClick={() => {
@@ -2379,11 +2449,48 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                     <LazyImage src={previewImage} alt={form.name || 'Product'} />
                   ) : (
                     <div className="flex h-full items-center justify-center text-xs text-slate-400">
-                      Select images
+                      {hasProductVideo
+                        ? 'Add image of your product'
+                        : 'Add product images and a video.'}
                     </div>
                   )}
                 </div>
               </button>
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageLibraryPurpose('product');
+                    setIsImageModalOpen(true);
+                  }}
+                  className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700"
+                >
+                  {hasProductVideo ? '1 video added' : 'Add a video'}
+                </button>
+                {hasProductVideo ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        product_video_key: '',
+                        product_video_url: '',
+                      }))
+                    }
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600"
+                    aria-label="Remove video"
+                    title="Remove video"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4h8v2" />
+                      <path d="M19 6l-1 14H6L5 6" />
+                      <path d="M10 11v6" />
+                      <path d="M14 11v6" />
+                    </svg>
+                  </button>
+                ) : null}
+              </div>
               {galleryImages.length > 1 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {galleryImages.map((image) => {
@@ -2519,6 +2626,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       isLoading={brandsLoading}
                       errorMessage={brandsError}
                       onOpen={handleLoadBrands}
+                      disabled={isVendorOnlyUser}
                       className="mt-2 w-full"
                     />
                   </>
@@ -3327,6 +3435,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
       )}
       <ProductImageLibraryModal
         isOpen={isImageModalOpen}
+        productId={savedProduct?.id || product?.id || undefined}
         onClose={() => {
           setIsImageModalOpen(false);
           setImageLibraryPurpose('product');
@@ -3339,8 +3448,10 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             ? galleryImages.map((image) => image.id).filter(Boolean)
             : []
         }
+        selectedVideoUrl={imageLibraryPurpose === 'product' ? String(form.product_video_url || '').trim() : ''}
+        enableVideoTab={imageLibraryPurpose === 'product'}
         maxSelection={imageLibraryPurpose === 'product' ? 7 : 1}
-        onApply={({ gallery }) => {
+        onApply={({ gallery, videos }) => {
           if (imageLibraryPurpose !== 'product') {
             const selected = Array.isArray(gallery) ? gallery[0] : null;
             const imageUrl = selected?.url || '';
@@ -3354,13 +3465,30 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             return;
           }
           const normalized = normalizeGallery(gallery);
-          const primary = normalized[0] || null;
-          setSelectedImage(primary);
-          setGalleryImages(normalized);
+          if (normalized.length > 0) {
+            const primary = normalized[0] || null;
+            setSelectedImage(primary);
+            setGalleryImages(normalized);
+          }
+          const selectedVideo = Array.isArray(videos) ? videos[0] : null;
           setForm((prev) => ({
             ...prev,
-            image_id: primary?.id ? String(primary.id) : '',
-            image_ids: normalized.map((image) => image.id).filter(Boolean),
+            image_id:
+              normalized.length > 0
+                ? normalized[0]?.id
+                  ? String(normalized[0].id)
+                  : ''
+                : prev.image_id,
+            image_ids:
+              normalized.length > 0
+                ? normalized.map((image) => image.id).filter(Boolean)
+                : prev.image_ids,
+            ...(selectedVideo?.url
+              ? {
+                  product_video_key: String(selectedVideo?.r2_key || selectedVideo?.key || '').trim(),
+                  product_video_url: String(selectedVideo.url || '').trim(),
+                }
+              : {}),
           }));
         }}
       />

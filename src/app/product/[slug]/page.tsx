@@ -225,6 +225,7 @@ const mapApiProduct = (item: any) => {
       : []
   const images = Array.isArray(item.images) ? item.images : []
   const imageUrls = images.map((image) => image?.url).filter(Boolean)
+  const videoUrl = String(item.product_video_url || '').trim()
   const basePrice = Number(item.price) || 0
   const discountPrice = Number(item.discount_price) || 0
   const hasDiscount = discountPrice > 0 && discountPrice < basePrice
@@ -233,6 +234,20 @@ const mapApiProduct = (item: any) => {
   const primaryBrand = Array.isArray(item.brands) ? item.brands[0] : null
   const vendorProfile = item.vendor_profile || null
   const fallbackImage = item.image_url || imageUrls[0] || ''
+  const galleryMedia = []
+  if (videoUrl) {
+    galleryMedia.push({
+      type: 'video',
+      url: videoUrl,
+      poster: fallbackImage || '',
+    })
+  }
+  imageUrls.forEach((url) => {
+    galleryMedia.push({ type: 'image', url })
+  })
+  if (!galleryMedia.length && fallbackImage) {
+    galleryMedia.push({ type: 'image', url: fallbackImage })
+  }
   const categorySlug = primaryCategory?.slug || slugifyCategory(primaryCategory?.name)
   const primaryCategoryPath = Array.isArray(item.primary_category_path)
     ? item.primary_category_path
@@ -307,6 +322,8 @@ const mapApiProduct = (item: any) => {
     isPortrait: false,
     image: fallbackImage,
     gallery: imageUrls.length ? imageUrls : fallbackImage ? [fallbackImage] : [],
+    video: videoUrl,
+    galleryMedia,
     stock: Number.isFinite(Number(item.stock_quantity)) ? Number(item.stock_quantity) : 0,
     tags: rawTags.map((tag: any) => tag?.name).filter(Boolean),
     tagLinks: rawTags.length
@@ -558,7 +575,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
         setProduct(mapped)
         setSelectedColor(mapped?.colors?.[0] || '')
         setSelectedSize(mapped?.sizes?.[0] || '')
-        setCurrentImage(mapped?.image || '')
+        setCurrentImage(mapped?.video || mapped?.image || '')
         setSelectedVariation(null)
         setShowSelectionErrors(false)
         setVariationError('')
@@ -1387,7 +1404,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const savingsAmountLabel = Number.isInteger(savingsAmount)
     ? String(savingsAmount)
     : savingsAmount.toFixed(2)
-  const activeImage = currentImage || selectedVariation?.image || product.image
+  const activeImage = currentImage || selectedVariation?.image || product.video || product.image
   const conditionKey = String(product.conditionCheck || '').trim().toLowerCase()
   const conditionMeta =
     CONDITION_COPY[conditionKey] || {
@@ -1558,6 +1575,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                 <div ref={leftColumnRef} className='space-y-6 lg:pr-6'>
                   <Gallery
                     images={product.gallery}
+                    media={product.galleryMedia}
                     currentImage={activeImage}
                     setCurrentImage={setCurrentImage}
                     productName={product.name}

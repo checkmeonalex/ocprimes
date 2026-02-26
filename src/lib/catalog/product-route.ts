@@ -416,7 +416,7 @@ export async function listPublicProducts(request: NextRequest) {
 
   let query = supabase
     .from(PRODUCT_TABLE)
-    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at, created_by')
+    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by')
     .eq('status', 'publish')
     .order('created_at', { ascending: false })
     .range(from, to)
@@ -522,7 +522,7 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
 
   let query = readDb
     .from(PRODUCT_TABLE)
-    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, created_at, updated_at, created_by')
+    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by')
     .eq('slug', parsed.data.slug)
 
   if (!previewRequested) {

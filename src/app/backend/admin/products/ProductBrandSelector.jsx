@@ -8,6 +8,7 @@ const ProductBrandSelector = ({
   isLoading = false,
   errorMessage = '',
   onOpen = () => {},
+  disabled = false,
   className = '',
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,12 +44,16 @@ const ProductBrandSelector = ({
       <button
         type="button"
         onClick={() => {
+          if (disabled) return;
           if (!isOpen) {
             onOpen();
           }
           setIsOpen((prev) => !prev);
         }}
-        className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-left text-xs text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        disabled={disabled}
+        className={`w-full rounded-2xl border border-slate-200 px-3 py-2 text-left text-xs text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+          disabled ? 'cursor-not-allowed bg-slate-50 opacity-75' : 'hover:bg-slate-50'
+        }`}
       >
         <div className="flex items-center justify-between">
           <span className={selectedBrands.length > 0 ? 'text-slate-900' : 'text-slate-500'}>
@@ -73,6 +78,9 @@ const ProductBrandSelector = ({
           </svg>
         </div>
       </button>
+      {disabled ? (
+        <p className="mt-1 text-[11px] font-semibold text-emerald-600">Connected to store brand.</p>
+      ) : null}
 
       {isOpen && (
         <div className="fixed inset-0 z-[80] flex items-end justify-center px-0 py-0 sm:items-center sm:px-4 sm:py-6">
