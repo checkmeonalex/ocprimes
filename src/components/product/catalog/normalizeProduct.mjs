@@ -101,7 +101,12 @@ const normalizeProduct = (item) => {
     vendor:
       item?.vendor ||
       (Array.isArray(item?.brands) ? item.brands[0]?.name : '') ||
-      'OCPRIMES',
+      '',
+    vendorSlug:
+      item?.vendorSlug ||
+      item?.vendor_slug ||
+      (Array.isArray(item?.brands) ? item.brands[0]?.slug : '') ||
+      '',
     vendorFont: item?.vendorFont || 'Georgia, serif',
     shortDescription: item?.short_description || item?.shortDescription || '',
     fullDescription: item?.description || item?.fullDescription || '',

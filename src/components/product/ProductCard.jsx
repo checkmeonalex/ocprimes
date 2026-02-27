@@ -143,7 +143,7 @@ const ProductCard = ({
   const handleVendorClick = (event) => {
     event.preventDefault()
     event.stopPropagation()
-    router.push(buildVendorHref(product.vendor))
+    router.push(buildVendorHref(product.vendor, product.vendorSlug))
   }
 
   if (!product) {

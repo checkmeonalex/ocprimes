@@ -32,6 +32,19 @@ const normalizeVideoItem = (item, videoDeleteEndpointBase) => ({
   created_at: item?.created_at || null,
 });
 
+const normalizeSelectedImageItem = (item, deleteEndpointBase) => {
+  const normalized = normalizeImageItem(item, deleteEndpointBase);
+  const id = String(normalized?.id || '').trim();
+  const url = String(normalized?.url || '').trim();
+  if (!id && !url) return null;
+  return {
+    ...normalized,
+    id,
+    url,
+    title: String(normalized?.title || 'Image').trim(),
+  };
+};
+
 const itemValues = (item) => [
   String(item?.media_type || '').toLowerCase(),
   String(item?.mime_type || '').toLowerCase(),
@@ -58,10 +71,12 @@ const dedupeMediaItems = (items = []) => {
   const seen = new Set();
   const deduped = [];
   (Array.isArray(items) ? items : []).forEach((item) => {
+    const type = String(item?.media_type || 'image').trim().toLowerCase();
     const id = String(item?.id || '').trim();
     const key = String(item?.r2_key || item?.key || '').trim();
     const url = String(item?.url || '').trim();
-    const fingerprint = String(key || url || id).trim().toLowerCase();
+    const fingerprintSource = url || key || id;
+    const fingerprint = `${type}:${String(fingerprintSource).trim().toLowerCase()}`;
     if (!id && !key && !url) return;
     if (seen.has(fingerprint)) return;
     seen.add(fingerprint);
@@ -77,6 +92,7 @@ function ProductImageLibraryModal({
   productId,
   selectedId,
   selectedIds = [],
+  selectedImages = [],
   selectedVideoId = '',
   selectedVideoUrl = '',
   listEndpoint = '/api/admin/media',
@@ -86,7 +102,7 @@ function ProductImageLibraryModal({
   videoUploadEndpoint = '/api/admin/media/video/upload',
   videoDeleteEndpointBase = '/api/admin/media/video',
   title = 'Image Library',
-  maxSelection = 7,
+  maxSelection = 8,
   enableVideoTab = false,
   zIndexClass = 'z-[60]',
   zIndex = 999,
@@ -115,6 +131,13 @@ function ProductImageLibraryModal({
   const previewVideoRefs = useRef({});
 
   const perPage = isMobile ? MOBILE_MEDIA_PAGE_SIZE : MEDIA_PAGE_SIZE;
+  const pinnedSelectedImages = useMemo(
+    () =>
+      (Array.isArray(selectedImages) ? selectedImages : [])
+        .map((item) => normalizeSelectedImageItem(item, deleteEndpointBase))
+        .filter(Boolean),
+    [deleteEndpointBase, selectedImages],
+  );
   const cacheKey = useMemo(
     () => `mixed::${allowVideo ? 'with-video' : 'image-only'}::${listEndpoint}::${videoListEndpoint}::${perPage}`,
     [allowVideo, listEndpoint, perPage, videoListEndpoint],
@@ -177,7 +200,9 @@ function ProductImageLibraryModal({
         const nextHasMore = imageHasMore || videoHasMore;
 
         setItems((prev) => {
-          const merged = replace ? mergedPage : [...prev, ...mergedPage];
+          const merged = replace
+            ? [...pinnedSelectedImages, ...mergedPage]
+            : [...pinnedSelectedImages, ...prev, ...mergedPage];
           const deduped = dedupeMediaItems(merged);
           writeCache(deduped, requestedPage, nextHasMore);
           return deduped;
@@ -191,7 +216,7 @@ function ProductImageLibraryModal({
         setIsLoading(false);
       }
     },
-    [allowVideo, deleteEndpointBase, listEndpoint, perPage, videoDeleteEndpointBase, videoListEndpoint, writeCache],
+    [allowVideo, deleteEndpointBase, listEndpoint, perPage, pinnedSelectedImages, videoDeleteEndpointBase, videoListEndpoint, writeCache],
   );
 
   useEffect(() => {
@@ -220,19 +245,33 @@ function ProductImageLibraryModal({
   useEffect(() => {
     if (!isOpen) return;
 
+    const selectedImageItems = (Array.isArray(selectedImages) ? selectedImages : [])
+      .map((item) => normalizeSelectedImageItem(item, deleteEndpointBase))
+      .filter(Boolean);
+    const baseSelectedIds = selectedImageItems.length
+      ? selectedImageItems.map((item) => String(item.id || '').trim()).filter(Boolean)
+      : selectedIds.map((id) => String(id || '').trim()).filter(Boolean);
+
     const seededImageMap = {};
     const seededImageOrder = [];
-    selectedIds.forEach((id) => {
+    baseSelectedIds.forEach((id) => {
       const key = String(id || '').trim();
       if (!key) return;
+      if (seededImageOrder.length >= maxSelection) return;
       seededImageMap[key] = true;
       seededImageOrder.push(key);
     });
     if (selectedId) {
       const key = String(selectedId).trim();
       if (key) {
+        if (!seededImageOrder.includes(key)) {
+          if (seededImageOrder.length >= maxSelection) {
+            const removed = seededImageOrder.pop();
+            if (removed) delete seededImageMap[removed];
+          }
+          seededImageOrder.unshift(key);
+        }
         seededImageMap[key] = true;
-        if (!seededImageOrder.includes(key)) seededImageOrder.unshift(key);
       }
     }
     setSelectedImageMap(seededImageMap);
@@ -247,13 +286,13 @@ function ProductImageLibraryModal({
     }
     setSelectedVideoMap(seededVideoMap);
     setSelectedVideoOrder(seededVideoOrder);
-  }, [isOpen, selectedId, selectedIds, selectedVideoId]);
+  }, [deleteEndpointBase, isOpen, maxSelection, selectedId, selectedIds, selectedImages, selectedVideoId]);
 
   useEffect(() => {
     if (!isOpen) return;
     const cached = LIBRARY_CACHE.get(cacheKey);
     if (cached) {
-      setItems(dedupeMediaItems(cached.items));
+      setItems(dedupeMediaItems([...pinnedSelectedImages, ...(Array.isArray(cached.items) ? cached.items : [])]));
       setPage(Number(cached.page) || 1);
       setHasMore(Boolean(cached.hasMore));
       return;
@@ -262,7 +301,13 @@ function ProductImageLibraryModal({
     setPage(1);
     setHasMore(true);
     loadItems(1, true);
-  }, [cacheKey, isOpen, loadItems]);
+  }, [cacheKey, isOpen, loadItems, pinnedSelectedImages]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!pinnedSelectedImages.length) return;
+    setItems((prev) => dedupeMediaItems([...pinnedSelectedImages, ...(Array.isArray(prev) ? prev : [])]));
+  }, [isOpen, pinnedSelectedImages]);
 
   useEffect(() => {
     if (!isOpen || !allowVideo) return;
@@ -430,10 +475,14 @@ function ProductImageLibraryModal({
       const next = { ...prev };
       if (next[id]) {
         delete next[id];
+        setUploadError('');
         setSelectedImageOrder((order) => order.filter((entry) => entry !== id));
       } else if (Object.keys(next).length < maxSelection) {
         next[id] = true;
+        setUploadError('');
         setSelectedImageOrder((order) => [...order, id]);
+      } else {
+        setUploadError(`Maximum ${maxSelection} images can be selected.`);
       }
       return next;
     });
@@ -479,7 +528,8 @@ function ProductImageLibraryModal({
 
     const selectedImages = selectedImageOrder
       .map((id) => selectedById.get(String(id)))
-      .filter((item) => item && String(item?.media_type || 'image') !== 'video');
+      .filter((item) => item && String(item?.media_type || 'image') !== 'video')
+      .slice(0, maxSelection);
 
     const selectedVideos = selectedVideoOrder
       .map((id) => selectedById.get(String(id)))
@@ -615,10 +665,17 @@ function ProductImageLibraryModal({
                       selected ? 'border-blue-500 ring-1 ring-blue-200' : 'border-slate-200'
                     }`}
                   >
-                    <button
-                      type="button"
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => toggleSelection(mediaItem)}
-                      className="relative block w-full"
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          toggleSelection(mediaItem);
+                        }
+                      }}
+                      className="relative block w-full cursor-pointer"
                     >
                       <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
                         {mediaItem?.url ? (
@@ -709,7 +766,7 @@ function ProductImageLibraryModal({
                           Selected
                         </span>
                       )}
-                    </button>
+                    </div>
                     <button
                       type="button"
                       onClick={(event) => {

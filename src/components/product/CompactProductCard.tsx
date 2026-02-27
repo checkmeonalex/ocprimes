@@ -16,6 +16,7 @@ type CompactProductCardProps = {
     price: number
     originalPrice?: number | null
     vendor?: string
+    vendorSlug?: string
     vendorFont?: string
     stock?: number | null
   }
@@ -71,7 +72,7 @@ export const CompactProductCard = ({
                   onClick={(event) => {
                     event.preventDefault()
                     event.stopPropagation()
-                    router.push(buildVendorHref(product.vendor || ''))
+                    router.push(buildVendorHref(product.vendor || '', product.vendorSlug || ''))
                   }}
                   className='text-black/80 font-light tracking-wide drop-shadow'
                   style={{

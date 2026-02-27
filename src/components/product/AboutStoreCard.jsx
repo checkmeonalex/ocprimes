@@ -3,6 +3,7 @@ import { buildVendorHref } from '@/lib/catalog/vendor'
 
 const AboutStoreCard = ({
   vendor,
+  vendorSlug,
   rating,
   followers,
   soldCount,
@@ -10,8 +11,9 @@ const AboutStoreCard = ({
   badge,
   avatarUrl,
 }) => {
-  const initials = (vendor || 'V').slice(0, 2).toUpperCase()
-  const vendorHref = buildVendorHref(vendor)
+  const displayVendor = String(vendor || '').trim() || 'Seller'
+  const initials = displayVendor.slice(0, 2).toUpperCase()
+  const vendorHref = buildVendorHref(displayVendor, vendorSlug)
   const followersLabel =
     typeof followers === 'number' ? followers.toLocaleString() : followers
   const safeFollowers = followersLabel || '0'
@@ -25,7 +27,7 @@ const AboutStoreCard = ({
           {avatarUrl ? (
             <img
               src={avatarUrl}
-              alt={`${vendor} avatar`}
+              alt={`${displayVendor} avatar`}
               className='h-full w-full object-cover'
             />
           ) : (
@@ -36,7 +38,7 @@ const AboutStoreCard = ({
         <div className='flex-1'>
           <div className='flex flex-wrap items-center gap-2'>
             <Link href={vendorHref} className='text-base font-semibold text-gray-900 hover:underline'>
-              {vendor}
+              {displayVendor}
             </Link>
             {badge && (
               <span className='inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 border border-violet-200'>

@@ -68,6 +68,7 @@ const getTermColorHex = (term) =>
   normalizeHexColor(term?.color_hex || term?.hex || term?.color || term?.value_hex);
 
 const SHORT_DESCRIPTION_MAX = 500;
+const MAX_PRODUCT_GALLERY_IMAGES = 8;
 const CONDITION_VALUE_SET = new Set(PRODUCT_CONDITION_VALUES);
 const PACKAGING_VALUE_SET = new Set(PRODUCT_PACKAGING_VALUES);
 const RETURN_POLICY_VALUE_SET = new Set(PRODUCT_RETURN_POLICY_VALUES);
@@ -235,14 +236,24 @@ const isVendorOnlyRolePayload = (payload) => {
 const normalizeGallery = (images) => {
   const seen = new Set();
   const next = [];
-  images.forEach((image) => {
+  (Array.isArray(images) ? images : []).forEach((image) => {
     if (!image) return;
-    const key = image.id ? `id:${image.id}` : image.url ? `url:${image.url}` : null;
+    const normalizedUrl = String(image.url || '').trim().toLowerCase();
+    const normalizedId = String(image.id || '').trim();
+    const key = normalizedUrl
+      ? `url:${normalizedUrl}`
+      : normalizedId
+        ? `id:${normalizedId}`
+        : null;
     if (!key || seen.has(key)) return;
     seen.add(key);
-    next.push(image);
+    next.push({
+      ...image,
+      id: normalizedId,
+      url: String(image.url || '').trim(),
+    });
   });
-  return next;
+  return next.slice(0, MAX_PRODUCT_GALLERY_IMAGES);
 };
 
 function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode = 'modal' }) {
@@ -972,13 +983,13 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     setPreviewUrl(buildProductUrl(product, nextForm.name, { preview: true }));
     setDraftReady(false);
     if (Array.isArray(product?.images) && product.images.length) {
-      const nextGallery = product.images
+      const nextGallery = normalizeGallery(product.images
         .map((image) => ({
           id: image?.id ? String(image.id) : '',
           url: image?.url || image?.src || '',
           title: image?.alt || product.name || 'Product image',
         }))
-        .filter((image) => image.id || image.url);
+        .filter((image) => image.id || image.url));
       setGalleryImages(nextGallery);
       setSelectedImage(nextGallery[0] || null);
     } else {
@@ -1017,6 +1028,10 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   }, [isFullPage, isOpen]);
 
   const previewSlug = useMemo(() => slug || toSlug(form.name), [form.name, slug]);
+  const normalizedGalleryForModal = useMemo(
+    () => normalizeGallery(galleryImages),
+    [galleryImages],
+  );
   const previewImage = selectedImage?.url || product?.images?.[0]?.url || product?.images?.[0]?.src || '';
   const hasProductVideo = Boolean(String(form.product_video_url || '').trim());
   const previewCandidateUrl = useMemo(
@@ -3442,15 +3457,20 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         }}
         zIndexClass="z-[95]"
         zIndex={3000}
-        selectedId={selectedImage?.id}
+        selectedId={
+          imageLibraryPurpose === 'product'
+            ? (normalizedGalleryForModal[0]?.id || '')
+            : selectedImage?.id
+        }
         selectedIds={
           imageLibraryPurpose === 'product'
-            ? galleryImages.map((image) => image.id).filter(Boolean)
+            ? normalizedGalleryForModal.map((image) => image.id).filter(Boolean)
             : []
         }
+        selectedImages={imageLibraryPurpose === 'product' ? normalizedGalleryForModal : []}
         selectedVideoUrl={imageLibraryPurpose === 'product' ? String(form.product_video_url || '').trim() : ''}
         enableVideoTab={imageLibraryPurpose === 'product'}
-        maxSelection={imageLibraryPurpose === 'product' ? 7 : 1}
+        maxSelection={imageLibraryPurpose === 'product' ? 8 : 1}
         onApply={({ gallery, videos }) => {
           if (imageLibraryPurpose !== 'product') {
             const selected = Array.isArray(gallery) ? gallery[0] : null;

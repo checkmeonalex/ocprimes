@@ -50,7 +50,30 @@ const withOptionalBrandColumns = async (supabase: any, brandId: string) => {
 
 const attachVendorProfile = async (supabase: any, item: any) => {
   const primaryBrand = Array.isArray(item?.brands) ? item.brands[0] : null
-  const brandId = String(primaryBrand?.id || '').trim()
+  let brandId = String(primaryBrand?.id || '').trim()
+  let fallbackBrand: any = null
+  if (!brandId) {
+    const creatorId = String(item?.created_by || '').trim()
+    if (creatorId) {
+      let creatorLookupDb = supabase
+      try {
+        creatorLookupDb = createAdminSupabaseClient()
+      } catch (_error) {
+        creatorLookupDb = supabase
+      }
+      const { data: brandByCreator, error: brandByCreatorError } = await creatorLookupDb
+        .from(BRAND_TABLE)
+        .select('id, name, slug, logo_url')
+        .eq('created_by', creatorId)
+        .limit(1)
+        .maybeSingle()
+      if (brandByCreatorError && brandByCreatorError.code !== 'PGRST116') {
+        console.error('brand by creator lookup failed:', brandByCreatorError.message)
+      }
+      fallbackBrand = brandByCreator || null
+      brandId = String(brandByCreator?.id || '').trim()
+    }
+  }
   if (!brandId) {
     return {
       ...item,
@@ -74,7 +97,7 @@ const attachVendorProfile = async (supabase: any, item: any) => {
     console.error('brand product count failed:', brandProductsCountResult.error.message)
   }
 
-  const brandData = brandResult.data || primaryBrand || {}
+  const brandData = brandResult.data || primaryBrand || fallbackBrand || {}
   const productCount = Math.max(0, Number(brandProductsCountResult.count) || 0)
   const useCustomMetrics = Boolean(brandData?.use_custom_profile_metrics)
   const customFollowers = Math.max(0, Number(brandData?.custom_profile_followers) || 0)
@@ -91,6 +114,8 @@ const attachVendorProfile = async (supabase: any, item: any) => {
       sold,
       items: productCount,
       rating: Math.max(0, Number(item?.rating) || 0),
+      name: String(brandData?.name || '').trim(),
+      slug: String(brandData?.slug || '').trim(),
       logo_url: String(brandData?.logo_url || '').trim(),
       badge: Boolean(brandData?.is_trusted_vendor) ? 'Trusted seller' : '',
     },
@@ -288,6 +313,44 @@ const attachRelations = async (supabase, items) => {
   const categoriesByProduct = grouped(categoryRows, 'admin_categories')
   const tagsByProduct = grouped(tagRows, 'admin_tags')
   const brandsByProduct = grouped(brandRows, 'admin_brands')
+  const creatorBrandByUserId = new Map()
+  const missingBrandItems = items.filter(
+    (item) =>
+      (!Array.isArray(brandsByProduct.get(item.id)) || brandsByProduct.get(item.id).length === 0) &&
+      String(item?.created_by || '').trim(),
+  )
+
+  if (missingBrandItems.length) {
+    const creatorIds = Array.from(
+      new Set(
+        missingBrandItems
+          .map((item) => String(item?.created_by || '').trim())
+          .filter(Boolean),
+      ),
+    )
+    if (creatorIds.length) {
+      let creatorLookupDb = supabase
+      try {
+        creatorLookupDb = createAdminSupabaseClient()
+      } catch (_error) {
+        creatorLookupDb = supabase
+      }
+      const { data: creatorBrands, error: creatorBrandsError } = await creatorLookupDb
+        .from(BRAND_TABLE)
+        .select('id, name, slug, logo_url, created_by')
+        .in('created_by', creatorIds)
+      if (creatorBrandsError) {
+        console.error('fallback creator brands lookup failed:', creatorBrandsError.message)
+      } else {
+        ;(creatorBrands || []).forEach((brand) => {
+          const creatorId = String(brand?.created_by || '').trim()
+          if (!creatorId || creatorBrandByUserId.has(creatorId)) return
+          creatorBrandByUserId.set(creatorId, brand)
+        })
+      }
+    }
+  }
+
   const imagesByProduct = new Map()
   imageRows.forEach((row) => {
     const list = imagesByProduct.get(row.product_id) || []
@@ -316,7 +379,13 @@ const attachRelations = async (supabase, items) => {
       image_url: images[0]?.url || '',
       categories: categoriesByProduct.get(item.id) || [],
       tags: tagsByProduct.get(item.id) || [],
-      brands: brandsByProduct.get(item.id) || [],
+      brands:
+        brandsByProduct.get(item.id) ||
+        (() => {
+          const creatorId = String(item?.created_by || '').trim()
+          const fallbackBrand = creatorId ? creatorBrandByUserId.get(creatorId) : null
+          return fallbackBrand ? [fallbackBrand] : []
+        })(),
       variations: variationsByProduct.get(item.id) || [],
     }
   })

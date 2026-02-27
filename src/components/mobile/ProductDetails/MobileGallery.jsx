@@ -3,8 +3,20 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 const normalizeMediaItems = (media, images = []) => {
+  const seen = new Set()
+  const dedupe = (items) =>
+    items.filter((item) => {
+      const type = String(item?.type || 'image').trim().toLowerCase()
+      const url = String(item?.url || '').trim().toLowerCase()
+      if (!url) return false
+      const key = `${type}:${url}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+
   if (Array.isArray(media) && media.length) {
-    return media
+    return dedupe(media
       .map((item) => {
         const type = item?.type === 'video' ? 'video' : 'image'
         const url = String(item?.url || '').trim()
@@ -12,13 +24,13 @@ const normalizeMediaItems = (media, images = []) => {
         if (!url) return null
         return { type, url, poster }
       })
-      .filter(Boolean)
+      .filter(Boolean))
   }
 
-  return (Array.isArray(images) ? images : [])
+  return dedupe((Array.isArray(images) ? images : [])
     .map((url) => String(url || '').trim())
     .filter(Boolean)
-    .map((url) => ({ type: 'image', url, poster: '' }))
+    .map((url) => ({ type: 'image', url, poster: '' })))
 }
 
 const formatVideoTime = (seconds) => {
@@ -34,10 +46,14 @@ function MobileCustomVideoPlayer({
   containerClassName,
   videoClassName,
   isActive = true,
+  shouldAutoPlay = false,
+  onAutoPlayHandled,
+  onPauseToCover,
 }) {
   const rootRef = useRef(null)
   const videoRef = useRef(null)
   const resumeOnActiveRef = useRef(false)
+  const manualPauseRef = useRef(false)
   const hideControlsTimerRef = useRef(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(true)
@@ -78,6 +94,7 @@ function MobileCustomVideoPlayer({
       videoEl.play().catch(() => {})
       return
     }
+    manualPauseRef.current = true
     videoEl.pause()
   }, [])
 
@@ -136,6 +153,14 @@ function MobileCustomVideoPlayer({
   }, [isActive, isInView])
 
   useEffect(() => {
+    if (!shouldAutoPlay) return
+    const videoEl = videoRef.current
+    if (!videoEl) return
+    videoEl.play().catch(() => {})
+    if (onAutoPlayHandled) onAutoPlayHandled()
+  }, [onAutoPlayHandled, shouldAutoPlay])
+
+  useEffect(() => {
     if (!isPlaying) {
       clearHideControlsTimer()
       setControlsVisible(true)
@@ -170,6 +195,7 @@ function MobileCustomVideoPlayer({
         preload='metadata'
         playsInline
         controls={false}
+        loop
         muted={isMuted}
         className={videoClassName}
         onLoadedMetadata={(event) => {
@@ -181,7 +207,13 @@ function MobileCustomVideoPlayer({
           setCurrentTime(Number(videoEl.currentTime || 0))
         }}
         onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
+        onPause={() => {
+          setIsPlaying(false)
+          if (manualPauseRef.current) {
+            manualPauseRef.current = false
+            if (onPauseToCover) onPauseToCover()
+          }
+        }}
         onEnded={() => {
           setIsPlaying(false)
           resumeOnActiveRef.current = false
@@ -283,6 +315,7 @@ export default function MobileGallery({
   currentImage,
   setCurrentImage,
   productName = 'Product',
+  vendorNameOverlay = '',
   badgeText = null,
   badgeVariant = 'discount',
 }) {
@@ -291,7 +324,7 @@ export default function MobileGallery({
   const [activeIndex, setActiveIndex] = useState(0)
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const [isClient, setIsClient] = useState(false)
-  const [unlockedVideoMap, setUnlockedVideoMap] = useState({})
+  const [playingVideoUrl, setPlayingVideoUrl] = useState('')
   const [lightboxCurrentIndex, setLightboxCurrentIndex] = useState(0)
   const touchStartX = useRef(0)
   const touchEndX = useRef(0)
@@ -299,15 +332,18 @@ export default function MobileGallery({
   const lightboxTouchEndX = useRef(0)
 
   const activeMedia = mediaItems[activeIndex] || null
+  const isActiveVideoPlaying =
+    String(activeMedia?.type || '') === 'video' &&
+    String(playingVideoUrl || '').trim() === String(activeMedia?.url || '').trim()
 
   const handleImageSelect = (index) => {
     setActiveIndex(index)
   }
 
-  const unlockVideoPlayer = useCallback((url) => {
+  const startVideoPlayer = useCallback((url) => {
     const key = String(url || '').trim()
     if (!key) return
-    setUnlockedVideoMap((prev) => ({ ...prev, [key]: true }))
+    setPlayingVideoUrl(key)
   }, [])
 
   const handleSwipe = () => {
@@ -382,6 +418,13 @@ export default function MobileGallery({
   }, [activeIndex, currentImage, mediaCount, mediaItems, setCurrentImage])
 
   useEffect(() => {
+    const active = mediaItems[activeIndex]
+    if (active?.type !== 'video') {
+      setPlayingVideoUrl('')
+    }
+  }, [activeIndex, mediaItems])
+
+  useEffect(() => {
     setIsClient(true)
   }, [])
 
@@ -419,24 +462,27 @@ export default function MobileGallery({
               style={{ transform: `translateX(-${activeIndex * 100}%)` }}
             >
               {mediaItems.map((item, index) => (
-                <div key={`${item.type}-${item.url}-${index}`} className='h-full w-full shrink-0 bg-black'>
+                <div key={`${item.type}-${item.url}-${index}`} className='h-full w-full shrink-0 bg-slate-100'>
                   {item.type === 'video' ? (
-                    unlockedVideoMap[String(item.url || '').trim()] ? (
+                    playingVideoUrl === String(item.url || '').trim() ? (
                       <MobileCustomVideoPlayer
                         src={item.url}
                         poster={item.poster || undefined}
                         containerClassName='h-full w-full'
-                        videoClassName='h-full w-full object-contain'
+                        videoClassName='h-full w-full object-contain bg-black'
                         isActive={index === activeIndex}
+                        shouldAutoPlay
+                        onAutoPlayHandled={() => {}}
+                        onPauseToCover={() => setPlayingVideoUrl('')}
                       />
                     ) : (
                       <button
                         type='button'
                         onClick={(event) => {
                           event.stopPropagation()
-                          unlockVideoPlayer(item.url)
+                          startVideoPlayer(item.url)
                         }}
-                        className='relative h-full w-full bg-black'
+                        className='relative h-full w-full bg-slate-100'
                         aria-label='Play video'
                       >
                         <video
@@ -444,7 +490,7 @@ export default function MobileGallery({
                           poster={item.poster || undefined}
                           muted
                           preload='metadata'
-                          className='h-full w-full object-contain opacity-90'
+                          className='h-full w-full object-cover opacity-90'
                         />
                         <span className='absolute inset-0 flex items-center justify-center bg-black/25'>
                           <svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' className='h-24 w-24'>
@@ -480,7 +526,9 @@ export default function MobileGallery({
 
           {badgeText && (
             <div
-              className={`absolute top-4 left-4 text-xs font-semibold px-3 py-1 rounded-full ${
+              className={`absolute left-4 text-xs font-semibold px-3 py-1 rounded-full ${
+                vendorNameOverlay ? 'top-14' : 'top-4'
+              } ${
                 badgeVariant === 'new'
                   ? 'bg-yellow-300 text-yellow-900'
                   : 'bg-red-500 text-white'
@@ -489,6 +537,13 @@ export default function MobileGallery({
               {badgeText}
             </div>
           )}
+          {vendorNameOverlay && !isActiveVideoPlaying ? (
+            <div className='pointer-events-none absolute left-4 top-4 z-10 max-w-[80%]'>
+              <p className='truncate text-2xl font-medium leading-none text-black/85 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)] [font-family:Georgia,serif]'>
+                {vendorNameOverlay}
+              </p>
+            </div>
+          ) : null}
 
           {activeMedia?.type === 'video' ? (
             <span className='absolute right-4 top-4 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-white'>

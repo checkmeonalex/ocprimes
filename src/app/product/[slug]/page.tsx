@@ -233,6 +233,12 @@ const mapApiProduct = (item: any) => {
   const primaryCategory = Array.isArray(item.categories) ? item.categories[0] : null
   const primaryBrand = Array.isArray(item.brands) ? item.brands[0] : null
   const vendorProfile = item.vendor_profile || null
+  const resolvedVendorName = String(
+    primaryBrand?.name || vendorProfile?.name || item?.vendor || item?.vendor_name || '',
+  ).trim()
+  const resolvedVendorSlug = String(
+    primaryBrand?.slug || vendorProfile?.slug || item?.vendor_slug || item?.vendorSlug || '',
+  ).trim()
   const fallbackImage = item.image_url || imageUrls[0] || ''
   const galleryMedia = []
   if (videoUrl) {
@@ -298,7 +304,8 @@ const mapApiProduct = (item: any) => {
     category: primaryCategory?.name || 'Uncategorized',
     categorySlug,
     categoryPath: primaryCategoryPath,
-    vendor: primaryBrand?.name || 'OCPRIMES',
+    vendor: resolvedVendorName || 'Seller',
+    vendorSlug: resolvedVendorSlug,
     vendorRating: Math.max(0, Number(vendorProfile?.rating ?? item.rating) || 0),
     vendorFollowers: Math.max(0, Number(vendorProfile?.followers) || 0),
     vendorSoldCount: Math.max(0, Number(vendorProfile?.sold) || 0),
@@ -1579,6 +1586,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     currentImage={activeImage}
                     setCurrentImage={setCurrentImage}
                     productName={product.name}
+                    vendorNameOverlay={String(product.vendor || '').trim()}
                     badgeText={
                       isNewProduct
                         ? 'New'
@@ -2155,6 +2163,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                   )}
                   <AboutStoreCard
                     vendor={product.vendor}
+                    vendorSlug={product.vendorSlug}
                     rating={product.vendorRating}
                     followers={product.vendorFollowers}
                     soldCount={product.vendorSoldCount}
