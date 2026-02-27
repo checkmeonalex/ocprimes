@@ -13,6 +13,7 @@ const ProductBrandSelector = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const normalizeId = (value) => String(value ?? '').trim();
 
   const filteredBrands = useMemo(() => {
     if (!searchTerm) return brands;
@@ -24,20 +25,28 @@ const ProductBrandSelector = ({
   }, [brands, searchTerm]);
 
   const toggleBrand = (brandId) => {
-    const newSelection = selectedBrands.includes(brandId)
-      ? selectedBrands.filter((id) => id !== brandId)
+    const targetId = normalizeId(brandId);
+    const isSelected = selectedBrands.some((id) => normalizeId(id) === targetId);
+    const newSelection = isSelected
+      ? selectedBrands.filter((id) => normalizeId(id) !== targetId)
       : [...selectedBrands, brandId];
     onSelectBrands(newSelection);
   };
 
-  const isBrandSelected = (brandId) => selectedBrands.includes(brandId);
+  const isBrandSelected = (brandId) =>
+    selectedBrands.some((id) => normalizeId(id) === normalizeId(brandId));
 
   const selectedBrandNames = useMemo(() => {
+    const selectedSet = new Set(selectedBrands.map((id) => normalizeId(id)));
     return brands
-      .filter((brand) => selectedBrands.includes(brand.id))
+      .filter((brand) => selectedSet.has(normalizeId(brand.id)))
       .map((brand) => brand.name)
       .join(', ');
   }, [selectedBrands, brands]);
+  const selectedBrandSummaryLabel = selectedBrandNames
+    || (selectedBrands.length > 0
+      ? `${selectedBrands.length} brand${selectedBrands.length !== 1 ? 's' : ''} selected`
+      : 'None selected');
 
   return (
     <div className={`relative w-full ${className}`}>
@@ -62,7 +71,7 @@ const ProductBrandSelector = ({
               : 'Select brands...'}
           </span>
           <span className="text-slate-500 truncate max-w-[50%]">
-            {selectedBrandNames || 'None selected'}
+            {selectedBrandSummaryLabel}
           </span>
           <svg
             className={`ml-2 h-4 w-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}

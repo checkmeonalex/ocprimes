@@ -166,6 +166,10 @@ const ProductCategorySelector = ({
   const selectedDisplayLabel = [selectedCategoryNames, selectedPendingNames || pendingFallbackLabel]
     .filter(Boolean)
     .join(' • ');
+  const selectedCategorySummaryLabel = selectedDisplayLabel
+    || (effectiveSelectedCount > 0
+      ? `${effectiveSelectedCount} category${effectiveSelectedCount !== 1 ? 'ies' : ''} selected`
+      : 'None selected');
 
   const canRequestFromSearch = useMemo(() => {
     if (!normalizedSearch) return false;
@@ -202,7 +206,7 @@ const ProductCategorySelector = ({
               : 'Select categories...'}
           </span>
           <span className="min-w-0 flex-1 truncate px-1 text-right text-slate-500">
-            {selectedDisplayLabel || 'None selected'}
+            {selectedCategorySummaryLabel}
           </span>
           <svg
             className={`ml-1 h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}

@@ -223,6 +223,42 @@ const mapApiProduct = (item: any) => {
     : Array.isArray(item.admin_tags)
       ? item.admin_tags
       : []
+  const fallbackTagNames = Array.isArray(item.tag_names) ? item.tag_names : []
+  const normalizedTagLinks = [
+    ...rawTags.map((tag: any) => {
+      if (typeof tag === 'string') {
+        const name = String(tag || '').trim()
+        if (!name) return null
+        return {
+          name,
+          slug: slugifyCategory(name),
+        }
+      }
+      const nested = tag?.admin_tags && typeof tag.admin_tags === 'object' ? tag.admin_tags : null
+      const source = nested || tag
+      const name = String(source?.name || '').trim()
+      if (!name) return null
+      const slug = String(source?.slug || slugifyCategory(name)).trim()
+      if (!slug) return null
+      return { name, slug }
+    }),
+    ...fallbackTagNames.map((value: any) => {
+      const name = String(value || '').trim()
+      if (!name) return null
+      return {
+        name,
+        slug: slugifyCategory(name),
+      }
+    }),
+  ]
+    .filter(Boolean)
+    .filter((tag: any, index: number, list: any[]) => {
+      const key = `${String(tag.slug || '').toLowerCase()}::${String(tag.name || '').toLowerCase()}`
+      return list.findIndex((entry: any) => {
+        const compareKey = `${String(entry?.slug || '').toLowerCase()}::${String(entry?.name || '').toLowerCase()}`
+        return compareKey === key
+      }) === index
+    })
   const images = Array.isArray(item.images) ? item.images : []
   const imageUrls = images.map((image) => image?.url).filter(Boolean)
   const videoUrl = String(item.product_video_url || '').trim()
@@ -332,18 +368,8 @@ const mapApiProduct = (item: any) => {
     video: videoUrl,
     galleryMedia,
     stock: Number.isFinite(Number(item.stock_quantity)) ? Number(item.stock_quantity) : 0,
-    tags: rawTags.map((tag: any) => tag?.name).filter(Boolean),
-    tagLinks: rawTags.length
-      ? rawTags
-          .map((tag: any) => {
-            const name = String(tag?.name || '').trim()
-            if (!name) return null
-            const slug = String(tag?.slug || slugifyCategory(name)).trim()
-            if (!slug) return null
-            return { name, slug }
-          })
-          .filter(Boolean)
-      : [],
+    tags: normalizedTagLinks.map((tag: any) => tag?.name).filter(Boolean),
+    tagLinks: normalizedTagLinks,
     variations,
   }
 }
@@ -390,6 +416,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const rightPinRef = useRef<HTMLDivElement | null>(null)
   const rightSpacerRef = useRef<HTMLDivElement | null>(null)
   const leftColumnRef = useRef<HTMLDivElement | null>(null)
+  const mobileGallerySectionRef = useRef<HTMLDivElement | null>(null)
   const descriptionRef = useRef<HTMLDivElement | null>(null)
   const variationSectionRef = useRef<HTMLDivElement | null>(null)
   const cartSelectionHydratedRef = useRef<string | null>(null)
@@ -846,7 +873,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }, [product?.id, normalizedVariations, items, searchParams])
 
   useEffect(() => {
-    const updateIsMobile = () => setIsMobile(window.innerWidth < 1024)
+    const updateIsMobile = () => setIsMobile(window.innerWidth < 768)
     updateIsMobile()
     window.addEventListener('resize', updateIsMobile)
     return () => window.removeEventListener('resize', updateIsMobile)
@@ -1124,7 +1151,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       setIsMobileGalleryVisible(false)
       return
     }
-    const gallerySection = leftColumnRef.current
+    const gallerySection = mobileGallerySectionRef.current
     if (!gallerySection) {
       setIsMobileGalleryVisible(false)
       return
@@ -1566,37 +1593,71 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     <div className='min-h-screen flex overflow-x-hidden'>
       <div className='flex-1 min-w-0'>
         <main className='min-h-screen bg-white overflow-x-hidden w-full'>
+          {isMobile ? (
+            <div className='main-container px-2 pt-2 md:hidden'>
+              <Breadcrumb
+                items={breadcrumbItems}
+                collapseFrom={4}
+              />
+            </div>
+          ) : null}
+
+          {isMobile ? (
+            <div ref={mobileGallerySectionRef} className='w-full md:hidden'>
+              <Gallery
+                images={product.gallery}
+                media={product.galleryMedia}
+                currentImage={activeImage}
+                setCurrentImage={setCurrentImage}
+                productName={product.name}
+                vendorNameOverlay={String(product.vendor || '').trim()}
+                forceMobileView
+                badgeText={
+                  isNewProduct
+                    ? 'New'
+                    : discountPercentage
+                      ? `-${discountPercentage}%`
+                      : null
+                }
+                badgeVariant={isNewProduct ? 'new' : 'discount'}
+                mainImageRef={galleryMainRef}
+              />
+            </div>
+          ) : null}
+
           <div className='main-container px-2 sm:px-4 lg:px-6 py-0'>
-              <div className='pt-2 sm:pt-0'>
+              <div className='hidden md:block pt-2 sm:pt-0'>
                 <Breadcrumb
                   items={breadcrumbItems}
                   collapseFrom={4}
                 />
               </div>
-            <div ref={productContentAreaRef} className='bg-white rounded-2xl shadow-sm'>
+            <div ref={productContentAreaRef} className='bg-white rounded-none shadow-none sm:rounded-2xl sm:shadow-sm'>
               <div
                 ref={sectionRef}
-                className='grid lg:grid-cols-[640px_1fr] lg:items-stretch'
+                className='grid md:grid-cols-[minmax(0,45%)_minmax(0,55%)] md:items-stretch lg:grid-cols-[minmax(0,40%)_minmax(0,60%)] xl:grid-cols-[640px_minmax(0,1fr)]'
               >
                 {/* Left side - Images */}
-                <div ref={leftColumnRef} className='space-y-6 lg:pr-6'>
-                  <Gallery
-                    images={product.gallery}
-                    media={product.galleryMedia}
-                    currentImage={activeImage}
-                    setCurrentImage={setCurrentImage}
-                    productName={product.name}
-                    vendorNameOverlay={String(product.vendor || '').trim()}
-                    badgeText={
-                      isNewProduct
-                        ? 'New'
-                        : discountPercentage
-                          ? `-${discountPercentage}%`
-                          : null
-                    }
-                    badgeVariant={isNewProduct ? 'new' : 'discount'}
-                    mainImageRef={galleryMainRef}
-                  />
+                <div ref={leftColumnRef} className='space-y-6 md:pr-4 lg:pr-6'>
+                  <div className='hidden md:block'>
+                    <Gallery
+                      images={product.gallery}
+                      media={product.galleryMedia}
+                      currentImage={activeImage}
+                      setCurrentImage={setCurrentImage}
+                      productName={product.name}
+                      vendorNameOverlay={String(product.vendor || '').trim()}
+                      badgeText={
+                        isNewProduct
+                          ? 'New'
+                          : discountPercentage
+                            ? `-${discountPercentage}%`
+                            : null
+                      }
+                      badgeVariant={isNewProduct ? 'new' : 'discount'}
+                      mainImageRef={galleryMainRef}
+                    />
+                  </div>
                   {!isMobile && shouldShowReviewsSection && (
                     <div id='reviews-section'>
                       <CustomerReviews
@@ -1616,7 +1677,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                   <div ref={rightSpacerRef} />
                   <div
                     ref={rightPinRef}
-                    className='space-y-6 no-scrollbar overflow-x-hidden lg:sticky lg:top-6'
+                    className='space-y-4 md:space-y-5 no-scrollbar overflow-x-hidden lg:sticky lg:top-6'
                     style={
                       isMobile
                         ? undefined
@@ -1626,7 +1687,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                           }
                     }
                   >
-                  <div className='flex items-center justify-between pt-1'>
+                  <div className='flex items-center justify-between'>
                     <Link
                       href={fallbackCategoryHref}
                       className='text-[11px] font-medium bg-gray-50 text-gray-500 px-2 py-0.5 rounded-[3px] hover:text-gray-700 transition'
@@ -1655,7 +1716,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     </button>
                   </div>
 
-                  <div className='space-y-3 !mt-0'>
+                  <div className='space-y-2 !mt-0'>
                     <h1 className='text-3xl font-semibold text-gray-900 font-serif'>
                       {product.name}
                     </h1>
@@ -1685,43 +1746,23 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     <p className='text-sm text-gray-600 leading-relaxed'>
                       {shortDescription}
                     </p>
-                    {tags.length > 0 && (
-                      <div className='flex flex-wrap gap-2 pt-1'>
-                        {visibleTags.map((tag: any) => (
-                          <Link
-                            key={`${tag.slug}-${tag.name}`}
-                            href={`/products?tag=${encodeURIComponent(tag.slug)}`}
-                            className='text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:text-gray-800 transition underline underline-offset-2 decoration-gray-300 hover:decoration-gray-500'
-                          >
-                            #{tag.name}
-                          </Link>
-                        ))}
-                        {hasMoreTags && (
-                          <button
-                            type='button'
-                            onClick={() => setShowAllTags((prev) => !prev)}
-                            className='text-[10px] text-gray-700 hover:text-gray-900 transition underline underline-offset-2 decoration-gray-300 hover:decoration-gray-500'
-                          >
-                            {showAllTags ? 'See less' : `See more (${tags.length - 6})`}
-                          </button>
-                        )}
-                      </div>
-                    )}
                   </div>
 
-                  <div className='flex items-center gap-4'>
-                    <span className='text-3xl font-semibold text-gray-900'>
-                      ${activePrice}
-                    </span>
-                    {activeOriginalPrice && (
-                      <span className='text-lg text-gray-400 line-through'>
-                        ${activeOriginalPrice}
+                  <div>
+                    <div className='flex items-center gap-4'>
+                      <span className='text-3xl font-semibold text-gray-900'>
+                        ${activePrice}
                       </span>
-                    )}
+                      {activeOriginalPrice && (
+                        <span className='text-base text-gray-400 line-through'>
+                          ${activeOriginalPrice}
+                        </span>
+                      )}
+                    </div>
                     {savingsAmount > 0 && (
-                      <span className='text-xs font-semibold text-green-600'>
+                      <div className='mt-0.5 text-xs font-semibold text-green-600'>
                         Save ${savingsAmountLabel} if you buy now
-                      </span>
+                      </div>
                     )}
                   </div>
 
@@ -1730,10 +1771,10 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     onClick={handleWishlistClick}
                     aria-label={isWishlisted ? 'Saved to wishlist' : 'Add to wishlist'}
                     aria-pressed={isWishlisted}
-                    className='mt-1 inline-flex items-center gap-1.5 pb-1 text-[17px] font-semibold text-gray-800 transition hover:text-gray-950'
+                    className='inline-flex items-center gap-1 pb-0.5 text-[15px] font-semibold text-gray-800 transition hover:text-gray-950'
                   >
                     <svg
-                      className='h-6 w-6'
+                      className='h-5 w-5'
                       viewBox='0 0 24 24'
                       fill={isWishlisted ? 'currentColor' : 'none'}
                       stroke='currentColor'
@@ -1748,10 +1789,32 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                     </svg>
                     <span>{isWishlisted ? 'Saved to Wishlist' : 'Add to Wishlist'}</span>
                   </button>
+                  {tags.length > 0 && (
+                    <div className='flex flex-wrap gap-1.5 -mt-0.5'>
+                      {visibleTags.map((tag: any) => (
+                        <Link
+                          key={`${tag.slug}-${tag.name}`}
+                          href={`/products?tag=${encodeURIComponent(tag.slug)}`}
+                          className='text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:text-gray-800 transition underline underline-offset-2 decoration-gray-300 hover:decoration-gray-500'
+                        >
+                          #{tag.name}
+                        </Link>
+                      ))}
+                      {hasMoreTags && (
+                        <button
+                          type='button'
+                          onClick={() => setShowAllTags((prev) => !prev)}
+                          className='text-[10px] text-gray-700 hover:text-gray-900 transition underline underline-offset-2 decoration-gray-300 hover:decoration-gray-500'
+                        >
+                          {showAllTags ? 'See less' : `See more (${tags.length - 6})`}
+                        </button>
+                      )}
+                    </div>
+                  )}
 
                   <div
                     ref={variationSectionRef}
-                    className={`border-t border-gray-200 pt-3 space-y-3 transition ${
+                    className={`border-t border-gray-200 pt-2 space-y-2.5 transition ${
                       shakeKeys.length
                         ? 'rounded-2xl border border-rose-400 px-3 pb-3 oc-shake'
                         : ''

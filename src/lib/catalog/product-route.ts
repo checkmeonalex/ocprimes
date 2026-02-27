@@ -296,9 +296,35 @@ const attachRelations = async (supabase, items) => {
   ])
 
   const categoryRows = categoryRes.data || []
-  const tagRows = tagRes.data || []
+  let tagRows = tagRes.data || []
   const brandRows = brandRes.data || []
   const imageRows = imageRes.data || []
+  const hasReadableTagRows = (rows: any[] = []) =>
+    rows.some((row) => {
+      const embedded = row?.admin_tags
+      if (!embedded) return false
+      if (Array.isArray(embedded)) {
+        return embedded.some((entry) => String(entry?.name || '').trim())
+      }
+      return Boolean(String(embedded?.name || '').trim())
+    })
+
+  if (!tagRows.length || !hasReadableTagRows(tagRows)) {
+    try {
+      const adminDb = createAdminSupabaseClient()
+      const fallbackTagResult = await adminDb
+        .from(TAG_LINKS)
+        .select('product_id, admin_tags(id, name, slug)')
+        .in('product_id', ids)
+      if (!fallbackTagResult.error && Array.isArray(fallbackTagResult.data)) {
+        tagRows = fallbackTagResult.data
+      } else if (fallbackTagResult.error) {
+        console.error('public tag fallback lookup failed:', fallbackTagResult.error.message)
+      }
+    } catch (error: any) {
+      console.error('public tag fallback init failed:', error?.message || String(error))
+    }
+  }
 
   const grouped = (rows, key) => {
     const map = new Map()

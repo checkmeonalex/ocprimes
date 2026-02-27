@@ -41,6 +41,7 @@ export default function Gallery({
   badgeText = null,
   badgeVariant = 'discount',
   mainImageRef = null,
+  forceMobileView = false,
 }) {
   const mediaItems = useMemo(() => normalizeMediaItems(media, images), [media, images])
   const activeMedia = useMemo(() => {
@@ -48,7 +49,19 @@ export default function Gallery({
     if (byCurrent) return byCurrent
     return mediaItems[0] || null
   }, [currentImage, mediaItems])
-  const [isMobileView, setIsMobileView] = useState(false)
+  const [viewportWidth, setViewportWidth] = useState(() => {
+    if (typeof window === 'undefined') return 1280
+    return window.innerWidth
+  })
+  const [viewportHeight, setViewportHeight] = useState(() => {
+    if (typeof window === 'undefined') return 900
+    return window.innerHeight
+  })
+  const [isMobileView, setIsMobileView] = useState(() => {
+    if (forceMobileView) return true
+    if (typeof window === 'undefined') return false
+    return window.innerWidth < 768
+  })
   const [isZooming, setIsZooming] = useState(false)
   const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 })
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
@@ -59,25 +72,43 @@ export default function Gallery({
     String(playingVideoUrl || '').trim() === String(activeMedia?.url || '').trim()
   const [lightboxCurrentIndex, setLightboxCurrentIndex] = useState(0)
   const [isLightboxZooming, setIsLightboxZooming] = useState(false)
+  const [isLightboxDragging, setIsLightboxDragging] = useState(false)
   const [lightboxZoomPosition, setLightboxZoomPosition] = useState({
     x: 50,
     y: 50,
   })
+  const [lightboxActiveAspect, setLightboxActiveAspect] = useState(1)
   const mainMediaContainerRef = useRef(null)
   const [mainAspect, setMainAspect] = useState(3 / 4)
   const [mainContainerHeight, setMainContainerHeight] = useState(0)
   const lastAspectRef = useRef(3 / 4)
   const lastAspectImageRef = useRef('')
   const activeVideoRef = useRef(null)
+  const lightboxDragStartRef = useRef({
+    clientX: 0,
+    clientY: 0,
+    zoomX: 50,
+    zoomY: 50,
+  })
+  const lightboxTouchDraggingRef = useRef(false)
+  const lightboxSuppressClickRef = useRef(false)
 
   useEffect(() => {
+    if (forceMobileView) {
+      setIsMobileView(true)
+      return undefined
+    }
     const checkDeviceWidth = () => {
-      setIsMobileView(window.innerWidth <= 768)
+      const nextWidth = Number(window.innerWidth || 0)
+      const nextHeight = Number(window.innerHeight || 0)
+      setViewportWidth(nextWidth)
+      if (nextHeight > 0) setViewportHeight(nextHeight)
+      setIsMobileView(nextWidth < 768)
     }
     checkDeviceWidth()
     window.addEventListener('resize', checkDeviceWidth)
     return () => window.removeEventListener('resize', checkDeviceWidth)
-  }, [])
+  }, [forceMobileView])
 
   const handleMouseMove = (e) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect()
@@ -91,16 +122,21 @@ export default function Gallery({
   }
 
   const handleLightboxMouseMove = (e) => {
-    if (!isLightboxZooming) return
+    if (!isLightboxZooming || !isLightboxDragging) return
 
-    const { left, top, width, height } = e.currentTarget.getBoundingClientRect()
-    let x = ((e.pageX - left) / width) * 100
-    let y = ((e.pageY - top) / height) * 100
+    const { width, height } = e.currentTarget.getBoundingClientRect()
+    const deltaX = e.clientX - lightboxDragStartRef.current.clientX
+    const deltaY = e.clientY - lightboxDragStartRef.current.clientY
+    let x = lightboxDragStartRef.current.zoomX - (deltaX / width) * 100
+    let y = lightboxDragStartRef.current.zoomY - (deltaY / height) * 100
 
     x = Math.min(90, Math.max(10, x))
     y = Math.min(90, Math.max(10, y))
 
     setLightboxZoomPosition({ x, y })
+    if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+      lightboxSuppressClickRef.current = true
+    }
   }
 
   const openLightbox = () => {
@@ -193,6 +229,32 @@ export default function Gallery({
     }
   }, [isLightboxOpen])
 
+  useEffect(() => {
+    if (!isLightboxOpen) return undefined
+    const previousOverflow = document.body.style.overflow
+    const previousOverscroll = document.body.style.overscrollBehavior
+    document.body.style.overflow = 'hidden'
+    document.body.style.overscrollBehavior = 'none'
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.body.style.overscrollBehavior = previousOverscroll
+    }
+  }, [isLightboxOpen])
+
+  useEffect(() => {
+    if (!isLightboxDragging) return undefined
+    const stopDragging = () => setIsLightboxDragging(false)
+    window.addEventListener('mouseup', stopDragging)
+    return () => window.removeEventListener('mouseup', stopDragging)
+  }, [isLightboxDragging])
+
+  useEffect(() => {
+    setIsLightboxZooming(false)
+    setIsLightboxDragging(false)
+    lightboxSuppressClickRef.current = false
+    setLightboxZoomPosition({ x: 50, y: 50 })
+  }, [lightboxCurrentIndex])
+
   const handleMainImageLoad = useCallback((event) => {
     const imageEl = event.currentTarget
     if (!imageEl) return
@@ -212,9 +274,10 @@ export default function Gallery({
     setMainAspect(nextAspect)
   }, [])
 
-  const mainImageMaxWidth = 560
+  const isTabletView = !forceMobileView && viewportWidth >= 768 && viewportWidth < 1024
+  const mainImageMaxWidth = isTabletView ? 390 : 560
   const mainImageHeight = mainImageMaxWidth / mainAspect
-  const defaultThumbSize = 64
+  const defaultThumbSize = isTabletView ? 52 : 64
   const gapSize = 8
   const fallbackMainHeight = Math.max(defaultThumbSize, Math.round(mainImageHeight))
   const effectiveMainHeight = Math.max(
@@ -243,6 +306,37 @@ export default function Gallery({
     0,
     filteredLightboxIndexes.indexOf(lightboxCurrentIndex),
   )
+  const lightboxResolvedAspect = Math.max(
+    0.45,
+    Math.min(
+      2.4,
+      Number(
+        activeLightboxMedia?.type === 'video'
+          ? lightboxActiveAspect || 16 / 9
+          : lightboxActiveAspect || 1,
+      ) || 1,
+    ),
+  )
+  const lightboxSidebarWidth = Math.max(250, Math.min(360, Math.round(viewportWidth * 0.34)))
+  const lightboxOuterPadding = viewportWidth >= 640 ? 32 : 16
+  const lightboxStagePadding = viewportWidth >= 1024 ? 48 : 32
+  const lightboxMaxMediaHeight = Math.max(280, Math.round(viewportHeight * 0.86))
+  const lightboxAvailableStageWidth = Math.max(
+    260,
+    viewportWidth - lightboxSidebarWidth - lightboxOuterPadding - lightboxStagePadding,
+  )
+  const lightboxMediaWidth = Math.max(
+    260,
+    Math.min(1320, lightboxAvailableStageWidth, Math.round(lightboxMaxMediaHeight * lightboxResolvedAspect)),
+  )
+  const lightboxMediaHeight = Math.max(
+    220,
+    Math.round(lightboxMediaWidth / lightboxResolvedAspect),
+  )
+  const lightboxShellHeight = Math.max(
+    420,
+    Math.min(Math.round(viewportHeight * 0.94), lightboxMediaHeight + 56),
+  )
 
   useEffect(() => {
     if (isMobileView) return undefined
@@ -264,7 +358,7 @@ export default function Gallery({
 
   return (
     <>
-      {isMobileView ? (
+      {forceMobileView || isMobileView ? (
         <MobileGallery
           images={images}
           media={mediaItems}
@@ -278,7 +372,7 @@ export default function Gallery({
       ) : (
         <div className='flex gap-0 items-start'>
           <div
-            className='flex flex-col items-center bg-white rounded-md border border-gray-200'
+            className='flex flex-col items-center'
             style={{
               width: defaultThumbSize + 16,
               gap: `${gapSize}px`,
@@ -388,10 +482,9 @@ export default function Gallery({
               }}
               className='bg-gray-50 rounded-md overflow-hidden flex items-start justify-center relative w-full'
               style={{
-                aspectRatio:
-                  activeMedia?.type === 'video'
-                    ? '4 / 5'
-                    : `${Math.max(0.2, Math.min(4, Number(mainAspect) || 0.75))}`,
+                aspectRatio: activeMedia?.type === 'video'
+                  ? '4 / 5'
+                  : `${Math.max(0.2, Math.min(4, Number(mainAspect) || 0.75))}`,
                 maxWidth: `${mainImageMaxWidth}px`,
                 position: 'relative',
               }}
@@ -497,7 +590,7 @@ export default function Gallery({
               ) : null}
               {vendorNameOverlay && !isActiveVideoPlaying ? (
                 <div className='pointer-events-none absolute left-4 top-4 z-10 max-w-[78%]'>
-                  <p className='truncate text-3xl font-medium leading-none text-black/85 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)] [font-family:Georgia,serif]'>
+                  <p className='truncate text-[clamp(1.05rem,2.1vw,2.05rem)] font-medium leading-none text-black/85 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)] [font-family:Georgia,serif]'>
                     {vendorNameOverlay}
                   </p>
                 </div>
@@ -509,15 +602,21 @@ export default function Gallery({
 
       {isLightboxOpen && (
         <div
-          className='fixed inset-0 z-50 flex items-center justify-center bg-white p-4'
+          className='fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-2 sm:p-4'
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setIsLightboxOpen(false)
             }
           }}
         >
-          <div className='flex h-[92vh] w-full max-w-[1380px] overflow-hidden rounded-3xl border border-gray-200 bg-white text-slate-900 shadow-[0_20px_45px_rgba(15,23,42,0.12)]'>
-            <aside className='flex w-[320px] flex-col border-r border-gray-200 bg-white'>
+          <div
+            className='flex w-full max-w-[1540px] overflow-hidden rounded-2xl sm:rounded-3xl border border-gray-200 bg-white text-slate-900 shadow-[0_20px_45px_rgba(15,23,42,0.12)]'
+            style={{ height: `${lightboxShellHeight}px` }}
+          >
+            <aside
+              className='flex shrink-0 flex-col border-r border-gray-200 bg-white'
+              style={{ width: `${lightboxSidebarWidth}px` }}
+            >
               <div className='border-b border-gray-200 p-5'>
                 <p className='text-xs font-semibold uppercase tracking-[0.2em] text-slate-600'>
                   Product Media
@@ -660,31 +759,125 @@ export default function Gallery({
                 </svg>
               </button>
 
-              <div className='flex h-full w-full items-center justify-center p-6'>
+              <div className='flex h-full w-full items-center justify-center p-4 lg:p-6'>
                 {activeLightboxMedia?.type === 'video' ? (
                   <video
                     src={activeLightboxMedia?.url}
                     controls
                     loop
                     preload='metadata'
-                    className='max-h-full w-full rounded-2xl bg-black object-contain'
-                    style={{ maxWidth: '1120px' }}
+                    onLoadedMetadata={(event) => {
+                      const width = Number(event.currentTarget.videoWidth || 0)
+                      const height = Number(event.currentTarget.videoHeight || 0)
+                      if (!width || !height) return
+                      const nextAspect = width / height
+                      if (!Number.isFinite(nextAspect) || nextAspect <= 0) return
+                      setLightboxActiveAspect(nextAspect)
+                    }}
+                    className='rounded-2xl bg-black object-contain'
+                    style={{
+                      width: `${lightboxMediaWidth}px`,
+                      height: `${lightboxMediaHeight}px`,
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                    }}
                   />
                 ) : (
                   <div
-                    className='relative max-h-full'
-                    onClick={() => setIsLightboxZooming((prev) => !prev)}
+                    className='relative'
+                    onClick={() => {
+                      if (lightboxSuppressClickRef.current) {
+                        lightboxSuppressClickRef.current = false
+                        return
+                      }
+                      setIsLightboxZooming((prev) => {
+                        const next = !prev
+                        if (!next) {
+                          setLightboxZoomPosition({ x: 50, y: 50 })
+                          setIsLightboxDragging(false)
+                        }
+                        return next
+                      })
+                    }}
+                    onMouseDown={(event) => {
+                      if (!isLightboxZooming) return
+                      event.preventDefault()
+                      setIsLightboxDragging(true)
+                      lightboxSuppressClickRef.current = false
+                      lightboxDragStartRef.current = {
+                        clientX: event.clientX,
+                        clientY: event.clientY,
+                        zoomX: lightboxZoomPosition.x,
+                        zoomY: lightboxZoomPosition.y,
+                      }
+                    }}
                     onMouseMove={handleLightboxMouseMove}
-                    onMouseLeave={() => setIsLightboxZooming(false)}
+                    onMouseUp={() => setIsLightboxDragging(false)}
+                    onMouseLeave={() => setIsLightboxDragging(false)}
+                    onTouchStart={(event) => {
+                      if (!isLightboxZooming) return
+                      const touch = event.touches?.[0]
+                      if (!touch) return
+                      lightboxTouchDraggingRef.current = true
+                      lightboxSuppressClickRef.current = false
+                      lightboxDragStartRef.current = {
+                        clientX: touch.clientX,
+                        clientY: touch.clientY,
+                        zoomX: lightboxZoomPosition.x,
+                        zoomY: lightboxZoomPosition.y,
+                      }
+                    }}
+                    onTouchMove={(event) => {
+                      if (!isLightboxZooming || !lightboxTouchDraggingRef.current) return
+                      event.preventDefault()
+                      const touch = event.touches?.[0]
+                      const node = event.currentTarget
+                      if (!touch || !node) return
+                      const rect = node.getBoundingClientRect()
+                      if (!rect.width || !rect.height) return
+                      const deltaX = touch.clientX - lightboxDragStartRef.current.clientX
+                      const deltaY = touch.clientY - lightboxDragStartRef.current.clientY
+                      let x = lightboxDragStartRef.current.zoomX - (deltaX / rect.width) * 100
+                      let y = lightboxDragStartRef.current.zoomY - (deltaY / rect.height) * 100
+                      x = Math.min(90, Math.max(10, x))
+                      y = Math.min(90, Math.max(10, y))
+                      setLightboxZoomPosition({ x, y })
+                      if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+                        lightboxSuppressClickRef.current = true
+                      }
+                    }}
+                    onTouchEnd={() => {
+                      lightboxTouchDraggingRef.current = false
+                    }}
+                    onTouchCancel={() => {
+                      lightboxTouchDraggingRef.current = false
+                    }}
                     style={{
                       overflow: 'hidden',
-                      cursor: isLightboxZooming ? 'zoom-out' : 'zoom-in',
+                      cursor: isLightboxZooming
+                        ? isLightboxDragging
+                          ? 'grabbing'
+                          : 'grab'
+                        : 'zoom-in',
+                      touchAction: isLightboxZooming ? 'none' : 'auto',
+                      width: `${lightboxMediaWidth}px`,
+                      height: `${lightboxMediaHeight}px`,
+                      maxWidth: '100%',
+                      maxHeight: '100%',
                     }}
                   >
                     <img
                       src={activeLightboxMedia?.url}
                       alt={`${productName} ${lightboxCurrentIndex + 1}`}
-                      className='max-h-[84vh] max-w-full rounded-2xl object-contain transition-transform duration-200'
+                      onLoad={(event) => {
+                        const width = Number(event.currentTarget.naturalWidth || 0)
+                        const height = Number(event.currentTarget.naturalHeight || 0)
+                        if (!width || !height) return
+                        const nextAspect = width / height
+                        if (!Number.isFinite(nextAspect) || nextAspect <= 0) return
+                        setLightboxActiveAspect(nextAspect)
+                      }}
+                      className='h-full w-full rounded-2xl object-contain transition-transform duration-200'
                       style={
                         isLightboxZooming
                           ? {

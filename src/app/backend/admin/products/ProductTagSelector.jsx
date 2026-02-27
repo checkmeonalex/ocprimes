@@ -74,6 +74,10 @@ const ProductTagSelector = ({
       .map((tag) => tag.name)
       .join(', ');
   }, [selectedTags, tags]);
+  const selectedTagSummaryLabel = selectedTagNames
+    || (selectedTags.length > 0
+      ? `${selectedTags.length} tag${selectedTags.length !== 1 ? 's' : ''} selected`
+      : 'None selected');
 
   const canCreateFromSearch = useMemo(() => {
     if (!normalizedSearch) return false;
@@ -129,7 +133,7 @@ const ProductTagSelector = ({
               : 'Select tags...'}
           </span>
           <span className="min-w-0 flex-1 truncate px-1 text-right text-slate-500">
-            {selectedTagNames || 'None selected'}
+            {selectedTagSummaryLabel}
           </span>
           <svg
             className={`ml-1 h-4 w-4 shrink-0 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
