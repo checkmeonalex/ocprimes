@@ -509,22 +509,22 @@ export default function Gallery({
 
       {isLightboxOpen && (
         <div
-          className='fixed inset-0 z-50 flex items-center justify-center bg-slate-950/78 p-4 backdrop-blur-[26px] backdrop-saturate-50'
+          className='fixed inset-0 z-50 flex items-center justify-center bg-white p-4'
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setIsLightboxOpen(false)
             }
           }}
         >
-          <div className='flex h-[92vh] w-full max-w-[1380px] overflow-hidden rounded-3xl border border-white/45 bg-white/20 text-slate-900 shadow-[0_25px_70px_rgba(0,0,0,0.35)] backdrop-blur-xl'>
-            <aside className='flex w-[320px] flex-col border-r border-white/35 bg-white/30'>
-              <div className='border-b border-white/35 p-5'>
+          <div className='flex h-[92vh] w-full max-w-[1380px] overflow-hidden rounded-3xl border border-gray-200 bg-white text-slate-900 shadow-[0_20px_45px_rgba(15,23,42,0.12)]'>
+            <aside className='flex w-[320px] flex-col border-r border-gray-200 bg-white'>
+              <div className='border-b border-gray-200 p-5'>
                 <p className='text-xs font-semibold uppercase tracking-[0.2em] text-slate-600'>
                   Product Media
                 </p>
                 <h3 className='mt-2 text-xl font-semibold text-slate-900'>Shop Gallery</h3>
                 <p className='mt-1 text-sm text-slate-700'>{mediaItems.length} items</p>
-                <div className='mt-4 grid grid-cols-3 gap-2 rounded-xl border border-white/45 bg-white/45 p-1 backdrop-blur'>
+                <div className='mt-4 grid grid-cols-3 gap-2 rounded-xl border border-gray-200 bg-gray-50 p-1'>
                   <button
                     type='button'
                     onClick={() => setLightboxFilter('all')}
@@ -575,8 +575,8 @@ export default function Gallery({
                         key={`${item.type}-${item.url}-${index}`}
                         className={`group relative cursor-pointer overflow-hidden rounded-xl border transition ${
                           lightboxCurrentIndex === index
-                            ? 'border-white ring-2 ring-white/70'
-                            : 'border-white/45 hover:border-white/80'
+                            ? 'border-gray-900 ring-2 ring-gray-200'
+                            : 'border-gray-200 hover:border-gray-400'
                         }`}
                         onClick={() => setLightboxCurrentIndex(index)}
                         style={{ aspectRatio: '1 / 1' }}
@@ -616,7 +616,7 @@ export default function Gallery({
                 </div>
               </div>
 
-              <div className='border-t border-white/35 px-5 py-4 text-sm text-slate-700'>
+              <div className='border-t border-gray-200 px-5 py-4 text-sm text-slate-700'>
                 <span className='font-medium text-slate-900'>
                   {filteredLightboxIndexes.length ? activeLightboxPosition + 1 : 0} / {filteredLightboxIndexes.length}
                 </span>
@@ -626,11 +626,11 @@ export default function Gallery({
               </div>
             </aside>
 
-            <section className='relative flex flex-1 items-center justify-center overflow-hidden bg-gradient-to-br from-white/35 via-white/20 to-white/10 backdrop-blur-2xl'>
+            <section className='relative flex flex-1 items-center justify-center overflow-hidden bg-white'>
               <button
                 type='button'
                 onClick={() => setIsLightboxOpen(false)}
-                className='absolute right-5 top-5 z-20 rounded-full border border-white/20 bg-black/35 p-2 text-white transition hover:bg-black/55'
+                className='absolute right-5 top-5 z-20 rounded-full border border-gray-300 bg-white p-2 text-gray-700 transition hover:bg-gray-100'
                 title='Close'
               >
                 <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor'>
@@ -640,7 +640,7 @@ export default function Gallery({
 
               <button
                 onClick={goToPrevious}
-                className='absolute left-5 top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/20 bg-black/35 p-3 text-white transition hover:bg-black/55 disabled:cursor-not-allowed disabled:opacity-35'
+                className='absolute left-5 top-1/2 z-20 -translate-y-1/2 rounded-full border border-gray-300 bg-white p-3 text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-35'
                 title='Previous'
                 disabled={filteredLightboxIndexes.length <= 1}
               >
@@ -651,7 +651,7 @@ export default function Gallery({
 
               <button
                 onClick={goToNext}
-                className='absolute right-5 top-1/2 z-20 -translate-y-1/2 rounded-full border border-white/20 bg-black/35 p-3 text-white transition hover:bg-black/55 disabled:cursor-not-allowed disabled:opacity-35'
+                className='absolute right-5 top-1/2 z-20 -translate-y-1/2 rounded-full border border-gray-300 bg-white p-3 text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-35'
                 title='Next'
                 disabled={filteredLightboxIndexes.length <= 1}
               >
