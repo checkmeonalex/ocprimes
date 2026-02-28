@@ -40,12 +40,12 @@ export const CompactProductCard = ({
   return (
     <Link
       href={`/product/${product.slug}`}
-      className={`group block ${isFluid ? 'w-full' : 'min-w-[200px] max-w-[200px] flex-shrink-0'}`}
+      className={`group block ${isFluid ? 'w-full' : 'min-w-[240px] max-w-[240px] flex-shrink-0'}`}
     >
       <div className='bg-white shadow-sm transition hover:shadow-md'>
         <div
           className={`border border-gray-200/80 flex flex-col ${
-            isFluid ? 'w-full aspect-[3/4]' : 'w-[220px] h-[270px]'
+            isFluid ? 'w-full aspect-[3/4]' : 'w-[240px] h-[300px]'
           }`}
         >
           <div className='relative basis-[75%] flex-shrink-0 overflow-hidden rounded-none border-b border-gray-200 bg-white'>

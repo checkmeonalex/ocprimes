@@ -19,6 +19,10 @@ import ShareProductModal from '../../../components/product/ShareProductModal'
 import CartQuantitySelect from '../../../components/cart/CartQuantitySelect'
 import ProductFloatingDock from '../../../components/product/ProductFloatingDock'
 import SellerChatPopup from '../../../components/product/SellerChatPopup'
+import {
+  DeferredSectionLoader,
+  RelatedProductsSkeleton,
+} from '../../../components/product/ProductDeferredSection'
 import { useWishlist } from '../../../context/WishlistContext'
 
 const buildVariationLabel = (attributes: Record<string, string> | null | undefined) => {
@@ -403,6 +407,10 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const [pendingQuantity, setPendingQuantity] = useState(1)
   const [reviewData, setReviewData] = useState<any>(createEmptyReviewData())
   const [reviewReloadKey, setReviewReloadKey] = useState(0)
+  const [shouldLoadReviews, setShouldLoadReviews] = useState(false)
+  const [shouldLoadRelated, setShouldLoadRelated] = useState(false)
+  const [isReviewsLoading, setIsReviewsLoading] = useState(false)
+  const [isRelatedLoading, setIsRelatedLoading] = useState(false)
   const { addItem, items, updateQuantity } = useCart()
   const { openSaveModal, isRecentlySaved } = useWishlist()
   const searchParams = useSearchParams()
@@ -417,10 +425,13 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const rightSpacerRef = useRef<HTMLDivElement | null>(null)
   const leftColumnRef = useRef<HTMLDivElement | null>(null)
   const mobileGallerySectionRef = useRef<HTMLDivElement | null>(null)
+  const reviewsTriggerRef = useRef<HTMLDivElement | null>(null)
+  const relatedTriggerRef = useRef<HTMLDivElement | null>(null)
   const descriptionRef = useRef<HTMLDivElement | null>(null)
   const variationSectionRef = useRef<HTMLDivElement | null>(null)
   const cartSelectionHydratedRef = useRef<string | null>(null)
   const handleReviewSubmitted = useCallback(() => {
+    setShouldLoadReviews(true)
     setReviewReloadKey((prev) => prev + 1)
   }, [])
 
@@ -625,6 +636,44 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   }, [resolvedParams.slug, searchParams])
 
   useEffect(() => {
+    setShouldLoadReviews(false)
+    setShouldLoadRelated(false)
+    setIsReviewsLoading(false)
+    setIsRelatedLoading(false)
+    setReviewData(createEmptyReviewData())
+    setRelatedProducts([])
+  }, [resolvedParams.slug])
+
+  useEffect(() => {
+    if (!product?.id) return
+    if (typeof window === 'undefined') return
+
+    const reviewTarget = reviewsTriggerRef.current
+    const relatedTarget = relatedTriggerRef.current
+    if (!reviewTarget && !relatedTarget) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.target === reviewTarget && entry.isIntersecting) {
+            setShouldLoadReviews(true)
+          }
+          if (entry.target === relatedTarget && entry.isIntersecting) {
+            setShouldLoadRelated(true)
+          }
+        })
+      },
+      { root: null, rootMargin: '380px 0px', threshold: 0.01 },
+    )
+
+    if (reviewTarget) observer.observe(reviewTarget)
+    if (relatedTarget) observer.observe(relatedTarget)
+
+    return () => observer.disconnect()
+  }, [product?.id, isMobile])
+
+  useEffect(() => {
+    if (!shouldLoadReviews) return
     let isActive = true
     const loadReviews = async () => {
       if (!resolvedParams.slug) {
@@ -632,6 +681,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
         return
       }
       try {
+        setIsReviewsLoading(true)
         const response = await fetch(
           `/api/products/${encodeURIComponent(resolvedParams.slug)}/reviews?per_page=40`,
           {
@@ -666,13 +716,16 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       } catch (_error) {
         if (!isActive) return
         setReviewData(createEmptyReviewData())
+      } finally {
+        if (!isActive) return
+        setIsReviewsLoading(false)
       }
     }
     loadReviews()
     return () => {
       isActive = false
     }
-  }, [resolvedParams.slug, reviewReloadKey])
+  }, [resolvedParams.slug, reviewReloadKey, shouldLoadReviews])
 
   useEffect(() => {
     if (!product?.id) return
@@ -700,6 +753,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   ])
 
   useEffect(() => {
+    if (!shouldLoadRelated) return
     let isActive = true
     const loadRelated = async () => {
       if (!product) {
@@ -707,6 +761,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
         return
       }
       try {
+        setIsRelatedLoading(true)
         const MAX_RELATED = 20
         const related: any[] = []
         const seen = new Set<string>()
@@ -764,13 +819,16 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       } catch (_error) {
         if (!isActive) return
         setRelatedProducts([])
+      } finally {
+        if (!isActive) return
+        setIsRelatedLoading(false)
       }
     }
     loadRelated()
     return () => {
       isActive = false
     }
-  }, [product])
+  }, [product, shouldLoadRelated])
 
   useEffect(() => {
     setShowAllTags(false)
@@ -1478,12 +1536,13 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const cartEntry = findCartEntry(items, cartSelection)
   const cartQuantity = cartEntry?.quantity || 0
   const storeReviewsCount = Number(reviewData?.summary?.totalReviews || 0)
+  const productReviewsCount = Number(product.reviews) || 0
   const canWriteReview = Boolean(reviewData?.canWriteReview)
-  const shouldShowReviewsSection = storeReviewsCount > 0 || canWriteReview
+  const shouldShowReviewsSection = productReviewsCount > 0 || storeReviewsCount > 0 || canWriteReview
   const totalReviewsCount =
     Number(reviewData?.summary?.totalReviews) > 0
       ? Number(reviewData.summary.totalReviews)
-      : Number(product.reviews) || 0
+      : productReviewsCount
   const displayRating =
     Number(reviewData?.summary?.rating) > 0
       ? Number(reviewData.summary.rating)
@@ -1660,11 +1719,24 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                   </div>
                   {!isMobile && shouldShowReviewsSection && (
                     <div id='reviews-section'>
-                      <CustomerReviews
-                        data={reviewData}
-                        productSlug={product.slug}
-                        onReviewSubmitted={handleReviewSubmitted}
-                      />
+                      <div ref={reviewsTriggerRef} className='h-0 w-full' aria-hidden='true' />
+                      {!shouldLoadReviews ? (
+                        <DeferredSectionLoader
+                          title='Customer reviews will load as you scroll'
+                          description='We prioritize product media and key buying details first.'
+                        />
+                      ) : isReviewsLoading ? (
+                        <DeferredSectionLoader
+                          title='Loading customer reviews'
+                          description='Fetching latest reviews and ratings...'
+                        />
+                      ) : (
+                        <CustomerReviews
+                          data={reviewData}
+                          productSlug={product.slug}
+                          onReviewSubmitted={handleReviewSubmitted}
+                        />
+                      )}
                     </div>
                   )}
                 </div>
@@ -1732,6 +1804,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                       <button
                         type='button'
                         onClick={() => {
+                          setShouldLoadReviews(true)
                           const el = document.getElementById('reviews-section')
                           if (!el) return
                           el.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -2217,11 +2290,24 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
 
                   {isMobile && shouldShowReviewsSection && (
                     <div id='reviews-section'>
-                      <CustomerReviews
-                        data={reviewData}
-                        productSlug={product.slug}
-                        onReviewSubmitted={handleReviewSubmitted}
-                      />
+                      <div ref={reviewsTriggerRef} className='h-0 w-full' aria-hidden='true' />
+                      {!shouldLoadReviews ? (
+                        <DeferredSectionLoader
+                          title='Customer reviews will load as you scroll'
+                          description='We prioritize product media and key buying details first.'
+                        />
+                      ) : isReviewsLoading ? (
+                        <DeferredSectionLoader
+                          title='Loading customer reviews'
+                          description='Fetching latest reviews and ratings...'
+                        />
+                      ) : (
+                        <CustomerReviews
+                          data={reviewData}
+                          productSlug={product.slug}
+                          onReviewSubmitted={handleReviewSubmitted}
+                        />
+                      )}
                     </div>
                   )}
                   <AboutStoreCard
@@ -2239,11 +2325,24 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                   </div>
                 </div>
               </div>
-              <RelatedProductsSection
-                items={relatedProducts}
-                seeAllHref={categorySlug ? `/products/${categorySlug}` : undefined}
-              />
-              <RecentlyViewedSection currentSlug={product.slug} />
+              <div ref={relatedTriggerRef} className='h-0 w-full' aria-hidden='true' />
+              {!shouldLoadRelated ? (
+                <DeferredSectionLoader
+                  className='mt-4'
+                  title='More products will load as you continue'
+                  description='Related items are deferred to keep this page fast.'
+                />
+              ) : isRelatedLoading ? (
+                <RelatedProductsSkeleton />
+              ) : (
+                <RelatedProductsSection
+                  items={relatedProducts}
+                  seeAllHref={categorySlug ? `/products/${categorySlug}` : undefined}
+                />
+              )}
+              {shouldLoadRelated && !isRelatedLoading ? (
+                <RecentlyViewedSection currentSlug={product.slug} />
+              ) : null}
             </div>
         </main>
       </div>
