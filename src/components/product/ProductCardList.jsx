@@ -13,8 +13,8 @@ const ProductCardList = ({
   useSeedFallback = true,
 }) => {
   const { addItem } = useCart()
-  const handleAddToCart = (productData) => {
-    addItem(productData, 1)
+  const handleAddToCart = (productData, quantity = 1) => {
+    addItem(productData, Math.max(1, Number(quantity) || 1))
   }
 
   const seedProducts = useSeedFallback ? getSeedProducts() : []

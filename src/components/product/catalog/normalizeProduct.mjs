@@ -87,6 +87,28 @@ const normalizeProduct = (item) => {
     hasDiscount && basePrice ? basePrice : Number(item?.originalPrice) || null
   const variationColors = deriveOptionsFromVariations(item?.variations, ['color', 'colour'])
   const variationSizes = deriveOptionsFromVariations(item?.variations, ['size'])
+  const videoUrl = String(item?.product_video_url || item?.video || '').trim()
+  const galleryMedia = []
+  if (videoUrl) {
+    galleryMedia.push({
+      type: 'video',
+      url: videoUrl,
+      poster: imageUrls[0] || item?.image_url || item?.image || '',
+    })
+  }
+  ;(Array.isArray(item?.galleryMedia) ? item.galleryMedia : []).forEach((entry) => {
+    const type = entry?.type === 'video' ? 'video' : 'image'
+    const url = String(entry?.url || '').trim()
+    if (!url) return
+    galleryMedia.push({
+      type,
+      url,
+      poster: String(entry?.poster || '').trim(),
+    })
+  })
+  imageUrls.forEach((url) => {
+    galleryMedia.push({ type: 'image', url, poster: '' })
+  })
 
   return {
     id: item?.id,
@@ -110,6 +132,7 @@ const normalizeProduct = (item) => {
     vendorFont: item?.vendorFont || 'Georgia, serif',
     shortDescription: item?.short_description || item?.shortDescription || '',
     fullDescription: item?.description || item?.fullDescription || '',
+    sku: item?.sku || '',
     price,
     originalPrice,
     rating: Number(item?.rating) || 0,
@@ -128,6 +151,8 @@ const normalizeProduct = (item) => {
     isPortrait: Boolean(item?.isPortrait),
     image: item?.image_url || item?.image || imageUrls[0] || '',
     gallery: imageUrls.length ? imageUrls : item?.gallery || [],
+    video: videoUrl,
+    galleryMedia,
     images,
     stock: Number.isFinite(Number(item?.stock_quantity))
       ? Number(item.stock_quantity)

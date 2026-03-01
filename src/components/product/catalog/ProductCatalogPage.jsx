@@ -711,8 +711,8 @@ const ProductCatalogPage = ({
     }
   }
 
-  const handleAddToCart = (productData) => {
-    addItem(productData, 1)
+  const handleAddToCart = (productData, quantity = 1) => {
+    addItem(productData, Math.max(1, Number(quantity) || 1))
   }
 
   const handleStorefrontChipClick = (itemKey) => {

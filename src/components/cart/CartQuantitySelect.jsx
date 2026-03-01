@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 const CartQuantitySelect = ({
   quantity,
@@ -8,11 +9,13 @@ const CartQuantitySelect = ({
   isLoading = false,
   maxQuantity = 10,
   size = 'sm',
+  preferTop = false,
 }) => {
   const [open, setOpen] = useState(false)
-  const [panelPlacement, setPanelPlacement] = useState('bottom')
   const [panelMaxHeight, setPanelMaxHeight] = useState(220)
+  const [panelStyle, setPanelStyle] = useState({ left: 0, top: 0, width: 0 })
   const rootRef = useRef(null)
+  const panelRef = useRef(null)
   const listRef = useRef(null)
   const safeMax = Math.max(1, Math.min(99, Number(maxQuantity) || 10))
   const selectedQuantity = Math.max(0, Number(quantity) || 0)
@@ -37,7 +40,10 @@ const CartQuantitySelect = ({
   useEffect(() => {
     const handlePointerDown = (event) => {
       if (!rootRef.current) return
-      if (!rootRef.current.contains(event.target)) {
+      const clickedInsideTrigger = rootRef.current.contains(event.target)
+      const clickedInsidePanel =
+        panelRef.current && panelRef.current.contains(event.target)
+      if (!clickedInsideTrigger && !clickedInsidePanel) {
         setOpen(false)
       }
     }
@@ -53,41 +59,79 @@ const CartQuantitySelect = ({
   useEffect(() => {
     if (!open || !rootRef.current) return
 
-    const gap = 6
-    const viewportPadding = 12
-    const minPanelHeight = 120
-    const isMobileViewport = window.matchMedia('(max-width: 640px)').matches
-    const estimatedOptionHeight = 36
-    const desiredPanelHeight = Math.min(260, Math.max(minPanelHeight, options.length * estimatedOptionHeight))
-    const mobileBottomReserve = isMobileViewport ? 96 : 0
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight
-    const triggerRect = rootRef.current.getBoundingClientRect()
-    const spaceBelow =
-      viewportHeight - triggerRect.bottom - viewportPadding - gap - mobileBottomReserve
-    const spaceAbove = triggerRect.top - viewportPadding - gap
+    const updatePanelPosition = () => {
+      if (!rootRef.current) return
+      const gap = 6
+      const viewportPadding = 12
+      const minPanelHeight = 120
+      const isMobileViewport = window.matchMedia('(max-width: 640px)').matches
+      const estimatedOptionHeight = 36
+      const desiredPanelHeight = Math.min(
+        260,
+        Math.max(minPanelHeight, options.length * estimatedOptionHeight),
+      )
+      const mobileBottomReserve = isMobileViewport ? 96 : 0
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth
+      const triggerRect = rootRef.current.getBoundingClientRect()
+      const spaceBelow =
+        viewportHeight - triggerRect.bottom - viewportPadding - gap - mobileBottomReserve
+      const spaceAbove = triggerRect.top - viewportPadding - gap
 
-    const preferTop = spaceBelow < desiredPanelHeight && spaceAbove > spaceBelow
-    const nextPlacement = preferTop ? 'top' : 'bottom'
-    const availableSpace = Math.max(preferTop ? spaceAbove : spaceBelow, minPanelHeight)
+      const shouldPlaceTop =
+        preferTop || (spaceBelow < desiredPanelHeight && spaceAbove > spaceBelow)
+      const nextPlacement = shouldPlaceTop ? 'top' : 'bottom'
+      const availableSpace = Math.max(
+        shouldPlaceTop ? spaceAbove : spaceBelow,
+        minPanelHeight,
+      )
+      const maxAllowedHeight = size === 'md' ? 240 : 260
+      const resolvedHeight = Math.min(maxAllowedHeight, Math.floor(availableSpace))
+      const desiredWidth = Math.max(102, Math.round(triggerRect.width))
+      const maxLeft = Math.max(viewportPadding, viewportWidth - desiredWidth - viewportPadding)
+      const left = Math.min(
+        maxLeft,
+        Math.max(viewportPadding, Math.round(triggerRect.left)),
+      )
+      const top = nextPlacement === 'top'
+        ? Math.max(viewportPadding, Math.round(triggerRect.top - resolvedHeight - gap))
+        : Math.min(
+            Math.max(viewportPadding, viewportHeight - viewportPadding - minPanelHeight),
+            Math.round(triggerRect.bottom + gap),
+          )
 
-    setPanelPlacement(nextPlacement)
-    setPanelMaxHeight(Math.min(260, Math.floor(availableSpace)))
+      setPanelMaxHeight(resolvedHeight)
+      setPanelStyle({ left, top, width: desiredWidth })
 
-    if (triggerRect.top < viewportPadding || triggerRect.bottom > viewportHeight - viewportPadding) {
-      rootRef.current.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      if (
+        triggerRect.top < viewportPadding ||
+        triggerRect.bottom > viewportHeight - viewportPadding
+      ) {
+        rootRef.current.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      }
     }
 
-    requestAnimationFrame(() => {
+    updatePanelPosition()
+    window.addEventListener('resize', updatePanelPosition, { passive: true })
+    window.addEventListener('scroll', updatePanelPosition, true)
+
+    const rafId = window.requestAnimationFrame(() => {
       if (!listRef.current) return
       const selectedOption = listRef.current.querySelector('[aria-selected="true"]')
       if (selectedOption) {
         selectedOption.scrollIntoView({ block: 'nearest' })
       }
     })
-  }, [open, selectedQuantity, options.length])
+
+    return () => {
+      window.removeEventListener('resize', updatePanelPosition)
+      window.removeEventListener('scroll', updatePanelPosition, true)
+      window.cancelAnimationFrame(rafId)
+    }
+  }, [open, selectedQuantity, options.length, preferTop, size])
 
   return (
-    <div ref={rootRef} className='relative inline-flex'>
+    <div ref={rootRef} className='relative inline-flex z-[1]'>
       <button
         type='button'
         disabled={isLoading}
@@ -109,14 +153,21 @@ const CartQuantitySelect = ({
         </svg>
       </button>
 
-      {open ? (
+      {open && typeof document !== 'undefined'
+        ? createPortal(
         <div
-          ref={listRef}
+          ref={(node) => {
+            panelRef.current = node
+            listRef.current = node
+          }}
           role='listbox'
-          className={`absolute left-0 z-20 w-full min-w-[102px] overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-md ${
-            panelPlacement === 'top' ? 'bottom-[calc(100%+6px)]' : 'top-[calc(100%+6px)]'
-          }`}
-          style={{ maxHeight: `${panelMaxHeight}px` }}
+          className='quantity-select-scroll fixed z-[100000] min-w-[102px] overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-md'
+          style={{
+            left: `${panelStyle.left}px`,
+            top: `${panelStyle.top}px`,
+            width: `${panelStyle.width}px`,
+            maxHeight: `${panelMaxHeight}px`,
+          }}
         >
           {options.map((value) => (
             <button
@@ -146,7 +197,8 @@ const CartQuantitySelect = ({
             </button>
           ))}
         </div>
-      ) : null}
+        , document.body)
+        : null}
     </div>
   )
 }

@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { getUserRoleSafe } from '@/lib/auth/roles'
 import { resolveBrandDisplayedFollowers, resolveBrandIdentity } from '@/lib/catalog/brand-following'
 
@@ -33,13 +34,19 @@ const buildSnapshot = async (
   }
 
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
+  let db: any = supabase
+  try {
+    db = createAdminSupabaseClient()
+  } catch {
+    db = supabase
+  }
   const { data: authData } = await supabase.auth.getUser()
   const user = authData?.user || null
   const role = user?.id ? await getUserRoleSafe(supabase, user.id) : 'guest'
 
   let isFollowing = false
-  if (user?.id && role === 'customer') {
-    const { data, error } = await supabase
+  if (user?.id) {
+    const { data, error } = await db
       .from('customer_vendor_follows')
       .select('brand_id')
       .eq('customer_user_id', user.id)
@@ -57,6 +64,7 @@ const buildSnapshot = async (
     response: null,
     supabase,
     applyCookies,
+    db,
     brand,
     user,
     role,
@@ -77,7 +85,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
     },
     followers: snapshot.followers,
     is_following: snapshot.isFollowing,
-    can_follow: snapshot.role === 'customer',
+    can_follow: Boolean(snapshot.user?.id),
   })
   snapshot.applyCookies?.(response)
   return response
@@ -92,13 +100,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ sl
     snapshot.applyCookies?.(response)
     return response
   }
-  if (snapshot.role !== 'customer') {
-    const response = jsonError('Only customer accounts can follow vendors.', 403)
-    snapshot.applyCookies?.(response)
-    return response
-  }
 
-  const { error } = await snapshot.supabase.from('customer_vendor_follows').insert({
+  const { error } = await snapshot.db.from('customer_vendor_follows').insert({
     customer_user_id: snapshot.user.id,
     brand_id: snapshot.brand.id,
   })
@@ -137,13 +140,8 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     snapshot.applyCookies?.(response)
     return response
   }
-  if (snapshot.role !== 'customer') {
-    const response = jsonError('Only customer accounts can unfollow vendors.', 403)
-    snapshot.applyCookies?.(response)
-    return response
-  }
 
-  const { error } = await snapshot.supabase
+  const { error } = await snapshot.db
     .from('customer_vendor_follows')
     .delete()
     .eq('customer_user_id', snapshot.user.id)

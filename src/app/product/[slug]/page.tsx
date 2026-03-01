@@ -405,6 +405,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const [showConditionInfo, setShowConditionInfo] = useState(false)
   const [showReturnInfo, setShowReturnInfo] = useState(false)
   const [pendingQuantity, setPendingQuantity] = useState(1)
+  const [isAddToCartLoading, setIsAddToCartLoading] = useState(false)
   const [reviewData, setReviewData] = useState<any>(createEmptyReviewData())
   const [reviewReloadKey, setReviewReloadKey] = useState(0)
   const [shouldLoadReviews, setShouldLoadReviews] = useState(false)
@@ -430,6 +431,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
   const descriptionRef = useRef<HTMLDivElement | null>(null)
   const variationSectionRef = useRef<HTMLDivElement | null>(null)
   const cartSelectionHydratedRef = useRef<string | null>(null)
+  const addToCartLoadingTimeoutRef = useRef<number | null>(null)
   const handleReviewSubmitted = useCallback(() => {
     setShouldLoadReviews(true)
     setReviewReloadKey((prev) => prev + 1)
@@ -1417,6 +1419,15 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     }
   }, [items, product?.id, selectedVariation?.id, selectedColor, selectedSize])
 
+  useEffect(() => {
+    return () => {
+      if (addToCartLoadingTimeoutRef.current) {
+        window.clearTimeout(addToCartLoadingTimeoutRef.current)
+        addToCartLoadingTimeoutRef.current = null
+      }
+    }
+  }, [])
+
   if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1453,6 +1464,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       return
     }
     setShowSelectionErrors(false)
+    setIsAddToCartLoading(true)
     addItem(
       {
         ...product,
@@ -1467,6 +1479,24 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
       },
       Math.max(1, Number(quantity) || 1)
     )
+    if (addToCartLoadingTimeoutRef.current) {
+      window.clearTimeout(addToCartLoadingTimeoutRef.current)
+    }
+    addToCartLoadingTimeoutRef.current = window.setTimeout(() => {
+      setIsAddToCartLoading(false)
+      addToCartLoadingTimeoutRef.current = null
+    }, 3000)
+  }
+
+  const startAddToCartLoader = () => {
+    setIsAddToCartLoading(true)
+    if (addToCartLoadingTimeoutRef.current) {
+      window.clearTimeout(addToCartLoadingTimeoutRef.current)
+    }
+    addToCartLoadingTimeoutRef.current = window.setTimeout(() => {
+      setIsAddToCartLoading(false)
+      addToCartLoadingTimeoutRef.current = null
+    }, 3000)
   }
 
   const shortDescription = product.shortDescription ?? ''
@@ -1582,6 +1612,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
 
     if (cartEntry?.key) {
       const safeCartQuantity = Math.max(0, parsed)
+      startAddToCartLoader()
       updateQuantity(cartEntry.key, safeCartQuantity)
       if (safeCartQuantity <= 0) {
         setPendingQuantity(1)
@@ -1590,6 +1621,7 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
     }
 
     const safePendingQuantity = Math.max(1, Math.min(quantitySelectorMax, parsed))
+    startAddToCartLoader()
     setPendingQuantity(safePendingQuantity)
   }
   const stockLabel =
@@ -1893,19 +1925,6 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                         : ''
                     }`}
                   >
-                    <style jsx global>{`
-                      @keyframes oc-shake {
-                        0% { transform: translateX(0); }
-                        20% { transform: translateX(-6px); }
-                        40% { transform: translateX(6px); }
-                        60% { transform: translateX(-4px); }
-                        80% { transform: translateX(4px); }
-                        100% { transform: translateX(0); }
-                      }
-                      .oc-shake {
-                        animation: oc-shake 0.45s ease-in-out;
-                      }
-                    `}</style>
                     {hasCompleteVariationImages && colorVariationCards.length > 0 && (
                       <div className={`space-y-2 ${shakeKeys.length ? 'oc-shake' : ''}`}>
                         <div className='space-y-1'>
@@ -2154,12 +2173,20 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
                       />
                       <button
                         onClick={() => handleAddToCart(displayQuantity)}
-                        disabled={isAddedToCart}
+                        disabled={isAddToCartLoading}
                         className={`inline-flex h-11 flex-1 items-center justify-center rounded-full border border-black bg-black px-4 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-black disabled:border-black disabled:text-white ${
-                          isAddedToCart ? '' : 'hover:bg-gray-900'
+                          isAddToCartLoading ? '' : 'hover:bg-gray-900'
                         }`}
                       >
-                        {ctaLabel}
+                        {isAddToCartLoading ? (
+                          <span className='inline-flex items-center gap-1' aria-label='Adding to cart'>
+                            <span className='h-1.5 w-1.5 rounded-full bg-white animate-[oc-dot-bounce_1s_infinite]' />
+                            <span className='h-1.5 w-1.5 rounded-full bg-white animate-[oc-dot-bounce_1s_infinite] [animation-delay:120ms]' />
+                            <span className='h-1.5 w-1.5 rounded-full bg-white animate-[oc-dot-bounce_1s_infinite] [animation-delay:240ms]' />
+                          </span>
+                        ) : (
+                          ctaLabel
+                        )}
                       </button>
                     </div>
                     {variationError && (
@@ -2384,12 +2411,20 @@ function ProductContent({ params }: { params: Promise<{ slug: string }> }) {
             />
             <button
               onClick={() => handleAddToCart(displayQuantity)}
-              disabled={isAddedToCart}
+              disabled={isAddToCartLoading}
               className={`inline-flex h-11 flex-1 items-center justify-center rounded-full border border-black bg-black px-4 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-100 disabled:bg-black disabled:border-black disabled:text-white ${
-                isAddedToCart ? '' : 'hover:bg-gray-900'
+                isAddToCartLoading ? '' : 'hover:bg-gray-900'
               }`}
             >
-              {ctaLabel}
+              {isAddToCartLoading ? (
+                <span className='inline-flex items-center gap-1' aria-label='Adding to cart'>
+                  <span className='h-1.5 w-1.5 rounded-full bg-white animate-[oc-dot-bounce_1s_infinite]' />
+                  <span className='h-1.5 w-1.5 rounded-full bg-white animate-[oc-dot-bounce_1s_infinite] [animation-delay:120ms]' />
+                  <span className='h-1.5 w-1.5 rounded-full bg-white animate-[oc-dot-bounce_1s_infinite] [animation-delay:240ms]' />
+                </span>
+              ) : (
+                ctaLabel
+              )}
             </button>
           </div>
         </div>

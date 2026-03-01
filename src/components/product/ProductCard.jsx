@@ -8,6 +8,7 @@ import ProductCardSkeleton from '../ProductCardSkeleton'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { buildSwatchImages, deriveOptionsFromVariations } from './variationUtils.mjs'
+import ProductVariantQuickAddModal from './ProductVariantQuickAddModal'
 import { useOptionalCart } from '../../context/CartContext'
 import QuantityControl from '../cart/QuantityControl'
 import { findCartEntry } from '../../lib/cart/cart-match'
@@ -28,6 +29,7 @@ const ProductCard = ({
   const [selectedSize, setSelectedSize] = useState(product.sizes?.[0])
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [previewImage, setPreviewImage] = useState('')
+  const [isVariantModalOpen, setIsVariantModalOpen] = useState(false)
   const router = useRouter()
   const cart = useOptionalCart()
   const items = cart?.items || []
@@ -62,6 +64,10 @@ const ProductCard = ({
   const handleAddToCart = (e) => {
     e.preventDefault()
     e.stopPropagation()
+    if (Array.isArray(product?.variations) && product.variations.length > 0) {
+      setIsVariantModalOpen(true)
+      return
+    }
     onAddToCart({ ...product, selectedColor, selectedSize })
   }
 
@@ -82,6 +88,10 @@ const ProductCard = ({
     if (cartEntry?.key) {
       updateQuantity(cartEntry.key, quantity + 1)
     } else {
+      if (Array.isArray(product?.variations) && product.variations.length > 0) {
+        setIsVariantModalOpen(true)
+        return
+      }
       onAddToCart({ ...product, selectedColor, selectedSize })
     }
   }
@@ -151,12 +161,13 @@ const ProductCard = ({
   }
 
   return (
-    <Link href={`/product/${product.slug}`}>
-      <div
-        className={`relative ${className.includes('bg-') ? '' : 'bg-white'} rounded-[5px] overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group ${className}`}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
+    <>
+      <Link href={`/product/${product.slug}`}>
+        <div
+          className={`relative ${className.includes('bg-') ? '' : 'bg-white'} rounded-[5px] overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group ${className}`}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+        >
         {!imageLoaded && (
           <div className='absolute inset-0 z-10 pointer-events-none'>
             <ProductCardSkeleton />
@@ -423,8 +434,24 @@ const ProductCard = ({
             </div>
           </div>
         )}
-      </div>
-    </Link>
+        </div>
+      </Link>
+      <ProductVariantQuickAddModal
+        open={isVariantModalOpen}
+        product={product}
+        initialColor={selectedColor}
+        initialSize={selectedSize}
+        onClose={() => setIsVariantModalOpen(false)}
+        onConfirm={(payload) => {
+          const quantityFromModal = Math.max(1, Number(payload?.quantity) || 1)
+          onAddToCart({
+            ...product,
+            ...payload,
+          }, quantityFromModal)
+          setIsVariantModalOpen(false)
+        }}
+      />
+    </>
   )
 }
 

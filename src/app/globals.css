@@ -196,13 +196,87 @@ object {
 }
 
 .recently-scroll::-webkit-scrollbar-thumb {
-  background: rgba(120, 120, 130, 0.25);
+  background: rgba(120, 120, 130, 0);
   border-radius: 999px;
+  transition: background-color 220ms ease;
 }
 
 .recently-scroll {
   scrollbar-width: thin;
+  scrollbar-color: rgba(120, 120, 130, 0) transparent;
+  transition: scrollbar-color 220ms ease;
+}
+
+.recently-scroll:hover::-webkit-scrollbar-thumb,
+.recently-scroll.recently-scroll--active::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 130, 0.35);
+}
+
+.recently-scroll:hover,
+.recently-scroll.recently-scroll--active {
   scrollbar-color: rgba(120, 120, 130, 0.35) transparent;
+}
+
+.variant-quick-add-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0) transparent;
+  transition: scrollbar-color 220ms ease;
+}
+
+.variant-quick-add-scroll::-webkit-scrollbar {
+  width: 7px;
+}
+
+.variant-quick-add-scroll::-webkit-scrollbar:horizontal {
+  height: 0;
+}
+
+.variant-quick-add-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.variant-quick-add-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0);
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition: background-color 220ms ease;
+}
+
+.variant-quick-add-scroll:hover::-webkit-scrollbar-thumb,
+.variant-quick-add-scroll.variant-quick-add-scroll--active::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.75);
+}
+
+.variant-quick-add-scroll:hover,
+.variant-quick-add-scroll.variant-quick-add-scroll--active {
+  scrollbar-color: rgba(148, 163, 184, 0.75) transparent;
+}
+
+.variant-quick-add-scroll:hover::-webkit-scrollbar-thumb:hover,
+.variant-quick-add-scroll.variant-quick-add-scroll--active::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.85);
+}
+
+.quantity-select-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+}
+
+.quantity-select-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.quantity-select-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.quantity-select-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.55);
+  border-radius: 999px;
+}
+
+.quantity-select-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.65);
 }
 
 .featured-scroll {
@@ -231,6 +305,55 @@ object {
 
 .hotspot-pulse {
   animation: hotspotPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes oc-shake {
+  0% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.oc-shake {
+  animation: oc-shake 0.45s ease-in-out;
+}
+
+@keyframes oc-dot-bounce {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.7);
+    opacity: 0.6;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes oc-sheet-up {
+  0% {
+    transform: translateY(24px);
+    opacity: 0.96;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @media (max-width: 767.98px) {

@@ -429,8 +429,8 @@ export default function WishlistPage() {
     [shareVisibility],
   )
 
-  const handleAddToCartProduct = (productData) => {
-    addItem(productData, 1)
+  const handleAddToCartProduct = (productData, quantity = 1) => {
+    addItem(productData, Math.max(1, Number(quantity) || 1))
     pushAlert({ type: 'success', title: 'Cart', message: 'Added to cart.' })
   }
 

@@ -23,7 +23,9 @@ const RecentlyViewedSection = ({
   viewAllHref = '/recently-viewed',
 }: RecentlyViewedSectionProps) => {
   const [items, setItems] = useState<RecentlyViewedItem[]>([])
+  const [isScrolling, setIsScrolling] = useState(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
+  const hideScrollbarTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
     const stored = getRecentlyViewed()
@@ -32,6 +34,30 @@ const RecentlyViewedSection = ({
       : stored
     setItems(filtered)
   }, [currentSlug, maxVisible])
+
+  useEffect(() => {
+    const container = scrollRef.current
+    if (!container) return
+
+    const handleScroll = () => {
+      setIsScrolling(true)
+      if (hideScrollbarTimerRef.current) {
+        window.clearTimeout(hideScrollbarTimerRef.current)
+      }
+      hideScrollbarTimerRef.current = window.setTimeout(() => {
+        setIsScrolling(false)
+      }, 700)
+    }
+
+    container.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      if (hideScrollbarTimerRef.current) {
+        window.clearTimeout(hideScrollbarTimerRef.current)
+        hideScrollbarTimerRef.current = null
+      }
+    }
+  }, [])
 
   const visibleItems = useMemo(
     () => items.slice(0, maxVisible),
@@ -81,7 +107,9 @@ const RecentlyViewedSection = ({
 
       <div
         ref={scrollRef}
-        className='recently-scroll mt-4 flex w-full max-w-full gap-4 overflow-x-auto pb-2'
+        className={`recently-scroll mt-4 flex w-full max-w-full gap-4 overflow-x-auto pb-2 ${
+          isScrolling ? 'recently-scroll--active' : ''
+        }`}
       >
         {cardItems.map((item) => (
           <CompactProductCard key={item.slug} product={item} />
