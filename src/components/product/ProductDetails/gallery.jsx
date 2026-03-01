@@ -602,7 +602,7 @@ export default function Gallery({
 
       {isLightboxOpen && (
         <div
-          className='fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-2 sm:p-4'
+          className='fixed inset-0 z-[2147483000] flex items-center justify-center bg-slate-900/35 p-2 sm:p-4'
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setIsLightboxOpen(false)

@@ -69,6 +69,7 @@ const getSavedStorageKey = (userId) =>
 export function CartProvider({ children }) {
   const [items, setItems] = useState([])
   const [savedItems, setSavedItems] = useState([])
+  const [lastAddedItem, setLastAddedItem] = useState(null)
   const [isReady, setIsReady] = useState(false)
   const [isServerReady, setIsServerReady] = useState(false)
   const [cartVersion, setCartVersion] = useState(null)
@@ -594,6 +595,29 @@ export function CartProvider({ children }) {
     const normalized = normalizeItem({ ...product, quantity: 1 })
     const existing = (itemsRef.current || []).find((entry) => entry.key === normalized.key)
     const nextQuantity = Math.max(0, Number(existing?.quantity || 0) + Number(quantity || 0))
+    const quantityAdded = Math.max(0, Number(quantity || 0))
+    if (quantityAdded > 0) {
+      setLastAddedItem({
+        key: normalized.key,
+        product: {
+          id: normalized.id,
+          slug: normalized.slug,
+          name: normalized.name,
+          image: normalized.image,
+          price: Number(normalized.price || 0),
+          originalPrice: Number(normalized.originalPrice || 0) || null,
+          category: String(product?.category || '').trim(),
+          categorySlug: String(product?.categorySlug || product?.category_slug || '').trim(),
+          vendor: String(product?.vendor || '').trim(),
+          categories: Array.isArray(product?.categories) ? product.categories : [],
+          tags: Array.isArray(product?.tags) ? product.tags : [],
+          variations: Array.isArray(product?.variations) ? product.variations : [],
+        },
+        quantityAdded,
+        nextQuantity,
+        createdAt: Date.now(),
+      })
+    }
 
     if (!user) {
       optimisticSetQuantity(normalized, nextQuantity)
@@ -832,6 +856,10 @@ export function CartProvider({ children }) {
     [items, syncRevision],
   )
 
+  const clearLastAddedItem = () => {
+    setLastAddedItem(null)
+  }
+
   const value = useMemo(
     () => ({
       items,
@@ -849,6 +877,8 @@ export function CartProvider({ children }) {
       removeSavedItem,
       clearCart,
       retryItem,
+      lastAddedItem,
+      clearLastAddedItem,
       summary,
       cartVersion,
       orderProtectionConfig,
@@ -862,6 +892,7 @@ export function CartProvider({ children }) {
       summary,
       cartVersion,
       orderProtectionConfig,
+      lastAddedItem,
     ],
   )
 

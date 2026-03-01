@@ -3,6 +3,7 @@ import Navbar from './Navbar'
 import MobileNavbar from './mobile/Navbar'
 import Sidebar from './Sidebar'
 import AdminMobileHeader from './admin/AdminMobileHeader'
+import AddToCartSuccessPopup from './cart/AddToCartSuccessPopup'
 import UserPresenceHeartbeat from './presence/UserPresenceHeartbeat'
 import { useScreenSize } from '../hooks/useScreenSize'
 import { usePathname, useSearchParams } from 'next/navigation'
@@ -37,6 +38,7 @@ export default function ClientLayout({ children }) {
         >
           {children}
         </main>
+        <AddToCartSuccessPopup />
       </>
     )
   }
@@ -46,6 +48,7 @@ export default function ClientLayout({ children }) {
       <>
         <UserPresenceHeartbeat />
         <main className='min-h-screen'>{children}</main>
+        <AddToCartSuccessPopup />
       </>
     )
   }
@@ -69,6 +72,7 @@ export default function ClientLayout({ children }) {
           {children}
         </main>
       </div>
+      <AddToCartSuccessPopup />
     </>
   )
 }

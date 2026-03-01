@@ -102,7 +102,15 @@ const ProductVariantQuickAddModal = ({
   const [isScrollActive, setIsScrollActive] = useState(false)
   const [isBootLoading, setIsBootLoading] = useState(true)
   const [isMainMediaLoading, setIsMainMediaLoading] = useState(true)
+  const [isMobileLightboxOpen, setIsMobileLightboxOpen] = useState(false)
+  const [mobileLightboxIndex, setMobileLightboxIndex] = useState(0)
+  const [isMobileLightboxVideoPlaying, setIsMobileLightboxVideoPlaying] = useState(false)
+  const [sheetDragY, setSheetDragY] = useState(0)
   const scrollFadeTimerRef = useRef(null)
+  const panelScrollRef = useRef(null)
+  const variationSectionRef = useRef(null)
+  const sheetTouchStartYRef = useRef(0)
+  const sheetDraggingRef = useRef(false)
 
   useEffect(() => setMounted(true), [])
 
@@ -325,6 +333,9 @@ const ProductVariantQuickAddModal = ({
     setIsActiveVideoPlaying(false)
     setQuantity(1)
     setThumbStart(0)
+    setMobileLightboxIndex(0)
+    setIsMobileLightboxOpen(false)
+    setIsMobileLightboxVideoPlaying(false)
   }, [mediaItems, open, preferredImage])
 
   useEffect(() => {
@@ -365,18 +376,8 @@ const ProductVariantQuickAddModal = ({
   )
 
   const mobileGalleryItems = useMemo(() => {
-    if (!mediaItems.length) return []
-    const current = mediaItems[activeMediaIndex] || mediaItems[0]
-    const next = mediaItems[(activeMediaIndex + 1) % mediaItems.length]
-    const list = [current, next].filter(Boolean)
-    const seen = new Set()
-    return list.filter((item) => {
-      const key = `${item.type}:${toMediaKey(item.url)}`
-      if (!key || seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
-  }, [activeMediaIndex, mediaItems])
+    return mediaItems
+  }, [mediaItems])
 
   const applyOptionSelection = (key, value) => {
     setSelected((prev) => ({ ...prev, [key]: value }))
@@ -410,6 +411,25 @@ const ProductVariantQuickAddModal = ({
   }
   const goPrevMainMedia = () => selectMediaAtIndex(activeMediaIndex - 1)
   const goNextMainMedia = () => selectMediaAtIndex(activeMediaIndex + 1)
+  const openMobileLightboxAtIndex = (index) => {
+    if (!mediaItems.length) return
+    const normalizedIndex = ((index % mediaItems.length) + mediaItems.length) % mediaItems.length
+    setMobileLightboxIndex(normalizedIndex)
+    setIsMobileLightboxVideoPlaying(false)
+    setIsMobileLightboxOpen(true)
+  }
+  const closeMobileLightbox = () => {
+    setIsMobileLightboxOpen(false)
+    setIsMobileLightboxVideoPlaying(false)
+  }
+  const shiftMobileLightbox = (delta) => {
+    if (!mediaItems.length) return
+    const nextIndex = (mobileLightboxIndex + delta + mediaItems.length) % mediaItems.length
+    setMobileLightboxIndex(nextIndex)
+    setIsMobileLightboxVideoPlaying(false)
+    selectMediaAtIndex(nextIndex)
+  }
+  const mobileLightboxMedia = mediaItems[mobileLightboxIndex] || null
   const productDetailsHref = String(product?.slug || '').trim()
     ? `/product/${String(product.slug).trim()}`
     : ''
@@ -422,13 +442,65 @@ const ProductVariantQuickAddModal = ({
       setIsScrollActive(false)
     }, 650)
   }
+  const scrollToVariationSection = () => {
+    const panel = panelScrollRef.current
+    const section = variationSectionRef.current
+    if (!panel || !section) return
+    const panelRect = panel.getBoundingClientRect()
+    const sectionRect = section.getBoundingClientRect()
+    const topOffset = 12
+    const targetTop = panel.scrollTop + (sectionRect.top - panelRect.top) - topOffset
+    panel.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
+  }
+  const handleSheetTouchStart = (event) => {
+    const touch = event.touches?.[0]
+    if (!touch) return
+    sheetTouchStartYRef.current = touch.clientY
+    sheetDraggingRef.current = true
+    setSheetDragY(0)
+  }
+  const handleSheetTouchMove = (event) => {
+    if (!sheetDraggingRef.current) return
+    const touch = event.touches?.[0]
+    if (!touch) return
+    const delta = touch.clientY - sheetTouchStartYRef.current
+    const clamped = Math.max(0, delta)
+    if (clamped > 0) event.preventDefault()
+    setSheetDragY(clamped)
+  }
+  const handleSheetTouchEnd = () => {
+    sheetDraggingRef.current = false
+    if (sheetDragY > 110) {
+      setSheetDragY(0)
+      onClose?.()
+      return
+    }
+    setSheetDragY(0)
+  }
 
   return createPortal(
-    <div className='fixed inset-0 z-[10050] flex items-end justify-center bg-black/45 p-2 md:items-center md:p-3' onClick={onClose}>
+    <>
+    <div className='fixed inset-0 z-[10050] flex items-end justify-center bg-black/45 p-0 md:items-center md:p-3' onClick={onClose}>
       <div
-        className='h-[50vh] max-h-[50vh] w-full overflow-hidden rounded-t-xl rounded-b-none bg-white shadow-2xl animate-[oc-sheet-up_220ms_ease-out] md:h-[min(82vh,720px)] md:max-h-[720px] md:w-full md:max-w-5xl md:rounded-lg md:animate-none'
+        className='relative h-[65vh] max-h-[65vh] w-full overflow-hidden rounded-t-xl rounded-b-none bg-white shadow-2xl animate-[oc-sheet-up_220ms_ease-out] md:h-[min(82vh,720px)] md:max-h-[720px] md:w-full md:max-w-5xl md:rounded-lg md:animate-none'
+        style={{ transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined, transition: sheetDraggingRef.current ? 'none' : 'transform 180ms ease-out' }}
         onClick={(event) => event.stopPropagation()}
       >
+        <button
+          type='button'
+          className='absolute left-1/2 top-2 z-30 h-4 w-20 -translate-x-1/2 touch-none md:hidden'
+          aria-label='Drag to close'
+          onClick={() => {
+            setSheetDragY(0)
+            onClose?.()
+          }}
+          onTouchStart={handleSheetTouchStart}
+          onTouchMove={handleSheetTouchMove}
+          onTouchEnd={handleSheetTouchEnd}
+          onTouchCancel={handleSheetTouchEnd}
+        >
+          <span className='absolute left-1/2 top-1/2 h-1.5 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full bg-slate-400/80' />
+        </button>
         {isBootLoading ? (
           <div className='grid h-full gap-0 md:grid-cols-[1.02fr_1fr]'>
             <div className='min-w-0 p-3 md:p-4'>
@@ -447,7 +519,7 @@ const ProductVariantQuickAddModal = ({
               <button
                 type='button'
                 onClick={onClose}
-                className='absolute right-8 top-4 z-50 rounded-full bg-white/95 p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 md:right-9 md:top-5'
+                className='absolute right-8 top-4 z-50 hidden rounded-full bg-white/95 p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 md:inline-flex md:right-9 md:top-5'
                 aria-label='Close'
               >
                 <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='2'>
@@ -662,11 +734,11 @@ const ProductVariantQuickAddModal = ({
               </div>
             ) : null}
           </div>
-          <div className='relative min-h-0 min-w-0 border-t border-gray-100 p-4 md:border-l md:border-t-0 md:p-5 flex h-full flex-col overflow-hidden'>
+          <div className='relative min-h-0 min-w-0 border-t border-gray-100 px-3 pb-3 pt-5 md:border-l md:border-t-0 md:p-5 flex h-full flex-col overflow-hidden'>
             <button
               type='button'
               onClick={onClose}
-              className='absolute right-8 top-4 z-50 rounded-full bg-white/95 p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 md:right-9 md:top-5'
+              className='absolute right-8 top-4 z-50 hidden rounded-full bg-white/95 p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-800 md:inline-flex md:right-9 md:top-5'
               aria-label='Close'
             >
               <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='2'>
@@ -674,19 +746,25 @@ const ProductVariantQuickAddModal = ({
               </svg>
             </button>
             <div
+              ref={panelScrollRef}
               onScroll={handlePanelScroll}
-              className={`variant-quick-add-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden pr-0.5 pb-4 ${
+              className={`variant-quick-add-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-3 ${
                 isScrollActive ? 'variant-quick-add-scroll--active' : ''
               }`}
             >
-              <div className='mb-3 rounded-md border border-gray-200 p-2 md:hidden'>
-                <div className='grid grid-cols-2 gap-2'>
+              <div className='mb-2 md:hidden'>
+                <div className='flex gap-1.5 overflow-x-auto snap-x snap-mandatory [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'>
                   {mobileGalleryItems.map((item, index) => (
                     <button
                       key={`m-gallery-${item.type}-${item.url}-${index}`}
                       type='button'
-                      onClick={() => selectMediaAtIndex((activeMediaIndex + index) % Math.max(1, mediaItems.length))}
-                      className='relative aspect-[3/4] overflow-hidden rounded-md bg-gray-100'
+                      onClick={() => {
+                        selectMediaAtIndex(index)
+                        openMobileLightboxAtIndex(index)
+                      }}
+                      className={`relative aspect-[3/4] w-[38vw] min-w-[120px] max-w-[164px] overflow-hidden rounded-sm bg-transparent snap-start transition-opacity ${
+                        index === activeMediaIndex ? 'opacity-100' : 'opacity-80'
+                      }`}
                     >
                       {item.type === 'video' ? (
                         <>
@@ -695,7 +773,7 @@ const ProductVariantQuickAddModal = ({
                               src={item.poster}
                               alt='Video preview'
                               fill
-                              sizes='50vw'
+                              sizes='40vw'
                               className='object-cover'
                             />
                           ) : (
@@ -713,25 +791,12 @@ const ProductVariantQuickAddModal = ({
                           src={item.url}
                           alt={`${product?.name || 'Product'} preview`}
                           fill
-                          sizes='50vw'
+                          sizes='40vw'
                           className='object-cover'
                         />
                       )}
                     </button>
                   ))}
-                </div>
-                <div className='mt-2 flex items-center justify-between gap-2'>
-                  <p className='truncate text-sm font-semibold text-gray-900'>{product?.name}</p>
-                  {productDetailsHref ? (
-                    <a
-                      href={productDetailsHref}
-                      target='_blank'
-                      rel='noopener noreferrer'
-                      className='shrink-0 text-xs font-medium text-slate-600'
-                    >
-                      Details
-                    </a>
-                  ) : null}
                 </div>
               </div>
               <div className='flex items-start justify-between gap-4'>
@@ -779,7 +844,10 @@ const ProductVariantQuickAddModal = ({
                 </div>
               ) : null}
 
-              <div className={`mt-4 space-y-4 overflow-x-hidden rounded-xl border border-gray-200 bg-gray-50/70 p-3.5 ${shakeOptions ? 'oc-shake border-rose-300' : ''}`}>
+              <div
+                ref={variationSectionRef}
+                className={`mt-4 space-y-4 overflow-x-hidden rounded-xl border border-gray-200 bg-gray-50/70 p-3.5 ${shakeOptions ? 'oc-shake border-rose-300' : ''}`}
+              >
               {colorVariationCards.length > 0 ? (
                 <div>
                   <div className='mb-2 text-sm font-semibold text-gray-900'>Color</div>
@@ -892,7 +960,7 @@ const ProductVariantQuickAddModal = ({
               ) : null}
             </div>
 
-            <div className='z-40 mt-2 shrink-0 bg-white px-1 pb-2 pt-2'>
+            <div className='z-40 mt-2 shrink-0 -mx-4 border-t border-gray-100 bg-white px-4 pb-3 pt-2 md:mx-0 md:border-t-0 md:px-1'>
               <div className='flex items-center gap-3'>
                 <div className='inline-flex h-11 items-center rounded-full border border-slate-800 bg-white px-2'>
                   <button
@@ -917,6 +985,7 @@ const ProductVariantQuickAddModal = ({
                   type='button'
                   onClick={() => {
                     if (!matching) {
+                      scrollToVariationSection()
                       setShakeOptions(true)
                       window.setTimeout(() => setShakeOptions(false), 500)
                       return
@@ -949,6 +1018,137 @@ const ProductVariantQuickAddModal = ({
         )}
       </div>
     </div>,
+    {isMobileLightboxOpen ? (
+      <div className='fixed inset-0 z-[2147483000] bg-black/95 md:hidden' onClick={closeMobileLightbox}>
+        <div
+          className='relative h-full w-full'
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type='button'
+            onClick={closeMobileLightbox}
+            className='absolute right-4 top-4 z-30 rounded-full bg-black/65 p-2 text-white'
+            aria-label='Close lightbox'
+          >
+            <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='2'>
+              <path d='M6 6l12 12M18 6 6 18' strokeLinecap='round' />
+            </svg>
+          </button>
+          <div className='flex h-full flex-col px-2 pb-5 pt-8'>
+            <div className='relative flex min-h-0 flex-1 items-center justify-center overflow-hidden'>
+              {mobileLightboxMedia?.type === 'video' && mobileLightboxMedia?.url ? (
+                isMobileLightboxVideoPlaying ? (
+                  <video
+                    key={mobileLightboxMedia.url}
+                    src={mobileLightboxMedia.url}
+                    poster={mobileLightboxMedia.poster || previewImage || undefined}
+                    controls
+                    autoPlay
+                    playsInline
+                    preload='metadata'
+                    className='max-h-full w-auto max-w-full object-contain'
+                  />
+                ) : (
+                  <button
+                    type='button'
+                    onClick={() => setIsMobileLightboxVideoPlaying(true)}
+                    className='group relative inline-flex h-full w-full items-center justify-center'
+                    aria-label='Play video'
+                  >
+                    {mobileLightboxMedia.poster ? (
+                      <Image
+                        src={mobileLightboxMedia.poster}
+                        alt='Video preview'
+                        fill
+                        sizes='100vw'
+                        className='object-contain'
+                      />
+                    ) : (
+                      <div className='h-full w-full bg-slate-900' />
+                    )}
+                    <span className='absolute inset-0 flex items-center justify-center bg-black/25'>
+                      <svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' className='h-16 w-16 transition group-hover:scale-105'>
+                        <path fillRule='evenodd' clipRule='evenodd' d='M11.0748 7.50835C9.74622 6.72395 8.25 7.79065 8.25 9.21316V14.7868C8.25 16.2093 9.74622 17.276 11.0748 16.4916L15.795 13.7048C17.0683 12.953 17.0683 11.047 15.795 10.2952L11.0748 7.50835ZM9.75 9.21316C9.75 9.01468 9.84615 8.87585 9.95947 8.80498C10.0691 8.73641 10.1919 8.72898 10.3122 8.80003L15.0324 11.5869C15.165 11.6652 15.25 11.8148 15.25 12C15.25 12.1852 15.165 12.3348 15.0324 12.4131L10.3122 15.2C10.1919 15.271 10.0691 15.2636 9.95947 15.195C9.84615 15.1242 9.75 14.9853 9.75 14.7868V9.21316Z' fill='#ededed' />
+                        <path fillRule='evenodd' clipRule='evenodd' d='M12 1.25C6.06294 1.25 1.25 6.06294 1.25 12C1.25 17.9371 6.06294 22.75 12 22.75C17.9371 22.75 22.75 17.9371 22.75 12C22.75 6.06294 17.9371 1.25 12 1.25ZM2.75 12C2.75 6.89137 6.89137 2.75 12 2.75C17.1086 2.75 21.25 6.89137 21.25 12C21.25 17.1086 17.1086 21.25 12 21.25C6.89137 21.25 2.75 17.1086 2.75 12Z' fill='#ededed' />
+                      </svg>
+                    </span>
+                  </button>
+                )
+              ) : mobileLightboxMedia?.url ? (
+                <Image
+                  src={mobileLightboxMedia.url}
+                  alt={`${product?.name || 'Product'} preview`}
+                  fill
+                  sizes='100vw'
+                  className='object-contain'
+                />
+              ) : null}
+              {mediaItems.length > 1 ? (
+                <>
+                  <button
+                    type='button'
+                    onClick={() => shiftMobileLightbox(-1)}
+                    className='absolute left-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 p-2 text-gray-800'
+                    aria-label='Previous media'
+                  >
+                    <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='2.2'>
+                      <path d='M15 18l-6-6 6-6' strokeLinecap='round' strokeLinejoin='round' />
+                    </svg>
+                  </button>
+                  <button
+                    type='button'
+                    onClick={() => shiftMobileLightbox(1)}
+                    className='absolute right-1 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 p-2 text-gray-800'
+                    aria-label='Next media'
+                  >
+                    <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='2.2'>
+                      <path d='M9 6l6 6-6 6' strokeLinecap='round' strokeLinejoin='round' />
+                    </svg>
+                  </button>
+                </>
+              ) : null}
+            </div>
+            {mediaItems.length > 1 ? (
+              <div className='mt-3 flex gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'>
+                {mediaItems.map((item, index) => (
+                  <button
+                    key={`m-lightbox-thumb-${item.type}-${item.url}-${index}`}
+                    type='button'
+                    onClick={() => {
+                      setMobileLightboxIndex(index)
+                      setIsMobileLightboxVideoPlaying(false)
+                      selectMediaAtIndex(index)
+                    }}
+                    className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-md ${
+                      index === mobileLightboxIndex ? 'ring-2 ring-white' : 'opacity-75'
+                    }`}
+                  >
+                    {item.type === 'video' ? (
+                      <>
+                        {item.poster ? (
+                          <Image src={item.poster} alt='Video thumb' fill sizes='64px' className='object-cover' />
+                        ) : (
+                          <div className='h-full w-full bg-slate-700' />
+                        )}
+                        <span className='absolute inset-0 flex items-center justify-center bg-black/20'>
+                          <svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' className='h-6 w-6'>
+                            <path fillRule='evenodd' clipRule='evenodd' d='M11.0748 7.50835C9.74622 6.72395 8.25 7.79065 8.25 9.21316V14.7868C8.25 16.2093 9.74622 17.276 11.0748 16.4916L15.795 13.7048C17.0683 12.953 17.0683 11.047 15.795 10.2952L11.0748 7.50835ZM9.75 9.21316C9.75 9.01468 9.84615 8.87585 9.95947 8.80498C10.0691 8.73641 10.1919 8.72898 10.3122 8.80003L15.0324 11.5869C15.165 11.6652 15.25 11.8148 15.25 12C15.25 12.1852 15.165 12.3348 15.0324 12.4131L10.3122 15.2C10.1919 15.271 10.0691 15.2636 9.95947 15.195C9.84615 15.1242 9.75 14.9853 9.75 14.7868V9.21316Z' fill='#ededed' />
+                            <path fillRule='evenodd' clipRule='evenodd' d='M12 1.25C6.06294 1.25 1.25 6.06294 1.25 12C1.25 17.9371 6.06294 22.75 12 22.75C17.9371 22.75 22.75 17.9371 22.75 12C22.75 6.06294 17.9371 1.25 12 1.25ZM2.75 12C2.75 6.89137 6.89137 2.75 12 2.75C17.1086 2.75 21.25 6.89137 21.25 12C21.25 17.1086 17.1086 21.25 12 21.25C6.89137 21.25 2.75 17.1086 2.75 12Z' fill='#ededed' />
+                          </svg>
+                        </span>
+                      </>
+                    ) : (
+                      <Image src={item.url} alt='Media thumb' fill sizes='64px' className='object-cover' />
+                    )}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    ) : null}
+    </>,
     document.body,
   )
 }
