@@ -8,6 +8,7 @@ import { useCart } from '@/context/CartContext'
 import { useWishlist } from '@/context/WishlistContext'
 import QuantityControl from '@/components/cart/QuantityControl'
 import { findCartEntry } from '@/lib/cart/cart-match'
+import { useScreenSize } from '@/hooks/useScreenSize'
 
 const formatPrice = (value: number) => {
   if (!Number.isFinite(value)) return '--'
@@ -45,6 +46,8 @@ const RelatedProductsSection = ({
 }: RelatedProductsSectionProps) => {
   const { addItem, items: cartItems, updateQuantity } = useCart()
   const { openSaveModal, isRecentlySaved } = useWishlist()
+  const { isMobile } = useScreenSize()
+  const openInNewTab = !isMobile
   const now = Date.now()
   if (!Array.isArray(items) || items.length === 0) return null
 
@@ -139,6 +142,9 @@ const RelatedProductsSection = ({
             <Link
               key={product.slug}
               href={`/product/${product.slug}`}
+              target={openInNewTab ? '_blank' : undefined}
+              rel={openInNewTab ? 'noopener noreferrer' : undefined}
+              data-next-navigation='true'
               className='group min-w-0'
             >
               <div className='relative h-full min-w-0 overflow-hidden bg-white p-2 shadow-sm transition hover:shadow-md sm:p-3'>

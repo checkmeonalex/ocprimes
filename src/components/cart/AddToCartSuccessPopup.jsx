@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
 import normalizeProduct from '@/components/product/catalog/normalizeProduct.mjs'
+import { useScreenSize } from '@/hooks/useScreenSize'
 
 const formatPrice = (value) => {
   const amount = Number(value || 0)
@@ -97,6 +98,8 @@ const resolveCategorySignal = (product) => {
 export default function AddToCartSuccessPopup() {
   const pathname = usePathname()
   const { lastAddedItem, clearLastAddedItem } = useCart()
+  const { isMobile } = useScreenSize()
+  const openInNewTab = !isMobile
   const [relatedItems, setRelatedItems] = useState([])
   const [isLoadingRelated, setIsLoadingRelated] = useState(false)
   const [open, setOpen] = useState(false)
@@ -343,6 +346,9 @@ export default function AddToCartSuccessPopup() {
                 <Link
                   key={`${item.id}-${item.slug}`}
                   href={`/product/${item.slug}`}
+                  target={openInNewTab ? '_blank' : undefined}
+                  rel={openInNewTab ? 'noopener noreferrer' : undefined}
+                  data-next-navigation='true'
                   onClick={() => {
                     setOpen(false)
                     clearLastAddedItem()

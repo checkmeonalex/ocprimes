@@ -15,12 +15,12 @@ const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
   loading: () => null, // No loading spinner needed
 })
 
-function MobileNavbar() {
+function MobileNavbar({ initialAuthUser = null }) {
   const router = useRouter()
   const pathname = usePathname()
   const { isOpen, toggleSidebar } = useSidebar()
   const { summary } = useCart()
-  const { user } = useAuthUser()
+  const { user } = useAuthUser(initialAuthUser, true)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)

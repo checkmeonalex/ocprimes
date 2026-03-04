@@ -1,5 +1,5 @@
 import ProductCatalogPage from '../../../components/product/catalog/ProductCatalogPage'
-import { fetchProductListing } from '../../../lib/catalog/product-listing'
+import { fetchProductListingPayload } from '../../../lib/catalog/product-listing'
 import { fetchCategoryWithChildren } from '../../../lib/catalog/categories'
 import { fetchHotspotLayoutsByCategory } from '../../../lib/catalog/hotspot'
 import { fetchLogoGridByCategory } from '../../../lib/catalog/logo-grid'
@@ -15,7 +15,13 @@ const toReadableName = (value = '') =>
 export default async function ProductCategoryPage({ params }) {
   const resolvedParams = await params
   const category = resolvedParams?.category || ''
-  const items = await fetchProductListing({ category, page: 1, perPage: 10 })
+  const listing = await fetchProductListingPayload({
+    category,
+    page: 1,
+    perPage: 10,
+    fields: 'card',
+  })
+  const items = listing.items
   const { parent, children } = await fetchCategoryWithChildren(category)
   const hotspotLayouts = parent?.id
     ? await fetchHotspotLayoutsByCategory(parent.id)
@@ -31,6 +37,8 @@ export default async function ProductCategoryPage({ params }) {
       title={parent?.name || toReadableName(category)}
       subtitle={String(parent?.description || '').trim()}
       listingQuery={{ category }}
+      initialNextCursor={listing.nextCursor}
+      initialHasMore={listing.hasMore}
     />
   )
 }

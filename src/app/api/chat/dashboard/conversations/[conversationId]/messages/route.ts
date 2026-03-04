@@ -9,10 +9,13 @@ import {
   listDashboardMessages,
 } from '@/lib/chat/dashboard'
 import { markVendorConversationMessageReceipts } from '@/lib/chat/chat-server'
+import { notifyCustomerOnVendorChatMessage } from '@/lib/chat/notifications'
 import {
   getConversationClosureState,
+  isSupportConversationRecord,
   maybeAutoCloseConversation,
   purgeExpiredClosedConversations,
+  reopenConversation,
 } from '@/lib/chat/conversation-closure'
 
 export async function GET(
@@ -20,7 +23,7 @@ export async function GET(
   context: { params: Promise<{ conversationId: string }> },
 ) {
   try {
-    const { applyCookies, user, isAdmin, isVendor, role } = await requireDashboardUser(request)
+    const { applyCookies, user, isAdmin, isVendor } = await requireDashboardUser(request)
 
     if (!user?.id) {
       return jsonError('Unauthorized.', 401)
@@ -54,7 +57,7 @@ export async function GET(
     if (autoCloseResult.error) {
       return jsonError('Unable to load conversation.', 500)
     }
-    const resolvedConversation = autoCloseResult.changed
+    let resolvedConversation = autoCloseResult.changed
       ? (await getDashboardConversationById(conversationId)).data
       : conversationResult.data
     if (!resolvedConversation?.id) {
@@ -69,9 +72,6 @@ export async function GET(
     }
 
     const isConversationVendor =
-      role === 'vendor' &&
-      !isAdmin &&
-      isVendor &&
       String(resolvedConversation.vendorUserId || '').trim() === String(user.id || '').trim()
 
     if (isConversationVendor) {
@@ -81,13 +81,22 @@ export async function GET(
 
     const parsed = chatMessagesQuerySchema.safeParse({
       limit: request.nextUrl.searchParams.get('limit') || undefined,
+      before: request.nextUrl.searchParams.get('before') || undefined,
     })
 
     if (!parsed.success) {
       return jsonError('Invalid message query.', 400)
     }
+    const beforeCursor = String(parsed.data.before || '').trim()
+    if (beforeCursor && Number.isNaN(new Date(beforeCursor).getTime())) {
+      return jsonError('Invalid message query.', 400)
+    }
 
-    const messagesResult = await listDashboardMessages(conversationId, parsed.data.limit)
+    const messagesResult = await listDashboardMessages(
+      conversationId,
+      parsed.data.limit,
+      beforeCursor,
+    )
     if (messagesResult.error) {
       return jsonError('Unable to load messages.', 500)
     }
@@ -105,6 +114,11 @@ export async function GET(
         adminRetentionUntil: closure.adminRetentionUntil,
       },
       messages: messagesResult.data,
+      pagination: {
+        limit: parsed.data.limit,
+        hasMore: Boolean(messagesResult.hasMore),
+        nextBefore: messagesResult.oldestMessageCreatedAt || null,
+      },
     })
     applyCookies(response)
     return response
@@ -153,16 +167,33 @@ export async function POST(
     if (autoCloseResult.error) {
       return jsonError('Unable to load conversation.', 500)
     }
-    const resolvedConversation = autoCloseResult.changed
+    let resolvedConversation = autoCloseResult.changed
       ? (await getDashboardConversationById(conversationId)).data
       : conversationResult.data
     if (!resolvedConversation?.id) {
       return jsonError('Conversation not found.', 404)
     }
-    const closure = getConversationClosureState({
+    let closure = getConversationClosureState({
       conversation: resolvedConversation,
       isAdmin,
     })
+    if (!closure.canSend) {
+      const supportConversation = await isSupportConversationRecord(resolvedConversation)
+      const shouldForceReopen = supportConversation
+      if (shouldForceReopen) {
+        const reopenResult = await reopenConversation({ conversationId })
+        if (!reopenResult.error) {
+          const refreshed = await getDashboardConversationById(conversationId)
+          if (refreshed.data?.id) {
+            resolvedConversation = refreshed.data
+            closure = getConversationClosureState({
+              conversation: resolvedConversation,
+              isAdmin,
+            })
+          }
+        }
+      }
+    }
     if (!closure.canSend) {
       return jsonError(
         closure.participantNotice || 'This chat is closed. You can no longer send messages.',
@@ -183,6 +214,15 @@ export async function POST(
     const insertResult = await insertDashboardMessage(conversationId, user.id, parsed.data.body)
     if (insertResult.error || !insertResult.data?.id) {
       return jsonError('Unable to send message.', 500)
+    }
+
+    try {
+      await notifyCustomerOnVendorChatMessage({
+        conversation: resolvedConversation,
+        senderUserId: user.id,
+      })
+    } catch (notificationError) {
+      console.error('chat message customer notification failed:', notificationError)
     }
 
     const response = jsonOk({

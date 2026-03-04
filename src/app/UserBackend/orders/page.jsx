@@ -3,7 +3,7 @@
 import CustomSelect from '@/components/common/CustomSelect'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useMemo, useEffect, useState } from 'react'
+import { useMemo, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { useOptionalCart } from '@/context/CartContext'
@@ -111,6 +111,13 @@ export default function OrdersPage() {
   const [reorderLoadingByOrderId, setReorderLoadingByOrderId] = useState({})
   const [reorderPopup, setReorderPopup] = useState(null)
   const [recommendationAddingById, setRecommendationAddingById] = useState({})
+  const [filterSheetDragY, setFilterSheetDragY] = useState(0)
+  const [isFilterSheetDragging, setIsFilterSheetDragging] = useState(false)
+  const filterSheetGestureRef = useRef({
+    pointerId: null,
+    startY: 0,
+    dragY: 0,
+  })
   const pageTitle = getOrdersTitle(appliedOrderType)
 
   useEffect(() => {
@@ -148,6 +155,15 @@ export default function OrdersPage() {
     }
   }, [router])
 
+  useEffect(() => {
+    if (isFilterSheetOpen) return
+    filterSheetGestureRef.current.pointerId = null
+    filterSheetGestureRef.current.startY = 0
+    filterSheetGestureRef.current.dragY = 0
+    setIsFilterSheetDragging(false)
+    setFilterSheetDragY(0)
+  }, [isFilterSheetOpen])
+
   const filteredOrders = useMemo(() => {
     const byStatus = orders.filter((entry) => matchesStatusFilter(entry, statusFilter))
 
@@ -170,6 +186,35 @@ export default function OrdersPage() {
     setAppliedOrderType(draftOrderType)
     setAppliedDateFilter(draftDateFilter)
     setIsFilterSheetOpen(false)
+  }
+
+  const handleFilterSheetDragStart = (event) => {
+    if (event.pointerType === 'mouse') return
+    setIsFilterSheetDragging(true)
+    filterSheetGestureRef.current.pointerId = event.pointerId
+    filterSheetGestureRef.current.startY = event.clientY
+    filterSheetGestureRef.current.dragY = 0
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  const handleFilterSheetDragMove = (event) => {
+    if (!isFilterSheetDragging) return
+    if (filterSheetGestureRef.current.pointerId !== event.pointerId) return
+    const delta = Math.max(0, event.clientY - filterSheetGestureRef.current.startY)
+    const next = Math.min(delta, 180)
+    filterSheetGestureRef.current.dragY = next
+    setFilterSheetDragY(next)
+  }
+
+  const handleFilterSheetDragEnd = (event) => {
+    if (filterSheetGestureRef.current.pointerId !== event.pointerId) return
+    const shouldClose = filterSheetGestureRef.current.dragY > 72
+    filterSheetGestureRef.current.pointerId = null
+    filterSheetGestureRef.current.startY = 0
+    filterSheetGestureRef.current.dragY = 0
+    setIsFilterSheetDragging(false)
+    setFilterSheetDragY(0)
+    if (shouldClose) setIsFilterSheetOpen(false)
   }
 
   const handleReorder = async (orderId) => {
@@ -584,10 +629,29 @@ export default function OrdersPage() {
       {isFilterSheetOpen ? (
         <div className='fixed inset-0 z-40 bg-black/35 sm:hidden' onClick={() => setIsFilterSheetOpen(false)}>
           <div
-            className='absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-4'
+            className='absolute inset-x-0 bottom-0 max-h-[calc(100dvh-4.25rem)] overflow-y-auto rounded-t-2xl bg-white p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]'
+            style={{
+              transform: `translateY(${filterSheetDragY}px)`,
+              transition: isFilterSheetDragging ? 'none' : 'transform 180ms ease',
+            }}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className='mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-300' />
+            <div
+              className='mb-3 flex justify-center touch-none'
+              onPointerDown={handleFilterSheetDragStart}
+              onPointerMove={handleFilterSheetDragMove}
+              onPointerUp={handleFilterSheetDragEnd}
+              onPointerCancel={handleFilterSheetDragEnd}
+            >
+              <button
+                type='button'
+                onClick={() => setIsFilterSheetOpen(false)}
+                className='inline-flex h-6 w-20 items-center justify-center'
+                aria-label='Close filters'
+              >
+                <span className='h-1.5 w-16 rounded-full bg-slate-300' />
+              </button>
+            </div>
             <h2 className='text-2xl font-semibold text-slate-900'>Order Type</h2>
             <div className='mt-2 space-y-2'>
               {STATUS_OPTIONS.map((option) => (

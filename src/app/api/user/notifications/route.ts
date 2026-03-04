@@ -16,6 +16,11 @@ const patchSchema = z.object({
   ids: z.array(z.string().uuid()).max(100).optional(),
 })
 
+const deleteSchema = z.object({
+  clear_all: z.boolean().optional(),
+  ids: z.array(z.string().uuid()).max(100).optional(),
+})
+
 const MISSING_TABLE_CODES = new Set(['42P01', 'PGRST205'])
 
 const emptyPayload = (page: number, perPage: number) => ({
@@ -147,6 +152,55 @@ export async function PATCH(request: NextRequest) {
     }
     console.error('user notifications mark read failed:', error.message)
     return jsonError('Unable to update notifications.', 500)
+  }
+
+  const response = jsonOk({ success: true })
+  applyCookies(response)
+  return response
+}
+
+export async function DELETE(request: NextRequest) {
+  const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+  if (authError || !authData?.user?.id) {
+    return jsonError('You must be signed in.', 401)
+  }
+
+  const payload =
+    request.nextUrl.searchParams.get('clear_all') === 'true'
+      ? { clear_all: true }
+      : { ids: request.nextUrl.searchParams.getAll('id') }
+
+  const parsed = deleteSchema.safeParse(payload)
+  if (!parsed.success) return jsonError('Invalid query.', 400)
+
+  const clearAll = Boolean(parsed.data.clear_all)
+  const ids = Array.isArray(parsed.data.ids) ? parsed.data.ids : []
+  if (!clearAll && !ids.length) {
+    return jsonError('Provide ids or clear_all=true.', 400)
+  }
+
+  const db = createAdminSupabaseClient()
+  let deleteQuery = db
+    .from(ADMIN_NOTIFICATIONS_TABLE)
+    .delete()
+    .eq('recipient_user_id', authData.user.id)
+    .eq('recipient_role', 'customer')
+
+  if (!clearAll) {
+    deleteQuery = deleteQuery.in('id', ids)
+  }
+
+  const { error } = await deleteQuery
+  if (error) {
+    const code = String((error as { code?: string }).code || '')
+    if (MISSING_TABLE_CODES.has(code)) {
+      const response = jsonOk({ success: true, deleted: 0 })
+      applyCookies(response)
+      return response
+    }
+    console.error('user notifications delete failed:', error.message)
+    return jsonError('Unable to delete notifications.', 500)
   }
 
   const response = jsonOk({ success: true })

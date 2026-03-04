@@ -1,11 +1,13 @@
 import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { chatMessageCreateSchema, chatMessagesQuerySchema } from '@/lib/chat/schema'
 import {
   getConversationForUser,
   insertConversationMessage,
   listMessagesForConversation,
+  markCustomerConversationMessageReceipts,
   loadVendorDisplayNameMap,
   toChatConversationPayload,
   toChatMessagePayload,
@@ -13,8 +15,10 @@ import {
 import { notifyVendorOnCustomerChatMessage } from '@/lib/chat/notifications'
 import {
   getConversationClosureState,
+  isSupportConversationRecord,
   maybeAutoCloseConversation,
   purgeExpiredClosedConversations,
+  reopenConversation,
 } from '@/lib/chat/conversation-closure'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 
@@ -53,7 +57,7 @@ export async function GET(
     if (autoCloseResult.error) {
       return jsonError('Unable to load conversation.', 500)
     }
-    const resolvedConversation =
+    let resolvedConversation =
       autoCloseResult.changed
         ? (await getConversationForUser(supabase, conversationId, auth.user.id)).data
         : conversationResult.data
@@ -69,12 +73,23 @@ export async function GET(
     if (!closure.canView) {
       return jsonError('Conversation not found.', 404)
     }
+    const isConversationCustomer =
+      String(resolvedConversation.customer_user_id || '').trim() === String(auth.user.id || '').trim()
+    if (isConversationCustomer) {
+      const adminDb = createAdminSupabaseClient()
+      await markCustomerConversationMessageReceipts(adminDb, conversationId, auth.user.id)
+    }
 
     const queryParse = chatMessagesQuerySchema.safeParse({
       limit: request.nextUrl.searchParams.get('limit') || undefined,
+      before: request.nextUrl.searchParams.get('before') || undefined,
     })
 
     if (!queryParse.success) {
+      return jsonError('Invalid message query.', 400)
+    }
+    const beforeCursor = String(queryParse.data.before || '').trim()
+    if (beforeCursor && Number.isNaN(new Date(beforeCursor).getTime())) {
       return jsonError('Invalid message query.', 400)
     }
 
@@ -82,6 +97,7 @@ export async function GET(
       supabase,
       conversationId,
       queryParse.data.limit,
+      beforeCursor,
     )
 
     if (messagesResult.error) {
@@ -106,6 +122,11 @@ export async function GET(
         adminRetentionUntil: closure.adminRetentionUntil,
       },
       messages: messagesResult.data.map((row) => toChatMessagePayload(row, auth.user.id)),
+      pagination: {
+        limit: queryParse.data.limit,
+        hasMore: Boolean(messagesResult.hasMore),
+        nextBefore: messagesResult.oldestMessageCreatedAt || null,
+      },
     })
     applyCookies(response)
     return response
@@ -150,7 +171,7 @@ export async function POST(
     if (autoCloseResult.error) {
       return jsonError('Unable to load conversation.', 500)
     }
-    const resolvedConversation =
+    let resolvedConversation =
       autoCloseResult.changed
         ? (await getConversationForUser(supabase, conversationId, auth.user.id)).data
         : conversationResult.data
@@ -159,10 +180,27 @@ export async function POST(
     }
 
     const roleInfo = await getUserRoleInfoSafe(supabase, auth.user.id, auth.user.email || '')
-    const closure = getConversationClosureState({
+    let closure = getConversationClosureState({
       conversation: resolvedConversation,
       isAdmin: roleInfo.isAdmin,
     })
+    if (!closure.canSend) {
+      const supportConversation = await isSupportConversationRecord(resolvedConversation)
+      const shouldForceReopen = supportConversation
+      if (shouldForceReopen) {
+        const reopenResult = await reopenConversation({ conversationId })
+        if (!reopenResult.error) {
+          const refreshed = await getConversationForUser(supabase, conversationId, auth.user.id)
+          if (refreshed.data?.id) {
+            resolvedConversation = refreshed.data
+            closure = getConversationClosureState({
+              conversation: resolvedConversation,
+              isAdmin: roleInfo.isAdmin,
+            })
+          }
+        }
+      }
+    }
     if (!closure.canSend) {
       return jsonError(
         closure.participantNotice || 'This chat is closed. You can no longer send messages.',

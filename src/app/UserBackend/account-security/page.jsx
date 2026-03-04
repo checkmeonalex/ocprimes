@@ -8,6 +8,10 @@ import {
   accountLabelClass,
   accountSuccessClass,
 } from '@/components/user-backend/account/mobileTheme'
+import {
+  loadUserProfileBootstrap,
+  primeUserProfileBootstrap,
+} from '@/lib/user/profile-bootstrap-client'
 
 const SECURITY_QUESTIONS = [
   'What is your mother’s maiden name?',
@@ -91,12 +95,10 @@ export default function AccountSecurityPage() {
     let isMounted = true
     const loadProfile = async () => {
       try {
-        const response = await fetch('/api/user/profile')
-        if (!response.ok) {
-          const payload = await response.json().catch(() => null)
-          throw new Error(payload?.error || 'Unable to load security settings.')
+        const payload = await loadUserProfileBootstrap()
+        if (!payload) {
+          throw new Error('Unable to load security settings.')
         }
-        const payload = await response.json()
         if (!isMounted) return
 
         const nextProfile = payload?.profile || {}
@@ -180,6 +182,7 @@ export default function AccountSecurityPage() {
       if (!response.ok) {
         throw new Error(data?.error || 'Unable to save security settings.')
       }
+      primeUserProfileBootstrap(data)
 
       setProfile((prev) => ({
         ...(prev || {}),

@@ -8,12 +8,17 @@ import UserNavIcon from '@/components/user-backend/UserNavIcon'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { translateMenuLabel } from '@/lib/i18n/messages'
 
-const getPrimaryActions = ({ shopHref }) => [
-  { label: 'Message', href: '/UserBackend/messages', iconLabel: 'Message' },
-  { label: 'Wishlist', href: '/UserBackend/wishlist', iconLabel: 'Wishlist' },
-  { label: 'Orders', href: '/UserBackend/orders', iconLabel: 'Your orders' },
-  { label: 'Shop', href: shopHref, iconLabel: 'Followed stores' },
-]
+const getPrimaryActions = ({ shopHref, showShopAction }) => {
+  const actions = [
+    { label: 'Message', href: '/UserBackend/messages', iconLabel: 'Message' },
+    { label: 'Wishlist', href: '/UserBackend/wishlist', iconLabel: 'Wishlist' },
+    { label: 'Orders', href: '/UserBackend/orders', iconLabel: 'Your orders' },
+  ]
+  if (showShopAction) {
+    actions.push({ label: 'Shop', href: shopHref, iconLabel: 'Followed stores' })
+  }
+  return actions
+}
 
 const normalizeLabel = (label) => {
   if (label === 'Your profile') return 'Edit Profile'
@@ -24,9 +29,9 @@ const normalizeLabel = (label) => {
 const initialsFromName = (name) => {
   const safe = (name || '').trim()
   if (!safe) return 'U'
-  const parts = safe.split(/\s+/).filter(Boolean)
-  if (parts.length === 1) return parts[0][0]?.toUpperCase() || 'U'
-  return `${parts[0][0] || ''}${parts[1][0] || ''}`.toUpperCase()
+  const [firstToken] = safe.split(/\s+/).filter(Boolean)
+  const firstChar = firstToken?.match(/[A-Za-z0-9]/)?.[0] || firstToken?.charAt(0) || 'U'
+  return String(firstChar).toUpperCase()
 }
 
 export default function AccountLandingPage({
@@ -35,13 +40,14 @@ export default function AccountLandingPage({
   location,
   isSignedIn = true,
   shopHref = '/backend/admin/dashboard',
+  showShopAction = false,
 }) {
   const router = useRouter()
   const { locale, t } = useUserI18n()
   const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false)
   const avatarMenuRef = useRef(null)
   const initials = initialsFromName(displayName)
-  const primaryActions = getPrimaryActions({ shopHref })
+  const primaryActions = getPrimaryActions({ shopHref, showShopAction })
   const normalizedLocation =
     location === 'Location not set'
       ? t('home.locationNotSet', 'Location not set')
@@ -78,22 +84,22 @@ export default function AccountLandingPage({
   return (
     <div className='mx-auto w-full max-w-3xl pb-8'>
       <section className='overflow-hidden border border-slate-200 bg-white shadow-sm'>
-        <div className='relative overflow-hidden rounded-b-[36px] bg-[linear-gradient(132deg,#dff1ff_0%,#b9d9f2_44%,#93bede_100%)] px-5 pb-14 pt-6'>
-          <div className='pointer-events-none absolute -left-14 -top-16 h-44 w-44 rounded-full bg-white/40 blur-2xl' />
-          <div className='pointer-events-none absolute -right-10 top-6 h-36 w-36 rounded-full bg-sky-300/30 blur-2xl' />
-          <div className='pointer-events-none absolute right-8 top-0 h-40 w-16 -rotate-12 rounded-full bg-white/22' />
-          <div className='pointer-events-none absolute bottom-[-34px] left-1/2 h-20 w-[132%] -translate-x-1/2 rounded-[100%] bg-white/55' />
-          <div className='relative flex items-center gap-4 rounded-2xl border border-white/55 bg-white/35 p-3'>
+        <div className='relative overflow-hidden rounded-b-[34px] border-b border-slate-400 bg-[radial-gradient(circle_at_18%_14%,rgba(255,255,255,0.86)_0,rgba(255,255,255,0)_40%),radial-gradient(circle_at_92%_8%,rgba(2,6,23,0.22)_0,rgba(2,6,23,0)_36%),linear-gradient(145deg,#eef1f5_0%,#dce2e9_46%,#c7ced8_100%)] px-5 pb-14 pt-6'>
+          <div className='pointer-events-none absolute inset-x-5 top-5 h-px bg-gradient-to-r from-transparent via-slate-700/40 to-transparent' />
+          <div className='pointer-events-none absolute -left-10 -top-12 h-40 w-40 rounded-full border border-slate-500/25' />
+          <div className='pointer-events-none absolute -right-12 top-8 h-28 w-28 rounded-full bg-slate-900/20 blur-2xl' />
+          <div className='pointer-events-none absolute bottom-[-32px] left-1/2 h-20 w-[132%] -translate-x-1/2 rounded-[100%] bg-white/55' />
+          <div className='relative flex items-center gap-4 rounded-2xl border border-white/70 bg-white/48 p-3 shadow-[0_16px_30px_rgba(2,6,23,0.22)] backdrop-blur-sm'>
             <div className='relative' ref={avatarMenuRef}>
               <button
                 type='button'
                 onClick={() => setIsAvatarMenuOpen((prev) => !prev)}
-                className='inline-flex h-14 w-14 items-center justify-center rounded-full bg-white text-base font-bold text-slate-800 shadow-sm ring-1 ring-slate-200'
+                className='inline-flex h-14 w-14 items-center justify-center rounded-full border border-slate-200 bg-white text-xl font-bold uppercase leading-none text-slate-900 shadow-[0_8px_18px_rgba(15,23,42,0.16)] ring-1 ring-slate-200'
                 aria-haspopup='menu'
                 aria-expanded={isAvatarMenuOpen}
                 aria-label='Open profile menu'
               >
-                {initials}
+                {String(initials || 'U').toUpperCase()}
               </button>
 
               {isAvatarMenuOpen ? (
@@ -118,8 +124,8 @@ export default function AccountLandingPage({
                         <path strokeLinecap='round' strokeLinejoin='round' d='M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5' />
                       </svg>
                     </span>
-                    <span className='ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-xs font-semibold text-slate-800'>
-                      {initials}
+                    <span className='ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full border border-amber-300 bg-amber-50 text-xs font-semibold uppercase text-slate-800'>
+                      {String(initials || 'U').toUpperCase()}
                     </span>
                   </div>
 
@@ -208,7 +214,7 @@ export default function AccountLandingPage({
               ) : null}
             </div>
             <div className='min-w-0'>
-              <p className='truncate text-2xl font-semibold text-slate-800'>{displayName}</p>
+              <p className='truncate text-2xl font-semibold tracking-tight text-slate-900'>{displayName}</p>
               <p className='truncate text-sm text-slate-600'>{normalizedLocation}</p>
               <p className='truncate text-xs text-slate-500'>{email}</p>
             </div>
@@ -216,7 +222,7 @@ export default function AccountLandingPage({
         </div>
 
         <div className='-mt-6 border-b border-slate-200 bg-white px-4 pb-4 pt-3'>
-          <div className='grid grid-cols-4 gap-2'>
+          <div className={`grid gap-2 ${primaryActions.length > 3 ? 'grid-cols-4' : 'grid-cols-3'}`}>
             {primaryActions.map((item) => (
               <Link
                 key={item.label}
@@ -278,11 +284,11 @@ export default function AccountLandingPage({
               <Link
                 key={item.href}
                 href={item.href}
-                className='flex items-center justify-between gap-3 py-4 text-slate-700 hover:text-slate-900'
+                className='flex items-center justify-between gap-3 py-2.5 text-slate-700 hover:text-slate-900'
               >
                 <span className='flex min-w-0 items-center gap-3'>
-                  <span className='inline-flex h-9 w-9 items-center justify-center text-slate-500'>
-                    <UserNavIcon label={item.label} className='h-6 w-6' />
+                  <span className='inline-flex h-10 w-10 items-center justify-center text-slate-500'>
+                    <UserNavIcon label={item.label} className='h-7 w-7' />
                   </span>
                   <span className='truncate text-base font-medium sm:text-lg'>
                     {normalizeLabel(item.label) === 'Edit Profile'
@@ -310,3 +316,5 @@ export default function AccountLandingPage({
     </div>
   )
 }
+
+

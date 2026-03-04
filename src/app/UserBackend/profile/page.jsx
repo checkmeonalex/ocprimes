@@ -16,10 +16,154 @@ import {
   accountSuccessClass,
 } from '@/components/user-backend/account/mobileTheme'
 import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
+import {
+  loadUserProfileBootstrap,
+  primeUserProfileBootstrap,
+} from '@/lib/user/profile-bootstrap-client'
 
 const inputClassName = `mt-2 ${accountInputClass}`
 const countrySelectInputClass =
   'h-11 w-full appearance-none rounded-xl border border-slate-300 bg-white pl-10 pr-10 text-sm text-slate-900 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10'
+
+const INTEREST_SECTIONS = [
+  {
+    key: 'categories',
+    question: "What's Your Fashion Energy?",
+    max: 3,
+    options: [
+      'Designed for Women',
+      'Made for Men',
+      'Fashionably Kids',
+      'Special Occasion',
+      'Personal Care',
+      'Fragrance',
+    ],
+  },
+  {
+    key: 'audience',
+    question: 'Who do you usually buy clothes for?',
+    max: 2,
+    options: ['Me', 'My Man', 'My Woman', 'My Kids', 'Gift', 'Family'],
+  },
+  {
+    key: 'styles',
+    question: 'Build Your Wardrobe Mood',
+    max: 1,
+    options: ['Basics', 'Casual', 'Elegant', 'Sporty', 'Vintage', 'Party', 'Workwear', 'Wedding guest'],
+  },
+]
+
+const getInterestLimit = (sectionKey) => {
+  const section = INTEREST_SECTIONS.find((entry) => entry.key === sectionKey)
+  return Number.isFinite(section?.max) && section.max > 0 ? section.max : 1
+}
+
+const normalizeInterestArray = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((entry) => String(entry || '').trim()).filter(Boolean)
+  }
+  if (typeof value !== 'string') return []
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
+const normalizeInterestsProfile = (value) => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const source = value
+    return {
+      categories: normalizeInterestArray(source.categories),
+      audience: normalizeInterestArray(source.audience),
+      styles: normalizeInterestArray(source.styles),
+    }
+  }
+  return {
+    categories: normalizeInterestArray(value),
+    audience: [],
+    styles: [],
+  }
+}
+
+function ProfilePageSkeleton() {
+  const fieldSkeleton = (
+    <div>
+      <div className='h-3 w-24 animate-pulse rounded bg-slate-200' />
+      <div className='mt-2 h-11 w-full animate-pulse rounded-full bg-slate-100' />
+    </div>
+  )
+
+  return (
+    <div className={`${accountPageShellClass} mx-auto max-w-5xl overflow-x-hidden`}>
+      <section className={`${accountCardClass} relative overflow-hidden`}>
+        <div className='relative'>
+          <div className='h-6 w-24 animate-pulse rounded bg-slate-200' />
+          <div className='mt-2 h-4 w-56 animate-pulse rounded bg-slate-100' />
+        </div>
+
+        <div className='mt-5 flex flex-col items-center'>
+          <div className='relative h-20 w-20'>
+            <div className='h-20 w-20 animate-pulse rounded-full border border-slate-200 bg-slate-100' />
+            <div className='absolute -bottom-1 -right-1 h-7 w-7 animate-pulse rounded-full border border-slate-200 bg-slate-100' />
+          </div>
+          <div className='mt-3 h-4 w-40 animate-pulse rounded bg-slate-100' />
+        </div>
+      </section>
+
+      <section className={accountCardClass}>
+        <div className='h-4 w-32 animate-pulse rounded bg-slate-200' />
+        <div className='mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2'>
+          {fieldSkeleton}
+          {fieldSkeleton}
+          {fieldSkeleton}
+          {fieldSkeleton}
+          {fieldSkeleton}
+          {fieldSkeleton}
+        </div>
+      </section>
+
+      <section className={accountCardClass}>
+        <div className='flex items-center justify-between'>
+          <div className='h-4 w-24 animate-pulse rounded bg-slate-200' />
+          <div className='h-4 w-4 animate-pulse rounded bg-slate-100' />
+        </div>
+        <div className='mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2'>
+          {fieldSkeleton}
+          {fieldSkeleton}
+        </div>
+      </section>
+
+      <div className='grid grid-cols-1 gap-5 lg:grid-cols-2'>
+        <section className={accountCardClass}>
+          <div className='h-4 w-24 animate-pulse rounded bg-slate-200' />
+          <div className='mt-2 h-3 w-72 animate-pulse rounded bg-slate-100' />
+          <div className='mt-4 space-y-4'>
+            {Array.from({ length: 3 }).map((_, rowIndex) => (
+              <div key={`interest-question-skeleton-${rowIndex}`}>
+                <div className='h-3 w-52 animate-pulse rounded bg-slate-200' />
+                <div className='mt-2 flex flex-wrap gap-2'>
+                  {Array.from({ length: 4 }).map((__, chipIndex) => (
+                    <span
+                      key={`interest-chip-skeleton-${rowIndex}-${chipIndex}`}
+                      className='inline-flex h-8 w-24 animate-pulse rounded-full bg-slate-100'
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className='fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-2.5 sm:px-5'>
+        <div className='mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 sm:flex-nowrap'>
+          <div className='h-3 w-40 animate-pulse rounded bg-slate-100' />
+          <div className='h-10 w-28 animate-pulse rounded-full bg-slate-200' />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(true)
@@ -44,8 +188,11 @@ export default function ProfilePage() {
         email: '',
         whatsapp: '',
       },
-      interests: '',
-      additionalInfo: '',
+      interests: {
+        categories: [],
+        audience: [],
+        styles: [],
+      },
     }),
     [],
   )
@@ -65,12 +212,10 @@ export default function ProfilePage() {
     let isMounted = true
     const loadProfile = async () => {
       try {
-        const response = await fetch('/api/user/profile')
-        if (!response.ok) {
-          const payload = await response.json().catch(() => null)
-          throw new Error(payload?.error || 'Unable to load profile.')
+        const payload = await loadUserProfileBootstrap()
+        if (!payload) {
+          throw new Error('Unable to load profile.')
         }
-        const payload = await response.json()
         if (!isMounted) return
         const profile = payload?.profile || {}
         const next = {
@@ -80,6 +225,7 @@ export default function ProfilePage() {
             ...emptyForm.contactInfo,
             ...(profile?.contactInfo || {}),
           },
+          interests: normalizeInterestsProfile(profile?.interests),
         }
         setForm(next)
         setInitialForm(next)
@@ -120,9 +266,53 @@ export default function ProfilePage() {
     }))
   }
 
+  const toggleInterest = (sectionKey, optionLabel) => {
+    const key = String(sectionKey || '').trim()
+    const label = String(optionLabel || '').trim()
+    if (!key || !label) return
+    const sectionLimit = getInterestLimit(key)
+
+    setError('')
+    setForm((prev) => {
+      const currentInterests = normalizeInterestsProfile(prev.interests)
+      const currentList = Array.isArray(currentInterests[key]) ? currentInterests[key] : []
+      const exists = currentList.includes(label)
+      const nextList = exists
+        ? currentList.filter((entry) => entry !== label)
+        : currentList.length >= sectionLimit
+          ? currentList
+          : [...currentList, label]
+
+      if (!exists && currentList.length >= sectionLimit) {
+        setError(`You can pick up to ${sectionLimit} options for this question.`)
+      }
+
+      return {
+        ...prev,
+        interests: {
+          ...currentInterests,
+          [key]: nextList,
+        },
+      }
+    })
+  }
+
   const validateForm = () => {
     if (!form.firstName.trim()) return 'First name is required.'
     if (!form.country.trim()) return 'Country is required.'
+    const interests = normalizeInterestsProfile(form.interests)
+    const categoriesLimit = getInterestLimit('categories')
+    const audienceLimit = getInterestLimit('audience')
+    const stylesLimit = getInterestLimit('styles')
+    if (interests.categories.length > categoriesLimit) {
+      return `You can pick up to ${categoriesLimit} Fashion Energy options.`
+    }
+    if (interests.audience.length > audienceLimit) {
+      return `You can pick up to ${audienceLimit} Buy For options.`
+    }
+    if (interests.styles.length > stylesLimit) {
+      return `You can pick up to ${stylesLimit} Wardrobe Mood options.`
+    }
     if (form.contactInfo.email && !form.contactInfo.email.includes('@')) {
       return 'Contact email is invalid.'
     }
@@ -139,16 +329,22 @@ export default function ProfilePage() {
     }
     setIsSaving(true)
     try {
+      const nextPayload = {
+        ...form,
+        interests: normalizeInterestsProfile(form.interests),
+      }
       const response = await fetch('/api/user/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(nextPayload),
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to save profile.')
       }
-      setInitialForm(form)
+      primeUserProfileBootstrap(payload)
+      setInitialForm(nextPayload)
+      setForm(nextPayload)
       setSuccess('Profile updated.')
       pushAlert({ type: 'success', title: 'Profile', message: 'Profile updated.' })
     } catch (err) {
@@ -195,11 +391,11 @@ export default function ProfilePage() {
   const avatarSrc = avatarPreview || avatarUrl
 
   if (isLoading) {
-    return <div className='text-sm text-slate-500'>Loading profile...</div>
+    return <ProfilePageSkeleton />
   }
 
   return (
-    <div className={accountPageShellClass}>
+    <div className={`${accountPageShellClass} mx-auto max-w-5xl overflow-x-hidden`}>
       <section className={`${accountCardClass} relative overflow-hidden`}>
         <div className='relative'>
           <h1 className='text-lg font-semibold tracking-wide text-slate-900'>Profile</h1>
@@ -254,39 +450,39 @@ export default function ProfilePage() {
       {error ? <div className={accountErrorClass}>{error}</div> : null}
       {success ? <div className={accountSuccessClass}>{success}</div> : null}
 
-      <section className={accountCardClass}>
+      <section className={`${accountCardClass} overflow-x-clip`}>
         <h2 className='text-sm font-semibold uppercase tracking-[0.12em] text-slate-900/55'>Personal details</h2>
-        <div className='mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2'>
-          <div>
+        <div className='mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 [&>*]:min-w-0'>
+          <div className='min-w-0'>
             <label className={accountLabelClass}>First Name*</label>
             <input
               type='text'
               value={form.firstName}
               onChange={(event) => updateField('firstName', event.target.value)}
-              className={inputClassName}
+              className={`${inputClassName} min-w-0`}
               placeholder='First name'
             />
           </div>
-          <div>
+          <div className='min-w-0'>
             <label className={accountLabelClass}>Nickname</label>
             <input
               type='text'
               value={form.nickname}
               onChange={(event) => updateField('nickname', event.target.value)}
-              className={inputClassName}
+              className={`${inputClassName} min-w-0`}
               placeholder='Nickname'
             />
           </div>
-          <div>
+          <div className='min-w-0'>
             <label className={accountLabelClass}>Date of Birth</label>
             <input
               type='date'
               value={form.dateOfBirth}
               onChange={(event) => updateField('dateOfBirth', event.target.value)}
-              className={inputClassName}
+              className={`${inputClassName} min-w-0`}
             />
           </div>
-          <div>
+          <div className='min-w-0'>
             <label className={accountLabelClass}>Gender</label>
             <div className='relative mt-2'>
               <CustomSelect
@@ -299,19 +495,9 @@ export default function ProfilePage() {
                 <option value='Male'>Male</option>
                 <option value='Other'>Other</option>
               </CustomSelect>
-              <svg
-                className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-700'
-                viewBox='0 0 20 20'
-                fill='none'
-                stroke='currentColor'
-                strokeWidth='1.8'
-                aria-hidden='true'
-              >
-                <path strokeLinecap='round' strokeLinejoin='round' d='m6 8 4 4 4-4' />
-              </svg>
             </div>
           </div>
-          <div>
+          <div className='min-w-0'>
             <label className={accountLabelClass}>Country*</label>
             <div className='mt-2 rounded-2xl border border-slate-200 bg-white p-2.5'>
               <p className='text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500'>Ship to</p>
@@ -333,38 +519,23 @@ export default function ProfilePage() {
                     </option>
                   ))}
                 </CustomSelect>
-                <svg
-                  className='pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-700'
-                  viewBox='0 0 20 20'
-                  fill='none'
-                  stroke='currentColor'
-                  strokeWidth='1.8'
-                  aria-hidden='true'
-                >
-                  <path strokeLinecap='round' strokeLinejoin='round' d='m6 8 4 4 4-4' />
-                </svg>
               </div>
             </div>
           </div>
-          <div>
+          <div className='min-w-0'>
             <label className={accountLabelClass}>Account email</label>
-            <input type='email' value={email} readOnly className={`${inputClassName} bg-slate-50 text-slate-500`} />
+            <input
+              type='email'
+              value={email}
+              readOnly
+              className={`${inputClassName} min-w-0 bg-slate-50 text-slate-500`}
+            />
           </div>
         </div>
       </section>
 
-      <details className={`${accountCardClass} group`}>
-        <summary className='flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-slate-900'>
-          Contact info
-          <svg
-            className='h-4 w-4 text-slate-500 transition-transform duration-300 group-open:rotate-180'
-            viewBox='0 0 20 20'
-            fill='currentColor'
-            aria-hidden='true'
-          >
-            <path d='M5.3 7.3 10 12l4.7-4.7 1.4 1.4L10 14.8 3.9 8.7z' />
-          </svg>
-        </summary>
+      <section className={accountCardClass}>
+        <h2 className='text-sm font-semibold text-slate-900'>Contact info</h2>
         <div className='mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2'>
           <div>
             <label className={accountLabelClass}>Phone</label>
@@ -399,7 +570,7 @@ export default function ProfilePage() {
                 aria-label='WhatsApp phone info'
               >
                 i
-                <span className='pointer-events-none absolute left-1/2 top-6 z-10 w-56 -translate-x-1/2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600 opacity-0 shadow-lg transition-opacity duration-200 group-hover/tooltip:opacity-100 group-focus/tooltip:opacity-100'>
+                <span className='pointer-events-none absolute right-0 top-6 z-10 w-[min(14rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] text-slate-600 opacity-0 shadow-lg transition-opacity duration-200 invisible group-hover/tooltip:visible group-hover/tooltip:opacity-100 group-focus/tooltip:visible group-focus/tooltip:opacity-100'>
                   Used for faster order notifications, follow-ups, and latest product updates.
                 </span>
               </button>
@@ -427,41 +598,57 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-      </details>
+      </section>
 
-      <div className='grid grid-cols-1 gap-5 lg:grid-cols-2'>
-        <section className={accountCardClass}>
-          <h3 className='text-sm font-semibold uppercase tracking-[0.12em] text-slate-900/55'>Interests</h3>
-          <textarea
-            value={form.interests}
-            onChange={(event) => updateField('interests', event.target.value)}
-            className='mt-3 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-900/45 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10'
-            rows={5}
-            placeholder='Share your interests'
-          />
-        </section>
+      <section className={accountCardClass}>
+        <h3 className='text-lg font-semibold text-slate-900'>Let&apos;s Style You</h3>
+        <p className='mt-1 text-sm text-slate-500'>
+          Answer 3 quick questions so we can style your homepage and personalize your experience.
+        </p>
 
-        <section className={accountCardClass}>
-          <h3 className='text-sm font-semibold uppercase tracking-[0.12em] text-slate-900/55'>
-            Additional info
-          </h3>
-          <textarea
-            value={form.additionalInfo}
-            onChange={(event) => updateField('additionalInfo', event.target.value)}
-            className='mt-3 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-900/45 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10'
-            rows={5}
-            placeholder='Additional information'
-          />
-        </section>
-      </div>
+        <div className='mt-4 space-y-5'>
+          {INTEREST_SECTIONS.map((section) => {
+            const selectedValues = normalizeInterestsProfile(form.interests)[section.key]
+            return (
+              <div key={section.key}>
+                <div className='flex items-center justify-between gap-2'>
+                  <p className='text-sm font-semibold text-slate-800'>{section.question}</p>
+                  <span className='text-xs font-semibold text-slate-500'>
+                    {selectedValues.length}/{section.max}
+                  </span>
+                </div>
+                <div className='mt-2 flex flex-wrap gap-2'>
+                  {section.options.map((optionLabel) => {
+                    const isSelected = selectedValues.includes(optionLabel)
+                    return (
+                      <button
+                        key={`${section.key}-${optionLabel}`}
+                        type='button'
+                        onClick={() => toggleInterest(section.key, optionLabel)}
+                        className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                          isSelected
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50'
+                        }`}
+                      >
+                        {optionLabel}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </section>
 
-      <div className='fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 px-5 py-2.5'>
-        <div className='mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2'>
-          <div className={accountMetaTextClass}>{latestAlert?.message || ''}</div>
+      <div className='fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-2.5 sm:px-5'>
+        <div className='mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 sm:flex-nowrap'>
+          <div className={`${accountMetaTextClass} min-w-0 flex-1 truncate`}>{latestAlert?.message || ''}</div>
           <button
             type='button'
             onClick={handleSave}
-            className={accountPrimaryButtonClass}
+            className={`${accountPrimaryButtonClass} shrink-0`}
             disabled={isSaving || isLoading}
           >
             {isSaving ? (

@@ -1,12 +1,17 @@
 import { headers } from 'next/headers'
 
-const buildProductsUrl = async ({ category, tag, vendor, page, perPage, search }) => {
+const buildProductsUrl = async ({ category, tag, vendor, page, perPage, search, cursor, fields }) => {
   const host = (await headers()).get('host') || 'localhost:3000'
   const protocol = host.includes('localhost') ? 'http' : 'https'
-  const params = new URLSearchParams({
-    page: String(page),
-    per_page: String(perPage),
-  })
+  const params = new URLSearchParams()
+
+  if (cursor) {
+    params.set('cursor', String(cursor))
+  } else {
+    params.set('page', String(page))
+  }
+  params.set('per_page', String(perPage))
+  params.set('fields', fields || 'full')
 
   if (category) {
     params.set('category', category)
@@ -31,11 +36,13 @@ export const fetchProductListing = async ({
   page = 1,
   perPage = 12,
   search = '',
+  cursor = '',
+  fields = 'full',
 } = {}) => {
   const response = await fetch(
-    await buildProductsUrl({ category, tag, vendor, page, perPage, search }),
+    await buildProductsUrl({ category, tag, vendor, page, perPage, search, cursor, fields }),
     {
-      cache: 'no-store',
+      next: { revalidate: 60 },
     },
   )
   const payload = await response.json().catch(() => null)
@@ -49,11 +56,13 @@ export const fetchProductListingPayload = async ({
   page = 1,
   perPage = 12,
   search = '',
+  cursor = '',
+  fields = 'full',
 } = {}) => {
   const response = await fetch(
-    await buildProductsUrl({ category, tag, vendor, page, perPage, search }),
+    await buildProductsUrl({ category, tag, vendor, page, perPage, search, cursor, fields }),
     {
-      cache: 'no-store',
+      next: { revalidate: 60 },
     },
   )
   const payload = await response.json().catch(() => null)
@@ -62,5 +71,7 @@ export const fetchProductListingPayload = async ({
     totalCount: Number(payload?.total_count) || 0,
     page: Number(payload?.page) || 1,
     pages: Number(payload?.pages) || 1,
+    nextCursor: String(payload?.next_cursor || '').trim(),
+    hasMore: Boolean(payload?.has_more),
   }
 }

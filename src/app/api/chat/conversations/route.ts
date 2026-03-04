@@ -7,6 +7,7 @@ import {
 import {
   findOrCreateConversation,
   getConversationForUser,
+  loadCustomerUnreadCountMap,
   loadVendorDisplayNameMap,
   listConversationsForUser,
   listMessagesForConversation,
@@ -15,10 +16,12 @@ import {
   toChatMessagePayload,
 } from '@/lib/chat/chat-server'
 import { resolveSellerStatusForConversation } from '@/lib/chat/seller-status'
+import { findOrCreateDashboardHelpCenterConversation } from '@/lib/chat/dashboard'
 import {
   getConversationClosureState,
   maybeAutoCloseConversation,
   purgeExpiredClosedConversations,
+  reopenConversation,
 } from '@/lib/chat/conversation-closure'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 
@@ -39,30 +42,77 @@ export async function GET(request: NextRequest) {
     }
 
     const roleInfo = await getUserRoleInfoSafe(supabase, auth.user.id, auth.user.email || '')
-    const vendorNameMap = await loadVendorDisplayNameMap(
-      listResult.data.map((row) => String(row?.vendor_user_id || '').trim()),
+    let helpCenterConversationId = ''
+    if (!roleInfo.isAdmin) {
+      const helpCenterResult = await findOrCreateDashboardHelpCenterConversation(auth.user.id)
+      if (helpCenterResult.data?.id) {
+        helpCenterConversationId = String(helpCenterResult.data.id || '').trim()
+      }
+    }
+    const listRows = Array.isArray(listResult.data) ? [...listResult.data] : []
+    if (helpCenterConversationId) {
+      const helpCenterIndex = listRows.findIndex(
+        (row) => String(row?.id || '').trim() === helpCenterConversationId,
+      )
+      if (helpCenterIndex >= 0) {
+        const helpCenterRow = listRows[helpCenterIndex]
+        const closure = getConversationClosureState({
+          conversation: helpCenterRow,
+          isAdmin: roleInfo.isAdmin,
+        })
+        if (closure.isClosed || !closure.canSend || !closure.canView) {
+          const reopenResult = await reopenConversation({ conversationId: helpCenterConversationId })
+          if (!reopenResult.error) {
+            const refreshed = await getConversationForUser(
+              supabase,
+              helpCenterConversationId,
+              auth.user.id,
+            )
+            if (refreshed.data?.id) {
+              listRows[helpCenterIndex] = refreshed.data
+            }
+          }
+        }
+      }
+    }
+    const unreadCountMap = await loadCustomerUnreadCountMap(
+      listRows.map((row) => ({
+        id: String(row?.id || '').trim(),
+        vendorUserId: String(row?.vendor_user_id || '').trim(),
+      })),
     )
-    const conversations = listResult.data
+    const vendorNameMap = await loadVendorDisplayNameMap(
+      listRows.map((row) => String(row?.vendor_user_id || '').trim()),
+    )
+    const conversations = listRows
       .map((row) => {
+        const conversationId = String(row?.id || '').trim()
+        const isHelpCenterConversation =
+          Boolean(helpCenterConversationId) && conversationId === helpCenterConversationId
         const closure = getConversationClosureState({
           conversation: row,
           isAdmin: roleInfo.isAdmin,
         })
         return {
           ...toChatConversationPayload(row),
-          vendorName: vendorNameMap.get(String(row?.vendor_user_id || '').trim()) || '',
+          vendorName: isHelpCenterConversation
+            ? 'OCPRIMES'
+            : vendorNameMap.get(String(row?.vendor_user_id || '').trim()) || '',
+          isHelpCenter: isHelpCenterConversation,
           isClosed: closure.isClosed,
           canView: closure.canView,
           canSend: closure.canSend,
           participantNotice: closure.participantNotice,
           participantVisibleUntil: closure.participantVisibleUntil,
           adminRetentionUntil: closure.adminRetentionUntil,
+          unreadCount: unreadCountMap.get(conversationId) || 0,
         }
       })
       .filter((conversation) => Boolean(conversation.canView))
 
     const response = jsonOk({
       currentUserId: auth.user.id,
+      helpCenterConversationId,
       conversations,
     })
     applyCookies(response)
@@ -144,7 +194,7 @@ export async function POST(request: NextRequest) {
     const messagesResult = await listMessagesForConversation(
       supabase,
       resolvedConversation.id,
-      50,
+      10,
     )
 
     if (messagesResult.error) {

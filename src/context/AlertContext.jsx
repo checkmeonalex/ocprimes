@@ -5,12 +5,14 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 const AlertContext = createContext(null)
 const GLOBAL_ALERT_DEDUPE_MS = 4000
 
-const buildAlert = ({ type = 'info', title, message, timeoutMs = 5000 }) => ({
+const buildAlert = ({ type = 'info', title, message, timeoutMs = 5000, actionLabel = '', onAction = null }) => ({
   id: crypto.randomUUID(),
   type,
   title: title || '',
   message: message || '',
   timeoutMs,
+  actionLabel: String(actionLabel || '').trim(),
+  onAction: typeof onAction === 'function' ? onAction : null,
 })
 
 const buildConfirm = ({
@@ -107,6 +109,21 @@ export function AlertProvider({ children }) {
       return fallback || 'Something went wrong. Please try again.'
     }
 
+    const buildNetworkFailureResponse = (message) =>
+      new Response(
+        JSON.stringify({
+          error: message || 'Network request failed.',
+          code: 'NETWORK_ERROR',
+        }),
+        {
+          status: 503,
+          statusText: 'Network Error',
+          headers: {
+            'content-type': 'application/json',
+          },
+        },
+      )
+
     const pushGlobalErrorOnce = (key, payload) => {
       const now = Date.now()
       const last = Number(recentGlobalErrorsRef.current.get(key) || 0)
@@ -132,14 +149,26 @@ export function AlertProvider({ children }) {
         }
         return response
       } catch (fetchError) {
+        const isAbortError =
+          String(fetchError?.name || '').trim() === 'AbortError' ||
+          String(fetchError?.message || '').toLowerCase().includes('aborted')
+        if (isAbortError) {
+          throw fetchError
+        }
+
+        const message = String(fetchError?.message || 'Network request failed.').trim()
         if (isApiCall && !shouldSkipGlobalAlert(input, init)) {
-          const message = String(fetchError?.message || 'Network request failed.').trim()
           pushGlobalErrorOnce(`${requestPath}:network:${message}`, {
             type: 'error',
             title: 'Network error',
             message,
           })
         }
+
+        if (isApiCall) {
+          return buildNetworkFailureResponse(message)
+        }
+
         throw fetchError
       }
     }

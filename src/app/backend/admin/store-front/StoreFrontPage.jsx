@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
 import AdminSidebar from '@/components/AdminSidebar';
 import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
 import { useAlerts } from '@/context/AlertContext';
@@ -666,10 +665,10 @@ export default function StoreFrontPage() {
               <div className="flex items-center gap-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Store front</p>
                 {String(brand?.slug || '').trim() ? (
-                  <Link
+                  <a
                     href={`/vendors/${String(brand.slug).trim()}`}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50"
                   >
                     <span>View storefront</span>
@@ -678,7 +677,7 @@ export default function StoreFrontPage() {
                       <path d="m10 14 9-9" strokeLinecap="round" strokeLinejoin="round" />
                       <path d="M19 14v5H5V5h5" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                  </Link>
+                  </a>
                 ) : null}
               </div>
               <h2 className="mt-2 text-2xl font-semibold text-slate-900">Shop Branding</h2>

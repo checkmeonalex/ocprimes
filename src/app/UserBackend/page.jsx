@@ -9,17 +9,36 @@ const getDisplayName = (user) => {
   return local || 'User'
 }
 
+const normalizeText = (value) => (typeof value === 'string' ? value.trim() : '')
+
+const getDefaultDeliveryAddress = (profile) => {
+  const addresses = Array.isArray(profile?.addresses)
+    ? profile.addresses.filter((item) => item && typeof item === 'object')
+    : []
+  const preferred = addresses.find((item) => item.isDefault) || addresses[0] || null
+  if (preferred) return preferred
+  if (profile?.deliveryAddress && typeof profile.deliveryAddress === 'object') {
+    return profile.deliveryAddress
+  }
+  return null
+}
+
 const getLocation = (user) => {
-  const meta = user?.user_metadata || {}
-  const city = typeof meta.city === 'string' ? meta.city.trim() : ''
-  const country = typeof meta.country === 'string' ? meta.country.trim() : ''
-  if (city && country) return `${city}, ${country}`
-  if (country) return country
+  const profile =
+    user?.user_metadata?.profile && typeof user.user_metadata.profile === 'object'
+      ? user.user_metadata.profile
+      : {}
+  const address = getDefaultDeliveryAddress(profile)
+  const city = normalizeText(address?.city)
+  const state = normalizeText(address?.state)
+  if (city && state) return `${city}, ${state}`
+  if (city) return city
+  if (state) return state
   return 'Location not set'
 }
 
 const getDashboardAccess = async (supabase, userId) => {
-  if (!userId) return { shopHref: '/UserBackend/shop-access' }
+  if (!userId) return { shopHref: '/UserBackend/shop-access', canAccessShopDashboard: false }
 
   const { data, error } = await supabase
     .from('user_roles')
@@ -29,30 +48,31 @@ const getDashboardAccess = async (supabase, userId) => {
 
   if (error) {
     console.error('Role lookup failed for account landing:', error.message)
-    return { shopHref: '/UserBackend/shop-access' }
+    return { shopHref: '/UserBackend/shop-access', canAccessShopDashboard: false }
   }
 
   const role = String(data?.role || '').toLowerCase()
-  if (role === 'admin' || role === 'vendor') {
-    return { shopHref: '/backend/admin/dashboard' }
+  if (role === 'admin' || role === 'vendor' || role === 'seller') {
+    return { shopHref: '/backend/admin/dashboard', canAccessShopDashboard: true }
   }
-  return { shopHref: '/UserBackend/shop-access' }
+  return { shopHref: '/UserBackend/shop-access', canAccessShopDashboard: false }
 }
 
 export default async function UserBackendHome() {
   const supabase = await createServerSupabaseClient()
   const { data, error } = await supabase.auth.getUser()
   const user = error ? null : data?.user || null
-  const { shopHref } = await getDashboardAccess(supabase, user?.id)
+  const { shopHref, canAccessShopDashboard } = await getDashboardAccess(supabase, user?.id)
 
   return (
-    <div className='-m-3 md:-m-4 lg:-m-5'>
+    <div className='m-0'>
       <AccountLandingPage
         displayName={getDisplayName(user)}
         email={user?.email || ''}
         location={getLocation(user)}
         isSignedIn={Boolean(user)}
         shopHref={shopHref}
+        showShopAction={canAccessShopDashboard}
       />
     </div>
   )

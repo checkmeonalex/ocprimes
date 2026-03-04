@@ -19,12 +19,12 @@ const buildMissingTableMessage = () =>
   'categories table not found. Run migration 010_admin_taxonomies.sql.'
 
 export async function listCategories(request: NextRequest) {
-  const { supabase, applyCookies, canManageCatalog, isAdmin } = await requireDashboardUser(request)
+  const { applyCookies, canManageCatalog } = await requireDashboardUser(request)
 
   if (!canManageCatalog) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db = createAdminSupabaseClient()
 
   const parseResult = listCategoriesQuerySchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -92,12 +92,12 @@ export async function listCategories(request: NextRequest) {
 }
 
 export async function listCategoryTree(request: NextRequest) {
-  const { supabase, applyCookies, canManageCatalog, isAdmin } = await requireDashboardUser(request)
+  const { applyCookies, canManageCatalog } = await requireDashboardUser(request)
 
   if (!canManageCatalog) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db = createAdminSupabaseClient()
 
   const parseResult = categoryTreeQuerySchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -138,11 +138,12 @@ export async function listCategoryTree(request: NextRequest) {
 }
 
 export async function createCategory(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin, user } = await requireAdmin(request)
+  const { applyCookies, isAdmin, user } = await requireAdmin(request)
 
   if (!isAdmin) {
     return jsonError('Forbidden.', 403)
   }
+  const db = createAdminSupabaseClient()
 
   let payload: unknown
   try {
@@ -172,7 +173,7 @@ export async function createCategory(request: NextRequest) {
 
   let maxOrder = -1
   try {
-    let maxQuery = supabase
+    let maxQuery = db
       .from(TABLE)
       .select('sort_order')
       .order('sort_order', { ascending: false })
@@ -188,7 +189,7 @@ export async function createCategory(request: NextRequest) {
     console.error('category sort order lookup failed:', maxErr)
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from(TABLE)
     .insert({
       name: parsed.data.name,
@@ -224,11 +225,12 @@ export async function createCategory(request: NextRequest) {
 }
 
 export async function reorderCategories(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { applyCookies, isAdmin } = await requireAdmin(request)
 
   if (!isAdmin) {
     return jsonError('Forbidden.', 403)
   }
+  const db = createAdminSupabaseClient()
 
   let payload: unknown
   try {
@@ -256,16 +258,21 @@ export async function reorderCategories(request: NextRequest) {
   }
 
   for (const update of updates) {
-    const { error } = await supabase
+    const { data, error } = await db
       .from(TABLE)
       .update({ parent_id: update.parent_id, sort_order: update.sort_order })
       .eq('id', update.id)
+      .select('id')
+      .maybeSingle()
     if (error) {
       const errorCode = (error as { code?: string })?.code
       console.error('category reorder failed:', error.message)
       if (errorCode === '42P01') {
         return jsonError(buildMissingTableMessage(), 500)
       }
+      return jsonError('Unable to reorder categories.', 500)
+    }
+    if (!data?.id) {
       return jsonError('Unable to reorder categories.', 500)
     }
   }
@@ -276,11 +283,12 @@ export async function reorderCategories(request: NextRequest) {
 }
 
 export async function updateCategory(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { applyCookies, isAdmin } = await requireAdmin(request)
 
   if (!isAdmin) {
     return jsonError('Forbidden.', 403)
   }
+  const db = createAdminSupabaseClient()
 
   let payload: unknown
   try {
@@ -378,14 +386,14 @@ export async function updateCategory(request: NextRequest) {
     return jsonError('No updates provided.', 400)
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from(TABLE)
     .update(updates)
     .eq('id', parsed.data.id)
     .select(
       'id, name, slug, description, parent_id, sort_order, image_url, image_alt, image_key, banner_image_url, banner_image_key, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, banner_title, banner_subtitle, banner_cta_text, banner_cta_link, featured_strip_image_url, featured_strip_image_key, featured_strip_tag_id, featured_strip_category_id, hotspot_title_main, featured_strip_title_main, browse_categories_title, home_catalog_title, home_catalog_description, home_catalog_filter_mode, home_catalog_category_id, home_catalog_tag_id, home_catalog_limit, layout_order, is_active, created_at, created_by',
     )
-    .single()
+    .maybeSingle()
 
   if (error) {
     const errorCode = (error as { code?: string })?.code
@@ -400,6 +408,9 @@ export async function updateCategory(request: NextRequest) {
       return jsonError(buildMissingTableMessage(), 500)
     }
     return jsonError('Unable to update category.', 500)
+  }
+  if (!data?.id) {
+    return jsonError('Category not found.', 404)
   }
 
   const response = jsonOk({ item: data })

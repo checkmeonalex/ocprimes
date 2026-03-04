@@ -18,7 +18,12 @@ const toReadableName = (value = '') =>
 export default async function VendorPage({ params }) {
   const resolvedParams = await params
   const vendorSlug = String(resolvedParams?.slug || '').trim()
-  const listing = await fetchProductListingPayload({ vendor: vendorSlug, page: 1, perPage: 10 })
+  const listing = await fetchProductListingPayload({
+    vendor: vendorSlug,
+    page: 1,
+    perPage: 10,
+    fields: 'card',
+  })
   const items = listing.items
   const vendorMeta = vendorSlug ? await fetchBrandBySlugOrId(vendorSlug) : null
   const vendorCategories = await buildVendorCategoryImageList(items)
@@ -104,6 +109,8 @@ export default async function VendorPage({ params }) {
       storeProductCount={productCount}
       childCategories={vendorCategories}
       listingQuery={{ vendor: vendorSlug }}
+      initialNextCursor={listing.nextCursor}
+      initialHasMore={listing.hasMore}
     />
   )
 }

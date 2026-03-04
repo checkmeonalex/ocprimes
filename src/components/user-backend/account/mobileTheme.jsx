@@ -1,5 +1,5 @@
 export const accountPageShellClass =
-  'mx-auto w-full space-y-4 pb-24 text-slate-900 sm:space-y-5 lg:pb-8'
+  'mx-auto w-full space-y-4 pb-[7.5rem] text-slate-900 sm:space-y-5 lg:pb-[8.5rem]'
 
 export const accountCardClass =
   'rounded-[24px] bg-white p-3 sm:p-3.5'

@@ -14,6 +14,11 @@ import {
   normalizeCountry,
 } from '@/lib/i18n/locale-config'
 import { translateMenuLabel } from '@/lib/i18n/messages'
+import {
+  invalidateUserProfileBootstrap,
+  loadUserProfileBootstrap,
+  primeUserProfileBootstrap,
+} from '@/lib/user/profile-bootstrap-client'
 
 const getDisplayName = (email) => {
   if (!email) return 'Guest'
@@ -152,9 +157,9 @@ const renderMenuItemIcon = (label) => {
   )
 }
 
-export default function UserMenu({ variant = 'default' }) {
+export default function UserMenu({ variant = 'default', initialAuthUser = null }) {
   const router = useRouter()
-  const { user, isLoading } = useAuthUser()
+  const { user, isLoading } = useAuthUser(initialAuthUser, true)
   const { locale, setLocale, t } = useUserI18n()
   const [isOpen, setIsOpen] = useState(false)
   const [isLocaleMenuOpen, setIsLocaleMenuOpen] = useState(false)
@@ -181,6 +186,7 @@ export default function UserMenu({ variant = 'default' }) {
 
   const handleLogout = async () => {
     await fetch('/api/auth/signout', { method: 'POST' })
+    invalidateUserProfileBootstrap()
     setIsOpen(false)
     setIsLocaleMenuOpen(false)
     router.refresh()
@@ -228,12 +234,10 @@ export default function UserMenu({ variant = 'default' }) {
     setIsLocaleMenuOpen(true)
     if (!user) return
     try {
-      const response = await fetch('/api/user/profile')
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null)
-        throw new Error(payload?.error || 'Unable to load shipping settings.')
+      const payload = await loadUserProfileBootstrap()
+      if (!payload) {
+        throw new Error('Unable to load shipping settings.')
       }
-      const payload = await response.json()
       const profile = payload?.profile || {}
       setProfileDraft(profile)
       const profileCountry =
@@ -289,6 +293,7 @@ export default function UserMenu({ variant = 'default' }) {
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to save shipping settings.')
       }
+      primeUserProfileBootstrap(payload)
       const savedProfile = payload?.profile || nextProfile
       setProfileDraft(savedProfile)
       setLocale({

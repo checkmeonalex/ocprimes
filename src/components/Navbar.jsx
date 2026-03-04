@@ -4,15 +4,16 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCart } from '../context/CartContext'
 import CategoriesMenu from './Catergories/CategoriesMenu'
 import { fetchCategoriesData } from '@/lib/catalog/categories-menu'
 import { getRecentlyViewed } from '@/lib/recently-viewed/storage'
 import UserMenu from './auth/UserMenu'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
+import { getAccountSearchSuggestions } from '@/lib/user/account-search.ts'
 
-export default function Navbar() {
+export default function Navbar({ initialAuthUser = null }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -35,12 +36,19 @@ export default function Navbar() {
   const [isDesktopHeaderVisible, setIsDesktopHeaderVisible] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
   const [hasVendorAccess, setHasVendorAccess] = useState(false)
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
+  const [accountSearchValue, setAccountSearchValue] = useState('')
+  const [isAccountSearchOpen, setIsAccountSearchOpen] = useState(false)
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState('')
   const { formatMoney } = useUserI18n()
 
   const categoriesRef = useRef(null)
   const menuRef = useRef(null)
   const categoriesHoverTimeoutRef = useRef(null)
   const searchContainerRef = useRef(null)
+  const accountSearchRef = useRef(null)
   const browsingHistoryRef = useRef(null)
   const historyPanelRef = useRef(null)
   const historyListRef = useRef(null)
@@ -180,6 +188,55 @@ export default function Navbar() {
     persistRecentSearches([])
   }
 
+  const handleAccountSearchSelect = (item) => {
+    if (!item?.href) return
+    setAccountSearchValue(item.label || '')
+    setIsAccountSearchOpen(false)
+    router.push(item.href)
+  }
+
+  const handleAccountSearchKeyDown = (event, suggestions) => {
+    if (event.key === 'Escape') {
+      setIsAccountSearchOpen(false)
+      return
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      if (!suggestions.length) return
+      handleAccountSearchSelect(suggestions[0])
+    }
+  }
+
+  const handleDashboardLogout = async () => {
+    setIsLoggingOut(true)
+    setLogoutError('')
+    try {
+      const response = await fetch('/api/auth/signout', { method: 'POST' })
+      if (!response.ok) {
+        throw new Error('Logout failed')
+      }
+      setIsLogoutConfirmOpen(false)
+      router.refresh()
+      router.push('/login')
+    } catch {
+      setLogoutError('Unable to log out right now. Please try again.')
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
+
+  const openLogoutConfirm = () => {
+    setLogoutError('')
+    setIsLogoutConfirmOpen(true)
+  }
+
+  const closeLogoutConfirm = () => {
+    if (isLoggingOut) return
+    setLogoutError('')
+    setIsLogoutConfirmOpen(false)
+  }
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -188,6 +245,13 @@ export default function Navbar() {
       ) {
         setIsSearchOpen(false)
         setIsSearchCategoryOpen(false)
+      }
+
+      if (
+        accountSearchRef.current &&
+        !accountSearchRef.current.contains(event.target)
+      ) {
+        setIsAccountSearchOpen(false)
       }
 
       if (
@@ -295,6 +359,22 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [lastScrollY])
 
+  useEffect(() => {
+    if (!isLogoutConfirmOpen) return undefined
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape' && !isLoggingOut) {
+        setLogoutError('')
+        setIsLogoutConfirmOpen(false)
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isLogoutConfirmOpen, isLoggingOut])
+
   const handleCategoriesMouseEnter = () => {
     setIsHistoryOpen(false)
     setIsHistoryPinned(false)
@@ -368,6 +448,61 @@ export default function Navbar() {
   const isCheckoutRoute = pathname?.startsWith('/checkout')
   const isCheckoutFlow = isCartRoute || isCheckoutRoute
   const isUserDashboard = pathname?.startsWith('/UserBackend')
+  const hasAccountSearchQuery = accountSearchValue.trim().length > 0
+  const accountSearchSuggestions = useMemo(
+    () =>
+      getAccountSearchSuggestions({
+        query: accountSearchValue,
+        hasVendorAccess,
+        limit: 8,
+      }),
+    [accountSearchValue, hasVendorAccess],
+  )
+
+  useEffect(() => {
+    if (isUserDashboard) return
+    setIsAccountSearchOpen(false)
+    setAccountSearchValue('')
+  }, [isUserDashboard])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const loadUnreadNotifications = async () => {
+      if (!isUserDashboard) {
+        setUnreadNotificationCount(0)
+        return
+      }
+
+      const params = new URLSearchParams({
+        page: '1',
+        per_page: '1',
+        read_status: 'unread',
+      })
+
+      try {
+        const response = await fetch(`/api/user/notifications?${params.toString()}`, {
+          cache: 'no-store',
+        })
+        if (!response.ok) {
+          if (!cancelled) setUnreadNotificationCount(0)
+          return
+        }
+        const payload = await response.json().catch(() => null)
+        if (cancelled) return
+        const unread = Number(payload?.summary?.unread || 0)
+        setUnreadNotificationCount(Number.isFinite(unread) && unread > 0 ? unread : 0)
+      } catch {
+        if (!cancelled) setUnreadNotificationCount(0)
+      }
+    }
+
+    void loadUnreadNotifications()
+    return () => {
+      cancelled = true
+    }
+  }, [isUserDashboard, pathname])
+
   const showDashboardPrimaryBar = lastScrollY < 20
   const checkoutCurrentStep = isCartRoute
     ? 'account'
@@ -506,7 +641,7 @@ export default function Navbar() {
             </div>
 
             <div className='hidden justify-self-end lg:block'>
-              <UserMenu variant='compactChip' />
+              <UserMenu variant='compactChip' initialAuthUser={initialAuthUser} />
             </div>
           </div>
         </div>
@@ -800,7 +935,7 @@ export default function Navbar() {
             </svg>
           </HeaderAction>
 
-          <UserMenu />
+          <UserMenu initialAuthUser={initialAuthUser} />
 
           <Link
             href='/cart'
@@ -895,38 +1030,108 @@ export default function Navbar() {
                 href='/UserBackend/notifications'
               >
                 <svg
-                  className='h-5 w-5'
+                  className='h-[26px] w-[26px]'
                   viewBox='0 0 24 24'
                   fill='none'
                   stroke='currentColor'
-                  strokeWidth='1.8'
-                  aria-hidden='true'
-                >
-                  <path d='M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5' />
-                  <path d='M10 17a2 2 0 0 0 4 0' />
-                </svg>
-                <span className='absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500' />
-              </Link>
-              <div className='hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500 md:inline-flex'>
-                <svg
-                  className='h-4 w-4'
-                  viewBox='0 0 24 24'
-                  fill='none'
-                  stroke='currentColor'
-                  strokeWidth='1.8'
+                  strokeWidth='1.5'
                   aria-hidden='true'
                 >
                   <path
+                    d='M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V10a6 6 0 1 0-12 0v4.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 1 1-6 0m6 0H9'
                     strokeLinecap='round'
                     strokeLinejoin='round'
-                    d='M21 21l-4.3-4.3m1.3-5.2a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0'
                   />
                 </svg>
-                <span>Search account pages</span>
+                {unreadNotificationCount > 0 ? (
+                  <span className='absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500' />
+                ) : null}
+              </Link>
+              <div className='relative hidden md:block' ref={accountSearchRef}>
+                <div className='flex h-9 w-64 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs text-slate-500 transition focus-within:border-slate-300 focus-within:bg-white'>
+                  <svg
+                    className='h-4 w-4'
+                    viewBox='0 0 24 24'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth='1.8'
+                    aria-hidden='true'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      d='M21 21l-4.3-4.3m1.3-5.2a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0'
+                    />
+                  </svg>
+                  <input
+                    type='text'
+                    value={accountSearchValue}
+                    onChange={(event) => {
+                      const nextValue = event.target.value
+                      setAccountSearchValue(nextValue)
+                      setIsAccountSearchOpen(nextValue.trim().length > 0)
+                    }}
+                    onFocus={() =>
+                      setIsAccountSearchOpen(accountSearchValue.trim().length > 0)
+                    }
+                    onKeyDown={(event) =>
+                      handleAccountSearchKeyDown(event, accountSearchSuggestions)
+                    }
+                    placeholder='Search account pages'
+                    className='h-full w-full bg-transparent text-xs text-slate-700 placeholder:text-slate-500 focus:outline-none'
+                    aria-label='Search account pages'
+                  />
+                </div>
+                {isAccountSearchOpen && hasAccountSearchQuery ? (
+                  <div className='absolute right-0 top-[calc(100%+0.45rem)] z-50 w-72 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl'>
+                    {accountSearchSuggestions.length ? (
+                      <ul className='max-h-72 overflow-y-auto'>
+                        {accountSearchSuggestions.map((item) => (
+                          <li key={`${item.href}-${item.label}`}>
+                            <button
+                              type='button'
+                              onClick={() => handleAccountSearchSelect(item)}
+                              className='flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left hover:bg-slate-50'
+                            >
+                              <span className='text-sm font-medium text-slate-800'>
+                                {item.label}
+                              </span>
+                              <span className='ml-3 line-clamp-1 text-[11px] text-slate-500'>
+                                {item.summary}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className='px-2.5 py-2 text-xs text-slate-500'>
+                        No matching account pages.
+                      </p>
+                    )}
+                  </div>
+                ) : null}
               </div>
-              <span className='inline-flex h-8 w-8 items-center justify-center rounded-full bg-pink-500 text-sm font-semibold text-white'>
-                O
-              </span>
+              <button
+                type='button'
+                onClick={openLogoutConfirm}
+                className='inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-900 ring-1 ring-slate-200 transition hover:bg-slate-50'
+                aria-label='Logout'
+                title='Logout'
+              >
+                <svg
+                  className='h-5 w-5'
+                  viewBox='0 0 16 16'
+                  fill='none'
+                  xmlns='http://www.w3.org/2000/svg'
+                  aria-hidden='true'
+                >
+                  <path
+                    d='M12.207 9H5V7h7.136L11.05 5.914 12.464 4.5 16 8.036l-3.536 3.535-1.414-1.414L12.207 9zM10 4H8V2H2v12h6v-2h2v4H0V0h10v4z'
+                    fill='currentColor'
+                    fillRule='evenodd'
+                  />
+                </svg>
+              </button>
             </div>
           </div>
         ) : (
@@ -1195,6 +1400,52 @@ export default function Navbar() {
                   No recently viewed products yet.
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isLogoutConfirmOpen ? (
+        <div
+          className='fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/45 px-4'
+          onClick={closeLogoutConfirm}
+        >
+          <div
+            className='w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl'
+            role='dialog'
+            aria-modal='true'
+            aria-labelledby='logout-confirm-title'
+            aria-describedby='logout-confirm-description'
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id='logout-confirm-title' className='text-lg font-semibold text-slate-900'>
+              You're about to log out.
+            </h2>
+            <p id='logout-confirm-description' className='mt-2 text-sm text-slate-600'>
+              To access your account, orders, and saved items again, you'll need to sign in.
+            </p>
+            {logoutError ? (
+              <p className='mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700'>
+                {logoutError}
+              </p>
+            ) : null}
+            <div className='mt-5 flex items-center justify-end gap-2'>
+              <button
+                type='button'
+                onClick={closeLogoutConfirm}
+                className='inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70'
+                disabled={isLoggingOut}
+              >
+                Cancel
+              </button>
+              <button
+                type='button'
+                onClick={handleDashboardLogout}
+                className='inline-flex h-10 items-center justify-center rounded-lg bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70'
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? 'Logging out...' : 'Logout'}
+              </button>
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@ const DASHBOARD_CONVERSATION_COLUMNS =
 const DASHBOARD_MESSAGE_COLUMNS =
   'id, conversation_id, sender_user_id, body, created_at'
 const UNIQUE_VIOLATION_CODE = '23505'
+const SUPPORT_PRODUCT_SLUG_PREFIX = '__help-center-support__'
 
 const formatIso = (value: unknown) => {
   if (typeof value !== 'string') return null
@@ -85,45 +86,62 @@ const findSuperAdminUserId = async (adminDb: ReturnType<typeof createAdminSupaba
 
 const resolveSupportProductId = async (
   adminDb: ReturnType<typeof createAdminSupabaseClient>,
-  vendorUserId: string,
+  adminUserId: string,
 ) => {
-  const chatLinkedProduct = await adminDb
-    .from('chat_conversations')
-    .select('product_id')
-    .or(`customer_user_id.eq.${vendorUserId},vendor_user_id.eq.${vendorUserId}`)
-    .not('product_id', 'is', null)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (chatLinkedProduct.data?.product_id) {
-    return { data: safeText(chatLinkedProduct.data.product_id), error: null }
+  const safeAdminUserId = safeText(adminUserId)
+  if (!safeAdminUserId) {
+    return { data: '', error: new Error('Admin account unavailable.') }
   }
 
-  const ownProduct = await adminDb
+  const supportSlug = `${SUPPORT_PRODUCT_SLUG_PREFIX}-${safeAdminUserId.slice(0, 8)}`
+  const existingSupport = await adminDb
     .from('products')
     .select('id')
-    .eq('created_by', vendorUserId)
-    .order('created_at', { ascending: false })
-    .limit(1)
+    .eq('slug', supportSlug)
     .maybeSingle()
 
-  if (ownProduct.data?.id) {
-    return { data: safeText(ownProduct.data.id), error: null }
+  if (existingSupport.error && String(existingSupport.error.code || '') !== 'PGRST116') {
+    return { data: '', error: existingSupport.error }
+  }
+  if (existingSupport.data?.id) {
+    return { data: safeText(existingSupport.data.id), error: null }
   }
 
-  const fallbackProduct = await adminDb
+  const insertedSupport = await adminDb
     .from('products')
+    .insert({
+      name: 'Help Center (System)',
+      slug: supportSlug,
+      short_description: 'System support anchor product',
+      description: 'System support anchor product',
+      price: 0,
+      discount_price: null,
+      stock_quantity: 1,
+      status: 'draft',
+      created_by: safeAdminUserId,
+    })
     .select('id')
-    .order('created_at', { ascending: false })
-    .limit(1)
     .maybeSingle()
 
-  if (fallbackProduct.error) {
-    return { data: '', error: fallbackProduct.error }
+  if (insertedSupport.error) {
+    if (String(insertedSupport.error.code || '') !== UNIQUE_VIOLATION_CODE) {
+      return { data: '', error: insertedSupport.error }
+    }
+    const conflictSupport = await adminDb
+      .from('products')
+      .select('id')
+      .eq('slug', supportSlug)
+      .maybeSingle()
+    if (conflictSupport.error || !conflictSupport.data?.id) {
+      return {
+        data: '',
+        error: conflictSupport.error || new Error('Unable to resolve support product.'),
+      }
+    }
+    return { data: safeText(conflictSupport.data.id), error: null }
   }
 
-  return { data: safeText(fallbackProduct.data?.id), error: null }
+  return { data: safeText(insertedSupport.data?.id), error: null }
 }
 
 export const loadUserIdentityMap = async (userIds: string[]) => {
@@ -382,22 +400,37 @@ export const getDashboardConversationById = async (conversationId: string) => {
   }
 }
 
-export const listDashboardMessages = async (conversationId: string, limit = 200) => {
+export const listDashboardMessages = async (conversationId: string, limit = 200, before = '') => {
   const adminDb = createAdminSupabaseClient()
-  const safeLimit = Math.max(1, Math.min(300, Number(limit) || 200))
+  const safeLimit = Math.max(1, Math.min(200, Number(limit) || 200))
+  const safeBefore = safeText(before)
 
-  const { data, error } = await adminDb
+  let query = adminDb
     .from('chat_messages')
     .select(DASHBOARD_MESSAGE_COLUMNS)
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: false })
-    .limit(safeLimit)
 
-  if (error) {
-    return { data: [], error }
+  if (safeBefore) {
+    query = query.lt('created_at', safeBefore)
   }
 
-  const messages = Array.isArray(data) ? [...data].reverse() : []
+  const { data, error } = await query.limit(safeLimit + 1)
+
+  if (error) {
+    return {
+      data: [],
+      hasMore: false,
+      oldestMessageCreatedAt: null,
+      error,
+    }
+  }
+
+  const rows = Array.isArray(data) ? data : []
+  const hasMore = rows.length > safeLimit
+  const pagedRows = hasMore ? rows.slice(0, safeLimit) : rows
+  const messages = [...pagedRows].reverse()
+  const oldestMessageCreatedAt = safeText(messages[0]?.created_at) || null
   const identityMap = await loadUserIdentityMap(
     messages.map((row: any) => String(row?.sender_user_id || '')),
   )
@@ -416,6 +449,8 @@ export const listDashboardMessages = async (conversationId: string, limit = 200)
         createdAt: formatIso(row?.created_at),
       }
     }),
+    hasMore,
+    oldestMessageCreatedAt,
     error: null,
   }
 }
@@ -564,11 +599,20 @@ export const findOrCreateDashboardHelpCenterConversation = async (vendorUserId: 
     return { data: null, error: new Error('Admin cannot open Help Center with self.') }
   }
 
+  const supportProduct = await resolveSupportProductId(adminDb, adminUserId)
+  if (supportProduct.error || !supportProduct.data) {
+    return {
+      data: null,
+      error: supportProduct.error || new Error('No product available to initialize Help Center chat.'),
+    }
+  }
+
   const existingResult = await adminDb
     .from('chat_conversations')
     .select(DASHBOARD_CONVERSATION_COLUMNS)
     .eq('customer_user_id', safeVendorUserId)
     .eq('vendor_user_id', adminUserId)
+    .eq('product_id', supportProduct.data)
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -587,6 +631,7 @@ export const findOrCreateDashboardHelpCenterConversation = async (vendorUserId: 
     .select(DASHBOARD_CONVERSATION_COLUMNS)
     .eq('customer_user_id', adminUserId)
     .eq('vendor_user_id', safeVendorUserId)
+    .eq('product_id', supportProduct.data)
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -598,14 +643,6 @@ export const findOrCreateDashboardHelpCenterConversation = async (vendorUserId: 
   if (reverseExistingResult.data?.id) {
     const resolved = await getDashboardConversationById(safeText(reverseExistingResult.data.id))
     return { data: resolved.data, error: resolved.error }
-  }
-
-  const supportProduct = await resolveSupportProductId(adminDb, safeVendorUserId)
-  if (supportProduct.error || !supportProduct.data) {
-    return {
-      data: null,
-      error: supportProduct.error || new Error('No product available to initialize Help Center chat.'),
-    }
   }
 
   const inserted = await adminDb
@@ -625,6 +662,7 @@ export const findOrCreateDashboardHelpCenterConversation = async (vendorUserId: 
         .select(DASHBOARD_CONVERSATION_COLUMNS)
         .eq('customer_user_id', safeVendorUserId)
         .eq('vendor_user_id', adminUserId)
+        .eq('product_id', supportProduct.data)
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle()

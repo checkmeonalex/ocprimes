@@ -19,6 +19,10 @@ import {
   isDigitalProductLike,
 } from '@/lib/order-protection/config'
 import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
+import {
+  loadUserProfileBootstrap,
+  primeUserProfileBootstrap,
+} from '@/lib/user/profile-bootstrap-client'
 import paystackLogo from './paystack.webp'
 
 const SHIPPING_FEE = 5
@@ -317,8 +321,8 @@ function CheckoutPaymentPageContent() {
     const loadProfile = async () => {
       setIsLoadingAddresses(true)
       try {
-        const response = await fetch('/api/user/profile')
-        if (!response.ok) {
+        const payload = await loadUserProfileBootstrap()
+        if (!payload) {
           if (!cancelled) {
             setProfile(null)
             setBillingAddresses([])
@@ -327,7 +331,6 @@ function CheckoutPaymentPageContent() {
           }
           return
         }
-        const payload = await response.json().catch(() => null)
         const nextProfile = payload?.profile || {}
         const normalizedBilling = normalizeAddressCollection(nextProfile, 'billingAddresses')
         const normalizedShipping = normalizeAddressCollection(nextProfile, 'addresses')
@@ -614,6 +617,7 @@ function CheckoutPaymentPageContent() {
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to save billing address.')
       }
+      primeUserProfileBootstrap(payload)
 
       const nextProfile = payload?.profile || {}
       const normalizedBilling = normalizeAddressCollection(nextProfile, 'billingAddresses')

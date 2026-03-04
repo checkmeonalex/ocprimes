@@ -9,6 +9,7 @@ import { WishlistProvider } from '../context/WishlistContext'
 import WishlistSaveModal from '../components/wishlist/WishlistSaveModal'
 import { UserLocaleProvider } from '../context/UserLocaleContext'
 import { Suspense } from 'react'
+import { createServerSupabaseClient } from '../lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +17,16 @@ export const metadata = {
   title: 'OcPrimes',
 }
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  let initialAuthUser = null
+  try {
+    const supabase = await createServerSupabaseClient()
+    const { data } = await supabase.auth.getUser()
+    initialAuthUser = data?.user ?? null
+  } catch {
+    initialAuthUser = null
+  }
+
   return (
     <html lang='en'>
       <body>
@@ -26,7 +36,7 @@ export default function RootLayout({ children }) {
               <CartProvider>
                 <WishlistProvider>
                   <Suspense fallback={<main className='min-h-screen'>{children}</main>}>
-                    <ClientLayout>{children}</ClientLayout>
+                    <ClientLayout initialAuthUser={initialAuthUser}>{children}</ClientLayout>
                   </Suspense>
                   <WishlistSaveModal />
                 </WishlistProvider>
@@ -39,5 +49,4 @@ export default function RootLayout({ children }) {
     </html>
   )
 }
-
 

@@ -8,6 +8,7 @@ import {
   toProfileIdentity,
   writeProfileIdentityCache,
 } from '@/lib/user/profile-identity-cache'
+import { loadUserProfileBootstrap } from '@/lib/user/profile-bootstrap-client'
 
 const fallbackIdentity = {
   displayName: 'Admin User',
@@ -41,19 +42,12 @@ export default function useAdminProfileIdentity() {
 
     const run = async () => {
       try {
-        const response = await fetch('/api/user/profile', {
-          method: 'GET',
-          cache: 'no-store',
-          credentials: 'include',
-        })
-
-        if (response.status === 401 || response.status === 403) {
+        const payload = await loadUserProfileBootstrap()
+        if (!payload) {
           clearProfileIdentityCache()
           return
         }
-
-        const payload = await response.json().catch(() => null)
-        if (!response.ok || !payload || cancelled) return
+        if (cancelled) return
 
         const nextIdentity = toProfileIdentity(payload)
 

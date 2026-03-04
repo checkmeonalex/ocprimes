@@ -9,6 +9,10 @@ const querySchema = z.object({
   per_page: z.coerce.number().int().min(1).max(100).default(30),
 })
 
+const deleteQuerySchema = z.object({
+  review_id: z.string().trim().min(1).max(120),
+})
+
 const MISSING_TABLE_CODE = '42P01'
 const MISSING_COLUMN_CODE = '42703'
 const MISSING_TABLE_SCHEMA_CACHE_CODE = 'PGRST205'
@@ -120,10 +124,10 @@ export async function GET(request: NextRequest) {
   const totalPages = total > 0 ? Math.ceil(total / perPage) : 0
 
   const productIds = Array.from(
-    new Set(pagedRows.map((row: any) => String(row?.product_id || '')).filter(Boolean)),
+    new Set(pagedRows.map((row: any) => String(row?.product_id || '').trim()).filter(Boolean)),
   )
 
-  const [productsRes, imageRes] = await Promise.all([
+  const [productsRes, imageRes, orderItemsRes] = await Promise.all([
     productIds.length
       ? db
           .from('products')
@@ -137,6 +141,13 @@ export async function GET(request: NextRequest) {
           .in('product_id', productIds)
           .order('sort_order', { ascending: true })
       : Promise.resolve({ data: [], error: null } as any),
+    productIds.length
+      ? db
+          .from('checkout_order_items')
+          .select('product_id, name, image, created_at')
+          .in('product_id', productIds)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null } as any),
   ])
 
   if (productsRes.error && !isSafeMissingSchemaError(productsRes.error)) {
@@ -147,7 +158,10 @@ export async function GET(request: NextRequest) {
     console.error('user reviews images fetch failed:', imageRes.error.message)
     return jsonError('Unable to load reviews.', 500)
   }
-
+  if (orderItemsRes.error && !isSafeMissingSchemaError(orderItemsRes.error)) {
+    console.error('user reviews order items fetch failed:', orderItemsRes.error.message)
+    return jsonError('Unable to load reviews.', 500)
+  }
   const productById = new Map<string, any>()
   ;(Array.isArray(productsRes.data) ? productsRes.data : []).forEach((item: any) => {
     const key = String(item?.id || '')
@@ -182,11 +196,25 @@ export async function GET(request: NextRequest) {
     imageByProductId.set(key, url)
   })
 
+  const orderItemByProductId = new Map<string, { name: string; image: string }>()
+  ;(Array.isArray(orderItemsRes.data) ? orderItemsRes.data : []).forEach((item: any) => {
+    const key = String(item?.product_id || '').trim()
+    if (!key || orderItemByProductId.has(key)) return
+    orderItemByProductId.set(key, {
+      name: String(item?.name || '').trim(),
+      image: String(item?.image || '').trim(),
+    })
+  })
+
   const items = pagedRows.map((row: any) => {
-    const productId = String(row?.product_id || '')
+    const productId = String(row?.product_id || '').trim()
     const product = productById.get(productId) || null
+    const orderSnapshot = orderItemByProductId.get(productId)
+    const orderSnapshotName = String(orderSnapshot?.name || '').trim()
+    const orderSnapshotImage = String(orderSnapshot?.image || '').trim()
     return {
       id: String(row?.id || ''),
+      product_id: productId,
       rating: Number(row?.rating) || 0,
       content: String(row?.content || ''),
       status: String(row?.status || 'published'),
@@ -199,14 +227,18 @@ export async function GET(request: NextRequest) {
       review_video_urls: Array.isArray(row?.review_video_urls)
         ? row.review_video_urls.map((url: any) => String(url || '').trim()).filter(Boolean)
         : [],
-      product: product
+      product: product || productId
         ? {
-            id: String(product?.id || ''),
-            name: String(product?.name || 'Untitled product'),
-            slug: String(product?.slug || ''),
+            id: String(product?.id || productId || ''),
+            name:
+              String(product?.name || '').trim() ||
+              orderSnapshotName ||
+              'Unavailable product',
+            slug: String(product?.slug || '').trim(),
             image_url:
+              imageByProductId.get(String(product?.id || productId || '')) ||
               String(product?.image_url || '').trim() ||
-              imageByProductId.get(productId) ||
+              orderSnapshotImage ||
               '',
           }
         : null,
@@ -226,3 +258,70 @@ export async function GET(request: NextRequest) {
   return response
 }
 
+export async function DELETE(request: NextRequest) {
+  const parsed = deleteQuerySchema.safeParse(
+    Object.fromEntries(request.nextUrl.searchParams.entries()),
+  )
+  if (!parsed.success) return jsonError('Invalid review id.', 400)
+
+  const reviewId = String(parsed.data.review_id || '').trim()
+  if (!reviewId) return jsonError('Invalid review id.', 400)
+
+  const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
+  const { data: authData, error: authError } = await supabase.auth.getUser()
+  if (authError || !authData?.user) {
+    return jsonError('You must be signed in.', 401)
+  }
+
+  const userId = String(authData.user.id || '').trim()
+  const userEmail = String(authData.user.email || '').trim().toLowerCase()
+  if (!userId) return jsonError('You must be signed in.', 401)
+
+  const db = createAdminSupabaseClient()
+  const { data: reviewRow, error: reviewError } = await db
+    .from('product_reviews')
+    .select('id, reviewer_user_id, reviewer_email')
+    .eq('id', reviewId)
+    .maybeSingle()
+
+  if (reviewError) {
+    if (isSafeMissingSchemaError(reviewError)) {
+      return jsonError('Review not found.', 404)
+    }
+    console.error('user review ownership check failed:', reviewError.message)
+    return jsonError('Unable to delete review.', 500)
+  }
+
+  if (!reviewRow?.id) {
+    return jsonError('Review not found.', 404)
+  }
+
+  const reviewOwnerUserId = String(reviewRow?.reviewer_user_id || '').trim()
+  const reviewOwnerEmail = String(reviewRow?.reviewer_email || '').trim().toLowerCase()
+  const isOwnedByUserId = Boolean(reviewOwnerUserId) && reviewOwnerUserId === userId
+  const isLegacyOwnedByEmail =
+    !reviewOwnerUserId && Boolean(userEmail) && Boolean(reviewOwnerEmail) && reviewOwnerEmail === userEmail
+  if (!isOwnedByUserId && !isLegacyOwnedByEmail) {
+    return jsonError('You cannot delete this review.', 403)
+  }
+
+  const { error: deleteError } = await db
+    .from('product_reviews')
+    .delete()
+    .eq('id', reviewId)
+
+  if (deleteError) {
+    if (isSafeMissingSchemaError(deleteError)) {
+      return jsonError('Review not found.', 404)
+    }
+    console.error('user review delete failed:', deleteError.message)
+    return jsonError('Unable to delete review.', 500)
+  }
+
+  const response = jsonOk({
+    ok: true,
+    review_id: reviewId,
+  })
+  applyCookies(response)
+  return response
+}

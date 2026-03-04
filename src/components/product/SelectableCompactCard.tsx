@@ -21,7 +21,8 @@ type SelectableCompactCardProps = {
   selectMode: boolean
   onToggle: () => void
   onDelete: () => void
-  onFindSimilar: () => void
+  onSaveWish: () => void
+  onAddToCart: () => void
 }
 
 const SelectableCompactCard = ({
@@ -31,7 +32,8 @@ const SelectableCompactCard = ({
   selectMode,
   onToggle,
   onDelete,
-  onFindSimilar,
+  onSaveWish,
+  onAddToCart,
 }: SelectableCompactCardProps) => {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement | null>(null)
@@ -66,7 +68,7 @@ const SelectableCompactCard = ({
           <MoreHorizontal className='h-4 w-4' />
         </button>
         {menuOpen ? (
-          <div className='absolute top-10 right-2 z-20 w-36 rounded-xl border border-gray-200 bg-white p-2 text-xs shadow-lg'>
+          <div className='absolute inset-x-2 top-10 z-20 max-w-full rounded-xl border border-gray-200 bg-white p-2 shadow-lg'>
             <button
               type='button'
               onClick={(event) => {
@@ -74,7 +76,7 @@ const SelectableCompactCard = ({
                 setMenuOpen(false)
                 onDelete()
               }}
-              className='w-full rounded-lg px-2 py-1 text-left text-gray-700 hover:bg-gray-50'
+              className='w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-gray-700 hover:bg-gray-50'
             >
               Delete
             </button>
@@ -83,11 +85,22 @@ const SelectableCompactCard = ({
               onClick={(event) => {
                 event.preventDefault()
                 setMenuOpen(false)
-                onFindSimilar()
+                onSaveWish()
               }}
-              className='mt-1 w-full rounded-lg px-2 py-1 text-left text-gray-700 hover:bg-gray-50'
+              className='mt-1 w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-gray-700 hover:bg-gray-50'
             >
-              Find similar
+              Save
+            </button>
+            <button
+              type='button'
+              onClick={(event) => {
+                event.preventDefault()
+                setMenuOpen(false)
+                onAddToCart()
+              }}
+              className='mt-1 w-full rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-gray-700 hover:bg-gray-50'
+            >
+              Add to cart
             </button>
           </div>
         ) : null}

@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import emptyNotificationImage from './no-notificvstion.png'
 
 const formatDateOnly = (value) => {
@@ -19,7 +19,7 @@ const isNewNotification = (value) => {
   const date = new Date(value || '')
   const time = date.getTime()
   if (Number.isNaN(time)) return false
-  return Date.now() - time <= 24 * 60 * 60 * 1000
+  return Date.now() - time <= 48 * 60 * 60 * 1000
 }
 
 const stringToHue = (value) => {
@@ -48,18 +48,82 @@ const buildFallbackAvatar = (title, message) => {
   }
 }
 
+const isOrderNotification = (item) => {
+  const type = String(item?.type || '').trim().toLowerCase()
+  const orderId = String(item?.metadata?.order_id || '').trim()
+  const actionUrl = String(item?.metadata?.action_url || '').trim().toLowerCase()
+  if (type.includes('order')) return true
+  if (orderId) return true
+  return actionUrl.includes('/userbackend/orders')
+}
+
+const isReviewNotification = (item) => {
+  const type = String(item?.type || '').trim().toLowerCase()
+  const entityType = String(item?.entity_type || '').trim().toLowerCase()
+  const reviewId = String(item?.metadata?.review_id || '').trim()
+  if (type.includes('review')) return true
+  if (entityType === 'product_review') return true
+  return Boolean(reviewId)
+}
+
+const isMessageNotification = (item) => {
+  const type = String(item?.type || '').trim().toLowerCase()
+  const entityType = String(item?.entity_type || '').trim().toLowerCase()
+  const conversationId = String(item?.metadata?.conversation_id || '').trim()
+  const actionUrl = String(item?.metadata?.action_url || '').trim().toLowerCase()
+  if (type.includes('chat') || type.includes('message')) return true
+  if (entityType === 'chat_conversation') return true
+  if (conversationId) return true
+  return actionUrl.includes('/userbackend/messages')
+}
+
 function NotificationItem({ item }) {
   const actionUrl = String(item?.metadata?.action_url || '').trim()
   const avatarUrl = String(item?.metadata?.avatar_url || '').trim()
   const title = String(item?.title || 'Notification')
   const message = String(item?.message || '')
   const fallbackAvatar = buildFallbackAvatar(title, message)
+  const orderNotification = isOrderNotification(item)
+  const reviewNotification = isReviewNotification(item)
+  const messageNotification = isMessageNotification(item)
 
   const body = (
     <div className='group flex items-start gap-3 rounded-xl px-1 py-2 transition hover:bg-slate-50'>
       <div className='mt-0.5 h-11 w-11 shrink-0 overflow-hidden rounded-full'>
         {avatarUrl ? (
           <img src={avatarUrl} alt={title} className='h-full w-full object-cover' />
+        ) : orderNotification ? (
+          <div className='flex h-full w-full items-center justify-center bg-slate-900 text-white'>
+            <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' aria-hidden='true'>
+              <rect x='4' y='5' width='16' height='14' rx='2' stroke='currentColor' strokeWidth='1.7' />
+              <path d='M8 9h8M8 13h5' stroke='currentColor' strokeWidth='1.7' strokeLinecap='round' />
+            </svg>
+          </div>
+        ) : messageNotification ? (
+          <div className='flex h-full w-full items-center justify-center bg-slate-700 text-white'>
+            <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' aria-hidden='true'>
+              <path
+                d='M4 6.5h16v10H9l-5 3v-13z'
+                stroke='currentColor'
+                strokeWidth='1.7'
+                strokeLinecap='round'
+                strokeLinejoin='round'
+              />
+              <path d='M8 10h8M8 13h6' stroke='currentColor' strokeWidth='1.7' strokeLinecap='round' />
+            </svg>
+          </div>
+        ) : reviewNotification ? (
+          <div className='flex h-full w-full items-center justify-center bg-amber-500 text-white'>
+            <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' aria-hidden='true'>
+              <path
+                d='M12 3.5L14.7 9l6 .5-4.6 3.9 1.5 5.8L12 16l-5.6 3.2 1.5-5.8-4.6-3.9 6-.5L12 3.5z'
+                stroke='currentColor'
+                strokeWidth='1.7'
+                strokeLinecap='round'
+                strokeLinejoin='round'
+              />
+            </svg>
+          </div>
         ) : (
           <div
             className='flex h-full w-full items-center justify-center text-sm font-semibold text-white'
@@ -110,12 +174,29 @@ function NotificationsSkeleton() {
   )
 }
 
+const FILTER_OPTIONS = [
+  { value: 'all', label: 'All time' },
+  { value: 'today', label: 'Today' },
+  { value: 'last3', label: 'Last 3 days' },
+  { value: 'last7', label: 'Last week' },
+]
+
+const READ_FILTER_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'unread', label: 'Unread' },
+  { value: 'read', label: 'Read' },
+]
+
 export default function NotificationsPage() {
   const [items, setItems] = useState([])
   const [summary, setSummary] = useState({ unread: 0, total: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [readStatus, setReadStatus] = useState('all')
+  const [dateFilter, setDateFilter] = useState('all')
   const [error, setError] = useState('')
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isClearing, setIsClearing] = useState(false)
+  const menuRef = useRef(null)
 
   const loadNotifications = useCallback(async () => {
     setIsLoading(true)
@@ -150,6 +231,7 @@ export default function NotificationsPage() {
   }, [loadNotifications])
 
   const unreadCount = Number(summary?.unread || 0)
+  const totalCount = Number(summary?.total || 0)
 
   const markAllRead = useCallback(async () => {
     if (!unreadCount) return
@@ -164,110 +246,219 @@ export default function NotificationsPage() {
         throw new Error(payload?.error || 'Unable to mark notifications as read.')
       }
       await loadNotifications()
+      setIsMenuOpen(false)
     } catch (markError) {
       setError(markError?.message || 'Unable to mark notifications as read.')
     }
   }, [loadNotifications, unreadCount])
 
+  const clearAllNotifications = useCallback(async () => {
+    if (!totalCount || isClearing) return
+    setIsClearing(true)
+    setError('')
+    try {
+      const response = await fetch('/api/user/notifications?clear_all=true', {
+        method: 'DELETE',
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to clear notifications.')
+      }
+      await loadNotifications()
+      setIsMenuOpen(false)
+    } catch (clearError) {
+      setError(clearError?.message || 'Unable to clear notifications.')
+    } finally {
+      setIsClearing(false)
+    }
+  }, [isClearing, loadNotifications, totalCount])
+
+  useEffect(() => {
+    if (!isMenuOpen) return undefined
+    const handlePointerDown = (event) => {
+      if (!menuRef.current) return
+      if (menuRef.current.contains(event.target)) return
+      setIsMenuOpen(false)
+    }
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setIsMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [isMenuOpen])
+
+  const filteredItems = useMemo(() => {
+    const now = Date.now()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStart = today.getTime()
+
+    return items.filter((item) => {
+      const createdAt = new Date(item?.created_at || '')
+      const createdTime = createdAt.getTime()
+      if (Number.isNaN(createdTime)) return false
+      if (dateFilter === 'all') return true
+      if (dateFilter === 'today') return createdTime >= todayStart
+      if (dateFilter === 'last3') return now - createdTime <= 3 * 24 * 60 * 60 * 1000
+      return now - createdTime <= 7 * 24 * 60 * 60 * 1000
+    })
+  }, [dateFilter, items])
+
   const grouped = useMemo(() => {
     const next = { newItems: [], earlierItems: [] }
-    items.forEach((item) => {
+    filteredItems.forEach((item) => {
       if (isNewNotification(item?.created_at)) next.newItems.push(item)
       else next.earlierItems.push(item)
     })
     return next
-  }, [items])
+  }, [filteredItems])
 
   return (
-    <section className='w-full overflow-visible bg-transparent p-0 text-slate-900 sm:overflow-hidden sm:rounded-2xl sm:bg-white sm:p-4'>
-      <header className='flex items-center justify-between'>
-        <h1 className='text-[34px] font-bold leading-none tracking-tight text-slate-900'>Notifications</h1>
-        <button
-          type='button'
-          onClick={markAllRead}
-          disabled={!unreadCount}
-          className='inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 disabled:opacity-40'
-          aria-label='Mark all as read'
-          title='Mark all as read'
-        >
-          <svg viewBox='0 0 24 24' className='h-5 w-5' fill='currentColor'>
-            <circle cx='5' cy='12' r='1.8' />
-            <circle cx='12' cy='12' r='1.8' />
-            <circle cx='19' cy='12' r='1.8' />
-          </svg>
-        </button>
-      </header>
-
-      <div className='mt-3 flex items-center gap-2'>
-        <button
-          type='button'
-          onClick={() => setReadStatus('all')}
-          className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-            readStatus === 'all' ? 'bg-slate-900 text-white' : 'bg-transparent text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          All
-        </button>
-        <button
-          type='button'
-          onClick={() => setReadStatus('unread')}
-          className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
-            readStatus === 'unread'
-              ? 'bg-slate-900 text-white'
-              : 'bg-transparent text-slate-600 hover:bg-slate-100'
-          }`}
-        >
-          Unread
-        </button>
-      </div>
-
-      {error ? <p className='mt-3 text-sm text-rose-600'>{error}</p> : null}
-
-      {isLoading ? <NotificationsSkeleton /> : null}
-
-      {!isLoading && !items.length ? (
-        <div className='py-8'>
-          <div className='mx-auto flex max-w-sm flex-col items-center text-center'>
-            <div className='mb-2 flex h-[150px] w-[220px] items-start justify-center overflow-hidden'>
-              <Image
-                src={emptyNotificationImage}
-                alt='Notifications'
-                width={300}
-                height={300}
-                className='-mt-10 h-[300px] w-[300px] object-cover'
-              />
-            </div>
-            <p className='text-[26px] font-semibold tracking-tight text-slate-900'>You&apos;re all caught up</p>
-            <p className='mt-2 text-sm text-slate-500'>We&apos;ll keep you updated on any future notifications</p>
+    <div className='px-3 sm:px-4 lg:px-5'>
+      <section className='w-full overflow-visible bg-transparent p-0 text-slate-900 sm:overflow-hidden sm:rounded-2xl sm:bg-white sm:p-4'>
+        <header className='flex items-center justify-between'>
+          <h1 className='text-[34px] font-bold leading-none tracking-tight text-slate-900'>Notifications</h1>
+          <div ref={menuRef} className='relative'>
+            <button
+              type='button'
+              onClick={() => setIsMenuOpen((previous) => !previous)}
+              className='inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100'
+              aria-label='Notifications menu'
+              title='Notifications menu'
+              aria-haspopup='menu'
+              aria-expanded={isMenuOpen}
+            >
+              <svg viewBox='0 0 24 24' className='h-5 w-5' fill='currentColor'>
+                <circle cx='5' cy='12' r='1.8' />
+                <circle cx='12' cy='12' r='1.8' />
+                <circle cx='19' cy='12' r='1.8' />
+              </svg>
+            </button>
+            {isMenuOpen ? (
+              <div
+                className='absolute right-0 top-10 z-20 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl'
+                role='menu'
+              >
+                <p className='px-2 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500'>
+                  Date filter
+                </p>
+                {FILTER_OPTIONS.map((option) => {
+                  const active = dateFilter === option.value
+                  return (
+                    <button
+                      key={option.value}
+                      type='button'
+                      onClick={() => {
+                        setDateFilter(option.value)
+                        setIsMenuOpen(false)
+                      }}
+                      className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm transition ${
+                        active
+                          ? 'bg-slate-100 font-semibold text-slate-900'
+                          : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                      role='menuitem'
+                    >
+                      <span>{option.label}</span>
+                      {active ? <span className='text-xs text-slate-500'>Selected</span> : null}
+                    </button>
+                  )
+                })}
+                <div className='my-1 h-px bg-slate-200' />
+                <button
+                  type='button'
+                  onClick={markAllRead}
+                  disabled={!unreadCount}
+                  className='flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40'
+                  role='menuitem'
+                >
+                  <span>Mark all as read</span>
+                  <span className='text-xs text-slate-500'>{unreadCount}</span>
+                </button>
+                <button
+                  type='button'
+                  onClick={clearAllNotifications}
+                  disabled={!totalCount || isClearing}
+                  className='mt-1 flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-sm text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40'
+                  role='menuitem'
+                >
+                  <span>{isClearing ? 'Clearing...' : 'Clear all notifications'}</span>
+                  <span className='text-xs text-rose-500'>{totalCount}</span>
+                </button>
+              </div>
+            ) : null}
           </div>
-        </div>
-      ) : null}
+        </header>
 
-      {!isLoading && items.length ? (
-        <div className='mt-3'>
-          {grouped.newItems.length ? (
-            <div>
-              <h2 className='mb-1 text-2xl font-bold text-slate-900'>New</h2>
-              <div className='space-y-0.5'>
-                {grouped.newItems.map((item) => (
-                  <NotificationItem key={item.id} item={item} />
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          {grouped.earlierItems.length ? (
-            <div className={`${grouped.newItems.length ? 'mt-3' : ''}`}>
-              <h2 className='mb-1 text-2xl font-bold text-slate-900'>Earlier</h2>
-              <div className='space-y-0.5'>
-                {grouped.earlierItems.map((item) => (
-                  <NotificationItem key={item.id} item={item} />
-                ))}
-              </div>
-            </div>
-          ) : null}
+        <div className='mt-3 flex items-center gap-2'>
+          {READ_FILTER_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type='button'
+              onClick={() => setReadStatus(option.value)}
+              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${
+                readStatus === option.value
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-transparent text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
-      ) : null}
-    </section>
+
+        {error ? <p className='mt-3 text-sm text-rose-600'>{error}</p> : null}
+
+        {isLoading ? <NotificationsSkeleton /> : null}
+
+        {!isLoading && !filteredItems.length ? (
+          <div className='py-8'>
+            <div className='mx-auto flex max-w-sm flex-col items-center text-center'>
+              <div className='mb-2 flex h-[150px] w-[220px] items-start justify-center overflow-hidden'>
+                <Image
+                  src={emptyNotificationImage}
+                  alt='Notifications'
+                  width={300}
+                  height={300}
+                  className='-mt-10 h-[300px] w-[300px] object-cover'
+                />
+              </div>
+              <p className='text-[26px] font-semibold tracking-tight text-slate-900'>You&apos;re all caught up</p>
+              <p className='mt-2 text-sm text-slate-500'>We&apos;ll keep you updated on any future notifications</p>
+            </div>
+          </div>
+        ) : null}
+
+        {!isLoading && filteredItems.length ? (
+          <div className='mt-3'>
+            {grouped.newItems.length ? (
+              <div>
+                <h2 className='mb-1 text-2xl font-bold text-slate-900'>New</h2>
+                <div className='space-y-0.5'>
+                  {grouped.newItems.map((item) => (
+                    <NotificationItem key={item.id} item={item} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {grouped.earlierItems.length ? (
+              <div className={`${grouped.newItems.length ? 'mt-3' : ''}`}>
+                <h2 className='mb-1 text-2xl font-bold text-slate-900'>Earlier</h2>
+                <div className='space-y-0.5'>
+                  {grouped.earlierItems.map((item) => (
+                    <NotificationItem key={item.id} item={item} />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </section>
+    </div>
   )
 }

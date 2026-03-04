@@ -1,5 +1,5 @@
 import ProductCatalogPage from '../../components/product/catalog/ProductCatalogPage'
-import { fetchProductListing } from '../../lib/catalog/product-listing'
+import { fetchProductListingPayload } from '../../lib/catalog/product-listing'
 import { fetchCategoryWithChildren } from '../../lib/catalog/categories'
 import { fetchTagBySlugOrId } from '../../lib/catalog/tags'
 
@@ -17,7 +17,16 @@ export default async function ProductsPage({ searchParams }) {
   const tag = String(resolvedParams?.tag || '').trim()
   const category = String(resolvedParams?.category || '').trim()
   const vendor = String(resolvedParams?.vendor || '').trim()
-  const items = await fetchProductListing({ page: 1, perPage: 10, search, tag, category, vendor })
+  const listing = await fetchProductListingPayload({
+    page: 1,
+    perPage: 10,
+    search,
+    tag,
+    category,
+    vendor,
+    fields: 'card',
+  })
+  const items = listing.items
 
   let title = 'Products'
   let subtitle = ''
@@ -43,6 +52,8 @@ export default async function ProductsPage({ searchParams }) {
       title={title}
       subtitle={subtitle}
       listingQuery={{ category, tag, search, vendor }}
+      initialNextCursor={listing.nextCursor}
+      initialHasMore={listing.hasMore}
     />
   )
 }

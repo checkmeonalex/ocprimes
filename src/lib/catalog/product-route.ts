@@ -25,6 +25,67 @@ const IMAGE_TABLE = 'product_images'
 const VARIATIONS_TABLE = 'product_variations'
 const MAX_CATEGORY_BREADCRUMB_DEPTH = 8
 const MISSING_COLUMN_CODE = '42703'
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const PRODUCT_LIST_FULL_SELECT =
+  'id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by'
+const PRODUCT_LIST_CARD_SELECT =
+  'id, name, slug, price, discount_price, sku, stock_quantity, status, product_type, main_image_id, product_video_url, created_at, created_by'
+
+const encodeListCursor = (item: any) => {
+  const id = String(item?.id || '').trim()
+  const createdAt = String(item?.created_at || '').trim()
+  if (!id || !createdAt) return ''
+
+  return Buffer.from(
+    JSON.stringify({
+      id,
+      created_at: createdAt,
+    }),
+    'utf8',
+  ).toString('base64')
+}
+
+const decodeListCursor = (cursor: string) => {
+  const raw = String(cursor || '').trim()
+  if (!raw) return null
+  try {
+    const decoded = Buffer.from(raw, 'base64').toString('utf8')
+    const parsed = JSON.parse(decoded)
+    const id = String(parsed?.id || '').trim()
+    const createdAt = String(parsed?.created_at || '').trim()
+    if (!id || !createdAt) return null
+    return { id, createdAt }
+  } catch {
+    return null
+  }
+}
+
+const buildSearchDisjunction = (term: string) =>
+  `or(name.ilike.${term},slug.ilike.${term},sku.ilike.${term})`
+
+const buildCursorDisjunction = (cursor: { id: string; createdAt: string }) =>
+  `or(created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id}))`
+
+const buildCombinedOrFilter = ({
+  searchTerm,
+  cursor,
+}: {
+  searchTerm?: string
+  cursor?: { id: string; createdAt: string } | null
+}) => {
+  const parts: string[] = []
+  if (searchTerm) parts.push(buildSearchDisjunction(searchTerm))
+  if (cursor) parts.push(buildCursorDisjunction(cursor))
+  if (!parts.length) return ''
+  if (parts.length === 1) {
+    const single = parts[0]
+    return single.startsWith('or(') && single.endsWith(')')
+      ? single.slice(3, -1)
+      : single
+  }
+  return `and(${parts.join(',')})`
+}
 
 const withOptionalBrandColumns = async (supabase: any, brandId: string) => {
   const preferredSelect =
@@ -141,6 +202,8 @@ const toVendorReadableName = (value = '') =>
     .trim()
     .replace(/[-_]+/g, ' ')
     .replace(/\s+/g, ' ')
+
+const isUuid = (value = '') => UUID_PATTERN.test(String(value || '').trim())
 
 const resolveVendorBrandIds = async (supabase, vendorValue) => {
   const rawVendor = String(vendorValue || '').trim()
@@ -427,7 +490,13 @@ export async function listPublicProducts(request: NextRequest) {
     return jsonError('Invalid query.', 400)
   }
 
-  const { page, per_page, search, category, tag, vendor } = parseResult.data
+  const { page, per_page, cursor, fields, search, category, tag, vendor } = parseResult.data
+  const cursorToken = cursor ? decodeListCursor(cursor) : null
+  if (cursor && !cursorToken) {
+    return jsonError('Invalid cursor.', 400)
+  }
+  const isCursorPagination = Boolean(cursorToken)
+  const pageSize = Math.max(1, Number(per_page) || 12)
 
   const signalParse = personalizationSignalsSchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -436,8 +505,9 @@ export async function listPublicProducts(request: NextRequest) {
     return jsonError('Invalid personalization signals.', 400)
   }
   const personalizationSignals = toPersonalizationSignals(signalParse.data)
-  const from = (page - 1) * per_page
-  const to = from + per_page - 1
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+  const queryLimit = isCursorPagination ? pageSize + 1 : pageSize
 
   let productIds = null
   let skipDb = false
@@ -509,20 +579,26 @@ export async function listPublicProducts(request: NextRequest) {
     }
   }
 
-  let query = supabase
+  let query: any = (supabase as any)
     .from(PRODUCT_TABLE)
-    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by')
+    .select(fields === 'card' ? PRODUCT_LIST_CARD_SELECT : PRODUCT_LIST_FULL_SELECT)
     .eq('status', 'publish')
     .order('created_at', { ascending: false })
-    .range(from, to)
+    .order('id', { ascending: false })
 
-  if (search) {
-    const term = `%${search}%`
-    query = query.or(`name.ilike.${term},slug.ilike.${term},sku.ilike.${term}`)
-  }
   if (productIds) {
     query = query.in('id', productIds)
   }
+
+  const searchTerm = search ? `%${search}%` : ''
+  const combinedOrFilter = buildCombinedOrFilter({
+    searchTerm,
+    cursor: isCursorPagination ? cursorToken : null,
+  })
+  if (combinedOrFilter) {
+    query = query.or(combinedOrFilter)
+  }
+  query = isCursorPagination ? query.range(0, queryLimit - 1) : query.range(from, to)
 
   let data = []
   let error = null
@@ -536,16 +612,35 @@ export async function listPublicProducts(request: NextRequest) {
     }
   }
 
+  const pagedData =
+    isCursorPagination && Array.isArray(data)
+      ? data.slice(0, pageSize)
+      : Array.isArray(data)
+        ? data
+        : []
+  const hasMoreByQueryWindow =
+    isCursorPagination && Array.isArray(data)
+      ? data.length > pageSize
+      : Array.isArray(data)
+        ? data.length >= pageSize
+        : false
+  let hasMore = hasMoreByQueryWindow
+
   let totalCount = 0
   try {
-    if (!skipDb) {
+    if (!skipDb && !isCursorPagination) {
       let countQuery = supabase
         .from(PRODUCT_TABLE)
         .select('id', { count: 'exact', head: true })
         .eq('status', 'publish')
       if (search) {
         const term = `%${search}%`
-        countQuery = countQuery.or(`name.ilike.${term},slug.ilike.${term},sku.ilike.${term}`)
+        const disjunction = buildSearchDisjunction(term)
+        const countFilter =
+          disjunction.startsWith('or(') && disjunction.endsWith(')')
+            ? disjunction.slice(3, -1)
+            : disjunction
+        countQuery = countQuery.or(countFilter)
       }
       if (productIds) {
         countQuery = countQuery.in('id', productIds)
@@ -559,14 +654,23 @@ export async function listPublicProducts(request: NextRequest) {
     console.error('public product count failed:', countErr)
   }
 
-  const dbItems = await attachRelations(supabase, data ?? [])
+  if (!isCursorPagination) {
+    hasMore = totalCount > 0 ? page * pageSize < totalCount : false
+  }
+
+  const nextCursor = hasMore && pagedData.length ? encodeListCursor(pagedData[pagedData.length - 1]) : ''
+
+  const dbItems = await attachRelations(supabase, pagedData ?? [])
   const rankedItems = rankProductsWithSignals(dbItems, personalizationSignals)
+  const totalPages = totalCount > 0 ? Math.max(1, Math.ceil(totalCount / pageSize)) : 1
 
   const response = jsonOk({
     items: rankedItems,
-    pages: 1,
-    page: 1,
-    total_count: totalCount || null,
+    pages: totalPages,
+    page: Math.max(1, Number(page) || 1),
+    total_count: isCursorPagination ? null : totalCount || null,
+    next_cursor: nextCursor || null,
+    has_more: Boolean(hasMore && nextCursor),
   })
   applyCookies(response)
   return response
@@ -626,7 +730,24 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
     query = query.eq('created_by', previewViewerUserId)
   }
 
-  const { data, error } = await query.maybeSingle()
+  let { data, error } = await query.maybeSingle()
+
+  if (!data && (!error || error.code === 'PGRST116') && isUuid(parsed.data.slug)) {
+    let byIdQuery = readDb
+      .from(PRODUCT_TABLE)
+      .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by')
+      .eq('id', parsed.data.slug)
+
+    if (!previewRequested) {
+      byIdQuery = byIdQuery.eq('status', 'publish')
+    } else if (previewViewerIsVendor && !previewViewerIsAdmin && previewViewerUserId) {
+      byIdQuery = byIdQuery.eq('created_by', previewViewerUserId)
+    }
+
+    const byIdResult = await byIdQuery.maybeSingle()
+    data = byIdResult.data
+    error = byIdResult.error
+  }
 
   if (error && error.code !== 'PGRST116') {
     console.error('public product fetch failed:', error.message)

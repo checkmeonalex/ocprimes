@@ -24,6 +24,7 @@ import { useAlerts } from '@/context/AlertContext';
 import { PRODUCT_CONDITION_VALUES } from '@/lib/admin/product-conditions';
 import { PRODUCT_PACKAGING_VALUES } from '@/lib/admin/product-packaging';
 import { PRODUCT_RETURN_POLICY_VALUES } from '@/lib/admin/product-returns';
+import { loadUserProfileBootstrap } from '@/lib/user/profile-bootstrap-client';
 import {
   PRODUCT_EDITOR_STEPS,
   getFurthestAccessibleStepIndex,
@@ -363,15 +364,10 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     }
     let isActive = true;
     setShortcutDefaultsLoaded(false);
-    fetch('/api/user/profile', {
-      method: 'GET',
-      credentials: 'include',
-      cache: 'no-store',
-    })
-      .then(async (response) => {
-        const payload = await response.json().catch(() => null);
+    loadUserProfileBootstrap()
+      .then((payload) => {
         if (!isActive) return;
-        if (!response.ok) {
+        if (!payload) {
           setShortcutDefaults(emptyShortcutDefaults);
           setShortcutDefaultsLoaded(true);
           return;

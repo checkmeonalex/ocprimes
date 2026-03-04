@@ -9,6 +9,10 @@ import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
 import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
 import { toProfileIdentity, writeProfileIdentityCache } from '@/lib/user/profile-identity-cache'
 import {
+  loadUserProfileBootstrap,
+  primeUserProfileBootstrap,
+} from '@/lib/user/profile-bootstrap-client'
+import {
   normalizeOrderProtectionConfig,
   ORDER_PROTECTION_DEFAULTS,
 } from '@/lib/order-protection/config'
@@ -139,16 +143,20 @@ export default function SettingsPage() {
     setIsLoading(true)
     setError('')
     try {
-      const response = await fetch('/api/user/profile', {
-        cache: 'no-store',
-        credentials: 'include',
-      })
-      if (shouldRedirectForAuthFailure(response.status)) {
-        redirectToSignIn()
-        return
+      let payload = await loadUserProfileBootstrap()
+      if (!payload) {
+        const response = await fetch('/api/user/profile', {
+          cache: 'no-store',
+          credentials: 'include',
+        })
+        if (shouldRedirectForAuthFailure(response.status)) {
+          redirectToSignIn()
+          return
+        }
+        payload = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(payload?.error || 'Unable to load account settings.')
+        primeUserProfileBootstrap(payload)
       }
-      const payload = await response.json().catch(() => null)
-      if (!response.ok) throw new Error(payload?.error || 'Unable to load account settings.')
 
       const nextProfile = payload?.profile && typeof payload.profile === 'object' ? payload.profile : {}
       const authorNameFallback = `${String(nextProfile?.firstName || '').trim()} ${String(nextProfile?.lastName || '').trim()}`.trim()
@@ -288,6 +296,7 @@ export default function SettingsPage() {
       const result = await response.json().catch(() => null)
       if (!response.ok) throw new Error(result?.error || 'Unable to save profile settings.')
       setProfile(result?.profile || payload)
+      primeUserProfileBootstrap(result)
       writeProfileIdentityCache(
         toProfileIdentity({
           ...(result && typeof result === 'object' ? result : {}),
@@ -324,6 +333,7 @@ export default function SettingsPage() {
       const result = await response.json().catch(() => null)
       if (!response.ok) throw new Error(result?.error || 'Unable to save social profiles.')
       setProfile(result?.profile || payload)
+      primeUserProfileBootstrap(result)
       setSuccess('Social profiles saved.')
     } catch (saveError) {
       setError(saveError?.message || 'Unable to save social profiles.')
@@ -427,6 +437,7 @@ export default function SettingsPage() {
       const result = await response.json().catch(() => null)
       if (!response.ok) throw new Error(result?.error || 'Unable to save notifications.')
       setProfile(result?.profile || payload)
+      primeUserProfileBootstrap(result)
       setSuccess('Notification settings saved.')
     } catch (saveError) {
       setError(saveError?.message || 'Unable to save notifications.')

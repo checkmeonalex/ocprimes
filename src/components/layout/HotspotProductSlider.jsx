@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom'
 import Link from 'next/link'
 import SectionHeading from './SectionHeading'
 import useHorizontalScroll from '@/components/shared/useHorizontalScroll.mjs'
+import { useScreenSize } from '@/hooks/useScreenSize'
 
 const formatPrice = (value) => {
   if (!Number.isFinite(value)) return '--'
@@ -12,6 +13,8 @@ const formatPrice = (value) => {
 }
 
 const HotspotCard = ({ product }) => {
+  const { isMobile } = useScreenSize()
+  const openInNewTab = !isMobile
   if (!product) return null
   const basePrice = Number(product.price) || 0
   const discountPrice = Number(product.discount_price) || 0
@@ -21,7 +24,13 @@ const HotspotCard = ({ product }) => {
 
   return (
     <div className="w-56 rounded-2xl border border-gray-200 bg-white p-3 shadow-xl">
-      <Link href={`/product/${product.slug}`} className="flex items-start gap-3">
+      <Link
+        href={`/product/${product.slug}`}
+        target={openInNewTab ? '_blank' : undefined}
+        rel={openInNewTab ? 'noopener noreferrer' : undefined}
+        data-next-navigation='true'
+        className="flex items-start gap-3"
+      >
         <div className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
           {product.image_url ? (
             <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
@@ -47,6 +56,9 @@ const HotspotCard = ({ product }) => {
       </Link>
       <Link
         href={`/product/${product.slug}`}
+        target={openInNewTab ? '_blank' : undefined}
+        rel={openInNewTab ? 'noopener noreferrer' : undefined}
+        data-next-navigation='true'
         className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-black px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-900"
       >
         Shop now

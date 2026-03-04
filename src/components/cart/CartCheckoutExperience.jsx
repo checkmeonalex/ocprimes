@@ -47,141 +47,85 @@ const CartCheckoutExperience = ({
   const relatedSeedRef = useRef('')
 
   useEffect(() => {
-    let cancelled = false
+    const compactCartItems = items.map((entry) => ({
+      id: String(entry.id || '').trim(),
+      slug: String(entry.slug || '').trim(),
+      name: String(entry.name || '').trim(),
+    }))
 
-    const loadRelatedOffers = async () => {
-      const compactCartItems = items.map((entry) => ({
-        id: String(entry.id || ''),
-        slug: String(entry.slug || ''),
-        name: String(entry.name || ''),
-      }))
+    const relatedSeed = compactCartItems
+      .map((entry) => `${entry.id}:${entry.slug}:${entry.name}`)
+      .sort()
+      .join('|')
+    if (relatedSeed === relatedSeedRef.current) return
+    relatedSeedRef.current = relatedSeed
 
-      const relatedSeed = compactCartItems
-        .map((entry) => `${entry.id}:${entry.slug}`)
-        .sort()
-        .join('|')
+    if (!compactCartItems.length) {
+      setRelatedOffers([])
+      setReturnPolicyBySlug({})
+      setIsLoadingRelated(false)
+      return
+    }
 
-      if (relatedSeed === relatedSeedRef.current) {
-        return
-      }
-      relatedSeedRef.current = relatedSeed
+    const knownPolicies = {}
+    items.forEach((item) => {
+      const slug = String(item?.slug || '').trim()
+      if (!slug) return
+      const key = normalizeReturnPolicyKey(item?.returnPolicy)
+      if (!key) return
+      knownPolicies[slug] = key
+    })
+    setReturnPolicyBySlug(knownPolicies)
 
-      if (!Array.isArray(compactCartItems) || compactCartItems.length === 0) {
-        setRelatedOffers([])
-        return
-      }
+    const controller = new AbortController()
+    setIsLoadingRelated(true)
 
-      setIsLoadingRelated(true)
-
+    const loadContext = async () => {
       try {
-        const cartIds = new Set(compactCartItems.map((entry) => String(entry.id)))
-        const cartSlugs = Array.from(
-          new Set(
-            compactCartItems
-              .map((entry) => String(entry.slug || '').trim())
-              .filter(Boolean),
-          ),
-        ).slice(0, 3)
-
-        const productDetails = await Promise.all(
-          cartSlugs.map(async (slug) => {
-            const response = await fetch(`/api/products/${encodeURIComponent(slug)}`)
-            if (!response.ok) return null
-            const payload = await response.json().catch(() => null)
-            return payload?.item || null
+        const response = await fetch('/api/cart/context', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: compactCartItems,
+            related_limit: 6,
           }),
-        )
-
-        const categorySlugs = Array.from(
-          new Set(
-            productDetails
-              .flatMap((product) => (Array.isArray(product?.categories) ? product.categories : []))
-              .map((category) => String(category?.slug || '').trim())
-              .filter(Boolean),
-          ),
-        ).slice(0, 2)
-
-        let candidateProducts = []
-
-        if (categorySlugs.length > 0) {
-          const categoryPayloads = await Promise.all(
-            categorySlugs.map(async (slug) => {
-              const response = await fetch(
-                `/api/products?category=${encodeURIComponent(slug)}&page=1&per_page=30`,
-              )
-              if (!response.ok) return []
-              const payload = await response.json().catch(() => null)
-              return Array.isArray(payload?.items) ? payload.items : []
-            }),
-          )
-          candidateProducts = categoryPayloads.flat()
-        } else {
-          const fallbackTerm = String(compactCartItems[0]?.name || '')
-            .trim()
-            .split(/\s+/)
-            .slice(0, 2)
-            .join(' ')
-
-          if (fallbackTerm) {
-            const fallbackResponse = await fetch(
-              `/api/products?search=${encodeURIComponent(fallbackTerm)}&page=1&per_page=30`,
-            )
-            if (fallbackResponse.ok) {
-              const payload = await fallbackResponse.json().catch(() => null)
-              candidateProducts = Array.isArray(payload?.items) ? payload.items : []
-            }
-          }
+          signal: controller.signal,
+        })
+        const payload = await response.json().catch(() => null)
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Unable to load cart context.')
         }
+        if (controller.signal.aborted) return
 
-        const seenIds = new Set()
-        const normalized = candidateProducts
-          .map((product) => {
-            const id = String(product?.id || '')
-            if (!id || seenIds.has(id) || cartIds.has(id)) return null
-            seenIds.add(id)
+        const nextRelated = Array.isArray(payload?.related_offers)
+          ? payload.related_offers
+          : []
+        setRelatedOffers(nextRelated)
 
-            const basePrice = Number(product?.price) || 0
-            const discountPrice = Number(product?.discount_price) || 0
-            const hasDiscount = discountPrice > 0 && discountPrice < basePrice
-            const discountAmount = hasDiscount ? basePrice - discountPrice : 0
-            if (discountAmount < 5) return null
-
-            const imageUrl = product?.image_url || product?.images?.[0]?.url || null
-
-            return {
-              id,
-              slug: product?.slug || id,
-              name: product?.name || 'Untitled product',
-              image: imageUrl,
-              price: discountPrice,
-              originalPrice: basePrice,
-              discountAmount,
-              sourceName: String(product?.brands?.[0]?.name || 'OCPRIMES'),
-              sourceSlug: String(product?.brands?.[0]?.slug || '').trim() || null,
-            }
-          })
-          .filter(Boolean)
-          .sort((a, b) => b.discountAmount - a.discountAmount)
-          .slice(0, 6)
-
-        if (!cancelled) {
-          setRelatedOffers(normalized)
-        }
+        const nextPolicyMap =
+          payload?.return_policies && typeof payload.return_policies === 'object'
+            ? payload.return_policies
+            : {}
+        const normalizedPolicies = { ...knownPolicies }
+        Object.entries(nextPolicyMap).forEach(([slug, value]) => {
+          const normalized = normalizeReturnPolicyKey(value)
+          if (!normalized) return
+          normalizedPolicies[String(slug || '').trim()] = normalized
+        })
+        setReturnPolicyBySlug(normalizedPolicies)
       } catch {
-        if (!cancelled) {
-          setRelatedOffers([])
-        }
+        if (controller.signal.aborted) return
+        setRelatedOffers([])
       } finally {
-        if (!cancelled) {
-          setIsLoadingRelated(false)
-        }
+        if (controller.signal.aborted) return
+        setIsLoadingRelated(false)
       }
     }
 
-    void loadRelatedOffers()
+    void loadContext()
 
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [items])
 
@@ -217,64 +161,6 @@ const CartCheckoutExperience = ({
       return next
     })
   }
-
-  useEffect(() => {
-    let cancelled = false
-
-    const hydrateReturnPolicies = async () => {
-      const nextFromItems = {}
-      const missingSlugs = []
-
-      items.forEach((item) => {
-        const slug = String(item?.slug || '').trim()
-        if (!slug) return
-        const key = normalizeReturnPolicyKey(item?.returnPolicy)
-        if (key) {
-          nextFromItems[slug] = key
-          return
-        }
-        missingSlugs.push(slug)
-      })
-
-      if (!cancelled && Object.keys(nextFromItems).length > 0) {
-        setReturnPolicyBySlug((prev) => ({ ...prev, ...nextFromItems }))
-      }
-
-      const uniqueMissing = Array.from(new Set(missingSlugs)).filter(
-        (slug) => !nextFromItems[slug],
-      )
-      if (uniqueMissing.length <= 0) return
-
-      const fetched = await Promise.all(
-        uniqueMissing.map(async (slug) => {
-          try {
-            const response = await fetch(`/api/products/${encodeURIComponent(slug)}`)
-            if (!response.ok) return [slug, '']
-            const payload = await response.json().catch(() => null)
-            return [slug, normalizeReturnPolicyKey(payload?.item?.returnPolicy)]
-          } catch {
-            return [slug, '']
-          }
-        }),
-      )
-
-      if (cancelled) return
-      const nextFetched = {}
-      fetched.forEach(([slug, key]) => {
-        if (!slug || !key) return
-        nextFetched[slug] = key
-      })
-      if (Object.keys(nextFetched).length > 0) {
-        setReturnPolicyBySlug((prev) => ({ ...prev, ...nextFetched }))
-      }
-    }
-
-    void hydrateReturnPolicies()
-
-    return () => {
-      cancelled = true
-    }
-  }, [items])
 
   return (
     <div className='min-h-screen bg-white text-slate-900 lg:bg-[#f3f4f6]'>

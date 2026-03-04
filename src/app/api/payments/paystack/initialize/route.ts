@@ -224,6 +224,15 @@ export async function POST(request: NextRequest) {
     paymentMethod: String(metadata.selected_payment_method || ''),
     paymentChannel: String(metadata.selected_payment_channel || ''),
   })
+  const protectedItemKeys = checkoutItems
+    .filter((item) => Boolean(item?.isProtected))
+    .map((item) => String(item?.key || '').trim())
+    .filter(Boolean)
+  const orderShippingAddress = {
+    ...shippingAddress,
+    protectedItemKeys,
+    protected_item_keys: protectedItemKeys,
+  }
   const contactPhone = String(metadata.contact_phone || '').trim()
   const payerEmail = String(auth.user.email || metadata.contact_email || '').trim()
   if (!payerEmail) {
@@ -250,7 +259,7 @@ export async function POST(request: NextRequest) {
         protection_fee: protectionFee,
         total_amount: expectedTotal,
         item_count: checkoutItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
-        shipping_address: shippingAddress,
+        shipping_address: orderShippingAddress,
         billing_address: billingAddress,
         contact_phone: contactPhone || null,
         checkout_selection: selectedParam || null,

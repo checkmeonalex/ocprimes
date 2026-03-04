@@ -1,10 +1,14 @@
 'use client';
 import CustomSelect from '@/components/common/CustomSelect'
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LoadingButton from '@/components/LoadingButton';
 import { buildCategoryTree } from '@/lib/categories/tree.mjs';
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const TOUCH_HOLD_DRAG_DELAY_MS = 220;
+const TOUCH_HOLD_CANCEL_DISTANCE_PX = 24;
 const normalizeParentId = (value) => (value ? value : null);
 const DRAFT_STORAGE_KEY = 'ocprimes_admin_category_tree_draft_v1';
 
@@ -52,6 +56,26 @@ const applyUpdatesToItems = (baseItems, updates) => {
       sort_order: update.sort_order,
     };
   });
+};
+
+const buildReorderDiff = (items, baselineItems) => {
+  const baselineMap = new Map((Array.isArray(baselineItems) ? baselineItems : []).map((item) => [item.id, item]));
+  return (Array.isArray(items) ? items : []).reduce((acc, item) => {
+    const baseline = baselineMap.get(item.id);
+    if (!baseline) return acc;
+    const nextParentId = normalizeParentId(item.parent_id);
+    const baselineParentId = normalizeParentId(baseline.parent_id);
+    const nextSortOrder = Number.isInteger(item.sort_order) ? item.sort_order : 0;
+    const baselineSortOrder = Number.isInteger(baseline.sort_order) ? baseline.sort_order : 0;
+    if (nextParentId !== baselineParentId || nextSortOrder !== baselineSortOrder) {
+      acc.push({
+        id: item.id,
+        parent_id: nextParentId,
+        sort_order: nextSortOrder,
+      });
+    }
+    return acc;
+  }, []);
 };
 
 function Sheet({ open, title, onClose, children, forceBottom = false }) {
@@ -140,6 +164,7 @@ function CategoryTreeManager() {
   const [draggedId, setDraggedId] = useState('');
   const [touchDrag, setTouchDrag] = useState(null);
   const [pendingReorderUpdates, setPendingReorderUpdates] = useState([]);
+  const [baselineItems, setBaselineItems] = useState([]);
   const [dropHint, setDropHint] = useState(null);
   const [uploadingId, setUploadingId] = useState('');
   const [toggleLoadingId, setToggleLoadingId] = useState('');
@@ -157,6 +182,8 @@ function CategoryTreeManager() {
     description: '',
     parent_id: '',
   });
+  const touchHoldTimerRef = useRef(null);
+  const touchHoldPendingRef = useRef(null);
 
   const tree = useMemo(() => buildCategoryTree(items), [items]);
   const filteredTree = useMemo(() => filterTree(tree, query), [tree, query]);
@@ -186,7 +213,8 @@ function CategoryTreeManager() {
               update &&
               typeof update.id === 'string' &&
               idSet.has(update.id) &&
-              (update.parent_id === null || typeof update.parent_id === 'string') &&
+              (update.parent_id === null ||
+                (typeof update.parent_id === 'string' && UUID_PATTERN.test(update.parent_id))) &&
               Number.isInteger(update.sort_order),
           );
         } catch {
@@ -194,8 +222,26 @@ function CategoryTreeManager() {
         }
       }
 
-      setPendingReorderUpdates(draftUpdates);
-      setItems(draftUpdates.length > 0 ? applyUpdatesToItems(serverItems, draftUpdates) : serverItems);
+      const nextItems =
+        draftUpdates.length > 0 ? applyUpdatesToItems(serverItems, draftUpdates) : serverItems;
+      const normalizedDraftUpdates = buildReorderDiff(nextItems, serverItems);
+      setBaselineItems(serverItems);
+      setPendingReorderUpdates(normalizedDraftUpdates);
+      setItems(nextItems);
+      if (!skipDraft) {
+        try {
+          if (normalizedDraftUpdates.length > 0) {
+            window.localStorage.setItem(
+              DRAFT_STORAGE_KEY,
+              JSON.stringify({ updates: normalizedDraftUpdates }),
+            );
+          } else {
+            window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+          }
+        } catch {
+          // ignore storage failures
+        }
+      }
     } catch (err) {
       setError(err?.message || 'Unable to load categories.');
     } finally {
@@ -260,6 +306,7 @@ function CategoryTreeManager() {
       const created = payload?.item;
       if (created) {
         setItems((prev) => [...prev, created]);
+        setBaselineItems((prev) => [...prev, created]);
       }
       setForm({ name: '', slug: '', description: '', parent_id: '' });
       setCreateOpen(false);
@@ -428,27 +475,30 @@ function CategoryTreeManager() {
     if (!updates.length) return;
     setItems(nextItems);
     setSaveError('');
-    setPendingReorderUpdates((prev) => {
-      const map = new Map(prev.map((update) => [update.id, update]));
-      updates.forEach((update) => {
-        map.set(update.id, update);
-      });
-      const merged = Array.from(map.values());
-      try {
-        window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ updates: merged }));
-      } catch {
-        // ignore storage failures
+    const recalculatedUpdates = buildReorderDiff(nextItems, baselineItems);
+    setPendingReorderUpdates(recalculatedUpdates);
+    try {
+      if (recalculatedUpdates.length > 0) {
+        window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ updates: recalculatedUpdates }));
+      } else {
+        window.localStorage.removeItem(DRAFT_STORAGE_KEY);
       }
-      return merged;
-    });
-  }, []);
+    } catch {
+      // ignore storage failures
+    }
+  }, [baselineItems]);
 
   const saveReorderChanges = useCallback(async () => {
     if (pendingReorderUpdates.length <= 0 || isSavingReorder) return;
     setIsSavingReorder(true);
     setSaveError('');
     try {
-      const updates = [...pendingReorderUpdates];
+      // Persist from the current item snapshot to avoid stale diff-cache writes.
+      const updates = (Array.isArray(items) ? items : []).map((item) => ({
+        id: item.id,
+        parent_id: normalizeParentId(item.parent_id),
+        sort_order: Number.isInteger(item.sort_order) ? item.sort_order : 0,
+      }));
       const batchSize = 200;
 
       for (let index = 0; index < updates.length; index += batchSize) {
@@ -477,7 +527,7 @@ function CategoryTreeManager() {
     } finally {
       setIsSavingReorder(false);
     }
-  }, [isSavingReorder, pendingReorderUpdates, loadCategories]);
+  }, [isSavingReorder, pendingReorderUpdates, items, loadCategories]);
 
   const buildReorderUpdates = useCallback(
     (dragId, targetId, position) => {
@@ -569,6 +619,83 @@ function CategoryTreeManager() {
     [applyReorder, buildReorderUpdates],
   );
 
+  const clearTouchHold = useCallback(() => {
+    if (touchHoldTimerRef.current) {
+      clearTimeout(touchHoldTimerRef.current);
+      touchHoldTimerRef.current = null;
+    }
+    touchHoldPendingRef.current = null;
+  }, []);
+
+  const beginTouchHold = useCallback((payload) => {
+    clearTouchHold();
+    touchHoldPendingRef.current = payload;
+    touchHoldTimerRef.current = setTimeout(() => {
+      const pending = touchHoldPendingRef.current;
+      if (!pending || pending.pointerId !== payload.pointerId || pending.id !== payload.id) return;
+      setDraggedId(payload.id);
+      setTouchDrag({
+        id: payload.id,
+        pointerId: payload.pointerId,
+        name: payload.name,
+        clientX: payload.clientX,
+        clientY: payload.clientY,
+      });
+      touchHoldPendingRef.current = null;
+      touchHoldTimerRef.current = null;
+    }, TOUCH_HOLD_DRAG_DELAY_MS);
+  }, [clearTouchHold]);
+
+  const moveTouchHold = useCallback((pointerId, clientX, clientY) => {
+    const pending = touchHoldPendingRef.current;
+    if (!pending || pending.pointerId !== pointerId) return;
+    const dx = clientX - pending.clientX;
+    const dy = clientY - pending.clientY;
+    const distance = Math.hypot(dx, dy);
+    if (distance > TOUCH_HOLD_CANCEL_DISTANCE_PX) {
+      clearTouchHold();
+    }
+  }, [clearTouchHold]);
+
+  const cancelTouchDragState = useCallback(() => {
+    setDropHint(null);
+    setDraggedId('');
+    setTouchDrag(null);
+    clearTouchHold();
+  }, [clearTouchHold]);
+
+  useEffect(() => {
+    return () => {
+      clearTouchHold();
+    };
+  }, [clearTouchHold]);
+
+  useEffect(() => {
+    if (!touchDrag?.id) return undefined;
+    const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
+    const originalOverscroll = document.body.style.overscrollBehavior;
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+    document.body.style.overscrollBehavior = 'none';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
+      document.body.style.overscrollBehavior = originalOverscroll;
+    };
+  }, [touchDrag?.id]);
+
+  useEffect(() => {
+    if (!touchDrag?.id) return undefined;
+    const blockTouchScroll = (event) => {
+      event.preventDefault();
+    };
+    window.addEventListener('touchmove', blockTouchScroll, { passive: false });
+    return () => {
+      window.removeEventListener('touchmove', blockTouchScroll);
+    };
+  }, [touchDrag?.id]);
+
   useEffect(() => {
     if (!touchDrag?.id) return undefined;
 
@@ -587,8 +714,20 @@ function CategoryTreeManager() {
     const onPointerMove = (event) => {
       if (event.pointerId !== touchDrag.pointerId) return;
       const next = resolveDropTarget(event.clientX, event.clientY);
-      if (!next) return;
-      setDropHint(next);
+      setTouchDrag((prev) =>
+        prev
+          ? {
+              ...prev,
+              clientX: event.clientX,
+              clientY: event.clientY,
+            }
+          : prev,
+      );
+      if (!next) {
+        setDropHint(null);
+      } else {
+        setDropHint(next);
+      }
       event.preventDefault();
     };
 
@@ -596,9 +735,7 @@ function CategoryTreeManager() {
       if (event.pointerId !== touchDrag.pointerId) return;
       const next = resolveDropTarget(event.clientX, event.clientY);
       if (!next) {
-        setDropHint(null);
-        setDraggedId('');
-        setTouchDrag(null);
+        cancelTouchDragState();
         return;
       }
       handleDrop(touchDrag.id, next.targetId, next.position);
@@ -606,9 +743,7 @@ function CategoryTreeManager() {
 
     const onPointerCancel = (event) => {
       if (event.pointerId !== touchDrag.pointerId) return;
-      setDropHint(null);
-      setDraggedId('');
-      setTouchDrag(null);
+      cancelTouchDragState();
     };
 
     window.addEventListener('pointermove', onPointerMove, { passive: false });
@@ -620,7 +755,7 @@ function CategoryTreeManager() {
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', onPointerCancel);
     };
-  }, [handleDrop, touchDrag]);
+  }, [cancelTouchDragState, handleDrop, touchDrag]);
 
   const renderNode = (node, depth = 0) => {
     const isDragged = node.id === draggedId;
@@ -678,8 +813,50 @@ function CategoryTreeManager() {
                 draggable
                 onPointerDown={(event) => {
                   if (event.pointerType === 'mouse') return;
-                  setDraggedId(node.id);
-                  setTouchDrag({ id: node.id, pointerId: event.pointerId });
+                  event.preventDefault();
+                  try {
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                  } catch {
+                    // ignore capture failures
+                  }
+                  beginTouchHold({
+                    id: node.id,
+                    pointerId: event.pointerId,
+                    name: node.name,
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                  });
+                }}
+                onPointerMove={(event) => {
+                  if (event.pointerType === 'mouse') return;
+                  event.preventDefault();
+                  moveTouchHold(event.pointerId, event.clientX, event.clientY);
+                }}
+                onPointerUp={(event) => {
+                  if (event.pointerType === 'mouse') return;
+                  try {
+                    event.currentTarget.releasePointerCapture(event.pointerId);
+                  } catch {
+                    // ignore capture failures
+                  }
+                  const active = touchDrag?.pointerId === event.pointerId;
+                  if (!active) {
+                    clearTouchHold();
+                  }
+                }}
+                onPointerCancel={(event) => {
+                  if (event.pointerType === 'mouse') return;
+                  try {
+                    event.currentTarget.releasePointerCapture(event.pointerId);
+                  } catch {
+                    // ignore capture failures
+                  }
+                  const active = touchDrag?.pointerId === event.pointerId;
+                  if (active) {
+                    cancelTouchDragState();
+                    return;
+                  }
+                  clearTouchHold();
                 }}
                 onDragStart={(event) => {
                   event.dataTransfer.setData('text/plain', node.id);
@@ -687,10 +864,9 @@ function CategoryTreeManager() {
                   setDraggedId(node.id);
                 }}
                 onDragEnd={() => {
-                  setDraggedId('');
-                  setDropHint(null);
+                  cancelTouchDragState();
                 }}
-                className="inline-flex h-7 w-7 shrink-0 cursor-grab items-center justify-center rounded-full border border-slate-200 text-slate-500 active:cursor-grabbing"
+                className="inline-flex h-7 w-7 shrink-0 cursor-grab items-center justify-center rounded-full border border-slate-200 text-slate-500 active:cursor-grabbing touch-none select-none"
                 aria-label={`Drag ${node.name}`}
               >
                 <svg viewBox="0 0 20 20" className="h-4 w-4" fill="currentColor" aria-hidden="true">
@@ -1010,6 +1186,7 @@ function CategoryTreeManager() {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Category tree</p>
             <p className="mt-2 text-sm font-semibold text-slate-800">Drag to reorder, drop on a category to nest</p>
+            <p className="mt-1 text-xs text-slate-500">Mobile: press and hold the drag icon, then move and release.</p>
           </div>
           <div className="flex items-center gap-2">
             <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
@@ -1105,6 +1282,17 @@ function CategoryTreeManager() {
           {saveError ? <p className="text-xs text-rose-500">{saveError}</p> : null}
         </form>
       </Sheet>
+      {touchDrag ? (
+        <div
+          className="pointer-events-none fixed z-[120] rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white shadow-xl"
+          style={{
+            left: `${touchDrag.clientX + 12}px`,
+            top: `${touchDrag.clientY + 12}px`,
+          }}
+        >
+          Dragging: {touchDrag.name}
+        </div>
+      ) : null}
     </div>
   );
 }

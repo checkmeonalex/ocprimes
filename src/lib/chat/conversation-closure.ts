@@ -5,6 +5,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 const PARTICIPANT_VISIBILITY_DAYS = 7
 const ADMIN_RETENTION_DAYS = 14
 const INACTIVITY_CLOSE_DAYS = 7
+const SUPPORT_PRODUCT_SLUG_PREFIX = '__help-center-support__'
 
 const toIsoString = (value: unknown) => {
   if (typeof value !== 'string') return null
@@ -106,6 +107,7 @@ export const closeConversation = async ({
 }
 
 const getRoleCache = () => new Map<string, boolean>()
+const getSupportProductCache = () => new Map<string, boolean>()
 
 const isAdminUserId = async (
   adminDb: ReturnType<typeof createAdminSupabaseClient>,
@@ -142,7 +144,27 @@ const isSupportConversation = async (
   adminDb: ReturnType<typeof createAdminSupabaseClient>,
   conversation: any,
   roleCache: Map<string, boolean>,
+  supportProductCache?: Map<string, boolean>,
 ) => {
+  const productId = String(conversation?.product_id || conversation?.productId || '').trim()
+  if (productId) {
+    if (supportProductCache?.has(productId)) {
+      if (supportProductCache.get(productId) === true) return true
+    } else {
+      const { data: productRow } = await adminDb
+        .from('products')
+        .select('slug')
+        .eq('id', productId)
+        .maybeSingle()
+      const productSlug = String(productRow?.slug || '').trim().toLowerCase()
+      const isSupportProduct = productSlug.startsWith(SUPPORT_PRODUCT_SLUG_PREFIX)
+      if (supportProductCache) {
+        supportProductCache.set(productId, isSupportProduct)
+      }
+      if (isSupportProduct) return true
+    }
+  }
+
   const customerUserId = String(
     conversation?.customer_user_id || conversation?.customerUserId || '',
   ).trim()
@@ -161,7 +183,8 @@ const isSupportConversation = async (
 export const isSupportConversationRecord = async (conversation: any) => {
   const adminDb = createAdminSupabaseClient()
   const roleCache = getRoleCache()
-  return isSupportConversation(adminDb, conversation, roleCache)
+  const supportProductCache = getSupportProductCache()
+  return isSupportConversation(adminDb, conversation, roleCache, supportProductCache)
 }
 
 const isProductUnavailable = async (
@@ -218,7 +241,13 @@ export const maybeAutoCloseConversation = async (conversation: any) => {
 
   const adminDb = createAdminSupabaseClient()
   const roleCache = getRoleCache()
-  const supportConversation = await isSupportConversation(adminDb, conversation, roleCache)
+  const supportProductCache = getSupportProductCache()
+  const supportConversation = await isSupportConversation(
+    adminDb,
+    conversation,
+    roleCache,
+    supportProductCache,
+  )
   if (supportConversation) {
     return { data: conversation, error: null, changed: false }
   }
@@ -255,6 +284,7 @@ const autoCloseEligibleConversations = async () => {
   const adminDb = createAdminSupabaseClient()
   const nowMs = getNowMs()
   const roleCache = getRoleCache()
+  const supportProductCache = getSupportProductCache()
   const productCache = new Map<string, boolean>()
 
   const unavailableProductsRes = await adminDb
@@ -278,7 +308,12 @@ const autoCloseEligibleConversations = async () => {
 
       if (Array.isArray(unavailableConversationRes.data)) {
         for (const row of unavailableConversationRes.data) {
-          const supportConversation = await isSupportConversation(adminDb, row, roleCache)
+          const supportConversation = await isSupportConversation(
+            adminDb,
+            row,
+            roleCache,
+            supportProductCache,
+          )
           if (supportConversation) continue
           const conversationId = String((row as any)?.id || '').trim()
           const closerUserId = String((row as any)?.vendor_user_id || '').trim()
@@ -307,7 +342,12 @@ const autoCloseEligibleConversations = async () => {
   if (error || !Array.isArray(data) || !data.length) return { error }
 
   for (const row of data) {
-    const supportConversation = await isSupportConversation(adminDb, row, roleCache)
+    const supportConversation = await isSupportConversation(
+      adminDb,
+      row,
+      roleCache,
+      supportProductCache,
+    )
     if (supportConversation) continue
 
     const conversationId = String((row as any)?.id || '').trim()
@@ -410,9 +450,15 @@ export const purgeExpiredClosedConversations = async () => {
   }
 
   const roleCache = getRoleCache()
+  const supportProductCache = getSupportProductCache()
   const deletableIds: string[] = []
   for (const row of data) {
-    const supportConversation = await isSupportConversation(adminDb, row, roleCache)
+    const supportConversation = await isSupportConversation(
+      adminDb,
+      row,
+      roleCache,
+      supportProductCache,
+    )
     if (supportConversation) continue
     const conversationId = String((row as any)?.id || '').trim()
     if (conversationId) deletableIds.push(conversationId)

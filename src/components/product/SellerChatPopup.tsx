@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Image from 'next/image'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
 import MakeOfferModal from './MakeOfferModal'
 import { useAlerts } from '@/context/AlertContext'
@@ -841,9 +842,12 @@ export default function SellerChatPopup({
           <div className='flex items-center justify-between gap-3 px-3.5 pb-3'>
             <div className='flex min-w-0 flex-1 items-center gap-2'>
               {vendorAvatarUrl ? (
-                <img
+                <Image
                   src={vendorAvatarUrl}
                   alt={`${vendorName} avatar`}
+                  width={36}
+                  height={36}
+                  unoptimized
                   className='h-9 w-9 rounded-full object-cover ring-1 ring-slate-200'
                 />
               ) : (

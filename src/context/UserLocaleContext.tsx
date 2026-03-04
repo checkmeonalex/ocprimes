@@ -35,6 +35,7 @@ import {
   sanitizeUnitPerUsdMap,
 } from '@/lib/i18n/exchange-rates'
 import { translateMessage, type MessageKey } from '@/lib/i18n/messages'
+import { loadUserProfileBootstrap } from '@/lib/user/profile-bootstrap-client'
 
 type UserLocale = {
   country: string
@@ -211,9 +212,8 @@ export function UserLocaleProvider({ children }: { children: ReactNode }) {
         return
       }
       try {
-        const response = await fetch('/api/user/profile', { method: 'GET' })
-        if (!response.ok) return
-        const payload = await response.json().catch(() => null)
+        const payload = await loadUserProfileBootstrap()
+        if (!payload) return
         const profile = payload?.profile || {}
 
         const resolved = resolveLocale({

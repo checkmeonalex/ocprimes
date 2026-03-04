@@ -1,7 +1,10 @@
 import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
-import { listDashboardConversations } from '@/lib/chat/dashboard'
+import {
+  findOrCreateDashboardHelpCenterConversation,
+  listDashboardConversations,
+} from '@/lib/chat/dashboard'
 import {
   getConversationClosureState,
   purgeExpiredClosedConversations,
@@ -35,14 +38,29 @@ export async function GET(request: NextRequest) {
           )
         })
 
+    let helpCenterConversationId = ''
+    if (!isAdmin && isVendor) {
+      const helpCenterResult = await findOrCreateDashboardHelpCenterConversation(user.id)
+      if (helpCenterResult.data?.id) {
+        helpCenterConversationId = String(helpCenterResult.data.id || '').trim()
+      }
+    }
+
     const conversations = scopedConversations
       .map((conversation) => {
+        const conversationId = String(conversation.id || '').trim()
+        const isHelpCenterConversation =
+          Boolean(helpCenterConversationId) && conversationId === helpCenterConversationId
         const closure = getConversationClosureState({
           conversation,
           isAdmin,
         })
         return {
           ...conversation,
+          isHelpCenter: isHelpCenterConversation,
+          vendorName: isHelpCenterConversation
+            ? 'OCPRIMES'
+            : String(conversation?.vendorName || '').trim() || 'Seller',
           isClosed: closure.isClosed,
           canView: closure.canView,
           canSend: closure.canSend,
@@ -56,6 +74,7 @@ export async function GET(request: NextRequest) {
     const response = jsonOk({
       currentUserId: user.id,
       role: isAdmin ? 'admin' : 'vendor',
+      helpCenterConversationId,
       conversations,
     })
     applyCookies(response)

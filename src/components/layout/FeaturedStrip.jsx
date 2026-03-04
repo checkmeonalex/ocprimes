@@ -61,6 +61,9 @@ const DesktopProductCard = ({ product }) => {
   return (
     <Link
       href={`/product/${product.slug}`}
+      target='_blank'
+      rel='noopener noreferrer'
+      data-next-navigation='true'
       className='group w-[190px] flex-none'
     >
       <div className='flex h-[280px] flex-col overflow-hidden rounded-xl border border-gray-200/70 bg-white transition hover:shadow-md'>
@@ -148,6 +151,7 @@ const MobileProductCard = ({ product, onAddToCart }) => {
       <div className='flex items-start gap-3'>
         <Link
           href={`/product/${product.slug}`}
+          data-next-navigation='true'
           className='relative h-[90px] w-[90px] flex-shrink-0 overflow-hidden rounded-lg border border-gray-200/70 bg-gray-50'
         >
           {imageSrc ? (
@@ -186,6 +190,7 @@ const MobileProductCard = ({ product, onAddToCart }) => {
         <div className='flex-1'>
           <Link
             href={`/product/${product.slug}`}
+            data-next-navigation='true'
             className='text-xs font-semibold text-gray-900 line-clamp-2'
           >
             {product.name}

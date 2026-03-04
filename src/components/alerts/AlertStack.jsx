@@ -79,6 +79,25 @@ export default function AlertStack() {
               {alert.message ? (
                 <p className='mt-0.5 text-[12px] leading-4 text-slate-600'>{alert.message}</p>
               ) : null}
+              {alert.actionLabel ? (
+                <button
+                  type='button'
+                  onClick={() => {
+                    const handler = alert.onAction
+                    removeAlert(alert.id)
+                    if (typeof handler === 'function') {
+                      try {
+                        handler()
+                      } catch {
+                        // ignore alert action handler errors
+                      }
+                    }
+                  }}
+                  className='mt-2 inline-flex items-center rounded-full bg-slate-900 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-slate-800'
+                >
+                  {alert.actionLabel}
+                </button>
+              ) : null}
             </div>
             <button
               type='button'

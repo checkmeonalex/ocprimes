@@ -12,6 +12,10 @@ import {
   calculateOrderProtectionFee,
   isDigitalProductLike,
 } from '@/lib/order-protection/config'
+import {
+  loadUserProfileBootstrap,
+  primeUserProfileBootstrap,
+} from '@/lib/user/profile-bootstrap-client'
 
 const TAX_RATE = 0.1
 const DEFAULT_COUNTRY = 'Nigeria'
@@ -154,16 +158,14 @@ const ShippingDetailsPage = () => {
     const loadAddresses = async () => {
       setIsLoadingAddresses(true)
       try {
-        const response = await fetch('/api/user/profile')
-        if (!response.ok) {
+        const payload = await loadUserProfileBootstrap()
+        if (!payload) {
           if (!cancelled) {
             setAddresses([])
             setSelectedAddressId('')
           }
           return
         }
-
-        const payload = await response.json().catch(() => null)
         const nextProfile = payload?.profile || {}
         const normalized = normalizeAddresses(nextProfile)
 
@@ -473,6 +475,7 @@ const ShippingDetailsPage = () => {
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to save address.')
       }
+      primeUserProfileBootstrap(payload)
 
       const nextProfile = payload?.profile || {}
       const normalized = normalizeAddresses(nextProfile)

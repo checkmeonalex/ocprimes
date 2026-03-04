@@ -429,6 +429,20 @@ export async function PATCH(request: NextRequest) {
     orderStatus: nextStatus,
     order_status: nextStatus,
     status: nextStatus,
+    statusUpdatedAt: new Date().toISOString(),
+    status_updated_at: new Date().toISOString(),
+  }
+  if (nextStatus === 'delivered') {
+    const existingDeliveredAt = String(
+      (nextShippingAddress as Record<string, unknown>)?.deliveredAt ||
+        (nextShippingAddress as Record<string, unknown>)?.delivered_at ||
+        '',
+    ).trim()
+    if (!existingDeliveredAt) {
+      const deliveredAt = new Date().toISOString()
+      ;(nextShippingAddress as Record<string, unknown>).deliveredAt = deliveredAt
+      ;(nextShippingAddress as Record<string, unknown>).delivered_at = deliveredAt
+    }
   }
 
   const { error: updateError } = await adminDb

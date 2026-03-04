@@ -7,6 +7,10 @@ import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
 import { PRODUCT_CONDITION_OPTIONS } from '@/lib/admin/product-conditions'
 import { PRODUCT_PACKAGING_OPTIONS } from '@/lib/admin/product-packaging'
 import { PRODUCT_RETURN_POLICY_OPTIONS } from '@/lib/admin/product-returns'
+import {
+  loadUserProfileBootstrap,
+  primeUserProfileBootstrap,
+} from '@/lib/user/profile-bootstrap-client'
 import ProductCategorySelector from '../products/ProductCategorySelector'
 import ProductTagSelector from '../products/ProductTagSelector'
 
@@ -61,16 +65,20 @@ export default function ShortcutPage() {
     setIsLoading(true)
     setError('')
     try {
-      const response = await fetch('/api/user/profile', {
-        cache: 'no-store',
-        credentials: 'include',
-      })
-      if (shouldRedirectForAuthFailure(response.status)) {
-        redirectToSignIn()
-        return
+      let payload = await loadUserProfileBootstrap()
+      if (!payload) {
+        const response = await fetch('/api/user/profile', {
+          cache: 'no-store',
+          credentials: 'include',
+        })
+        if (shouldRedirectForAuthFailure(response.status)) {
+          redirectToSignIn()
+          return
+        }
+        payload = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(payload?.error || 'Unable to load shortcut defaults.')
+        primeUserProfileBootstrap(payload)
       }
-      const payload = await response.json().catch(() => null)
-      if (!response.ok) throw new Error(payload?.error || 'Unable to load shortcut defaults.')
 
       const nextProfile = payload?.profile && typeof payload.profile === 'object' ? payload.profile : {}
       const shortcutDefaults = nextProfile?.shortcuts?.productDefaults || {}
@@ -192,6 +200,7 @@ export default function ShortcutPage() {
       const result = await response.json().catch(() => null)
       if (!response.ok) throw new Error(result?.error || 'Unable to save shortcut defaults.')
       setProfile(result?.profile || payload)
+      primeUserProfileBootstrap(result)
       setSuccess('Shortcut defaults saved.')
     } catch (saveError) {
       setError(saveError?.message || 'Unable to save shortcut defaults.')

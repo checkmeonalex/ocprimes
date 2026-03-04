@@ -15,6 +15,7 @@ import { findCartEntry } from '../../lib/cart/cart-match'
 import { useWishlist } from '../../context/WishlistContext'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { buildVendorHref } from '@/lib/catalog/vendor'
+import { useScreenSize } from '@/hooks/useScreenSize'
 
 const ProductCard = ({
   product,
@@ -31,6 +32,8 @@ const ProductCard = ({
   const [previewImage, setPreviewImage] = useState('')
   const [isVariantModalOpen, setIsVariantModalOpen] = useState(false)
   const router = useRouter()
+  const { isMobile } = useScreenSize()
+  const openInNewTab = !isMobile
   const cart = useOptionalCart()
   const items = cart?.items || []
   const updateQuantity = cart?.updateQuantity || (() => {})
@@ -103,16 +106,22 @@ const ProductCard = ({
     }
   }
 
-  // Calculate discount percentage
-  const discountPercentage =
-    product.originalPrice && product.price < product.originalPrice
-      ? Math.max(
-          1,
-          Math.round(
-            ((product.originalPrice - product.price) / product.originalPrice) * 100
-          )
-        )
-      : null
+  const priceValue = Number(product?.price) || 0
+  const originalPriceValue = Number(product?.originalPrice)
+  const hasDiscount =
+    Number.isFinite(originalPriceValue) &&
+    originalPriceValue > 0 &&
+    priceValue > 0 &&
+    originalPriceValue > priceValue
+
+  const discountPercentage = hasDiscount
+    ? Math.max(
+        1,
+        Math.round(((originalPriceValue - priceValue) / originalPriceValue) * 100)
+      )
+    : null
+
+  const hasRating = Number(product?.rating) > 0
 
   // Determine aspect ratio class based on image type
   const imageContainerClass = product.isPortrait
@@ -162,7 +171,12 @@ const ProductCard = ({
 
   return (
     <>
-      <Link href={`/product/${product.slug}`}>
+      <Link
+        href={`/product/${product.slug}`}
+        target={openInNewTab ? '_blank' : undefined}
+        rel={openInNewTab ? 'noopener noreferrer' : undefined}
+        data-next-navigation='true'
+      >
         <div
           className={`relative ${className.includes('bg-') ? '' : 'bg-white'} rounded-[5px] overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group ${className}`}
           onMouseEnter={handleMouseEnter}
@@ -282,7 +296,7 @@ const ProductCard = ({
         </div>
 
         {imageLoaded && (
-          <div className='p-3'>
+          <div className={wishlistMode ? 'p-2.5 sm:p-3' : 'p-3'}>
             {/* Brand/Name and Trending */}
             <div>
               <div className='flex items-center justify-between mb-1'>
@@ -322,15 +336,17 @@ const ProductCard = ({
             </div>
 
             {/* Rating */}
-            <div className='flex items-center'>
-              <StarRating rating={product.rating} size={14} />
-              <span className='text-xs text-gray-500 ml-2'>
-                {product.reviews > 1000
-                  ? `${(product.reviews / 1000).toFixed(1)}k+`
-                  : product.reviews}{' '}
-                sold
-              </span>
-            </div>
+            {hasRating ? (
+              <div className='flex items-center'>
+                <StarRating rating={product.rating} size={14} />
+                <span className='ml-2 text-xs text-gray-500'>
+                  {product.reviews > 1000
+                    ? `${(product.reviews / 1000).toFixed(1)}k+`
+                    : product.reviews}{' '}
+                  sold
+                </span>
+              </div>
+            ) : null}
 
             {/* Almost Sold Out Badge */}
             {product.stock <= 3 && (
@@ -354,26 +370,28 @@ const ProductCard = ({
             {/* Price and Add to Cart */}
             <div className='space-y-1'>
               <div className='flex flex-col'>
-                <div className='flex items-center gap-2'>
+                <div className='flex flex-wrap items-baseline gap-x-2 gap-y-0.5'>
                   <span className='text-lg font-bold text-gray-900'>
-                    {formatMoney(product.price)}
+                    {formatMoney(priceValue)}
                   </span>
-                  {product.originalPrice && (
+                  {hasDiscount ? (
                     <span className='text-sm text-gray-400 line-through'>
-                      {formatMoney(product.originalPrice)}
+                      {formatMoney(originalPriceValue)}
                     </span>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
-              <div className='flex items-center justify-between gap-2 pt-0.5'>
+              <div
+                className={`flex items-center gap-2 pt-0.5 ${
+                  hasDiscount ? 'justify-between' : 'justify-end'
+                }`}
+              >
                 {discountPercentage ? (
                   <span className='text-xs text-green-600 font-semibold'>
-                    Save {formatMoney((product.originalPrice || 0) - (product.price || 0))}
+                    Save {formatMoney(originalPriceValue - priceValue)}
                   </span>
-                ) : (
-                  <span />
-                )}
+                ) : null}
                 {wishlistMode ? (
                   <button
                     type='button'

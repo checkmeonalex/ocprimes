@@ -6,6 +6,7 @@ import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { buildVendorHref } from '@/lib/catalog/vendor'
+import { useScreenSize } from '@/hooks/useScreenSize'
 
 type CompactProductCardProps = {
   product: {
@@ -33,6 +34,8 @@ export const CompactProductCard = ({
   variant = 'fixed',
 }: CompactProductCardProps) => {
   const router = useRouter()
+  const { isMobile } = useScreenSize()
+  const openInNewTab = !isMobile
   const stock = Number(product.stock || 0)
   const lowStockLabel = stock > 0 && stock < 10 ? `Only ${stock} left in stock` : ''
   const isFluid = variant === 'fluid'
@@ -40,6 +43,9 @@ export const CompactProductCard = ({
   return (
     <Link
       href={`/product/${product.slug}`}
+      target={openInNewTab ? '_blank' : undefined}
+      rel={openInNewTab ? 'noopener noreferrer' : undefined}
+      data-next-navigation='true'
       className={`group block ${isFluid ? 'w-full' : 'min-w-[240px] max-w-[240px] flex-shrink-0'}`}
     >
       <div className='bg-white shadow-sm transition hover:shadow-md'>

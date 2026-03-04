@@ -1,5 +1,7 @@
 'use client';
 
+import { toChatMessagePreview } from '@/lib/chat/voice-message';
+
 const FILTER_TABS = [
   { key: 'all', label: 'All' },
   { key: 'unread', label: 'Unread' },
@@ -34,6 +36,7 @@ export default function SellerConversationList({
   onSelectConversation,
   showHelpCenter = false,
   helpCenterConversation = null,
+  isLoading = false,
   searchValue,
   onSearchChange,
   activeFilter,
@@ -50,13 +53,14 @@ export default function SellerConversationList({
     String(helpCenterConversation?.lastMessagePreview || '').trim().toLowerCase() !==
       EMPTY_CHAT_PREVIEW.toLowerCase();
   const helpCenterPreviewText = hasHelpCenterMessages
-    ? String(helpCenterConversation?.lastMessagePreview || '').trim()
+    ? toChatMessagePreview(helpCenterConversation?.lastMessagePreview, HELP_CENTER_PREVIEW)
     : HELP_CENTER_PREVIEW;
   const helpCenterUnreadCount = Number(helpCenterConversation?.unreadCount || 0);
   const helpCenterLastMessageAtLabel = String(helpCenterConversation?.lastMessageAtLabel || '').trim();
 
   return (
-    <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white">
+    <>
+      <aside className="flex h-full min-h-0 flex-col border-r border-slate-200 bg-white">
       <div className="border-b border-slate-200 p-3">
         <label className="flex h-10 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 text-slate-500">
           <svg viewBox="0 0 24 24" className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -93,7 +97,7 @@ export default function SellerConversationList({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="conversation-list-scrollbar min-h-0 flex-1 overflow-y-auto">
         {showHelpCenter ? (
           <div className="border-b border-slate-100">
             <button
@@ -139,7 +143,19 @@ export default function SellerConversationList({
             </button>
           </div>
         ) : null}
-        {conversations.length === 0 ? (
+        {isLoading ? (
+          <div className="space-y-2 px-3 py-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={`seller-chat-skeleton-${index}`} className="flex items-start gap-3 rounded-lg px-1 py-1.5 animate-pulse">
+                <span className="h-11 w-11 shrink-0 rounded-full bg-slate-200" />
+                <span className="min-w-0 flex-1 space-y-2 pt-0.5">
+                  <span className="block h-3.5 w-2/5 rounded bg-slate-200" />
+                  <span className="block h-3 w-4/5 rounded bg-slate-100" />
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : conversations.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-slate-400">No chats found.</div>
         ) : (
           <div className="divide-y divide-slate-100">
@@ -163,7 +179,9 @@ export default function SellerConversationList({
                       <span className="shrink-0 text-[11px] text-slate-400">{conversation.lastMessageAtLabel}</span>
                     </span>
                     <span className="mt-1 flex items-center gap-2">
-                      <span className="truncate text-xs text-slate-500">{conversation.lastMessagePreview}</span>
+                      <span className="truncate text-xs text-slate-500">
+                        {toChatMessagePreview(conversation.lastMessagePreview)}
+                      </span>
                       {conversation.unreadCount > 0 ? (
                         <span className="inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-emerald-500 px-1.5 text-[11px] font-semibold text-white">
                           {conversation.unreadCount}
@@ -178,5 +196,29 @@ export default function SellerConversationList({
         )}
       </div>
     </aside>
+      <style jsx>{`
+        .conversation-list-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(15, 23, 42, 0.55) transparent;
+        }
+        .conversation-list-scrollbar::-webkit-scrollbar {
+          width: 10px;
+        }
+        .conversation-list-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .conversation-list-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(15, 23, 42, 0.55);
+          border-radius: 9999px;
+          border: 2px solid transparent;
+          background-clip: padding-box;
+        }
+        .conversation-list-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(15, 23, 42, 0.72);
+          border: 2px solid transparent;
+          background-clip: padding-box;
+        }
+      `}</style>
+    </>
   );
 }

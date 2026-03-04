@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import type { RecentlyViewedItem } from '@/lib/recently-viewed/storage'
+import { useScreenSize } from '@/hooks/useScreenSize'
 
 type RecentlyViewedCardProps = {
   item: RecentlyViewedItem
@@ -14,9 +15,15 @@ const formatPrice = (value: number) => {
 }
 
 const RecentlyViewedCard = ({ item }: RecentlyViewedCardProps) => {
+  const { isMobile } = useScreenSize()
+  const openInNewTab = !isMobile
+
   return (
     <Link
       href={`/product/${item.slug}`}
+      target={openInNewTab ? '_blank' : undefined}
+      rel={openInNewTab ? 'noopener noreferrer' : undefined}
+      data-next-navigation='true'
       className='group block rounded-xl bg-white shadow-sm transition hover:shadow-md'
     >
       <div className='rounded-xl border border-gray-200/80 p-3'>

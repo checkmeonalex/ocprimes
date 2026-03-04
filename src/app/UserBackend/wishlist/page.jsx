@@ -7,7 +7,6 @@ import ProductCard from '@/components/product/ProductCard'
 import WishlistListLabel from '@/components/wishlist/WishlistListLabel'
 import { useAlerts } from '@/context/AlertContext'
 import { useCart } from '@/context/CartContext'
-import { getSeedProducts } from '@/lib/catalog/seed-products'
 import { isDefaultWishlistName } from '@/lib/wishlist/list-name'
 
 const CARD_COLORS = [
@@ -25,6 +24,34 @@ const VISIBILITY_OPTIONS = [
   { value: 'public', label: 'Public' },
   { value: 'unlisted', label: 'Unlisted' },
 ]
+const WISHLIST_BOOTSTRAP_LIMIT = 30
+
+const WishlistSkeleton = () => (
+  <div className='space-y-6'>
+    <div className='space-y-2'>
+      <div className='h-6 w-40 animate-pulse rounded-md bg-slate-200' />
+      <div className='h-4 w-64 animate-pulse rounded-md bg-slate-200' />
+    </div>
+
+    <section className='rounded-2xl bg-white shadow-sm'>
+      <div className='grid grid-cols-2 gap-4 p-2 md:grid-cols-4 xl:grid-cols-5'>
+        {Array.from({ length: 10 }).map((_, index) => (
+          <div
+            key={`wishlist-skeleton-card-${index}`}
+            className='overflow-hidden rounded-md border border-slate-200 bg-white'
+          >
+            <div className='aspect-square animate-pulse bg-slate-200' />
+            <div className='space-y-2 p-3'>
+              <div className='h-3.5 w-3/4 animate-pulse rounded bg-slate-200' />
+              <div className='h-3.5 w-1/2 animate-pulse rounded bg-slate-200' />
+              <div className='h-3 w-2/3 animate-pulse rounded bg-slate-200' />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  </div>
+)
 
 export default function WishlistPage() {
   const { pushAlert } = useAlerts()
@@ -34,8 +61,8 @@ export default function WishlistPage() {
   const [listDetail, setListDetail] = useState(null)
   const [items, setItems] = useState([])
   const [itemsByList, setItemsByList] = useState({})
-  const [productDetails, setProductDetails] = useState({})
   const [isLoading, setIsLoading] = useState(false)
+  const [isBootstrapReady, setIsBootstrapReady] = useState(false)
   const [newListName, setNewListName] = useState('')
   const [newListDescription, setNewListDescription] = useState('')
   const [newListVisibility, setNewListVisibility] = useState('private')
@@ -70,136 +97,68 @@ export default function WishlistPage() {
   )
   const isAllSelected = Boolean(selectedListId && allListId && selectedListId === allListId)
 
+  const loadBootstrap = async (preferredListId = '') => {
+    setIsLoading(true)
+    try {
+      const response = await fetch(
+        `/api/wishlist/bootstrap?per_list_limit=${WISHLIST_BOOTSTRAP_LIMIT}`,
+        { cache: 'no-store' },
+      )
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to load wishlists.')
+      }
+
+      const nextLists = Array.isArray(payload?.lists) ? payload.lists : []
+      const nextItemsByList =
+        payload?.items_by_list && typeof payload.items_by_list === 'object'
+          ? payload.items_by_list
+          : {}
+      const fallbackSelected = String(payload?.selected_list_id || '').trim()
+      const currentSelected = String(selectedListId || '').trim()
+      const preferred = String(preferredListId || '').trim()
+      const selectedCandidate = preferred || currentSelected || fallbackSelected
+      const resolvedSelected = nextLists.some((entry) => entry?.id === selectedCandidate)
+        ? selectedCandidate
+        : String(nextLists[0]?.id || '').trim()
+
+      setLists(nextLists)
+      setItemsByList(nextItemsByList)
+      setSelectedListId(resolvedSelected)
+    } catch (error) {
+      pushAlert({ type: 'error', title: 'Wishlist', message: error.message })
+    } finally {
+      setIsLoading(false)
+      setIsBootstrapReady(true)
+    }
+  }
+
   useEffect(() => {
-    const ids = Array.from(
-      new Set(items.map((item) => item.product_id).filter(Boolean)),
-    )
-    if (!ids.length) {
-      setProductDetails({})
+    void loadBootstrap()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (!selectedListId) {
+      setListDetail(null)
+      setItems([])
       return
     }
 
-    const seedProducts = getSeedProducts()
-    const seedMap = seedProducts.reduce((map, product) => {
-      map[product.id] = {
-        id: product.id,
-        name: product.name,
-        slug: product.slug,
-        price: Number(product.price) || 0,
-        originalPrice: product.originalPrice || null,
-        stock: Number(product.stock) || 0,
-        image: product.image || '',
-      }
-      return map
-    }, {})
+    const nextListDetail = orderedLists.find((entry) => entry?.id === selectedListId) || null
+    setListDetail(nextListDetail)
 
-    const dbIds = ids.filter((id) => !String(id).startsWith('seed-'))
-    if (!dbIds.length) {
-      setProductDetails(seedMap)
+    if (isAllSelected) {
+      const combined = orderedLists
+        .flatMap((entry) => (Array.isArray(itemsByList[entry.id]) ? itemsByList[entry.id] : []))
+        .sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime())
+      setItems(combined)
       return
     }
 
-    const controller = new AbortController()
-    const loadDetails = async () => {
-      try {
-        const response = await fetch('/api/products/bulk', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids: dbIds }),
-          signal: controller.signal,
-        })
-        const payload = await response.json().catch(() => null)
-        if (!response.ok) {
-          throw new Error(payload?.error || 'Unable to load product details.')
-        }
-        const dbMap = (payload?.items || []).reduce((map, product) => {
-          map[product.id] = product
-          return map
-        }, {})
-        setProductDetails({ ...seedMap, ...dbMap })
-      } catch (error) {
-        if (error?.name === 'AbortError') return
-        setProductDetails(seedMap)
-      }
-    }
-    loadDetails()
-    return () => controller.abort()
-  }, [items])
-
-  useEffect(() => {
-    const loadLists = async () => {
-      setIsLoading(true)
-      try {
-        const response = await fetch('/api/wishlist/lists')
-        const payload = await response.json().catch(() => null)
-        if (!response.ok) {
-          throw new Error(payload?.error || 'Unable to load wishlists.')
-        }
-        setLists(payload?.items || [])
-        if (payload?.items?.length) {
-          const defaultList = payload.items.find((item) => isDefaultWishlistName(item.name))
-          setSelectedListId((defaultList || payload.items[0]).id)
-        }
-      } catch (error) {
-        pushAlert({ type: 'error', title: 'Wishlist', message: error.message })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadLists()
-  }, [pushAlert])
-
-  useEffect(() => {
-    const loadListDetail = async () => {
-      if (!selectedListId) {
-        setListDetail(null)
-        setItems([])
-        setItemsByList({})
-        return
-      }
-      setIsLoading(true)
-      try {
-        if (isAllSelected) {
-          const allList = orderedLists.find((item) => item.id === selectedListId) || null
-          setListDetail(allList)
-          const listIds = orderedLists.map((item) => item.id)
-          const results = await Promise.all(
-            listIds.map((listId) =>
-              fetch(`/api/wishlist/lists/${listId}`).then(async (res) => {
-                const payload = await res.json().catch(() => null)
-                if (!res.ok) {
-                  throw new Error(payload?.error || 'Unable to load wishlist.')
-                }
-                return payload.items || []
-              }),
-            ),
-          )
-          const listMap = listIds.reduce((map, listId, index) => {
-            map[listId] = results[index] || []
-            return map
-          }, {})
-          const combined = results.flat()
-          combined.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-          setItems(combined)
-          setItemsByList(listMap)
-        } else {
-          const response = await fetch(`/api/wishlist/lists/${selectedListId}`)
-          const payload = await response.json().catch(() => null)
-          if (!response.ok) {
-            throw new Error(payload?.error || 'Unable to load wishlist.')
-          }
-          setListDetail(payload.list)
-          setItems(payload.items || [])
-          setItemsByList({ [selectedListId]: payload.items || [] })
-        }
-      } catch (error) {
-        pushAlert({ type: 'error', title: 'Wishlist', message: error.message })
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadListDetail()
-  }, [selectedListId, pushAlert, isAllSelected, orderedLists])
+    const selectedItems = Array.isArray(itemsByList[selectedListId]) ? itemsByList[selectedListId] : []
+    setItems(selectedItems)
+  }, [selectedListId, orderedLists, itemsByList, isAllSelected])
 
   useEffect(() => {
     if (!listDetail?.share_token) {
@@ -239,10 +198,9 @@ export default function WishlistPage() {
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to create list.')
       }
-      setLists((prev) => [payload.item, ...prev])
-      setSelectedListId(payload.item.id)
       setNewListName('')
       setNewListDescription('')
+      await loadBootstrap(String(payload?.item?.id || '').trim())
       pushAlert({ type: 'success', title: 'Wishlist', message: 'List created.' })
     } catch (error) {
       pushAlert({ type: 'error', title: 'Wishlist', message: error.message })
@@ -264,8 +222,7 @@ export default function WishlistPage() {
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to update list.')
       }
-      setListDetail(payload.item)
-      setLists((prev) => prev.map((item) => (item.id === payload.item.id ? payload.item : item)))
+      await loadBootstrap(String(payload?.item?.id || listDetail?.id || '').trim())
       pushAlert({ type: 'success', title: 'Wishlist', message: 'List updated.' })
     } catch (error) {
       pushAlert({ type: 'error', title: 'Wishlist', message: error.message })
@@ -287,9 +244,7 @@ export default function WishlistPage() {
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to delete list.')
       }
-      const next = lists.filter((item) => item.id !== listDetail.id)
-      setLists(next)
-      setSelectedListId(next[0]?.id || '')
+      await loadBootstrap('')
       pushAlert({ type: 'success', title: 'Wishlist', message: 'List deleted.' })
     } catch (error) {
       pushAlert({ type: 'error', title: 'Wishlist', message: error.message })
@@ -308,7 +263,7 @@ export default function WishlistPage() {
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to remove item.')
       }
-      setItems((prev) => prev.filter((item) => item.id !== itemId))
+      await loadBootstrap(selectedListId)
       pushAlert({ type: 'success', title: 'Wishlist', message: 'Item removed.' })
     } catch (error) {
       pushAlert({ type: 'error', title: 'Wishlist', message: error.message })
@@ -320,26 +275,25 @@ export default function WishlistPage() {
   const wishlistProductCards = useMemo(
     () =>
       items.map((item) => {
-        const details = productDetails[item.product_id] || {}
-        const image = details.image || item.product_image || ''
-        const price =
-          Number.isFinite(Number(details.price)) ? Number(details.price) : Number(item.product_price) || 0
-        const originalPrice = Number.isFinite(Number(details.originalPrice))
-          ? Number(details.originalPrice)
-          : null
-        const stock = Number.isFinite(Number(details.stock)) ? Number(details.stock) : 99
+        const image = String(item?.product_image || '').trim()
+        const price = Number(item?.product_price) || 0
+        const originalPrice = Number(item?.product_original_price)
+        const stock = Number.isFinite(Number(item?.product_stock)) ? Number(item.product_stock) : 99
+        const vendorName = String(item?.product_vendor || '').trim() || 'OCPRIMES'
+        const vendorSlug = String(item?.product_vendor_slug || '').trim()
 
         return {
           wishlistItemId: item.id,
           id: item.product_id,
-          slug: details.slug || item.product_slug,
-          name: details.name || item.product_name,
+          slug: item.product_slug,
+          name: item.product_name,
           price,
-          originalPrice,
+          originalPrice: Number.isFinite(originalPrice) ? originalPrice : null,
           image,
           gallery: image ? [image] : [],
           isPortrait: false,
-          vendor: 'OCPRIMES',
+          vendor: vendorName,
+          vendorSlug,
           vendorFont: 'Georgia, serif',
           rating: 0,
           reviews: 0,
@@ -347,31 +301,30 @@ export default function WishlistPage() {
           isTrending: false,
         }
       }),
-    [items, productDetails],
+    [items],
   )
 
   const mapItemsToCards = (listItems) =>
     listItems.map((item) => {
-      const details = productDetails[item.product_id] || {}
-      const image = details.image || item.product_image || ''
-      const price =
-        Number.isFinite(Number(details.price)) ? Number(details.price) : Number(item.product_price) || 0
-      const originalPrice = Number.isFinite(Number(details.originalPrice))
-        ? Number(details.originalPrice)
-        : null
-      const stock = Number.isFinite(Number(details.stock)) ? Number(details.stock) : 99
+      const image = String(item?.product_image || '').trim()
+      const price = Number(item?.product_price) || 0
+      const originalPrice = Number(item?.product_original_price)
+      const stock = Number.isFinite(Number(item?.product_stock)) ? Number(item.product_stock) : 99
+      const vendorName = String(item?.product_vendor || '').trim() || 'OCPRIMES'
+      const vendorSlug = String(item?.product_vendor_slug || '').trim()
 
       return {
         wishlistItemId: item.id,
         id: item.product_id,
-        slug: details.slug || item.product_slug,
-        name: details.name || item.product_name,
+        slug: item.product_slug,
+        name: item.product_name,
         price,
-        originalPrice,
+        originalPrice: Number.isFinite(originalPrice) ? originalPrice : null,
         image,
         gallery: image ? [image] : [],
         isPortrait: false,
-        vendor: 'OCPRIMES',
+        vendor: vendorName,
+        vendorSlug,
         vendorFont: 'Georgia, serif',
         rating: 0,
         reviews: 0,
@@ -442,7 +395,9 @@ export default function WishlistPage() {
   }
 
   return (
-    <>
+    <div className='px-3 pt-2 sm:px-4 sm:pt-3 lg:px-5'>
+      {!isBootstrapReady ? <WishlistSkeleton /> : null}
+      {isBootstrapReady ? (
       <div className='space-y-6'>
       <div>
         <div className='flex items-center gap-3'>
@@ -711,6 +666,7 @@ export default function WishlistPage() {
         </section>
       </div>
     </div>
+      ) : null}
     {showCreateModal ? (
       <div className='fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4'>
         <div className='w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl'>
@@ -779,6 +735,6 @@ export default function WishlistPage() {
         </div>
       </div>
     ) : null}
-    </>
+    </div>
   )
 }

@@ -6,6 +6,7 @@ import {
   USER_LOCALE_STORAGE_KEY,
   applyLocaleToDocument,
 } from '@/lib/user/locale-runtime'
+import { loadUserProfileBootstrap } from '@/lib/user/profile-bootstrap-client'
 
 export default function LocaleRuntimeSync() {
   useEffect(() => {
@@ -30,9 +31,8 @@ export default function LocaleRuntimeSync() {
         return
       }
       try {
-        const response = await fetch('/api/user/profile', { method: 'GET' })
-        if (!response.ok) return
-        const payload = await response.json().catch(() => null)
+        const payload = await loadUserProfileBootstrap()
+        if (!payload) return
         const profile = payload?.profile || {}
         const language = typeof profile.language === 'string' ? profile.language : ''
         const currency = typeof profile.currency === 'string' ? profile.currency : ''

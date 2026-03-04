@@ -71,6 +71,11 @@ const slugifyProductName = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+const isUuid = (value: string) => UUID_PATTERN.test(String(value || '').trim())
+
 const readSlug = async (context: { params: Promise<{ slug: string }> }) => {
   const params = await context.params
   return String(params?.slug || '').trim()
@@ -90,6 +95,21 @@ const resolveProductBySlug = async (supabase: any, slug: string) => {
     return { error: null, data: byProductsTable.data }
   }
 
+  if (isUuid(slug)) {
+    const byProductsId = await supabase
+      .from('products')
+      .select('id, name')
+      .eq('id', slug)
+      .maybeSingle()
+
+    if (byProductsId.error && !isSafeMissingSchemaError(byProductsId.error)) {
+      return { error: byProductsId.error, data: null }
+    }
+    if (byProductsId.data?.id) {
+      return { error: null, data: byProductsId.data }
+    }
+  }
+
   const byAdminProductsTable = await supabase
     .from('admin_products')
     .select('id, name')
@@ -99,8 +119,26 @@ const resolveProductBySlug = async (supabase: any, slug: string) => {
   if (byAdminProductsTable.error && !isSafeMissingSchemaError(byAdminProductsTable.error)) {
     return { error: byAdminProductsTable.error, data: null }
   }
+  if (byAdminProductsTable.data?.id) {
+    return { error: null, data: byAdminProductsTable.data }
+  }
 
-  return { error: null, data: byAdminProductsTable.data || null }
+  if (isUuid(slug)) {
+    const byAdminProductsId = await supabase
+      .from('admin_products')
+      .select('id, name')
+      .eq('id', slug)
+      .maybeSingle()
+
+    if (byAdminProductsId.error && !isSafeMissingSchemaError(byAdminProductsId.error)) {
+      return { error: byAdminProductsId.error, data: null }
+    }
+    if (byAdminProductsId.data?.id) {
+      return { error: null, data: byAdminProductsId.data }
+    }
+  }
+
+  return { error: null, data: null }
 }
 
 const PURCHASED_ORDER_STATUS = 'paid'
@@ -191,6 +229,10 @@ export async function GET(
   const { data: authData, error: authError } = await supabase.auth.getUser()
   const reviewerUserId =
     !authError && authData?.user?.id ? String(authData.user.id).trim() : ''
+  const reviewerEmail =
+    !authError && authData?.user?.email
+      ? String(authData.user.email).trim().toLowerCase()
+      : ''
   let canWriteReview = false
 
   if (!productId) {
@@ -253,18 +295,37 @@ export async function GET(
 
   if (!vendorProductIds.length) vendorProductIds = [productId]
 
-  const { data: reviewRows, error: reviewsError } = await supabase
-    .from('product_reviews')
-    .select(
-      'id, product_id, reviewer_name, reviewer_avatar_url, rating, content, review_image_urls, review_video_urls, is_verified_purchase, created_at, status',
-    )
-    .in('product_id', vendorProductIds)
-    .eq('status', 'published')
-    .order('created_at', { ascending: false })
-    .limit(per_page)
+  const reviewSelectFields =
+    'id, product_id, reviewer_user_id, reviewer_email, reviewer_name, reviewer_avatar_url, rating, content, review_image_urls, review_video_urls, is_verified_purchase, created_at, status'
+  const [publishedReviewsRes, ownedByUserIdRes, ownedByEmailRes] = await Promise.all([
+    supabase
+      .from('product_reviews')
+      .select(reviewSelectFields)
+      .in('product_id', vendorProductIds)
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+      .limit(per_page),
+    reviewerUserId
+      ? supabase
+          .from('product_reviews')
+          .select(reviewSelectFields)
+          .in('product_id', vendorProductIds)
+          .eq('reviewer_user_id', reviewerUserId)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null } as any),
+    reviewerEmail
+      ? supabase
+          .from('product_reviews')
+          .select(reviewSelectFields)
+          .in('product_id', vendorProductIds)
+          .is('reviewer_user_id', null)
+          .eq('reviewer_email', reviewerEmail)
+          .order('created_at', { ascending: false })
+      : Promise.resolve({ data: [], error: null } as any),
+  ])
 
-  if (reviewsError) {
-    if (isSafeMissingSchemaError(reviewsError)) {
+  if (publishedReviewsRes.error) {
+    if (isSafeMissingSchemaError(publishedReviewsRes.error)) {
       const response = jsonOk({
         ...emptyPayload,
         canWriteReview,
@@ -272,11 +333,30 @@ export async function GET(
       applyCookies(response)
       return response
     }
-    console.error('public product reviews list failed:', reviewsError.message)
+    console.error('public product published reviews list failed:', publishedReviewsRes.error.message)
+    return jsonError('Unable to load reviews.', 500)
+  }
+  if (ownedByUserIdRes.error && !isSafeMissingSchemaError(ownedByUserIdRes.error)) {
+    console.error('public product own reviews by user id failed:', ownedByUserIdRes.error.message)
+    return jsonError('Unable to load reviews.', 500)
+  }
+  if (ownedByEmailRes.error && !isSafeMissingSchemaError(ownedByEmailRes.error)) {
+    console.error('public product own reviews by email failed:', ownedByEmailRes.error.message)
     return jsonError('Unable to load reviews.', 500)
   }
 
-  const rows = Array.isArray(reviewRows) ? reviewRows : []
+  const mergedRows = [
+    ...(Array.isArray(publishedReviewsRes.data) ? publishedReviewsRes.data : []),
+    ...(Array.isArray(ownedByUserIdRes.data) ? ownedByUserIdRes.data : []),
+    ...(Array.isArray(ownedByEmailRes.data) ? ownedByEmailRes.data : []),
+  ]
+  const rows = Array.from(
+    new Map(
+      mergedRows
+        .filter((row: any) => row?.id)
+        .map((row: any) => [String(row.id), row]),
+    ).values(),
+  )
   if (!rows.length) {
     const response = jsonOk({
       ...emptyPayload,

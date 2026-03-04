@@ -2,6 +2,37 @@ import { z } from 'zod'
 
 const trimmed = (value: unknown) =>
   typeof value === 'string' ? value.trim() : value
+
+const normalizeInterestList = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean)
+  }
+  if (typeof value !== 'string') return []
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
+const normalizeInterestsObject = (value: unknown) => {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const source = value as Record<string, unknown>
+    return {
+      categories: normalizeInterestList(source.categories),
+      audience: normalizeInterestList(source.audience),
+      styles: normalizeInterestList(source.styles),
+    }
+  }
+
+  const fallback = normalizeInterestList(value)
+  return {
+    categories: fallback,
+    audience: [],
+    styles: [],
+  }
+}
 const addressEntrySchema = z.object({
   id: z.preprocess(trimmed, z.string().min(1)),
   label: z.preprocess(trimmed, z.string().max(60).optional().or(z.literal(''))),
@@ -55,7 +86,26 @@ export const userProfileSchema = z.object({
     .array(addressEntrySchema)
     .max(5, 'You can save a maximum of 5 addresses.')
     .optional(),
-  interests: z.preprocess(trimmed, z.string().max(200).optional().or(z.literal(''))),
+  interests: z
+    .preprocess(
+      normalizeInterestsObject,
+      z
+        .object({
+          categories: z
+            .array(z.preprocess(trimmed, z.string().max(80)))
+            .max(3, 'You can pick up to 3 Fashion Energy options.')
+            .default([]),
+          audience: z
+            .array(z.preprocess(trimmed, z.string().max(80)))
+            .max(2, 'You can pick up to 2 Buy For options.')
+            .default([]),
+          styles: z
+            .array(z.preprocess(trimmed, z.string().max(80)))
+            .max(1, 'You can pick up to 1 Wardrobe Mood option.')
+            .default([]),
+        })
+        .optional(),
+    ),
   additionalInfo: z.preprocess(trimmed, z.string().max(500).optional().or(z.literal(''))),
   socials: z
     .object({

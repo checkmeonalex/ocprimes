@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useAlerts } from '@/context/AlertContext'
 
 const MAX_REVIEW_LENGTH = 1200
@@ -54,14 +54,23 @@ const maskReviewerName = (value) => {
 
 const buildProductHref = (review) => {
   const explicitSlug = String(review?.product?.slug || '').trim()
-  if (explicitSlug) return `/product/${encodeURIComponent(explicitSlug)}`
+  const reviewId = String(review?.id || '').trim()
+  if (explicitSlug) {
+    const params = new URLSearchParams()
+    if (reviewId) params.set('focus_review', reviewId)
+    const query = params.toString()
+    return `/product/${encodeURIComponent(explicitSlug)}${query ? `?${query}` : ''}#reviews-section`
+  }
   const fallbackFromName = String(review?.product?.name || '')
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
   if (!fallbackFromName) return ''
-  return `/product/${encodeURIComponent(fallbackFromName)}`
+  const params = new URLSearchParams()
+  if (reviewId) params.set('focus_review', reviewId)
+  const query = params.toString()
+  return `/product/${encodeURIComponent(fallbackFromName)}${query ? `?${query}` : ''}#reviews-section`
 }
 
 const getSellerPerformance = (ratingValue) => {
@@ -104,6 +113,7 @@ const getSellerPerformance = (ratingValue) => {
 const CustomerReviews = ({ data, productSlug, onReviewSubmitted }) => {
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { pushAlert } = useAlerts()
   const [searchQuery, setSearchQuery] = useState('')
   const [sortMode, setSortMode] = useState('recommended')
@@ -114,6 +124,7 @@ const CustomerReviews = ({ data, productSlug, onReviewSubmitted }) => {
   const [composerContent, setComposerContent] = useState('')
   const [composerFiles, setComposerFiles] = useState([])
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  const [highlightedReviewId, setHighlightedReviewId] = useState('')
   const canWriteReview = Boolean(data?.canWriteReview)
   const totalItems = Number(data?.summary?.totalReviews || 0)
   const sellerPerformance = getSellerPerformance(data?.summary?.rating)
@@ -157,6 +168,42 @@ const CustomerReviews = ({ data, productSlug, onReviewSubmitted }) => {
     })
     return sorted
   }, [data?.reviews, searchQuery, sortMode])
+
+  const focusedReviewId = useMemo(() => {
+    const fromQuery = String(searchParams?.get('focus_review') || '').trim()
+    if (fromQuery) return fromQuery
+    if (typeof window === 'undefined') return ''
+    const hash = String(window.location.hash || '').trim()
+    if (!hash) return ''
+    if (hash.startsWith('#review-')) {
+      return hash.replace('#review-', '').trim()
+    }
+    if (hash.startsWith('#review-card-')) {
+      return hash.replace('#review-card-', '').trim()
+    }
+    return ''
+  }, [searchParams])
+
+  useEffect(() => {
+    const safeFocusedId = String(focusedReviewId || '').trim()
+    if (!safeFocusedId) return undefined
+    const hasMatch = filteredReviews.some((review) => String(review?.id || '').trim() === safeFocusedId)
+    if (!hasMatch) return undefined
+    setHighlightedReviewId(safeFocusedId)
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById(`review-card-${safeFocusedId}`)
+      if (target && typeof target.scrollIntoView === 'function') {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    })
+    const timer = window.setTimeout(() => {
+      setHighlightedReviewId((current) => (current === safeFocusedId ? '' : current))
+    }, 4200)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
+    }
+  }, [filteredReviews, focusedReviewId])
   useEffect(() => {
     if (!isSortMenuOpen) return undefined
     const handleWindowClick = () => setIsSortMenuOpen(false)
@@ -623,7 +670,15 @@ const CustomerReviews = ({ data, productSlug, onReviewSubmitted }) => {
 
       <div className='space-y-4'>
         {filteredReviews.map((review) => (
-          <div key={review.id}>
+          <div
+            key={review.id}
+            id={`review-card-${String(review?.id || '').trim()}`}
+            className={`scroll-mt-28 rounded-xl transition ${
+              String(review?.id || '').trim() === highlightedReviewId
+                ? 'bg-sky-50/50 ring-2 ring-sky-200'
+                : ''
+            }`}
+          >
             <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
               <div className='flex min-w-0 items-center gap-3'>
                 <div className='h-10 w-10 shrink-0 overflow-hidden rounded-full bg-slate-100'>

@@ -1,6 +1,6 @@
 'use client'
 
-import BrowsingHistoryPage from '../UserBackend/coupons-offers/page'
+import BrowsingHistoryPage from '../UserBackend/browsing-history/page'
 
 export default function RecentlyViewedStandalonePage() {
   return (

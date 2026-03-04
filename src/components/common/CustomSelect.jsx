@@ -3,15 +3,39 @@
 import { Children, isValidElement, useEffect, useMemo, useRef, useState } from 'react'
 
 const baseTriggerClassName =
-  'w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60'
+  'w-full max-w-full overflow-hidden rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:ring-2 focus:ring-slate-200 disabled:cursor-not-allowed disabled:opacity-60'
 
 const optionListClassName =
-  'absolute z-40 mt-1 max-h-64 w-full overflow-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg'
+  'absolute z-40 mt-1 w-full overflow-hidden rounded-md border border-slate-200 bg-white shadow-lg'
 
 const optionItemClassName =
   'w-full px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50'
 
 const stringifyValue = (value) => String(value ?? '')
+
+const isScrollableOverflow = (value) =>
+  value === 'auto' || value === 'scroll' || value === 'overlay'
+
+const isClippingOverflow = (value) =>
+  Boolean(value) && value !== 'visible'
+
+const findScrollBoundaryRect = (element) => {
+  if (!element || typeof window === 'undefined') return null
+  let current = element.parentElement
+  let clippingBoundaryRect = null
+  while (current) {
+    const style = window.getComputedStyle(current)
+    const overflowY = style.overflowY || style.overflow
+    if (isScrollableOverflow(overflowY)) {
+      return current.getBoundingClientRect()
+    }
+    if (isClippingOverflow(overflowY) && !clippingBoundaryRect) {
+      clippingBoundaryRect = current.getBoundingClientRect()
+    }
+    current = current.parentElement
+  }
+  return clippingBoundaryRect
+}
 
 const toLabelText = (value) => {
   if (Array.isArray(value)) {
@@ -60,9 +84,19 @@ export default function CustomSelect({
   name = undefined,
   id = undefined,
   'aria-label': ariaLabel = undefined,
+  autoFlip = false,
+  searchable = false,
+  searchPlaceholder = 'Search...',
+  noResultsText = 'No result found',
+  triggerRef = undefined,
 }) {
   const rootRef = useRef(null)
+  const optionListRef = useRef(null)
+  const searchInputRef = useRef(null)
   const [isOpen, setIsOpen] = useState(false)
+  const [placement, setPlacement] = useState('bottom')
+  const [menuMaxHeight, setMenuMaxHeight] = useState(256)
+  const [searchTerm, setSearchTerm] = useState('')
   const options = useMemo(() => flattenOptionNodes(children, []), [children])
   const fallbackOption = useMemo(
     () => options.find((option) => !option.disabled) || options[0] || null,
@@ -75,6 +109,16 @@ export default function CustomSelect({
   )
   const selectedValue = isControlled ? controlledValue : internalValue
   const selectedOption = options.find((option) => option.value === selectedValue) || fallbackOption
+  const normalizedSearch = String(searchTerm || '').trim().toLowerCase()
+  const filteredOptions = useMemo(() => {
+    if (!searchable || !normalizedSearch) return options
+    return options.filter((option) => {
+      const optionLabel = String(option.label || '').toLowerCase()
+      const optionValue = String(option.value || '').toLowerCase()
+      return optionLabel.includes(normalizedSearch) || optionValue.includes(normalizedSearch)
+    })
+  }, [normalizedSearch, options, searchable])
+  const searchHeaderHeight = searchable ? 48 : 0
 
   useEffect(() => {
     if (isControlled) return
@@ -82,6 +126,82 @@ export default function CustomSelect({
     if (internalValue) return
     setInternalValue(selectedOption.value)
   }, [fallbackOption?.value, internalValue, isControlled, selectedOption])
+
+  useEffect(() => {
+    if (!isOpen || !autoFlip) return undefined
+
+    const viewportPadding = 12
+    const gap = 6
+    const minPanelHeight = 132
+    const estimatedOptionHeight = 36
+
+    const updateMenuPlacement = () => {
+      if (!rootRef.current) return
+      const triggerRect = rootRef.current.getBoundingClientRect()
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0
+      if (!viewportHeight) return
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0
+      if (!viewportWidth) return
+
+      const boundaryRect = findScrollBoundaryRect(rootRef.current)
+      const boundaryTop = Math.max(
+        viewportPadding,
+        Math.floor(boundaryRect?.top ?? viewportPadding),
+      )
+      const boundaryBottom = Math.min(
+        viewportHeight - viewportPadding,
+        Math.floor(boundaryRect?.bottom ?? viewportHeight - viewportPadding),
+      )
+
+      const spaceBelow = Math.max(
+        0,
+        boundaryBottom - triggerRect.bottom - gap,
+      )
+      const spaceAbove = Math.max(0, triggerRect.top - boundaryTop - gap)
+      const desiredPanelHeight = Math.min(
+        256,
+        Math.max(minPanelHeight, options.length * estimatedOptionHeight),
+      )
+
+      const shouldPlaceTop = spaceBelow < desiredPanelHeight && spaceAbove > spaceBelow
+      const nextPlacement = shouldPlaceTop ? 'top' : 'bottom'
+      const availableSpace = Math.max(
+        shouldPlaceTop ? spaceAbove : spaceBelow,
+        minPanelHeight,
+      )
+      const nextMaxHeight = Math.max(
+        108,
+        Math.min(256, Math.floor(availableSpace)),
+      )
+
+      setPlacement(nextPlacement)
+      setMenuMaxHeight(nextMaxHeight)
+    }
+
+    updateMenuPlacement()
+    const rafId = window.requestAnimationFrame(updateMenuPlacement)
+    window.addEventListener('resize', updateMenuPlacement)
+    window.addEventListener('scroll', updateMenuPlacement, true)
+    return () => {
+      window.cancelAnimationFrame(rafId)
+      window.removeEventListener('resize', updateMenuPlacement)
+      window.removeEventListener('scroll', updateMenuPlacement, true)
+    }
+  }, [autoFlip, isOpen, options.length])
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchTerm('')
+      return undefined
+    }
+    if (!searchable) return undefined
+    const rafId = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus()
+    })
+    return () => {
+      window.cancelAnimationFrame(rafId)
+    }
+  }, [isOpen, searchable])
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -114,9 +234,10 @@ export default function CustomSelect({
   }
 
   return (
-    <div className='relative' ref={rootRef}>
+    <div className='relative w-full min-w-0 max-w-full' ref={rootRef}>
       {name ? <input type='hidden' name={name} value={selectedOption?.value || ''} /> : null}
       <button
+        ref={triggerRef}
         type='button'
         id={id}
         aria-label={ariaLabel}
@@ -141,28 +262,100 @@ export default function CustomSelect({
       </button>
 
       {isOpen ? (
-        <div className={optionListClassName} role='listbox'>
-          {options.map((option) => (
-            <button
-              key={`${option.value}-${option.label}`}
-              type='button'
-              role='option'
-              disabled={option.disabled}
-              aria-selected={selectedOption?.value === option.value}
-              className={`${optionItemClassName} ${
-                selectedOption?.value === option.value ? 'bg-slate-100 font-semibold text-slate-900' : ''
-              }`}
-              onClick={() => {
-                if (option.disabled) return
-                emitChange(option.value)
-                setIsOpen(false)
-              }}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div
+          ref={optionListRef}
+          className={`${optionListClassName} ${
+            autoFlip
+              ? placement === 'top'
+                ? 'bottom-full mb-1 mt-0'
+                : 'top-full mt-1 mb-0'
+              : ''
+          }`}
+          role='listbox'
+          style={autoFlip ? { maxHeight: `${menuMaxHeight}px` } : undefined}
+        >
+          {searchable ? (
+            <div className='border-b border-slate-200 bg-white px-2 py-1.5'>
+              <div className='relative'>
+                <svg
+                  className='pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400'
+                  viewBox='0 0 20 20'
+                  fill='none'
+                  stroke='currentColor'
+                  strokeWidth='1.8'
+                  aria-hidden='true'
+                >
+                  <circle cx='9' cy='9' r='5.5' />
+                  <path d='M13.5 13.5 17 17' strokeLinecap='round' />
+                </svg>
+                <input
+                  ref={searchInputRef}
+                  type='text'
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder={searchPlaceholder}
+                  className='h-8 w-full rounded-md border border-slate-200 bg-slate-50 pl-8 pr-2 text-xs text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white focus:ring-1 focus:ring-slate-300'
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <div
+            className='custom-select-scrollbar max-h-64 overflow-y-auto py-1'
+            style={{
+              maxHeight: `${Math.max(
+                96,
+                (autoFlip ? menuMaxHeight : 256) - searchHeaderHeight,
+              )}px`,
+            }}
+          >
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((option) => (
+                <button
+                  key={`${option.value}-${option.label}`}
+                  type='button'
+                  role='option'
+                  disabled={option.disabled}
+                  aria-selected={selectedOption?.value === option.value}
+                  className={`${optionItemClassName} ${
+                    selectedOption?.value === option.value ? 'bg-slate-100 font-semibold text-slate-900' : ''
+                  }`}
+                  onClick={() => {
+                    if (option.disabled) return
+                    emitChange(option.value)
+                    setIsOpen(false)
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))
+            ) : (
+              <p className='px-3 py-2 text-xs text-slate-500'>{noResultsText}</p>
+            )}
+          </div>
         </div>
       ) : null}
+      <style jsx global>{`
+        .custom-select-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(71, 85, 105, 0.82) rgba(148, 163, 184, 0.16);
+        }
+        .custom-select-scrollbar::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+        .custom-select-scrollbar::-webkit-scrollbar-track {
+          background: rgba(148, 163, 184, 0.14);
+          border-radius: 999px;
+        }
+        .custom-select-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(71, 85, 105, 0.82);
+          border-radius: 999px;
+        }
+        .custom-select-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(51, 65, 85, 0.92);
+        }
+      `}</style>
     </div>
   )
 }

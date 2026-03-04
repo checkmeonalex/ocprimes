@@ -3,7 +3,7 @@ import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 import { findOrCreateDashboardHelpCenterConversation } from '@/lib/chat/dashboard'
-import { getConversationClosureState } from '@/lib/chat/conversation-closure'
+import { getConversationClosureState, reopenConversation } from '@/lib/chat/conversation-closure'
 import { loadVendorDisplayNameMap } from '@/lib/chat/chat-server'
 
 export async function POST(request: NextRequest) {
@@ -25,10 +25,25 @@ export async function POST(request: NextRequest) {
       return jsonError('Unable to initialize Help Center chat.', 500)
     }
 
-    const closure = getConversationClosureState({
+    let closure = getConversationClosureState({
       conversation: result.data,
       isAdmin: false,
     })
+    if (closure.isClosed || !closure.canSend || !closure.canView) {
+      const reopenResult = await reopenConversation({ conversationId: String(result.data.id || '') })
+      if (!reopenResult.error) {
+        closure = getConversationClosureState({
+          conversation: {
+            ...result.data,
+            closedAt: null,
+            closed_at: null,
+            closedReason: '',
+            closed_reason: '',
+          },
+          isAdmin: false,
+        })
+      }
+    }
     if (!closure.canView) {
       return jsonError('This chat is no longer available.', 410)
     }

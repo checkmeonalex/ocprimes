@@ -15,9 +15,19 @@ const formatDate = (value) => {
 }
 
 const buildProductHref = (product) => {
-  const slug = String(product?.slug || '').trim()
-  if (slug) return `/product/${encodeURIComponent(slug)}`
+  const routeKey = String(product?.slug || product?.id || '').trim()
+  if (routeKey) return `/product/${encodeURIComponent(routeKey)}`
   return ''
+}
+
+const buildProductReviewHref = (product, reviewId) => {
+  const routeKey = String(product?.slug || product?.id || '').trim()
+  const reviewKey = String(reviewId || '').trim()
+  if (!routeKey) return ''
+  const params = new URLSearchParams()
+  if (reviewKey) params.set('focus_review', reviewKey)
+  const query = params.toString()
+  return `/product/${encodeURIComponent(routeKey)}${query ? `?${query}` : ''}#reviews-section`
 }
 
 const renderStars = (rating) => (
@@ -63,6 +73,8 @@ export default function ReviewsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [items, setItems] = useState([])
   const [query, setQuery] = useState('')
+  const [deleteArmedId, setDeleteArmedId] = useState('')
+  const [deletingReviewId, setDeletingReviewId] = useState('')
 
   useEffect(() => {
     let isActive = true
@@ -116,6 +128,44 @@ export default function ReviewsPage() {
     })
   }, [items, query])
 
+  const handleDeleteReview = async (reviewId) => {
+    const safeReviewId = String(reviewId || '').trim()
+    if (!safeReviewId || deletingReviewId) return
+    setDeletingReviewId(safeReviewId)
+    try {
+      const response = await fetch(
+        `/api/user/reviews?review_id=${encodeURIComponent(safeReviewId)}`,
+        {
+          method: 'DELETE',
+          cache: 'no-store',
+        },
+      )
+      const payload = await response.json().catch(() => null)
+      if (response.status === 401) {
+        window.location.href = '/login?next=/UserBackend/reviews'
+        return
+      }
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to delete review.')
+      }
+      setItems((prev) => prev.filter((entry) => String(entry?.id || '') !== safeReviewId))
+      setDeleteArmedId('')
+      pushAlert({
+        type: 'success',
+        title: 'Reviews',
+        message: 'Review deleted.',
+      })
+    } catch (error) {
+      pushAlert({
+        type: 'error',
+        title: 'Reviews',
+        message: error?.message || 'Unable to delete review.',
+      })
+    } finally {
+      setDeletingReviewId('')
+    }
+  }
+
   return (
     <section className='rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5'>
       <div className='flex flex-wrap items-end justify-between gap-3'>
@@ -165,7 +215,14 @@ export default function ReviewsPage() {
           filtered.map((item) => {
             const reviewImages = Array.isArray(item?.review_image_urls) ? item.review_image_urls : []
             const reviewVideos = Array.isArray(item?.review_video_urls) ? item.review_video_urls : []
-            const productHref = buildProductHref(item?.product)
+            const productForRoute = {
+              ...(item?.product || {}),
+              id: String(item?.product?.id || item?.product_id || '').trim(),
+            }
+            const productHref =
+              buildProductReviewHref(productForRoute, item?.id) || buildProductHref(productForRoute)
+            const isDeleteArmed = deleteArmedId === item.id
+            const isDeleting = deletingReviewId === item.id
 
             return (
               <article key={item.id} className='rounded-xl border border-slate-200 bg-white p-3 sm:p-4'>
@@ -182,40 +239,37 @@ export default function ReviewsPage() {
                         {String(item?.status || 'published')}
                       </span>
                     </div>
-                    {item?.product?.name ? (
-                      <div className='mt-2'>
-                        {productHref ? (
-                          <Link
-                            href={productHref}
-                            className='inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900 hover:underline'
-                          >
-                            <span className='h-7 w-7 shrink-0 overflow-hidden rounded bg-slate-100'>
-                              {item?.product?.image_url ? (
-                                <img
-                                  src={item.product.image_url}
-                                  alt={item.product.name}
-                                  className='h-full w-full object-cover'
-                                />
-                              ) : null}
-                            </span>
-                            <span className='truncate'>{item.product.name}</span>
-                          </Link>
-                        ) : (
-                          <span className='inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900'>
-                            <span className='h-7 w-7 shrink-0 overflow-hidden rounded bg-slate-100'>
-                              {item?.product?.image_url ? (
-                                <img
-                                  src={item.product.image_url}
-                                  alt={item.product.name}
-                                  className='h-full w-full object-cover'
-                                />
-                              ) : null}
-                            </span>
-                            <span className='truncate'>{item.product.name}</span>
-                          </span>
-                        )}
+                  </div>
+                  <div className='shrink-0'>
+                    {!isDeleteArmed ? (
+                      <button
+                        type='button'
+                        onClick={() => setDeleteArmedId(String(item.id || ''))}
+                        className='inline-flex h-8 items-center rounded-full border border-rose-200 px-3 text-xs font-semibold text-rose-700 hover:bg-rose-50'
+                        disabled={Boolean(deletingReviewId)}
+                      >
+                        Delete
+                      </button>
+                    ) : (
+                      <div className='flex items-center gap-2'>
+                        <button
+                          type='button'
+                          onClick={() => setDeleteArmedId('')}
+                          className='inline-flex h-8 items-center rounded-full border border-slate-200 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50'
+                          disabled={isDeleting}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type='button'
+                          onClick={() => handleDeleteReview(item.id)}
+                          className='inline-flex h-8 items-center rounded-full bg-rose-600 px-3 text-xs font-semibold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60'
+                          disabled={isDeleting}
+                        >
+                          {isDeleting ? 'Deleting...' : 'Confirm delete'}
+                        </button>
                       </div>
-                    ) : null}
+                    )}
                   </div>
                 </div>
 
@@ -246,6 +300,25 @@ export default function ReviewsPage() {
                     ))}
                   </div>
                 ) : null}
+
+                <div className='mt-3'>
+                  {productHref ? (
+                    <Link
+                      href={productHref}
+                      className='inline-flex h-9 items-center justify-center rounded-md bg-slate-900 px-4 text-xs font-semibold uppercase tracking-[0.06em] text-white transition hover:bg-slate-800'
+                    >
+                      VIEW PRODUCT
+                    </Link>
+                  ) : (
+                    <button
+                      type='button'
+                      disabled
+                      className='inline-flex h-9 cursor-not-allowed items-center justify-center rounded-md bg-slate-300 px-4 text-xs font-semibold uppercase tracking-[0.06em] text-white'
+                    >
+                      VIEW PRODUCT
+                    </button>
+                  )}
+                </div>
               </article>
             )
           })}

@@ -1,6 +1,6 @@
 'use client'
 import CustomSelect from '@/components/common/CustomSelect'
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOptionalCart } from '../../../context/CartContext'
 import ProductFilters from '../ProductFilters'
 import ProductGrid from '../ProductGrid'
@@ -100,6 +100,8 @@ const ProductCatalogPage = ({
   vendorSlider = null,
   storefrontFilter = null,
   storeProductCount = null,
+  initialNextCursor = '',
+  initialHasMore = false,
 }) => {
   const cart = useOptionalCart()
   const addItem = cart?.addItem || (() => {})
@@ -114,7 +116,9 @@ const ProductCatalogPage = ({
   const [loadedProducts, setLoadedProducts] = useState(() =>
     Array.isArray(products) ? products : []
   )
-  const [currentPage, setCurrentPage] = useState(1)
+  const [nextCursor, setNextCursor] = useState(() =>
+    String(initialNextCursor || '').trim()
+  )
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [vendorLogoFailed, setVendorLogoFailed] = useState(false)
   const [vendorFollowState, setVendorFollowState] = useState({
@@ -128,16 +132,37 @@ const ProductCatalogPage = ({
   const [debouncedVendorProductQuery, setDebouncedVendorProductQuery] = useState('')
   const [isSearchingStoreProducts, setIsSearchingStoreProducts] = useState(false)
   const [hasMoreFromServer, setHasMoreFromServer] = useState(
-    Array.isArray(products) ? products.length >= PAGE_SIZE : false
+    typeof initialHasMore === 'boolean'
+      ? initialHasMore
+      : Array.isArray(products)
+        ? products.length >= PAGE_SIZE
+        : false
   )
   const loadMoreRef = useRef(null)
+  const loadMoreAbortRef = useRef(null)
+  const vendorSearchAbortRef = useRef(null)
+  const loadMoreDebounceTimerRef = useRef(null)
+  const loadMoreInFlightRef = useRef(false)
 
   useEffect(() => {
     const initial = Array.isArray(products) ? products : []
+    const initialHasMoreValue =
+      typeof initialHasMore === 'boolean'
+        ? initialHasMore
+        : initial.length >= PAGE_SIZE
     setLoadedProducts(initial)
-    setCurrentPage(1)
-    setHasMoreFromServer(initial.length >= PAGE_SIZE)
-  }, [products, listingQuery?.category, listingQuery?.tag, listingQuery?.search, listingQuery?.vendor])
+    setNextCursor(String(initialNextCursor || '').trim())
+    setHasMoreFromServer(initialHasMoreValue)
+    loadMoreInFlightRef.current = false
+  }, [
+    products,
+    initialNextCursor,
+    initialHasMore,
+    listingQuery?.category,
+    listingQuery?.tag,
+    listingQuery?.search,
+    listingQuery?.vendor,
+  ])
 
   useEffect(() => {
     setVendorLogoFailed(false)
@@ -212,61 +237,105 @@ const ProductCatalogPage = ({
     [debouncedVendorProductQuery],
   )
 
+  const buildCatalogParams = useCallback(
+    ({ cursor = '', search = '' } = {}) => {
+      const params = new URLSearchParams({
+        per_page: String(PAGE_SIZE),
+        fields: 'card',
+      })
+      if (cursor) {
+        params.set('cursor', cursor)
+      } else {
+        params.set('page', '1')
+      }
+      if (listingQuery?.category) params.set('category', String(listingQuery.category))
+      if (listingQuery?.tag) params.set('tag', String(listingQuery.tag))
+      if (listingQuery?.vendor) params.set('vendor', String(listingQuery.vendor))
+
+      const resolvedSearch = String(search || '').trim()
+      if (resolvedSearch) params.set('search', resolvedSearch)
+
+      return params
+    },
+    [listingQuery?.category, listingQuery?.tag, listingQuery?.vendor],
+  )
+
+  const parseListingPagination = useCallback((payload, fallbackLength = 0) => {
+    const rawCursor = String(payload?.next_cursor || '').trim()
+    const hasMoreByPayload = typeof payload?.has_more === 'boolean' ? payload.has_more : null
+    if (hasMoreByPayload !== null) {
+      return {
+        hasMore: Boolean(hasMoreByPayload && rawCursor),
+        nextCursor: rawCursor,
+      }
+    }
+    return {
+      hasMore: fallbackLength >= PAGE_SIZE,
+      nextCursor: rawCursor,
+    }
+  }, [])
+
   useEffect(() => {
     if (!vendorProfile) return
 
     const searchQuery = activeStoreSearchQuery
     if (!searchQuery) {
       const initial = Array.isArray(products) ? products : []
+      const initialHasMoreValue =
+        typeof initialHasMore === 'boolean'
+          ? initialHasMore
+          : initial.length >= PAGE_SIZE
+      vendorSearchAbortRef.current?.abort()
       setLoadedProducts(initial)
-      setCurrentPage(1)
-      setHasMoreFromServer(initial.length >= PAGE_SIZE)
+      setNextCursor(String(initialNextCursor || '').trim())
+      setHasMoreFromServer(initialHasMoreValue)
       setIsSearchingStoreProducts(false)
+      setIsLoadingMore(false)
       return
     }
 
-    let cancelled = false
+    const controller = new AbortController()
+    vendorSearchAbortRef.current?.abort()
+    vendorSearchAbortRef.current = controller
     setIsSearchingStoreProducts(true)
+    loadMoreAbortRef.current?.abort()
+    loadMoreInFlightRef.current = false
+    setIsLoadingMore(false)
 
-    const params = new URLSearchParams({
-      page: '1',
-      per_page: String(PAGE_SIZE),
-      search: searchQuery,
-    })
-    if (listingQuery?.category) params.set('category', String(listingQuery.category))
-    if (listingQuery?.tag) params.set('tag', String(listingQuery.tag))
-    if (listingQuery?.vendor) params.set('vendor', String(listingQuery.vendor))
+    const params = buildCatalogParams({ search: searchQuery })
 
-    fetch(`/api/products?${params.toString()}`)
+    fetch(`/api/products?${params.toString()}`, { signal: controller.signal })
       .then((response) => response.json().catch(() => null))
       .then((payload) => {
-        if (cancelled) return
+        if (controller.signal.aborted) return
         const nextItems = Array.isArray(payload?.items) ? payload.items : []
+        const pagination = parseListingPagination(payload, nextItems.length)
         setLoadedProducts(nextItems)
-        setCurrentPage(1)
-        setHasMoreFromServer(nextItems.length >= PAGE_SIZE)
+        setNextCursor(pagination.nextCursor)
+        setHasMoreFromServer(pagination.hasMore)
       })
-      .catch(() => {
-        if (cancelled) return
+      .catch((error) => {
+        if (controller.signal.aborted || error?.name === 'AbortError') return
         setLoadedProducts([])
-        setCurrentPage(1)
+        setNextCursor('')
         setHasMoreFromServer(false)
       })
       .finally(() => {
-        if (cancelled) return
+        if (controller.signal.aborted) return
         setIsSearchingStoreProducts(false)
       })
 
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [
     activeStoreSearchQuery,
-    products,
+    buildCatalogParams,
+    parseListingPagination,
     vendorProfile,
-    listingQuery?.category,
-    listingQuery?.tag,
-    listingQuery?.vendor,
+    products,
+    initialNextCursor,
+    initialHasMore,
   ])
 
   const source = useMemo(() => {
@@ -545,65 +614,86 @@ const ProductCatalogPage = ({
     return items
   }, [filteredProducts, sortValue])
 
+  const loadMoreFromServer = useCallback(() => {
+    const cursor = String(nextCursor || '').trim()
+    if (!cursor || loadMoreInFlightRef.current) return
+
+    loadMoreAbortRef.current?.abort()
+    const controller = new AbortController()
+    loadMoreAbortRef.current = controller
+    loadMoreInFlightRef.current = true
+    setIsLoadingMore(true)
+
+    const searchQuery = vendorProfile
+      ? activeStoreSearchQuery
+      : String(listingQuery?.search || '').trim()
+    const params = buildCatalogParams({ cursor, search: searchQuery })
+
+    fetch(`/api/products?${params.toString()}`, { signal: controller.signal })
+      .then((response) => response.json().catch(() => null))
+      .then((payload) => {
+        if (controller.signal.aborted) return
+
+        const nextItems = Array.isArray(payload?.items) ? payload.items : []
+        const pagination = parseListingPagination(payload, nextItems.length)
+
+        if (!nextItems.length) {
+          setHasMoreFromServer(false)
+          setNextCursor('')
+          return
+        }
+
+        setLoadedProducts((prev) => {
+          const existing = new Set(prev.map((item) => String(item?.id || item?.slug || '')))
+          const fresh = nextItems.filter((item) => {
+            const key = String(item?.id || item?.slug || '')
+            if (!key || existing.has(key)) return false
+            existing.add(key)
+            return true
+          })
+          if (!fresh.length) {
+            setHasMoreFromServer(false)
+            setNextCursor('')
+            return prev
+          }
+          return [...prev, ...fresh]
+        })
+
+        setHasMoreFromServer(pagination.hasMore)
+        setNextCursor(pagination.nextCursor)
+      })
+      .catch((error) => {
+        if (controller.signal.aborted || error?.name === 'AbortError') return
+        setHasMoreFromServer(false)
+      })
+      .finally(() => {
+        loadMoreInFlightRef.current = false
+        if (controller.signal.aborted) return
+        setIsLoadingMore(false)
+      })
+  }, [
+    nextCursor,
+    vendorProfile,
+    activeStoreSearchQuery,
+    listingQuery?.search,
+    buildCatalogParams,
+    parseListingPagination,
+  ])
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     const target = loadMoreRef.current
-    if (!target || !hasMoreFromServer || isLoadingMore) return
+    if (!target || !hasMoreFromServer || isLoadingMore || !nextCursor) return
 
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0]
-        if (!entry?.isIntersecting || isLoadingMore) return
-        setIsLoadingMore(true)
-
-        const nextPage = currentPage + 1
-        const params = new URLSearchParams({
-          page: String(nextPage),
-          per_page: String(PAGE_SIZE),
-        })
-        if (listingQuery?.category) params.set('category', String(listingQuery.category))
-        if (listingQuery?.tag) params.set('tag', String(listingQuery.tag))
-        const searchQuery = vendorProfile
-          ? activeStoreSearchQuery
-          : String(listingQuery?.search || '').trim()
-        if (searchQuery) params.set('search', searchQuery)
-        if (listingQuery?.vendor) params.set('vendor', String(listingQuery.vendor))
-
-        fetch(`/api/products?${params.toString()}`)
-          .then((response) => response.json().catch(() => null))
-          .then((payload) => {
-            const nextItems = Array.isArray(payload?.items) ? payload.items : []
-            if (!nextItems.length) {
-              setHasMoreFromServer(false)
-              setCurrentPage(nextPage)
-              return
-            }
-
-            setLoadedProducts((prev) => {
-              const existing = new Set(prev.map((item) => String(item?.id || item?.slug || '')))
-              const fresh = nextItems.filter((item) => {
-                const key = String(item?.id || item?.slug || '')
-                if (!key || existing.has(key)) return false
-                existing.add(key)
-                return true
-              })
-              if (!fresh.length) {
-                setHasMoreFromServer(false)
-                return prev
-              }
-              return [...prev, ...fresh]
-            })
-            setCurrentPage(nextPage)
-            if (nextItems.length < PAGE_SIZE) {
-              setHasMoreFromServer(false)
-            }
-          })
-          .catch(() => {
-            setHasMoreFromServer(false)
-          })
-          .finally(() => {
-            setIsLoadingMore(false)
-          })
+        if (!entry?.isIntersecting || isLoadingMore || loadMoreInFlightRef.current) return
+        if (loadMoreDebounceTimerRef.current) return
+        loadMoreDebounceTimerRef.current = window.setTimeout(() => {
+          loadMoreDebounceTimerRef.current = null
+          loadMoreFromServer()
+        }, 140)
       },
       { root: null, rootMargin: '240px 0px', threshold: 0.01 }
     )
@@ -611,16 +701,22 @@ const ProductCatalogPage = ({
     observer.observe(target)
     return () => observer.disconnect()
   }, [
-    currentPage,
     hasMoreFromServer,
     isLoadingMore,
-    activeStoreSearchQuery,
-    vendorProfile,
-    listingQuery?.category,
-    listingQuery?.tag,
-    listingQuery?.search,
-    listingQuery?.vendor,
+    nextCursor,
+    loadMoreFromServer,
   ])
+
+  useEffect(
+    () => () => {
+      if (loadMoreDebounceTimerRef.current) {
+        window.clearTimeout(loadMoreDebounceTimerRef.current)
+      }
+      loadMoreAbortRef.current?.abort()
+      vendorSearchAbortRef.current?.abort()
+    },
+    [],
+  )
 
   const handleClear = () => {
     setSelectedCategories(new Set())

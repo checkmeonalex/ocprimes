@@ -5,6 +5,14 @@ import { useSearchParams } from 'next/navigation';
 import AdminSidebar from '@/components/AdminSidebar';
 import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser';
+import {
+  formatConversationLastMessageLabel,
+  formatMessageTimeLabel,
+} from '@/lib/chat/time-label.ts';
+import {
+  buildVoiceMessageBody,
+  toChatMessagePreview,
+} from '@/lib/chat/voice-message';
 import SellerConversationList from './messages/components/SellerConversationList';
 import SellerConversationThread from './messages/components/SellerConversationThread';
 import SellerConversationPlaceholder from './messages/components/SellerConversationPlaceholder';
@@ -19,16 +27,7 @@ const FILTER_HANDLERS = {
 const HELP_CENTER_VIRTUAL_CONVERSATION_ID = '__help_center__';
 const HELP_CENTER_BODY_PROMPT = 'Ask your question and we will help you';
 const ADMIN_EMAIL = 'ocprimes@gmail.com';
-
-const formatTimeLabel = (value) => {
-  if (!value) return '';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '';
-  return parsed.toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
+const MESSAGE_PAGE_SIZE = 10;
 
 const toEmailAlias = (email) => {
   const normalized = String(email || '').trim().toLowerCase();
@@ -78,9 +77,11 @@ const mapConversation = (row) => {
     canSend: row?.canSend !== false,
     participantNotice: String(row?.participantNotice || '').trim(),
     updatedAt: row?.updatedAt || lastMessageAt || new Date().toISOString(),
-    lastMessageAtLabel: formatTimeLabel(lastMessageAt),
-    lastMessagePreview: String(row?.lastMessagePreview || '').trim() || 'No messages yet.',
+    lastMessageAtLabel: formatConversationLastMessageLabel(lastMessageAt),
+    lastMessagePreview: toChatMessagePreview(row?.lastMessagePreview, 'No messages yet.'),
     messages: [],
+    hasLoadedMessages: false,
+    isHelpCenter: row?.isHelpCenter === true,
   };
 };
 
@@ -108,6 +109,11 @@ const mapMessage = (row, currentUserId, conversation) => {
   }
 
   const sender = isSeller ? 'seller' : 'customer';
+  const rawStatus = String(row?.status || '').trim().toLowerCase();
+  const normalizedStatus =
+    rawStatus === 'sending' || rawStatus === 'read' || rawStatus === 'delivered'
+      ? rawStatus
+      : 'sent';
   const isAdminMessage = isSeller && isSenderSuperAdmin;
   const customerFallback = toEmailAlias(senderEmail) || 'Customer';
   const senderLabel = isSeller
@@ -121,7 +127,9 @@ const mapMessage = (row, currentUserId, conversation) => {
     sender,
     senderLabel,
     text: String(row?.body || '').trim(),
-    timeLabel: formatTimeLabel(row?.createdAt),
+    timeLabel: formatMessageTimeLabel(row?.createdAt),
+    createdAt: row?.createdAt || null,
+    status: sender === 'seller' ? normalizedStatus : undefined,
   };
 };
 
@@ -135,8 +143,8 @@ export default function SellerMessagesPage() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [draftMessage, setDraftMessage] = useState('');
   const [isMobileThreadOpen, setIsMobileThreadOpen] = useState(false);
-  const [isLoadingConversations, setIsLoadingConversations] = useState(false);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [messageStateByConversation, setMessageStateByConversation] = useState({});
   const [isSending, setIsSending] = useState(false);
   const [isDeletingConversation, setIsDeletingConversation] = useState(false);
   const [isClearingConversation, setIsClearingConversation] = useState(false);
@@ -154,23 +162,12 @@ export default function SellerMessagesPage() {
     [searchParams],
   );
   const isHelpCenterEnabled = Boolean(currentRole) && currentRole !== 'admin';
-  const helpCenterTargetConversation = useMemo(
-    () =>
-      conversations.find((conversation) => {
-        if (helpCenterConversationId && conversation.id === helpCenterConversationId) return true;
-        const customerEmail = normalizeValue(conversation.customerEmail);
-        const vendorEmail = normalizeValue(conversation.vendorEmail);
-        const customerAlias = normalizeValue(toEmailAlias(conversation.customerEmail));
-        const customerName = normalizeValue(conversation.customerName);
-        return (
-          customerEmail === ADMIN_EMAIL ||
-          vendorEmail === ADMIN_EMAIL ||
-          customerAlias === 'ocprimes' ||
-          customerName === 'ocprimes'
-        );
-      }) || null,
-    [conversations, helpCenterConversationId],
-  );
+  const helpCenterTargetConversation = useMemo(() => {
+    const targetById =
+      conversations.find((conversation) => conversation.id === helpCenterConversationId) || null;
+    if (targetById) return targetById;
+    return conversations.find((conversation) => conversation.isHelpCenter === true) || null;
+  }, [conversations, helpCenterConversationId]);
 
   const loadConversations = useCallback(async () => {
     setIsLoadingConversations(true);
@@ -212,12 +209,28 @@ export default function SellerMessagesPage() {
         if (!existing) return conversation;
         return {
           ...conversation,
+          hasLoadedMessages: existing.hasLoadedMessages === true,
           messages:
             Array.isArray(existing.messages) && existing.messages.length > 0
               ? existing.messages
               : [],
         };
       });
+    });
+    setMessageStateByConversation((previous) => {
+      const next = {};
+      mapped.forEach((conversation) => {
+        const id = String(conversation.id || '').trim();
+        if (!id) return;
+        const existing = previous[id] || {};
+        next[id] = {
+          isLoadingInitial: Boolean(existing.isLoadingInitial),
+          isLoadingOlder: Boolean(existing.isLoadingOlder),
+          hasMore: typeof existing.hasMore === 'boolean' ? existing.hasMore : true,
+          nextBefore: String(existing.nextBefore || '').trim(),
+        };
+      });
+      return next;
     });
     if (nextRole === 'admin') {
       setIsHelpCenterOpen(false);
@@ -226,14 +239,26 @@ export default function SellerMessagesPage() {
       if (previousId && mapped.some((item) => item.id === previousId)) return previousId;
       return '';
     });
+    const payloadHelpCenterConversationId = String(payload?.helpCenterConversationId || '').trim();
+    const mappedHelpCenterConversation = mapped.find((conversation) => conversation.isHelpCenter === true);
     setHelpCenterConversationId((previousId) => {
+      if (mappedHelpCenterConversation?.id) return mappedHelpCenterConversation.id;
+      if (
+        payloadHelpCenterConversationId &&
+        mapped.some((conversation) => conversation.id === payloadHelpCenterConversationId)
+      ) {
+        return payloadHelpCenterConversationId;
+      }
       if (previousId && mapped.some((item) => item.id === previousId)) return previousId;
       return '';
     });
+    if (mappedHelpCenterConversation?.id) {
+      setHasAttemptedHelpCenterConnect(true);
+    }
     setIsLoadingConversations(false);
   }, []);
 
-  const connectHelpCenterConversation = useCallback(async () => {
+  const connectHelpCenterConversation = useCallback(async ({ silent = false } = {}) => {
     if (!isHelpCenterEnabled) return null;
     if (helpCenterTargetConversation?.id) {
       setHelpCenterConversationId(helpCenterTargetConversation.id);
@@ -244,7 +269,7 @@ export default function SellerMessagesPage() {
 
     setIsConnectingHelpCenter(true);
     setHasAttemptedHelpCenterConnect(true);
-    setPageError('');
+    if (!silent) setPageError('');
 
     const response = await fetch('/api/chat/dashboard/help-center', {
       method: 'POST',
@@ -254,19 +279,21 @@ export default function SellerMessagesPage() {
     }).catch(() => null);
 
     if (!response) {
-      setPageError('Unable to initialize Help Center chat right now.');
+      if (!silent) setPageError('Unable to initialize Help Center chat right now.');
       setIsConnectingHelpCenter(false);
       return null;
     }
 
     const payload = await response.json().catch(() => null);
     if (!response.ok) {
-      setPageError(String(payload?.error || 'Unable to initialize Help Center chat.'));
+      if (!silent) setPageError(String(payload?.error || 'Unable to initialize Help Center chat.'));
       setIsConnectingHelpCenter(false);
       return null;
     }
 
-    const mappedConversation = payload?.conversation ? mapConversation(payload.conversation) : null;
+    const mappedConversation = payload?.conversation
+      ? { ...mapConversation(payload.conversation), isHelpCenter: true }
+      : null;
     if (mappedConversation?.id) {
       setConversations((previous) => {
         const exists = previous.some((conversation) => conversation.id === mappedConversation.id);
@@ -315,6 +342,18 @@ export default function SellerMessagesPage() {
   }, [loadConversations]);
 
   useEffect(() => {
+    if (!isHelpCenterEnabled) return;
+    if (isLoadingConversations || hasAttemptedHelpCenterConnect || isConnectingHelpCenter) return;
+    void connectHelpCenterConversation({ silent: true });
+  }, [
+    connectHelpCenterConversation,
+    hasAttemptedHelpCenterConnect,
+    isConnectingHelpCenter,
+    isHelpCenterEnabled,
+    isLoadingConversations,
+  ]);
+
+  useEffect(() => {
     const channel = supabase
       .channel('dashboard-chat-stream')
       .on(
@@ -342,33 +381,60 @@ export default function SellerMessagesPage() {
               const conversationVendorUserId = String(conversation.vendorUserId || '').trim();
               const isSellerMessage = senderUserId === currentUserId;
               const isAdminMessage = isSellerMessage && conversationVendorUserId !== currentUserId;
+              const insertedMessage = mapMessage(
+                {
+                  id: messageId,
+                  senderUserId,
+                  body,
+                  createdAt,
+                  status: isSellerMessage ? 'delivered' : undefined,
+                },
+                currentUserId,
+                conversation,
+              );
+              const shouldAppendToLoadedThread =
+                conversation.hasLoadedMessages === true &&
+                (
+                  activeConversationId === conversationId ||
+                  (isHelpCenterOpen &&
+                    String(helpCenterTargetConversation?.id || '').trim() === conversationId)
+                );
+              const alreadyExists = conversation.messages.some((message) => message.id === messageId);
               const nextMessages = Array.isArray(conversation.messages)
-                ? conversation.messages.some((message) => message.id === messageId)
-                  ? conversation.messages
-                  : [
-                      ...conversation.messages,
-                      {
-                        id: messageId,
-                        sender: isSellerMessage ? 'seller' : 'customer',
-                        senderLabel: isSellerMessage
-                          ? isAdminMessage
-                            ? 'OCPRIMES'
-                            : conversation.sellerName || 'Seller'
-                          : conversation.customerName,
-                        text: body,
-                        timeLabel: formatTimeLabel(createdAt),
-                      },
-                    ]
+                ? shouldAppendToLoadedThread
+                  ? alreadyExists
+                    ? conversation.messages.map((message) =>
+                        message.id === messageId
+                          ? {
+                              ...message,
+                              ...insertedMessage,
+                              senderLabel:
+                                insertedMessage.sender === 'seller'
+                                  ? isAdminMessage
+                                    ? 'OCPRIMES'
+                                    : conversation.sellerName || 'Seller'
+                                  : insertedMessage.senderLabel || conversation.customerName,
+                            }
+                          : message,
+                      )
+                    : [...conversation.messages, insertedMessage]
+                  : conversation.messages
                 : [];
+              const isActiveThreadConversation =
+                activeConversationId === conversationId ||
+                (isHelpCenterOpen &&
+                  String(helpCenterTargetConversation?.id || '').trim() === conversationId);
 
               return {
                 ...conversation,
                 messages: nextMessages,
                 updatedAt: createdAt || new Date().toISOString(),
-                lastMessageAtLabel: formatTimeLabel(createdAt || new Date().toISOString()),
-                lastMessagePreview: body,
+                lastMessageAtLabel: formatConversationLastMessageLabel(
+                  createdAt || new Date().toISOString(),
+                ),
+                lastMessagePreview: toChatMessagePreview(body),
                 unreadCount:
-                  activeConversationId === conversationId || isSellerMessage
+                  isActiveThreadConversation || isSellerMessage
                     ? conversation.unreadCount
                     : conversation.unreadCount + 1,
               };
@@ -415,7 +481,14 @@ export default function SellerMessagesPage() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [activeConversationId, currentUserId, loadConversations, supabase]);
+  }, [
+    activeConversationId,
+    currentUserId,
+    helpCenterTargetConversation,
+    isHelpCenterOpen,
+    loadConversations,
+    supabase,
+  ]);
 
   const filteredConversations = useMemo(() => {
     const safeFilterFn = FILTER_HANDLERS[activeFilter] || FILTER_HANDLERS.all;
@@ -425,6 +498,7 @@ export default function SellerMessagesPage() {
         ? String(helpCenterTargetConversation.id).trim()
         : '';
     return [...conversations]
+      .filter((conversation) => (isHelpCenterEnabled ? conversation.isHelpCenter !== true : true))
       .filter((conversation) =>
         hiddenConversationId ? String(conversation.id || '').trim() !== hiddenConversationId : true,
       )
@@ -466,6 +540,7 @@ export default function SellerMessagesPage() {
       updatedAt: helpCenterTargetConversation?.updatedAt || new Date().toISOString(),
       lastMessageAtLabel: helpCenterTargetConversation?.lastMessageAtLabel || '',
       lastMessagePreview: helpCenterTargetConversation?.lastMessagePreview || HELP_CENTER_BODY_PROMPT,
+      hasLoadedMessages: helpCenterTargetConversation?.hasLoadedMessages === true,
       messages:
         Array.isArray(helpCenterTargetConversation?.messages) &&
         helpCenterTargetConversation.messages.length > 0
@@ -503,79 +578,157 @@ export default function SellerMessagesPage() {
     );
   }, [activeConversationId, conversations, requestedConversationId]);
 
-  const loadMessages = async (conversationId) => {
-    if (!conversationId) return;
+  const loadMessages = useCallback(
+    async (conversationId, { loadOlder = false } = {}) => {
+      const safeConversationId = String(conversationId || '').trim();
+      if (!safeConversationId) return;
 
-    setIsLoadingMessages(true);
-    setPageError('');
+      const previousMeta = messageStateByConversation[safeConversationId] || {};
+      if (loadOlder) {
+        if (previousMeta.isLoadingOlder || previousMeta.isLoadingInitial) return;
+      } else if (previousMeta.isLoadingInitial) {
+        return;
+      }
 
-    const response = await fetch(
-      `/api/chat/dashboard/conversations/${encodeURIComponent(conversationId)}/messages?limit=200`,
-      {
-        method: 'GET',
-        cache: 'no-store',
-      },
-    ).catch(() => null);
+      setMessageStateByConversation((previous) => ({
+        ...previous,
+        [safeConversationId]: {
+          isLoadingInitial: loadOlder ? Boolean(previous[safeConversationId]?.isLoadingInitial) : true,
+          isLoadingOlder: loadOlder ? true : Boolean(previous[safeConversationId]?.isLoadingOlder),
+          hasMore:
+            typeof previous[safeConversationId]?.hasMore === 'boolean'
+              ? previous[safeConversationId].hasMore
+              : true,
+          nextBefore: String(previous[safeConversationId]?.nextBefore || '').trim(),
+        },
+      }));
+      setPageError('');
 
-    if (!response) {
-      setPageError('Unable to load messages right now.');
-      setIsLoadingMessages(false);
-      return;
-    }
+      const params = new URLSearchParams({
+        limit: String(MESSAGE_PAGE_SIZE),
+      });
+      if (loadOlder) {
+        const cursor = String(previousMeta.nextBefore || '').trim();
+        if (!cursor) {
+          setMessageStateByConversation((previous) => ({
+            ...previous,
+            [safeConversationId]: {
+              ...(previous[safeConversationId] || {}),
+              isLoadingOlder: false,
+              hasMore: false,
+            },
+          }));
+          return;
+        }
+        params.set('before', cursor);
+      }
 
-    const payload = await response.json().catch(() => null);
+      const response = await fetch(
+        `/api/chat/dashboard/conversations/${encodeURIComponent(safeConversationId)}/messages?${params.toString()}`,
+        {
+          method: 'GET',
+          cache: 'no-store',
+        },
+      ).catch(() => null);
 
-    if (!response.ok) {
-      setPageError(String(payload?.error || 'Unable to load messages.'));
-      setIsLoadingMessages(false);
-      return;
-    }
+      if (!response) {
+        setPageError('Unable to load messages right now.');
+        setMessageStateByConversation((previous) => ({
+          ...previous,
+          [safeConversationId]: {
+            ...(previous[safeConversationId] || {}),
+            isLoadingInitial: false,
+            isLoadingOlder: false,
+          },
+        }));
+        return;
+      }
 
-    const resolvedCurrentUserId = String(payload?.currentUserId || currentUserId || '').trim();
-    const resolvedRole = String(payload?.role || currentRole || '').trim();
-    if (resolvedCurrentUserId && resolvedCurrentUserId !== currentUserId) {
-      setCurrentUserId(resolvedCurrentUserId);
-    }
-    if (resolvedRole && resolvedRole !== currentRole) {
-      setCurrentRole(resolvedRole);
-    }
+      const payload = await response.json().catch(() => null);
 
-    const selectedConversation =
-      conversations.find((conversation) => conversation.id === conversationId) || null;
+      if (!response.ok) {
+        setPageError(String(payload?.error || 'Unable to load messages.'));
+        setMessageStateByConversation((previous) => ({
+          ...previous,
+          [safeConversationId]: {
+            ...(previous[safeConversationId] || {}),
+            isLoadingInitial: false,
+            isLoadingOlder: false,
+          },
+        }));
+        return;
+      }
 
-    const messages = Array.isArray(payload?.messages)
-      ? payload.messages
-          .map((row) => mapMessage(row, resolvedCurrentUserId, selectedConversation))
-          .filter((item) => item.id && item.text)
-      : [];
+      const resolvedCurrentUserId = String(payload?.currentUserId || currentUserId || '').trim();
+      const resolvedRole = String(payload?.role || currentRole || '').trim();
+      if (resolvedCurrentUserId && resolvedCurrentUserId !== currentUserId) {
+        setCurrentUserId(resolvedCurrentUserId);
+      }
+      if (resolvedRole && resolvedRole !== currentRole) {
+        setCurrentRole(resolvedRole);
+      }
 
-    setConversations((previous) =>
-      previous.map((conversation) =>
-        conversation.id === conversationId
-          ? {
-              ...conversation,
-              adminTakeoverEnabled: Boolean(payload?.conversation?.adminTakeoverEnabled),
-              adminTakeoverBy: String(payload?.conversation?.adminTakeoverBy || '').trim(),
-              adminTakeoverAt: payload?.conversation?.adminTakeoverAt || null,
-              closedAt: payload?.conversation?.closedAt || conversation.closedAt || null,
-              canSend: payload?.conversation?.canSend !== false,
-              participantNotice: String(payload?.conversation?.participantNotice || '').trim(),
-              messages,
-            }
-          : conversation,
-      ),
-    );
+      const selectedConversation =
+        conversations.find((conversation) => conversation.id === safeConversationId) || null;
 
-    setIsLoadingMessages(false);
-  };
+      const pageMessages = Array.isArray(payload?.messages)
+        ? payload.messages
+            .map((row) => mapMessage(row, resolvedCurrentUserId, selectedConversation))
+            .filter((item) => item.id && item.text)
+        : [];
+
+      setConversations((previous) =>
+        previous.map((conversation) => {
+          if (conversation.id !== safeConversationId) return conversation;
+          const existingMessages = Array.isArray(conversation.messages) ? conversation.messages : [];
+          const mergedMessages = loadOlder
+            ? [...pageMessages, ...existingMessages]
+            : pageMessages;
+          const deduped = Array.from(
+            new Map(mergedMessages.map((message) => [String(message.id || ''), message])).values(),
+          );
+          deduped.sort(
+            (left, right) => new Date(left.createdAt || 0).getTime() - new Date(right.createdAt || 0).getTime(),
+          );
+
+          return {
+            ...conversation,
+            adminTakeoverEnabled: Boolean(payload?.conversation?.adminTakeoverEnabled),
+            adminTakeoverBy: String(payload?.conversation?.adminTakeoverBy || '').trim(),
+            adminTakeoverAt: payload?.conversation?.adminTakeoverAt || null,
+            closedAt: payload?.conversation?.closedAt || conversation.closedAt || null,
+            canSend: payload?.conversation?.canSend !== false,
+            participantNotice: String(payload?.conversation?.participantNotice || '').trim(),
+            messages: deduped,
+            hasLoadedMessages: true,
+            unreadCount: 0,
+          };
+        }),
+      );
+
+      const nextBefore = String(payload?.pagination?.nextBefore || '').trim();
+      const hasMore = Boolean(payload?.pagination?.hasMore);
+      setMessageStateByConversation((previous) => ({
+        ...previous,
+        [safeConversationId]: {
+          ...(previous[safeConversationId] || {}),
+          isLoadingInitial: false,
+          isLoadingOlder: false,
+          hasMore,
+          nextBefore,
+        },
+      }));
+    },
+    [conversations, currentRole, currentUserId, messageStateByConversation],
+  );
 
   useEffect(() => {
     if (!activeConversationId) return;
     const selected = conversations.find((conversation) => conversation.id === activeConversationId);
     if (!selected) return;
-    if (Array.isArray(selected.messages) && selected.messages.length > 0) return;
-    void loadMessages(activeConversationId);
-  }, [activeConversationId, conversations]);
+    if (selected.hasLoadedMessages === true) return;
+    void loadMessages(activeConversationId, { loadOlder: false });
+  }, [activeConversationId, conversations, loadMessages]);
 
   useEffect(() => {
     if (!isHelpCenterOpen) return;
@@ -587,17 +740,19 @@ export default function SellerMessagesPage() {
     }
     if (
       Array.isArray(helpCenterTargetConversation.messages) &&
-      helpCenterTargetConversation.messages.length > 0
+      helpCenterTargetConversation.messages.length > 0 &&
+      helpCenterTargetConversation.hasLoadedMessages === true
     ) {
       return;
     }
-    void loadMessages(helpCenterTargetConversation.id);
+    void loadMessages(helpCenterTargetConversation.id, { loadOlder: false });
   }, [
     connectHelpCenterConversation,
     hasAttemptedHelpCenterConnect,
     helpCenterTargetConversation,
     isConnectingHelpCenter,
     isHelpCenterOpen,
+    loadMessages,
   ]);
 
   const selectConversation = (conversationId) => {
@@ -873,6 +1028,36 @@ export default function SellerMessagesPage() {
       }
       return;
     }
+    const optimisticId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const optimisticSenderLabel =
+      currentRole === 'admin'
+        ? 'OCPRIMES'
+        : String(destinationConversation?.sellerName || '').trim() || 'Seller';
+    const optimisticMessage = {
+      id: optimisticId,
+      sender: 'seller',
+      senderLabel: optimisticSenderLabel,
+      text,
+      timeLabel: formatMessageTimeLabel(new Date().toISOString()),
+      createdAt: new Date().toISOString(),
+      status: 'sending',
+    };
+
+    setConversations((previous) =>
+      previous.map((conversation) =>
+        conversation.id !== destinationConversationId
+          ? conversation
+          : {
+              ...conversation,
+              messages: [...conversation.messages, optimisticMessage],
+              hasLoadedMessages: true,
+              updatedAt: new Date().toISOString(),
+              lastMessageAtLabel: formatConversationLastMessageLabel(new Date().toISOString()),
+              lastMessagePreview: toChatMessagePreview(text),
+            },
+      ),
+    );
+    setDraftMessage('');
 
     setIsSending(true);
     setPageError('');
@@ -890,6 +1075,17 @@ export default function SellerMessagesPage() {
 
     if (!response) {
       setPageError('Unable to send message right now.');
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id !== destinationConversationId
+            ? conversation
+            : {
+                ...conversation,
+                messages: conversation.messages.filter((message) => message.id !== optimisticId),
+              },
+        ),
+      );
+      setDraftMessage(text);
       setIsSending(false);
       return;
     }
@@ -898,6 +1094,17 @@ export default function SellerMessagesPage() {
 
     if (!response.ok) {
       setPageError(String(payload?.error || 'Unable to send message.'));
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id !== destinationConversationId
+            ? conversation
+            : {
+                ...conversation,
+                messages: conversation.messages.filter((message) => message.id !== optimisticId),
+              },
+        ),
+      );
+      setDraftMessage(text);
       setIsSending(false);
       return;
     }
@@ -913,8 +1120,18 @@ export default function SellerMessagesPage() {
 
     const inserted = mapMessage(payload?.message, resolvedCurrentUserId, destinationConversation);
     if (!inserted.id || !inserted.text) {
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id !== destinationConversationId
+            ? conversation
+            : {
+                ...conversation,
+                messages: conversation.messages.filter((message) => message.id !== optimisticId),
+              },
+        ),
+      );
+      setDraftMessage(text);
       setIsSending(false);
-      setDraftMessage('');
       return;
     }
 
@@ -923,8 +1140,15 @@ export default function SellerMessagesPage() {
         if (conversation.id !== destinationConversationId) return conversation;
         const alreadyExists = conversation.messages.some((message) => message.id === inserted.id);
         const nextMessages = alreadyExists
-          ? conversation.messages
-          : [...conversation.messages, inserted];
+          ? conversation.messages.filter((message) => message.id !== optimisticId)
+          : conversation.messages.map((message) =>
+              message.id === optimisticId
+                ? {
+                    ...inserted,
+                    status: inserted.sender === 'seller' ? 'sent' : inserted.status,
+                  }
+                : message,
+            );
         return {
           ...conversation,
           adminTakeoverEnabled: Boolean(payload?.conversation?.adminTakeoverEnabled),
@@ -934,18 +1158,306 @@ export default function SellerMessagesPage() {
           canSend: payload?.conversation?.canSend !== false,
           participantNotice: String(payload?.conversation?.participantNotice || '').trim(),
           messages: nextMessages,
+          hasLoadedMessages: true,
           updatedAt: payload?.message?.createdAt || new Date().toISOString(),
-          lastMessageAtLabel: formatTimeLabel(payload?.message?.createdAt || new Date().toISOString()),
-          lastMessagePreview: inserted.text,
+          lastMessageAtLabel: formatConversationLastMessageLabel(
+            payload?.message?.createdAt || new Date().toISOString(),
+          ),
+          lastMessagePreview: toChatMessagePreview(inserted.text),
         };
       }),
     );
 
-    setDraftMessage('');
+    setIsSending(false);
+  };
+
+  const sendVoiceMessage = async ({ blob, durationSeconds, mimeType }) => {
+    if (!(blob instanceof Blob) || blob.size <= 0 || isSending) return;
+
+    const isVendorTakeoverBlocked =
+      !isHelpCenterOpen && currentRole === 'vendor' && Boolean(activeConversation?.adminTakeoverEnabled);
+    const isConversationClosedBlocked =
+      currentRole !== 'admin' &&
+      (
+        (isHelpCenterOpen && helpCenterTargetConversation && helpCenterTargetConversation.canSend === false) ||
+        (!isHelpCenterOpen && activeConversation && activeConversation.canSend === false)
+      );
+
+    let resolvedHelpCenterConversation = helpCenterTargetConversation;
+    if (isHelpCenterOpen && !resolvedHelpCenterConversation?.id) {
+      resolvedHelpCenterConversation = await connectHelpCenterConversation();
+    }
+
+    const destinationConversationId = isHelpCenterOpen
+      ? String(resolvedHelpCenterConversation?.id || '').trim()
+      : String(activeConversationId || '').trim();
+    const destinationConversation = isHelpCenterOpen
+      ? resolvedHelpCenterConversation
+      : activeConversation;
+
+    if (
+      !destinationConversationId ||
+      isDeletingConversation ||
+      isClearingConversation ||
+      isVendorTakeoverBlocked ||
+      isConversationClosedBlocked
+    ) {
+      if (isHelpCenterOpen && !destinationConversationId) {
+        setPageError('Unable to connect Help Center chat. Please try again.');
+      }
+      return;
+    }
+
+    setIsSending(true);
+    setPageError('');
+
+    const optimisticId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const localVoiceUrl = URL.createObjectURL(blob);
+    const optimisticVoiceBody = buildVoiceMessageBody({
+      url: localVoiceUrl,
+      durationSeconds: Math.max(1, Number(durationSeconds) || 0),
+    });
+    if (!optimisticVoiceBody) {
+      URL.revokeObjectURL(localVoiceUrl);
+      setPageError('Unable to send voice message.');
+      setIsSending(false);
+      return;
+    }
+    const optimisticSenderLabel =
+      currentRole === 'admin'
+        ? 'OCPRIMES'
+        : String(destinationConversation?.sellerName || '').trim() || 'Seller';
+    const optimisticMessage = {
+      id: optimisticId,
+      sender: 'seller',
+      senderLabel: optimisticSenderLabel,
+      text: optimisticVoiceBody,
+      timeLabel: formatMessageTimeLabel(new Date().toISOString()),
+      createdAt: new Date().toISOString(),
+      status: 'sending',
+    };
+
+    setConversations((previous) =>
+      previous.map((conversation) =>
+        conversation.id !== destinationConversationId
+          ? conversation
+          : {
+              ...conversation,
+              messages: [...conversation.messages, optimisticMessage],
+              hasLoadedMessages: true,
+              updatedAt: new Date().toISOString(),
+              lastMessageAtLabel: formatConversationLastMessageLabel(new Date().toISOString()),
+              lastMessagePreview: toChatMessagePreview(optimisticVoiceBody),
+            },
+      ),
+    );
+
+    const fallbackType = String(mimeType || blob.type || 'audio/webm').trim().toLowerCase();
+    const fileExt =
+      fallbackType.includes('ogg')
+        ? 'ogg'
+        : fallbackType.includes('mp4')
+          ? 'mp4'
+          : fallbackType.includes('mpeg')
+            ? 'mp3'
+            : fallbackType.includes('wav')
+              ? 'wav'
+              : 'webm';
+    const voiceFile = new File([blob], `voice-${Date.now()}.${fileExt}`, {
+      type: fallbackType || 'audio/webm',
+    });
+    const uploadFormData = new FormData();
+    uploadFormData.set('audio', voiceFile);
+    uploadFormData.set('durationSeconds', String(Math.max(1, Number(durationSeconds) || 0)));
+
+    const uploadResponse = await fetch(
+      `/api/chat/dashboard/conversations/${encodeURIComponent(destinationConversationId)}/voice`,
+      {
+        method: 'POST',
+        body: uploadFormData,
+      },
+    ).catch(() => null);
+
+    if (!uploadResponse) {
+      setPageError('Unable to upload voice message right now.');
+      URL.revokeObjectURL(localVoiceUrl);
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id !== destinationConversationId
+            ? conversation
+            : {
+                ...conversation,
+                messages: conversation.messages.filter((message) => message.id !== optimisticId),
+              },
+        ),
+      );
+      setIsSending(false);
+      return;
+    }
+
+    const uploadPayload = await uploadResponse.json().catch(() => null);
+    if (!uploadResponse.ok) {
+      setPageError(String(uploadPayload?.error || 'Unable to upload voice message.'));
+      URL.revokeObjectURL(localVoiceUrl);
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id !== destinationConversationId
+            ? conversation
+            : {
+                ...conversation,
+                messages: conversation.messages.filter((message) => message.id !== optimisticId),
+              },
+        ),
+      );
+      setIsSending(false);
+      return;
+    }
+
+    const voiceBody = buildVoiceMessageBody({
+      url: String(uploadPayload?.url || '').trim(),
+      durationSeconds: Number(uploadPayload?.durationSeconds || durationSeconds || 0),
+    });
+    if (!voiceBody) {
+      setPageError('Unable to send voice message.');
+      URL.revokeObjectURL(localVoiceUrl);
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id !== destinationConversationId
+            ? conversation
+            : {
+                ...conversation,
+                messages: conversation.messages.filter((message) => message.id !== optimisticId),
+              },
+        ),
+      );
+      setIsSending(false);
+      return;
+    }
+
+    const response = await fetch(
+      `/api/chat/dashboard/conversations/${encodeURIComponent(destinationConversationId)}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ body: voiceBody }),
+      },
+    ).catch(() => null);
+
+    if (!response) {
+      setPageError('Unable to send voice message right now.');
+      URL.revokeObjectURL(localVoiceUrl);
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id !== destinationConversationId
+            ? conversation
+            : {
+                ...conversation,
+                messages: conversation.messages.filter((message) => message.id !== optimisticId),
+              },
+        ),
+      );
+      setIsSending(false);
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      setPageError(String(payload?.error || 'Unable to send voice message.'));
+      URL.revokeObjectURL(localVoiceUrl);
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id !== destinationConversationId
+            ? conversation
+            : {
+                ...conversation,
+                messages: conversation.messages.filter((message) => message.id !== optimisticId),
+              },
+        ),
+      );
+      setIsSending(false);
+      return;
+    }
+
+    const resolvedCurrentUserId = String(payload?.currentUserId || currentUserId || '').trim();
+    const resolvedRole = String(payload?.role || currentRole || '').trim();
+    if (resolvedCurrentUserId && resolvedCurrentUserId !== currentUserId) {
+      setCurrentUserId(resolvedCurrentUserId);
+    }
+    if (resolvedRole && resolvedRole !== currentRole) {
+      setCurrentRole(resolvedRole);
+    }
+
+    const inserted = mapMessage(payload?.message, resolvedCurrentUserId, destinationConversation);
+    if (!inserted.id || !inserted.text) {
+      URL.revokeObjectURL(localVoiceUrl);
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id !== destinationConversationId
+            ? conversation
+            : {
+                ...conversation,
+                messages: conversation.messages.filter((message) => message.id !== optimisticId),
+              },
+        ),
+      );
+      setIsSending(false);
+      return;
+    }
+
+    setConversations((previous) =>
+      previous.map((conversation) => {
+        if (conversation.id !== destinationConversationId) return conversation;
+        const alreadyExists = conversation.messages.some((message) => message.id === inserted.id);
+        const nextMessages = alreadyExists
+          ? conversation.messages.filter((message) => message.id !== optimisticId)
+          : conversation.messages.map((message) =>
+              message.id === optimisticId
+                ? {
+                    ...inserted,
+                    status: inserted.sender === 'seller' ? 'sent' : inserted.status,
+                  }
+                : message,
+            );
+        return {
+          ...conversation,
+          adminTakeoverEnabled: Boolean(payload?.conversation?.adminTakeoverEnabled),
+          adminTakeoverBy: String(payload?.conversation?.adminTakeoverBy || '').trim(),
+          adminTakeoverAt: payload?.conversation?.adminTakeoverAt || null,
+          closedAt: payload?.conversation?.closedAt || conversation.closedAt || null,
+          canSend: payload?.conversation?.canSend !== false,
+          participantNotice: String(payload?.conversation?.participantNotice || '').trim(),
+          messages: nextMessages,
+          hasLoadedMessages: true,
+          updatedAt: payload?.message?.createdAt || new Date().toISOString(),
+          lastMessageAtLabel: formatConversationLastMessageLabel(
+            payload?.message?.createdAt || new Date().toISOString(),
+          ),
+          lastMessagePreview: toChatMessagePreview(inserted.text),
+        };
+      }),
+    );
+    URL.revokeObjectURL(localVoiceUrl);
+
     setIsSending(false);
   };
 
   const showThreadOnMobile = Boolean(isMobileThreadOpen && selectedConversation);
+  const activeThreadConversationId = useMemo(() => {
+    if (isHelpCenterOpen) {
+      return String(helpCenterTargetConversation?.id || '').trim();
+    }
+    return String(activeConversationId || '').trim();
+  }, [activeConversationId, helpCenterTargetConversation, isHelpCenterOpen]);
+  const activeThreadMessageState = activeThreadConversationId
+    ? messageStateByConversation[activeThreadConversationId] || {}
+    : {};
+  const isInitialLoadingThread =
+    Boolean(activeThreadMessageState?.isLoadingInitial) &&
+    (!selectedConversation || selectedConversation.hasLoadedMessages !== true);
+  const isLoadingOlderThread = Boolean(activeThreadMessageState?.isLoadingOlder);
+  const hasMoreOlderThread = Boolean(activeThreadMessageState?.hasMore);
 
   return (
     <div className="h-[calc(100dvh-4rem)] overflow-hidden bg-white text-slate-900 lg:h-[100dvh]">
@@ -972,6 +1484,7 @@ export default function SellerMessagesPage() {
                     onSelectConversation={selectConversation}
                     showHelpCenter={isHelpCenterEnabled}
                     helpCenterConversation={helpCenterTargetConversation}
+                    isLoading={isLoadingConversations}
                     searchValue={searchText}
                     onSearchChange={setSearchText}
                     activeFilter={activeFilter}
@@ -984,25 +1497,15 @@ export default function SellerMessagesPage() {
                     className={`${showThreadOnMobile ? 'block' : 'hidden lg:block'} h-full min-h-0 overflow-hidden`}
                   >
                     <SellerConversationThread
-                      conversation={
-                        isLoadingMessages && !isHelpCenterOpen && activeConversation?.messages.length === 0
-                          ? {
-                              ...activeConversation,
-                              messages: [
-                                {
-                                  id: 'loading-message',
-                                  sender: 'customer',
-                                  senderLabel: activeConversation.customerName,
-                                  text: 'Loading messages...',
-                                  timeLabel: '',
-                                },
-                              ],
-                            }
-                          : selectedConversation
-                      }
+                      conversation={selectedConversation}
                       draftMessage={draftMessage}
                       onDraftMessageChange={setDraftMessage}
                       onSendMessage={sendMessage}
+                      onSendVoiceMessage={sendVoiceMessage}
+                      onLoadOlderMessages={async () => {
+                        if (!activeThreadConversationId) return;
+                        await loadMessages(activeThreadConversationId, { loadOlder: true });
+                      }}
                       onBack={() => setIsMobileThreadOpen(false)}
                       onDeleteConversation={deleteActiveConversation}
                       isDeletingConversation={isDeletingConversation}
@@ -1031,6 +1534,9 @@ export default function SellerMessagesPage() {
                       isTogglingTakeover={isTogglingTakeover}
                       onReopenConversation={reopenActiveConversation}
                       isReopeningConversation={isReopeningConversation}
+                      isInitialLoading={isInitialLoadingThread}
+                      isLoadingOlder={isLoadingOlderThread}
+                      hasMoreOlder={hasMoreOlderThread}
                     />
                   </div>
                 ) : (
@@ -1043,10 +1549,14 @@ export default function SellerMessagesPage() {
           </div>
 
           {isLoadingConversations ? (
-            <div className="px-2 py-2 text-xs text-slate-400">Loading conversations...</div>
+            <div className="flex items-center px-2 py-2">
+              <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+            </div>
           ) : null}
           {isSending ? (
-            <div className="px-2 py-2 text-xs text-slate-400">Sending message...</div>
+            <div className="flex items-center px-2 py-2">
+              <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-600" />
+            </div>
           ) : null}
           {isDeletingConversation ? (
             <div className="px-2 py-2 text-xs text-slate-400">Ending conversation...</div>

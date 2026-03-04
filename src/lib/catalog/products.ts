@@ -9,6 +9,8 @@ const normalizeBlank = (value: unknown) => {
 export const publicProductListSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   per_page: z.coerce.number().int().min(1).max(30).default(12),
+  cursor: z.preprocess(normalizeBlank, z.string().max(256).optional()),
+  fields: z.enum(['full', 'card']).default('full'),
   search: z.preprocess(normalizeBlank, z.string().max(120).optional()),
   category: z.preprocess(normalizeBlank, z.string().max(120).optional()),
   tag: z.preprocess(normalizeBlank, z.string().max(120).optional()),

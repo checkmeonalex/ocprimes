@@ -49,17 +49,60 @@ export const toChatMessagePayload = (row: any, currentUserId: string) => ({
 })
 
 export const listConversationsForUser = async (supabase: any, userId: string) => {
+  const safeLimit = 10
   const { data, error } = await supabase
     .from('chat_conversations')
     .select(CHAT_CONVERSATION_COLUMNS)
     .or(`customer_user_id.eq.${userId},vendor_user_id.eq.${userId}`)
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .order('updated_at', { ascending: false })
+    .limit(safeLimit)
 
   return {
     data: Array.isArray(data) ? data : [],
     error,
   }
+}
+
+export const loadCustomerUnreadCountMap = async (
+  conversations: Array<{ id: string; vendorUserId: string }>,
+) => {
+  const adminDb = createAdminSupabaseClient()
+  const conversationIds = conversations
+    .map((conversation) => String(conversation?.id || '').trim())
+    .filter(Boolean)
+
+  if (!conversationIds.length) return new Map<string, number>()
+
+  const vendorByConversationId = new Map<string, string>()
+  conversations.forEach((conversation) => {
+    const conversationId = String(conversation?.id || '').trim()
+    const vendorUserId = String(conversation?.vendorUserId || '').trim()
+    if (!conversationId || !vendorUserId) return
+    vendorByConversationId.set(conversationId, vendorUserId)
+  })
+
+  const { data, error } = await adminDb
+    .from('chat_messages')
+    .select('conversation_id, sender_user_id')
+    .in('conversation_id', conversationIds)
+    .is('customer_read_at', null)
+
+  if (error || !Array.isArray(data)) return new Map<string, number>()
+
+  const unreadCountByConversationId = new Map<string, number>()
+  data.forEach((row: any) => {
+    const conversationId = String(row?.conversation_id || '').trim()
+    const senderUserId = String(row?.sender_user_id || '').trim()
+    if (!conversationId || !senderUserId) return
+    if (senderUserId !== vendorByConversationId.get(conversationId)) return
+    unreadCountByConversationId.set(
+      conversationId,
+      (unreadCountByConversationId.get(conversationId) || 0) + 1,
+    )
+  })
+
+  return unreadCountByConversationId
 }
 
 export const resolveVendorUserIdForProduct = async (productId: string) => {
@@ -191,18 +234,32 @@ export const listMessagesForConversation = async (
   supabase: any,
   conversationId: string,
   limit = 50,
+  before = '',
 ) => {
   const safeLimit = Math.max(1, Math.min(200, Number(limit) || 50))
+  const safeBefore = String(before || '').trim()
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('chat_messages')
     .select(CHAT_MESSAGE_COLUMNS)
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: false })
-    .limit(safeLimit)
+
+  if (safeBefore) {
+    query = query.lt('created_at', safeBefore)
+  }
+
+  const { data, error } = await query.limit(safeLimit + 1)
+  const rows = Array.isArray(data) ? data : []
+  const hasMore = rows.length > safeLimit
+  const pagedRows = hasMore ? rows.slice(0, safeLimit) : rows
+  const messages = [...pagedRows].reverse()
+  const oldestMessageCreatedAt = String(messages[0]?.created_at || '').trim()
 
   return {
-    data: Array.isArray(data) ? [...data].reverse() : [],
+    data: messages,
+    hasMore,
+    oldestMessageCreatedAt: oldestMessageCreatedAt || null,
     error,
   }
 }
@@ -238,6 +295,25 @@ export const markVendorConversationMessageReceipts = async (
     .eq('conversation_id', conversationId)
     .neq('sender_user_id', vendorUserId)
     .is('vendor_read_at', null)
+
+  return { error }
+}
+
+export const markCustomerConversationMessageReceipts = async (
+  supabase: any,
+  conversationId: string,
+  customerUserId: string,
+) => {
+  const nowIso = getNowIso()
+  const { error } = await supabase
+    .from('chat_messages')
+    .update({
+      customer_received_at: nowIso,
+      customer_read_at: nowIso,
+    })
+    .eq('conversation_id', conversationId)
+    .neq('sender_user_id', customerUserId)
+    .is('customer_read_at', null)
 
   return { error }
 }
