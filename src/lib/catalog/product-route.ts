@@ -31,6 +31,8 @@ const PRODUCT_LIST_FULL_SELECT =
   'id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by'
 const PRODUCT_LIST_CARD_SELECT =
   'id, name, slug, price, discount_price, sku, stock_quantity, status, product_type, main_image_id, product_video_url, created_at, created_by'
+const PRODUCT_SINGLE_SELECT =
+  'id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by'
 
 const encodeListCursor = (item: any) => {
   const id = String(item?.id || '').trim()
@@ -678,16 +680,37 @@ export async function listPublicProducts(request: NextRequest) {
 
 export async function getPublicProduct(request: NextRequest, slug: string) {
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
-
-  const parsed = publicProductSlugSchema.safeParse({ slug })
-  if (!parsed.success) {
-    return jsonError('Invalid product slug.', 400)
-  }
-
   const previewRequested =
     request.nextUrl.searchParams.get('preview') === '1' ||
     request.nextUrl.searchParams.get('preview') === 'true'
 
+  const result = await loadPublicProductItem(supabase, slug, { previewRequested })
+  if (!result.item) {
+    const response = jsonError(result.error || 'Product not found.', result.status)
+    applyCookies(response)
+    return response
+  }
+
+  const response = jsonOk({ item: result.item })
+  applyCookies(response)
+  return response
+}
+
+export async function loadPublicProductItem(
+  supabase: any,
+  slug: string,
+  options: { previewRequested?: boolean } = {},
+) {
+  const parsed = publicProductSlugSchema.safeParse({ slug })
+  if (!parsed.success) {
+    return {
+      item: null,
+      status: 400,
+      error: 'Invalid product slug.',
+    }
+  }
+
+  const previewRequested = Boolean(options.previewRequested)
   let previewViewerUserId = ''
   let previewViewerIsAdmin = false
   let previewViewerIsVendor = false
@@ -695,7 +718,11 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
   if (previewRequested) {
     const { data: userData, error: userError } = await supabase.auth.getUser()
     if (userError || !userData?.user?.id) {
-      return jsonError('Product not found.', 404)
+      return {
+        item: null,
+        status: 404,
+        error: 'Product not found.',
+      }
     }
     previewViewerUserId = String(userData.user.id || '').trim()
     const roleInfo = await getUserRoleInfoSafe(
@@ -706,7 +733,11 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
     previewViewerIsAdmin = Boolean(roleInfo.isAdmin)
     previewViewerIsVendor = Boolean(roleInfo.isVendor)
     if (!previewViewerIsAdmin && !previewViewerIsVendor) {
-      return jsonError('Product not found.', 404)
+      return {
+        item: null,
+        status: 404,
+        error: 'Product not found.',
+      }
     }
   }
 
@@ -715,14 +746,15 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
     try {
       readDb = createAdminSupabaseClient()
     } catch {
-      return jsonError('Unable to load product.', 500)
+      return {
+        item: null,
+        status: 500,
+        error: 'Unable to load product.',
+      }
     }
   }
 
-  let query = readDb
-    .from(PRODUCT_TABLE)
-    .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by')
-    .eq('slug', parsed.data.slug)
+  let query = readDb.from(PRODUCT_TABLE).select(PRODUCT_SINGLE_SELECT).eq('slug', parsed.data.slug)
 
   if (!previewRequested) {
     query = query.eq('status', 'publish')
@@ -733,10 +765,7 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
   let { data, error } = await query.maybeSingle()
 
   if (!data && (!error || error.code === 'PGRST116') && isUuid(parsed.data.slug)) {
-    let byIdQuery = readDb
-      .from(PRODUCT_TABLE)
-      .select('id, name, slug, short_description, description, price, discount_price, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by')
-      .eq('id', parsed.data.slug)
+    let byIdQuery = readDb.from(PRODUCT_TABLE).select(PRODUCT_SINGLE_SELECT).eq('id', parsed.data.slug)
 
     if (!previewRequested) {
       byIdQuery = byIdQuery.eq('status', 'publish')
@@ -751,23 +780,35 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
 
   if (error && error.code !== 'PGRST116') {
     console.error('public product fetch failed:', error.message)
-    return jsonError('Unable to load product.', 500)
+    return {
+      item: null,
+      status: 500,
+      error: 'Unable to load product.',
+    }
   }
 
   if (!data) {
     const seedItem = findSeedProduct(parsed.data.slug)
-    if (!seedItem) {
-      return jsonError('Product not found.', 404)
-    }
-    const response = jsonOk({ item: seedItem })
-    applyCookies(response)
-    return response
+    return seedItem
+      ? {
+          item: seedItem,
+          status: 200,
+          error: null,
+        }
+      : {
+          item: null,
+          status: 404,
+          error: 'Product not found.',
+        }
   }
 
   const [item] = await attachRelations(readDb, [data])
   const itemWithCategoryPath = await attachPrimaryCategoryPath(readDb, item)
   const itemWithVendorProfile = await attachVendorProfile(readDb, itemWithCategoryPath)
-  const response = jsonOk({ item: itemWithVendorProfile })
-  applyCookies(response)
-  return response
+
+  return {
+    item: itemWithVendorProfile,
+    status: 200,
+    error: null,
+  }
 }

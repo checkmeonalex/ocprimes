@@ -1,57 +1,13 @@
-import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { loadPublicProductItem } from '@/lib/catalog/product-route'
 import ProductPageClient from './ProductPageClient'
 
 export const revalidate = 60
 
-const resolveBaseUrl = () => {
-  const envUrl =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
-
-  const normalized = String(envUrl || '').trim().replace(/\/+$/, '')
-  if (normalized) return normalized
-  return 'http://localhost:3000'
-}
-
 const normalizePreviewValue = (value: string | string[] | undefined) => {
   if (Array.isArray(value)) return String(value[0] || '').trim()
   return String(value || '').trim()
-}
-
-const fetchInitialProductItem = async (slug: string, preview: string) => {
-  const params = new URLSearchParams()
-  if (preview) params.set('preview', preview)
-  const query = params.toString()
-
-  const endpoint = `${resolveBaseUrl()}/api/products/${encodeURIComponent(slug)}${query ? `?${query}` : ''}`
-
-  const shouldBypassCache = Boolean(preview)
-
-  const requestInit: RequestInit & { next?: { revalidate: number } } = shouldBypassCache
-    ? { cache: 'no-store' }
-    : { next: { revalidate } }
-
-  if (shouldBypassCache) {
-    const cookieStore = await cookies()
-    const cookieHeader = cookieStore
-      .getAll()
-      .map((entry) => `${entry.name}=${entry.value}`)
-      .join('; ')
-
-    if (cookieHeader) {
-      requestInit.headers = {
-        Cookie: cookieHeader,
-      }
-    }
-  }
-
-  const response = await fetch(endpoint, requestInit)
-  if (!response.ok) return null
-
-  const payload = await response.json().catch(() => null)
-  return payload?.item || null
 }
 
 export default async function ProductPage({
@@ -68,7 +24,11 @@ export default async function ProductPage({
   if (!slug) notFound()
 
   const preview = normalizePreviewValue(resolvedSearchParams?.preview)
-  const initialItem = await fetchInitialProductItem(slug, preview)
+  const supabase = await createServerSupabaseClient()
+  const result = await loadPublicProductItem(supabase, slug, {
+    previewRequested: Boolean(preview),
+  })
+  const initialItem = result.item
 
   if (!initialItem) {
     notFound()
