@@ -656,7 +656,17 @@ export default function OrderDetailsPage() {
     })
   }, [isSendingReturnRequest, returnIssueByItem, selectedReturnItems])
 
-  const primaryActionLabel = useMemo(() => 'Track order', [])
+  const isRetryPaymentStatus = useMemo(() => {
+    const status = normalizeCustomerOrderStatusKey(order?.statusKey || order?.status)
+    const paymentStatus = String(order?.paymentStatus || '').trim().toLowerCase()
+    if (paymentStatus === 'failed') return true
+    return status === 'awaiting_payment' || status === 'failed' || status === 'payment_failed'
+  }, [order?.statusKey, order?.status, order?.paymentStatus])
+
+  const primaryActionLabel = useMemo(
+    () => (isRetryPaymentStatus ? 'Retry payment' : 'Track order'),
+    [isRetryPaymentStatus],
+  )
 
   const canReviewOrder = useMemo(() => {
     const status = String(order?.paymentStatus || '').toLowerCase()
@@ -802,6 +812,15 @@ export default function OrderDetailsPage() {
   }
 
   const handlePrimaryAction = () => {
+    if (isRetryPaymentStatus) {
+      const reference = String(order?.paystackReference || '').trim()
+      if (reference) {
+        router.push(`/checkout/awaiting-payment?reference=${encodeURIComponent(reference)}`)
+        return
+      }
+      router.push('/checkout/payment')
+      return
+    }
     if (typeof window !== 'undefined' && window.innerWidth < 641) {
       setIsMobileActivitySheetOpen(true)
       return

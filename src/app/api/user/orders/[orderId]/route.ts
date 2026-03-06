@@ -4,8 +4,9 @@ import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { isReturnPolicyDisabled, normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { createNotifications, notifyAllAdmins } from '@/lib/admin/notifications'
+import { reconcilePendingCheckoutOrderPayment } from '@/lib/payments/reconcile-pending-checkout'
 
-const PAYMENT_WINDOW_MINUTES = 2
+const PAYMENT_WINDOW_MINUTES = 10
 const PAYMENT_WINDOW_MS = PAYMENT_WINDOW_MINUTES * 60 * 1000
 const RETURN_WINDOW_HOURS = 72
 const PROTECTION_WINDOW_HOURS = 24
@@ -166,7 +167,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
   const { data: orderRow, error: orderError } = await supabase
     .from('checkout_orders')
     .select(
-      'id, order_number, payment_status, total_amount, shipping_fee, tax_amount, protection_fee, subtotal, created_at, updated_at, shipping_address, paystack_reference',
+      'id, order_number, payment_status, total_amount, shipping_fee, tax_amount, protection_fee, subtotal, currency, created_at, updated_at, shipping_address, paystack_reference',
     )
     .eq('id', safeOrderId)
     .eq('user_id', auth.user.id)
@@ -242,8 +243,31 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
   }
 
   const shippingAddress = (orderRow.shipping_address || {}) as Record<string, unknown>
+  let adminDbForReconcile: ReturnType<typeof createAdminSupabaseClient> | null = null
+  try {
+    adminDbForReconcile = createAdminSupabaseClient()
+  } catch {
+    adminDbForReconcile = null
+  }
+  const reconciledPaymentStatus = adminDbForReconcile
+    ? await reconcilePendingCheckoutOrderPayment({
+        adminDb: adminDbForReconcile,
+        input: {
+          id: String(orderRow.id || ''),
+          userId: String(auth.user.id || ''),
+          reference: String(orderRow.paystack_reference || ''),
+          paymentStatus: String(orderRow.payment_status || ''),
+          createdAt: String(orderRow.created_at || ''),
+          totalAmount: Number(orderRow.total_amount || 0),
+          currency: String(orderRow.currency || 'NGN'),
+        },
+        paymentWindowMinutes: PAYMENT_WINDOW_MINUTES,
+      })
+    : String(orderRow.payment_status || '').trim().toLowerCase()
+  const effectivePaymentStatus =
+    String(reconciledPaymentStatus || '').trim() || String(orderRow.payment_status || '').trim()
   const statusKey = toStatusKey(
-    String(orderRow.payment_status || ''),
+    effectivePaymentStatus,
     shippingAddress,
     orderRow.created_at,
   )
@@ -370,7 +394,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
       orderNumber: String(orderRow.order_number || '').trim() || `#${String(orderRow.id).replace(/-/g, '').toUpperCase()}`,
       statusKey,
       status: toStatusLabel(statusKey),
-      paymentStatus: String(orderRow.payment_status || ''),
+      paymentStatus: effectivePaymentStatus,
       createdAt: String(orderRow.created_at || ''),
       deliveredAt: toIsoOrNull(deliveredAtTimestamp),
       returnWindowHours: RETURN_WINDOW_HOURS,
@@ -385,6 +409,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
       taxAmount: Number(orderRow.tax_amount || 0),
       protectionFee: Number(orderRow.protection_fee || 0),
       seller: 'OCPRIMES',
+      paystackReference: String(orderRow.paystack_reference || ''),
       trackId: String(orderRow.paystack_reference || orderRow.id || ''),
       addressLabel: formatAddress(shippingAddress),
       contactPhone,

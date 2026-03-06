@@ -30,16 +30,23 @@ export const formatPrice = (price, currencySymbol = '') => {
     return '--';
   }
   const number = Number(price);
+  const decodedSymbol = decodeHtmlEntities(currencySymbol);
+  const normalizedSymbol = decodedSymbol.trim().toUpperCase();
+  const isNaira =
+    decodedSymbol.includes('₦') ||
+    normalizedSymbol === 'NGN' ||
+    normalizedSymbol.startsWith('NGN ');
+  const fractionDigits = isNaira ? 0 : 2;
   if (!Number.isFinite(number)) {
-    const fallbackSymbol = decodeHtmlEntities(currencySymbol);
-    return `${fallbackSymbol}${price}`;
+    return `${decodedSymbol}${price}`;
   }
   const formatted = number.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   });
-  const symbol = decodeHtmlEntities(currencySymbol) || '$';
-  return `${symbol}${formatted}`;
+  const symbol = decodedSymbol || '$';
+  const separator = normalizedSymbol === 'NGN' ? ' ' : '';
+  return `${symbol}${separator}${formatted}`;
 };
 
 export const getPrimaryImage = (product) => {

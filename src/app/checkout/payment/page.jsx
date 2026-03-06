@@ -5,10 +5,11 @@ export const dynamic = 'force-dynamic'
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
-import CustomSelect from '@/components/common/CustomSelect'
+import AddressEditorModal from '@/components/address/AddressEditorModal'
 import CartQuantitySelect from '@/components/cart/CartQuantitySelect'
 import { useCart } from '@/context/CartContext'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
+import { formatUsdWithLocalAmount } from '@/lib/i18n/fixed-currency'
 import { useAuthUser } from '@/lib/auth/useAuthUser'
 import {
   filterItemsByCheckoutSelection,
@@ -19,14 +20,13 @@ import {
   isDigitalProductLike,
 } from '@/lib/order-protection/config'
 import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
+import { toCityOnlyName } from '@/lib/location/nigeria-address'
 import {
   loadUserProfileBootstrap,
   primeUserProfileBootstrap,
 } from '@/lib/user/profile-bootstrap-client'
 import paystackLogo from './paystack.webp'
 
-const SHIPPING_FEE = 5
-const TAX_RATE = 0.05
 const MAX_ADDRESSES = 5
 const DEFAULT_COUNTRY = 'Nigeria'
 const INTERNATIONAL_COUNTRY = 'International'
@@ -80,6 +80,7 @@ const emptyAddressDraft = {
   label: '',
   line1: '',
   line2: '',
+  phone: '',
   city: '',
   state: '',
   postalCode: '',
@@ -100,6 +101,7 @@ const normalizeAddressCollection = (profile, key = 'addresses') => {
       label: String(item.label || `Address ${index + 1}`),
       line1: String(item.line1 || ''),
       line2: String(item.line2 || ''),
+      phone: String(item.phone || item.phoneNumber || item.contactPhone || item.line2 || ''),
       city: String(item.city || ''),
       state: String(item.state || ''),
       postalCode: String(item.postalCode || ''),
@@ -131,6 +133,9 @@ const normalizeCheckoutCountry = (country) => {
   return INTERNATIONAL_COUNTRY
 }
 
+const normalizeDeliveryType = (value) =>
+  String(value || '').trim().toLowerCase() === 'express' ? 'express' : 'standard'
+
 const getDialCodeByCountry = (country) => {
   const normalized = String(country || '')
     .toLowerCase()
@@ -157,6 +162,71 @@ const isoToFlagEmoji = (code) => {
   return String.fromCodePoint(chars[0].charCodeAt(0) + 127397, chars[1].charCodeAt(0) + 127397)
 }
 
+const isWorldwideCountry = (country) => normalizeCheckoutCountry(country) === INTERNATIONAL_COUNTRY
+
+const getPhoneCountryLabel = (country) => (isWorldwideCountry(country) ? 'Worldwide' : String(country || DEFAULT_COUNTRY))
+
+const normalizeDialCodeInput = (value, fallbackDialCode = DEFAULT_DIAL_CODE) => {
+  const digits = String(value || '').replace(/\D/g, '')
+  const normalizedDigits = digits || String(fallbackDialCode || DEFAULT_DIAL_CODE)
+  return `+${normalizedDigits}`
+}
+
+const extractDialCodeDigits = (value, fallbackDialCode = DEFAULT_DIAL_CODE) =>
+  String(normalizeDialCodeInput(value, fallbackDialCode)).replace(/\D/g, '')
+
+const splitPhoneWithDialCode = (rawPhone, fallbackDialCode = DEFAULT_DIAL_CODE) => {
+  const safe = String(rawPhone || '').trim()
+  if (!safe) {
+    return {
+      dialCode: normalizeDialCodeInput('', fallbackDialCode),
+      localPhone: '',
+    }
+  }
+
+  const digits = safe.replace(/\D/g, '')
+  if (!digits) {
+    return {
+      dialCode: normalizeDialCodeInput('', fallbackDialCode),
+      localPhone: '',
+    }
+  }
+
+  const explicitDialCode = safe.match(/^\+\s*([0-9]{1,4})/)
+  if (explicitDialCode) {
+    const dialDigits = String(explicitDialCode[1] || '').replace(/\D/g, '')
+    const localDigits = digits.slice(dialDigits.length)
+    return {
+      dialCode: normalizeDialCodeInput(dialDigits, fallbackDialCode),
+      localPhone: localDigits,
+    }
+  }
+
+  const fallbackDigits = String(fallbackDialCode || '').replace(/\D/g, '')
+  if (fallbackDigits && digits.startsWith(fallbackDigits) && digits.length > fallbackDigits.length) {
+    return {
+      dialCode: normalizeDialCodeInput(fallbackDigits, fallbackDialCode),
+      localPhone: digits.slice(fallbackDigits.length),
+    }
+  }
+
+  return {
+    dialCode: normalizeDialCodeInput('', fallbackDialCode),
+    localPhone: digits,
+  }
+}
+
+const WorldwideIcon = ({ className = 'h-4 w-4 text-slate-600' }) => (
+  <svg viewBox='0 0 24 24' fill='none' className={className} aria-hidden='true'>
+    <path
+      d='M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0'
+      stroke='currentColor'
+      strokeWidth='1.8'
+    />
+    <path d='M3 12h18M12 3c2.4 2.4 2.4 15.6 0 18M12 3c-2.4 2.4-2.4 15.6 0 18' stroke='currentColor' strokeWidth='1.8' />
+  </svg>
+)
+
 function CheckoutPaymentPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -165,6 +235,22 @@ function CheckoutPaymentPageContent() {
   const { items, summary, updateQuantity, isReady, isServerReady } = useCart()
   const selectedKeys = useMemo(
     () => parseCheckoutSelectionParam(searchParams?.get('selected')),
+    [searchParams],
+  )
+  const selectedShippingAddressId = useMemo(
+    () => String(searchParams?.get('shipping_address_id') || '').trim(),
+    [searchParams],
+  )
+  const selectedShippingPhoneParam = useMemo(
+    () => String(searchParams?.get('shipping_phone') || '').trim(),
+    [searchParams],
+  )
+  const selectedShippingCountryParam = useMemo(
+    () => String(searchParams?.get('shipping_country') || '').trim(),
+    [searchParams],
+  )
+  const selectedDeliveryType = useMemo(
+    () => normalizeDeliveryType(searchParams?.get('delivery_type')),
     [searchParams],
   )
   const checkoutItems = useMemo(
@@ -189,15 +275,14 @@ function CheckoutPaymentPageContent() {
   }, [checkoutItems, summary?.protectionConfig])
 
   const [phoneCountry, setPhoneCountry] = useState('')
+  const [phoneDialCode, setPhoneDialCode] = useState('')
   const [isPhoneCountryMenuOpen, setIsPhoneCountryMenuOpen] = useState(false)
   const [contactPhoneLocal, setContactPhoneLocal] = useState('')
   const [isStartingPayment, setIsStartingPayment] = useState(false)
   const [paymentError, setPaymentError] = useState('')
-  const [shippingProgressConfig, setShippingProgressConfig] = useState({
-    enabled: true,
-    standardFreeShippingThreshold: 50,
-    expressFreeShippingThreshold: 100,
-  })
+  const [logisticsQuote, setLogisticsQuote] = useState(null)
+  const [isLoadingLogisticsQuote, setIsLoadingLogisticsQuote] = useState(false)
+  const [hasResolvedLogisticsQuote, setHasResolvedLogisticsQuote] = useState(false)
 
   const [profile, setProfile] = useState(null)
   const [billingAddresses, setBillingAddresses] = useState([])
@@ -210,36 +295,35 @@ function CheckoutPaymentPageContent() {
   const [addressError, setAddressError] = useState('')
   const [addressSuccess, setAddressSuccess] = useState('')
   const [isSavingAddress, setIsSavingAddress] = useState(false)
-  const [isMobileOrderSummaryOpen, setIsMobileOrderSummaryOpen] = useState(false)
+  const [isOrderSummaryOpen, setIsOrderSummaryOpen] = useState(false)
   const phoneSelectorRef = useRef(null)
   const billingSectionRef = useRef(null)
   const paymentMethodSectionRef = useRef(null)
   const contactPhoneSectionRef = useRef(null)
-  const hasPrefilledPhoneRef = useRef(false)
   const hasManualPhoneCountryRef = useRef(false)
+  const hasManualPhoneDialCodeRef = useRef(false)
+  const hasManualPhoneLocalRef = useRef(false)
+  const lastPhonePrefillKeyRef = useRef('')
 
-  const taxAmount = useMemo(
-    () => Math.round(checkoutSummary.subtotal * TAX_RATE * 100) / 100,
-    [checkoutSummary.subtotal],
-  )
   const protectionFee = Number(checkoutSummary.protectionFee || 0)
-  const shippingFee =
-    Number(checkoutSummary.subtotal || 0) >=
-    Number(shippingProgressConfig.standardFreeShippingThreshold || 50)
-      ? 0
-      : SHIPPING_FEE
-  const totalAmount = checkoutSummary.subtotal + shippingFee + taxAmount + protectionFee
-  const formatFeeOrFree = (amount) => (Number(amount || 0) <= 0 ? 'FREE' : formatMoney(amount))
   const selectedPhoneCountry = normalizeCheckoutCountry(phoneCountry || profile?.country || user?.country)
   const selectedDialCode = useMemo(
     () => getDialCodeByCountry(selectedPhoneCountry),
     [selectedPhoneCountry],
   )
+  const selectedDialCodeInput = useMemo(
+    () => normalizeDialCodeInput(phoneDialCode || `+${selectedDialCode}`, selectedDialCode),
+    [phoneDialCode, selectedDialCode],
+  )
+  const selectedDialCodeDigits = useMemo(
+    () => extractDialCodeDigits(selectedDialCodeInput, selectedDialCode),
+    [selectedDialCodeInput, selectedDialCode],
+  )
   const selectedFlagEmoji = useMemo(
     () => isoToFlagEmoji(getFlagCodeByCountry(selectedPhoneCountry)),
     [selectedPhoneCountry],
   )
-  const contactPhoneDigits = `${selectedDialCode}${String(contactPhoneLocal || '')
+  const contactPhoneDigits = `${selectedDialCodeDigits}${String(contactPhoneLocal || '')
     .replace(/\D/g, '')
     .trim()}`
   const minLocalPhoneLength = 7
@@ -250,8 +334,10 @@ function CheckoutPaymentPageContent() {
     () =>
       ACCEPTED_COUNTRIES.map((country) => ({
         country,
+        label: getPhoneCountryLabel(country),
         dialCode: getDialCodeByCountry(country),
         flagEmoji: isoToFlagEmoji(getFlagCodeByCountry(country)),
+        isWorldwide: isWorldwideCountry(country),
       })),
     [],
   )
@@ -268,11 +354,6 @@ function CheckoutPaymentPageContent() {
   )
   const [useShippingAsBilling, setUseShippingAsBilling] = useState(false)
 
-  useEffect(() => {
-    const promoParam = String(searchParams?.get('promo') || '').trim()
-    if (!promoParam) return
-    setPromoCode(promoParam)
-  }, [searchParams])
   const hasDedicatedBillingAddresses = billingAddresses.length > 0
   const displayedBillingAddresses = hasDedicatedBillingAddresses
     ? billingAddresses
@@ -285,36 +366,146 @@ function CheckoutPaymentPageContent() {
     () => activeBillingAddressPool.find((entry) => entry.id === selectedBillingAddressId) || null,
     [activeBillingAddressPool, selectedBillingAddressId],
   )
+  const selectedShippingAddress = useMemo(
+    () => shippingAddresses.find((entry) => entry.id === selectedShippingAddressId) || null,
+    [shippingAddresses, selectedShippingAddressId],
+  )
+  const resolvedShippingAddress = useMemo(() => {
+    const rawDeliveryAddress =
+      selectedShippingAddress ||
+      (profile?.deliveryAddress && typeof profile.deliveryAddress === 'object'
+        ? profile.deliveryAddress
+        : shippingAddresses.find((entry) => entry.isDefault) || shippingAddresses[0] || null)
+
+    if (!rawDeliveryAddress) return null
+    return {
+      label: String(rawDeliveryAddress.label || ''),
+      line1: String(rawDeliveryAddress.line1 || ''),
+      line2: String(rawDeliveryAddress.line2 || ''),
+      city: String(rawDeliveryAddress.city || ''),
+      state: String(rawDeliveryAddress.state || ''),
+      postalCode: String(rawDeliveryAddress.postalCode || ''),
+      country: normalizeCheckoutCountry(rawDeliveryAddress.country),
+      phone: String(
+        rawDeliveryAddress.phone ||
+          rawDeliveryAddress.phoneNumber ||
+          rawDeliveryAddress.contactPhone ||
+          rawDeliveryAddress.line2 ||
+          '',
+      ),
+    }
+  }, [profile?.deliveryAddress, selectedShippingAddress, shippingAddresses])
+
+  const canRequestLogisticsQuote = useMemo(() => {
+    const state = String(resolvedShippingAddress?.state || '').trim()
+    const city = String(resolvedShippingAddress?.city || '').trim()
+    const country = String(resolvedShippingAddress?.country || '').trim()
+    if (!resolvedShippingAddress) return false
+    if (normalizeCheckoutCountry(country) !== DEFAULT_COUNTRY) return true
+    return Boolean(state && city)
+  }, [
+    resolvedShippingAddress?.city,
+    resolvedShippingAddress?.country,
+    resolvedShippingAddress?.state,
+  ])
+  const isShippingPricingPending =
+    canRequestLogisticsQuote && (isLoadingLogisticsQuote || !hasResolvedLogisticsQuote)
+  const shippingFee = logisticsQuote ? Number(logisticsQuote.price || 0) : null
+  const shippingDisplayCurrency =
+    String(logisticsQuote?.displayCurrency || '').toUpperCase() === 'USD' ? 'USD' : 'NGN'
+  const shippingDisplayAmount =
+    shippingDisplayCurrency === 'USD'
+      ? logisticsQuote?.displayPrice != null
+        ? Number(logisticsQuote.displayPrice || 0)
+        : null
+      : shippingFee == null
+        ? null
+        : Number(shippingFee || 0)
+  const totalAmount = shippingFee == null ? null : checkoutSummary.subtotal + shippingFee + protectionFee
+  const formatFeeOrFree = (amount, sourceCurrency = 'NGN') => {
+    if (amount === null || amount === undefined || amount === '') return '—'
+    const numericAmount = Number(amount)
+    if (!Number.isFinite(numericAmount)) return '—'
+    if (numericAmount <= 0) return 'FREE'
+    if (String(sourceCurrency || '').toUpperCase() === 'USD') {
+      return formatUsdWithLocalAmount(numericAmount, formatMoney)
+    }
+    return formatMoney(numericAmount, { sourceCurrency })
+  }
 
   useEffect(() => {
     let cancelled = false
-    const loadShippingProgressSettings = async () => {
+    const loadLogisticsQuote = async () => {
+      const state = String(resolvedShippingAddress?.state || '').trim()
+      const city = String(resolvedShippingAddress?.city || '').trim()
+      const country = String(resolvedShippingAddress?.country || '').trim()
+      if (!resolvedShippingAddress) {
+        setLogisticsQuote(null)
+        setHasResolvedLogisticsQuote(false)
+        setIsLoadingLogisticsQuote(false)
+        return
+      }
+      if ((!state || !city) && normalizeCheckoutCountry(country) === DEFAULT_COUNTRY) {
+        setLogisticsQuote(null)
+        setHasResolvedLogisticsQuote(false)
+        setIsLoadingLogisticsQuote(false)
+        return
+      }
+
+      setLogisticsQuote(null)
+      setHasResolvedLogisticsQuote(false)
+      setIsLoadingLogisticsQuote(true)
       try {
-        const response = await fetch('/api/settings/cart-shipping-progress', { cache: 'no-store' })
-        if (!response.ok) return
-        const payload = await response.json().catch(() => null)
-        if (cancelled || !payload) return
-        setShippingProgressConfig({
-          enabled: payload.enabled !== false,
-          standardFreeShippingThreshold:
-            Number(payload.standardFreeShippingThreshold) >= 0
-              ? Number(payload.standardFreeShippingThreshold)
-              : 50,
-          expressFreeShippingThreshold:
-            Number(payload.expressFreeShippingThreshold) >= 0
-              ? Number(payload.expressFreeShippingThreshold)
-              : 100,
+        const params = new URLSearchParams({
+          state,
+          city,
+          country,
+          delivery_type: selectedDeliveryType,
         })
+        const response = await fetch(`/api/settings/logistics?${params.toString()}`, {
+          cache: 'no-store',
+        })
+        const payload = await response.json().catch(() => null)
+        if (cancelled) return
+        if (!response.ok || !payload) {
+          setLogisticsQuote(null)
+          setHasResolvedLogisticsQuote(true)
+          return
+        }
+        setLogisticsQuote({
+          price: Number(payload.price || 0),
+          displayPrice:
+            payload?.displayPrice != null
+              ? Number(payload.displayPrice || 0)
+              : Number(payload.price || 0),
+          displayCurrency: String(payload?.displayCurrency || 'NGN'),
+          checkoutEstimate: String(payload.checkoutEstimate || ''),
+          etaKey: String(payload.etaKey || ''),
+          etaHours: Number(payload.etaHours || 0),
+        })
+        setHasResolvedLogisticsQuote(true)
       } catch {
-        // keep defaults when settings are unavailable
+        if (!cancelled) {
+          setLogisticsQuote(null)
+          setHasResolvedLogisticsQuote(true)
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingLogisticsQuote(false)
+        }
       }
     }
 
-    void loadShippingProgressSettings()
+    void loadLogisticsQuote()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [
+    resolvedShippingAddress?.city,
+    resolvedShippingAddress?.country,
+    resolvedShippingAddress?.state,
+    selectedDeliveryType,
+  ])
 
   useEffect(() => {
     let cancelled = false
@@ -353,42 +544,72 @@ function CheckoutPaymentPageContent() {
   }, [])
 
   useEffect(() => {
-    const inferredCountry = normalizeCheckoutCountry(profile?.country || user?.country)
+    const inferredCountry = normalizeCheckoutCountry(
+      selectedShippingCountryParam ||
+        selectedShippingAddress?.country ||
+        profile?.country ||
+        user?.country,
+    )
     if (hasManualPhoneCountryRef.current) return
     if (phoneCountry === inferredCountry) return
     setPhoneCountry(inferredCountry)
-  }, [profile?.country, user?.country, phoneCountry])
+  }, [
+    selectedShippingCountryParam,
+    selectedShippingAddress?.country,
+    profile?.country,
+    user?.country,
+    phoneCountry,
+  ])
 
   useEffect(() => {
-    if (hasPrefilledPhoneRef.current) return
-    if (contactPhoneLocal) {
-      hasPrefilledPhoneRef.current = true
-      return
-    }
-
-    const rawPhone = String(
-      profile?.phone || profile?.phoneNumber || user?.phone || user?.phoneNumber || '',
-    )
-      .replace(/\D/g, '')
-      .trim()
+    if (hasManualPhoneLocalRef.current) return
+    const sourcePhone = String(
+      selectedShippingPhoneParam ||
+        resolvedShippingAddress?.phone ||
+        profile?.phone ||
+        profile?.phoneNumber ||
+        user?.phone ||
+        user?.phoneNumber ||
+        '',
+    ).trim()
+    const sourceKey = `${selectedShippingAddressId || 'default'}:${sourcePhone}`
+    if (lastPhonePrefillKeyRef.current === sourceKey) return
+    const rawPhone = sourcePhone
     if (!rawPhone) return
 
-    const dialCode = getDialCodeByCountry(phoneCountry || profile?.country || user?.country)
-    if (rawPhone.startsWith(dialCode) && rawPhone.length > dialCode.length) {
-      setContactPhoneLocal(rawPhone.slice(dialCode.length))
-    } else {
-      setContactPhoneLocal(rawPhone)
+    const fallbackDialCode = getDialCodeByCountry(
+      phoneCountry ||
+        selectedShippingCountryParam ||
+        selectedPhoneCountry ||
+        profile?.country ||
+        user?.country,
+    )
+    const { dialCode, localPhone } = splitPhoneWithDialCode(rawPhone, fallbackDialCode)
+    if (!hasManualPhoneDialCodeRef.current) {
+      setPhoneDialCode(dialCode)
     }
-    hasPrefilledPhoneRef.current = true
+    setContactPhoneLocal(localPhone)
+    lastPhonePrefillKeyRef.current = sourceKey
   }, [
-    profile?.country,
+    resolvedShippingAddress?.phone,
+    selectedShippingPhoneParam,
+    selectedShippingCountryParam,
+    selectedShippingAddressId,
     profile?.phone,
     profile?.phoneNumber,
-    user?.country,
     user?.phone,
     user?.phoneNumber,
     phoneCountry,
-    contactPhoneLocal,
+    selectedPhoneCountry,
+    profile?.country,
+    user?.country,
+  ])
+
+  useEffect(() => {
+    if (hasManualPhoneDialCodeRef.current) return
+    setPhoneDialCode(normalizeDialCodeInput(`+${selectedDialCode}`, selectedDialCode))
+  }, [
+    selectedDialCode,
   ])
 
   useEffect(() => {
@@ -447,15 +668,27 @@ function CheckoutPaymentPageContent() {
         sectionRef: paymentMethodSectionRef,
       }
     }
+    if (isShippingPricingPending || shippingFee == null || totalAmount == null) {
+      return {
+        message: 'Please wait while delivery pricing loads.',
+        sectionRef: paymentMethodSectionRef,
+      }
+    }
     if (!selectedBillingAddress) {
       return {
         message: 'Select a billing address before payment.',
         sectionRef: billingSectionRef,
       }
     }
+    if (!/^\+\d{1,4}$/.test(selectedDialCodeInput)) {
+      return {
+        message: 'Enter a valid country code that starts with + (example: +234).',
+        sectionRef: contactPhoneSectionRef,
+      }
+    }
     if (!contactPhoneLocal || String(contactPhoneLocal || '').length < minLocalPhoneLength) {
       return {
-        message: `Enter a valid contact phone number after country code +${selectedDialCode}.`,
+        message: `Enter a valid contact phone number after country code ${selectedDialCodeInput}.`,
         sectionRef: contactPhoneSectionRef,
       }
     }
@@ -500,6 +733,7 @@ function CheckoutPaymentPageContent() {
       label: address.label || '',
       line1: address.line1 || '',
       line2: address.line2 || '',
+      phone: address.phone || '',
       city: address.city || '',
       state: address.state || '',
       postalCode: address.postalCode || '',
@@ -518,7 +752,9 @@ function CheckoutPaymentPageContent() {
 
   const validateDraftAddress = () => {
     if (!draftAddress.line1.trim()) return 'Address line 1 is required.'
+    if (!draftAddress.state.trim()) return 'State is required.'
     if (!draftAddress.city.trim()) return 'City is required.'
+    if (!draftAddress.phone.trim()) return 'Phone number is required.'
     if (!draftAddress.country.trim()) return 'Country is required.'
     return ''
   }
@@ -539,8 +775,9 @@ function CheckoutPaymentPageContent() {
       id: targetId,
       label: draftAddress.label.trim() || `Address ${fallbackIndex}`,
       line1: draftAddress.line1.trim(),
-      line2: draftAddress.line2.trim(),
-      city: draftAddress.city.trim(),
+      line2: '',
+      phone: String(draftAddress.phone || '').trim(),
+      city: toCityOnlyName(draftAddress.state, draftAddress.city),
       state: draftAddress.state.trim(),
       postalCode: draftAddress.postalCode.trim(),
       country: draftAddress.country.trim(),
@@ -570,6 +807,7 @@ function CheckoutPaymentPageContent() {
         ? {
             line1: String(profile.deliveryAddress.line1 || ''),
             line2: String(profile.deliveryAddress.line2 || ''),
+            phone: String(profile.deliveryAddress.phone || ''),
             city: String(profile.deliveryAddress.city || ''),
             state: String(profile.deliveryAddress.state || ''),
             postalCode: String(profile.deliveryAddress.postalCode || ''),
@@ -578,6 +816,7 @@ function CheckoutPaymentPageContent() {
         : {
             line1: '',
             line2: '',
+            phone: '',
             city: '',
             state: '',
             postalCode: '',
@@ -595,20 +834,22 @@ function CheckoutPaymentPageContent() {
           billingAddresses: withDefault,
           billingAddress: defaultItem
             ? {
-                line1: defaultItem.line1 || '',
-                line2: defaultItem.line2 || '',
-                city: defaultItem.city || '',
-                state: defaultItem.state || '',
-                postalCode: defaultItem.postalCode || '',
-                country: normalizeCheckoutCountry(defaultItem.country),
-              }
-            : {
-                line1: '',
-                line2: '',
-                city: '',
-                state: '',
-                postalCode: '',
-                country: DEFAULT_COUNTRY,
+              line1: defaultItem.line1 || '',
+              line2: defaultItem.line2 || '',
+              phone: defaultItem.phone || '',
+              city: defaultItem.city || '',
+              state: defaultItem.state || '',
+              postalCode: defaultItem.postalCode || '',
+              country: normalizeCheckoutCountry(defaultItem.country),
+            }
+          : {
+              line1: '',
+              line2: '',
+              phone: '',
+              city: '',
+              state: '',
+              postalCode: '',
+              country: DEFAULT_COUNTRY,
               },
           deliveryAddress,
         }),
@@ -654,9 +895,18 @@ function CheckoutPaymentPageContent() {
       scrollToSection(paymentMethodSectionRef)
       return
     }
-    const phone = String(contactPhoneDigits || '').trim()
-    if (!phone || String(contactPhoneLocal || '').length < minLocalPhoneLength) {
-      setPaymentError(`Enter a valid contact phone number after country code +${selectedDialCode}.`)
+    if (!/^\+\d{1,4}$/.test(selectedDialCodeInput)) {
+      setPaymentError('Enter a valid country code that starts with + (example: +234).')
+      scrollToSection(contactPhoneSectionRef)
+      return
+    }
+
+    const localDigits = String(contactPhoneLocal || '')
+      .replace(/\D/g, '')
+      .trim()
+    const phone = `${selectedDialCodeDigits}${localDigits}`
+    if (!phone || localDigits.length < minLocalPhoneLength) {
+      setPaymentError(`Enter a valid contact phone number after country code ${selectedDialCodeInput}.`)
       scrollToSection(contactPhoneSectionRef)
       return
     }
@@ -672,22 +922,6 @@ function CheckoutPaymentPageContent() {
       scrollToSection(billingSectionRef)
       return
     }
-
-    const rawDeliveryAddress =
-      profile?.deliveryAddress && typeof profile.deliveryAddress === 'object'
-        ? profile.deliveryAddress
-        : shippingAddresses.find((entry) => entry.isDefault) || shippingAddresses[0] || null
-    const resolvedShippingAddress = rawDeliveryAddress
-      ? {
-          label: String(rawDeliveryAddress.label || ''),
-          line1: String(rawDeliveryAddress.line1 || ''),
-          line2: String(rawDeliveryAddress.line2 || ''),
-          city: String(rawDeliveryAddress.city || ''),
-          state: String(rawDeliveryAddress.state || ''),
-          postalCode: String(rawDeliveryAddress.postalCode || ''),
-          country: normalizeCheckoutCountry(rawDeliveryAddress.country),
-        }
-      : null
 
     setIsStartingPayment(true)
     setPaymentError('')
@@ -729,6 +963,7 @@ function CheckoutPaymentPageContent() {
             shipping_address_state: resolvedShippingAddress?.state || '',
             shipping_address_postal_code: resolvedShippingAddress?.postalCode || '',
             shipping_address_country: resolvedShippingAddress?.country || '',
+            selected_delivery_type: selectedDeliveryType,
           },
         }),
       })
@@ -1092,8 +1327,12 @@ function CheckoutPaymentPageContent() {
                   aria-label='Select phone country'
                 >
                   <span className='flex min-w-0 items-center gap-1.5'>
-                    <span>{selectedFlagEmoji}</span>
-                    <span className='truncate'>+{selectedDialCode}</span>
+                    {isWorldwideCountry(selectedPhoneCountry) ? (
+                      <WorldwideIcon className='h-4 w-4 text-slate-600' />
+                    ) : (
+                      <span>{selectedFlagEmoji}</span>
+                    )}
+                    <span className='truncate'>{selectedDialCodeInput}</span>
                   </span>
                   <svg viewBox='0 0 20 20' className='h-5 w-5 text-slate-500' fill='none' stroke='currentColor' strokeWidth='1.8'>
                     <path d='m6 8 4 4 4-4' strokeLinecap='round' strokeLinejoin='round' />
@@ -1102,9 +1341,23 @@ function CheckoutPaymentPageContent() {
                 <input
                   type='tel'
                   value={contactPhoneLocal}
-                  onChange={(event) => setContactPhoneLocal(event.target.value.replace(/\D/g, ''))}
+                  onChange={(event) => {
+                    hasManualPhoneLocalRef.current = true
+                    const rawValue = String(event.target.value || '')
+                    if (rawValue.trim().startsWith('+')) {
+                      hasManualPhoneDialCodeRef.current = true
+                      const { dialCode, localPhone } = splitPhoneWithDialCode(
+                        rawValue,
+                        selectedDialCodeDigits || selectedDialCode,
+                      )
+                      setPhoneDialCode(dialCode)
+                      setContactPhoneLocal(localPhone)
+                      return
+                    }
+                    setContactPhoneLocal(rawValue.replace(/\D/g, ''))
+                  }}
                   inputMode='numeric'
-                  pattern='[0-9]*'
+                  pattern='[+0-9]*'
                   placeholder='Phone number'
                   className='h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none focus:border-slate-900'
                 />
@@ -1118,15 +1371,21 @@ function CheckoutPaymentPageContent() {
                           type='button'
                           onClick={() => {
                             hasManualPhoneCountryRef.current = true
+                            hasManualPhoneDialCodeRef.current = false
                             setPhoneCountry(entry.country)
+                            setPhoneDialCode(normalizeDialCodeInput(`+${entry.dialCode}`, entry.dialCode))
                             setIsPhoneCountryMenuOpen(false)
                           }}
                           className='flex w-full items-center justify-between px-3 py-2 text-left hover:bg-slate-50'
                         >
                           <span className='flex items-center gap-2 text-sm text-slate-800'>
-                            <span>{entry.flagEmoji}</span>
-                            <span>{entry.country}</span>
-                            <span className='text-slate-500'>(+{entry.dialCode})</span>
+                            {entry.isWorldwide ? (
+                              <WorldwideIcon className='h-4 w-4 text-slate-600' />
+                            ) : (
+                              <span>{entry.flagEmoji}</span>
+                            )}
+                            <span>{entry.label}</span>
+                            <span className='text-slate-500'>({normalizeDialCodeInput(`+${entry.dialCode}`, entry.dialCode)})</span>
                           </span>
                           {entry.country === selectedPhoneCountry ? (
                             <span className='text-sky-600'>✓</span>
@@ -1171,7 +1430,7 @@ function CheckoutPaymentPageContent() {
                   'Connecting to Paystack...'
                 ) : (
                   <>
-                    <span>{`Pay now ${formatMoney(totalAmount)}`}</span>
+                    <span>{`Pay now ${totalAmount == null ? '...' : formatMoney(totalAmount)}`}</span>
                     <svg
                       viewBox='0 0 20 20'
                       className='h-4 w-4'
@@ -1193,26 +1452,30 @@ function CheckoutPaymentPageContent() {
               <div className='flex items-center justify-between py-2'>
                 <button
                   type='button'
-                  onClick={() => setIsMobileOrderSummaryOpen((prev) => !prev)}
-                  className='text-left sm:cursor-default'
+                  onClick={() => setIsOrderSummaryOpen((prev) => !prev)}
+                  className='text-left'
+                  aria-expanded={isOrderSummaryOpen}
+                  aria-label={isOrderSummaryOpen ? 'Collapse order summary' : 'Expand order summary'}
                 >
                   <h2 className='text-xl font-semibold leading-none text-slate-900 sm:text-2xl'>Order Summary</h2>
-                  <p className='mt-1 text-xs text-slate-500 sm:hidden'>
-                    {`${checkoutSummary.itemCount} item${checkoutSummary.itemCount === 1 ? '' : 's'} • ${formatMoney(totalAmount)}`}
+                  <p className='mt-1 text-xs text-slate-500'>
+                    {`${checkoutSummary.itemCount} item${checkoutSummary.itemCount === 1 ? '' : 's'} • ${
+                      totalAmount == null ? '...' : formatMoney(totalAmount)
+                    }`}
                   </p>
                 </button>
                 <button
                   type='button'
                   onClick={(event) => {
                     event.stopPropagation()
-                    setIsMobileOrderSummaryOpen((prev) => !prev)
+                    setIsOrderSummaryOpen((prev) => !prev)
                   }}
-                  className='inline-flex h-7 w-7 items-center justify-center text-slate-600 sm:hidden'
-                  aria-label={isMobileOrderSummaryOpen ? 'Collapse order summary' : 'Expand order summary'}
+                  className='inline-flex h-7 w-7 items-center justify-center text-slate-600'
+                  aria-label={isOrderSummaryOpen ? 'Collapse order summary' : 'Expand order summary'}
                 >
                   <svg
                     viewBox='0 0 20 20'
-                    className={`h-4 w-4 transition-transform ${isMobileOrderSummaryOpen ? 'rotate-90' : ''}`}
+                    className={`h-4 w-4 transition-transform ${isOrderSummaryOpen ? 'rotate-90' : ''}`}
                     fill='none'
                     stroke='currentColor'
                     strokeWidth='2'
@@ -1223,7 +1486,7 @@ function CheckoutPaymentPageContent() {
                 </button>
               </div>
 
-              <div className={`${isMobileOrderSummaryOpen ? 'mt-3 space-y-3' : 'hidden'} sm:mt-4 sm:block sm:space-y-3`}>
+              <div className={`${isOrderSummaryOpen ? 'mt-3 space-y-3 sm:mt-4' : 'hidden'}`}>
                 {checkoutItems.map((item) => {
                   const currentPrice = Number(item.price || 0)
                   const regularPrice = Number(item.originalPrice || item.price || 0)
@@ -1268,7 +1531,7 @@ function CheckoutPaymentPageContent() {
                 })}
               </div>
 
-              <div className={`${isMobileOrderSummaryOpen ? 'mt-4' : 'hidden'} sm:mt-4 sm:block`}>
+              <div className='mt-4'>
                 <h3 className='text-2xl font-semibold leading-none text-slate-900'>Order Total</h3>
                 <div className='mt-3 space-y-2 text-sm'>
                   <div className='flex items-center justify-between text-slate-600'>
@@ -1277,12 +1540,21 @@ function CheckoutPaymentPageContent() {
                   </div>
                   <div className='flex items-center justify-between text-slate-600'>
                     <span>Shipping</span>
-                    <span className='font-semibold text-slate-900'>{formatFeeOrFree(shippingFee)}</span>
+                    <span className='font-semibold text-slate-900'>
+                      {isShippingPricingPending ? (
+                        <span className='inline-block h-4 w-16 animate-pulse rounded bg-slate-200 align-middle' />
+                      ) : (
+                        formatFeeOrFree(shippingDisplayAmount, shippingDisplayCurrency)
+                      )}
+                    </span>
                   </div>
-                  <div className='flex items-center justify-between text-slate-600'>
-                    <span>Tax ({Math.round(TAX_RATE * 100)}%)</span>
-                    <span className='font-semibold text-slate-900'>{formatMoney(taxAmount)}</span>
-                  </div>
+                  {isShippingPricingPending ? (
+                    <p className='text-[11px] text-slate-500'>Loading city logistics quote...</p>
+                  ) : logisticsQuote?.checkoutEstimate ? (
+                    <p className='text-[11px] text-slate-500'>
+                      Estimated delivery: {logisticsQuote.checkoutEstimate}
+                    </p>
+                  ) : null}
                   {protectionFee > 0 ? (
                     <div className='flex items-center justify-between text-slate-600'>
                       <span>Order Protection</span>
@@ -1291,79 +1563,87 @@ function CheckoutPaymentPageContent() {
                   ) : null}
                   <div className='border-t border-slate-200 pt-2 flex items-center justify-between text-base font-semibold'>
                     <span className='text-slate-900'>Total</span>
-                    <span className='text-sky-600'>{formatMoney(totalAmount)}</span>
+                    <span className='text-sky-600'>
+                      {totalAmount == null ? (
+                        <span className='inline-block h-5 w-24 animate-pulse rounded bg-slate-200 align-middle' />
+                      ) : (
+                        formatMoney(totalAmount)
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {!isReady || !isServerReady ? (
-                <p className={`${isMobileOrderSummaryOpen ? 'mt-3' : 'hidden'} text-xs text-slate-500 sm:mt-3 sm:block`}>
-                  Refreshing cart details...
-                </p>
-              ) : null}
+              {!isReady || !isServerReady ? <p className='mt-3 text-xs text-slate-500'>Refreshing cart details...</p> : null}
             </aside>
 
             <aside className='hidden rounded-lg border border-slate-200 bg-white p-4 lg:block'>
-              <h3 className='text-base font-semibold text-slate-900'>Shop Safely and Sustainably</h3>
+              <h3 className='text-lg font-semibold text-slate-900'>Shop with Confidence</h3>
               <div className='mt-2 space-y-4'>
                 <div>
-                  <p className='flex items-center gap-2 text-sm font-semibold text-emerald-700'>
-                    <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                  <p className='flex items-center gap-2 text-base font-semibold text-emerald-700'>
+                    <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
                       <path d='M12 3.8 18.5 6v5.3c0 3.6-2.3 6.8-6.5 8.9-4.2-2.1-6.5-5.3-6.5-8.9V6z' />
                       <path d='M9.3 11.9 11.2 13.8 14.7 10.3' strokeLinecap='round' strokeLinejoin='round' />
                     </svg>
-                    Payment Security
+                    Secure Payments
                   </p>
-                  <p className='mt-1 text-xs leading-5 text-slate-600'>
-                    Your payment information is protected and shared only with trusted payment
-                    service providers required to complete checkout.
+                  <p className='mt-1 text-sm leading-6 text-slate-600'>
+                    Your payment information is securely encrypted and processed through trusted
+                    payment providers to complete your order safely.
                   </p>
                   <div className='mt-2 flex flex-wrap items-center gap-2'>
                     <span className='text-[11px] font-extrabold tracking-tight text-[#1A1F71]'>VISA</span>
                     <span className='text-[11px] font-extrabold text-[#eb001b]'>Mastercard</span>
-                    <span className='text-[11px] font-bold text-[#0046ad]'>ID Check</span>
-                    <span className='text-[11px] font-bold text-[#0b57d0]'>SafeKey</span>
-                    <span className='text-[11px] font-bold text-[#1f4fa3]'>JCB</span>
+                    <span className='rounded bg-[#0b1d4d] px-1.5 py-0.5 text-[10px] font-bold text-white'>VERVE</span>
+                    <span className='inline-flex h-5 items-center justify-center rounded border border-slate-300 bg-slate-100 px-1.5 text-[10px] font-bold text-slate-700'>BANK</span>
+                    <span className='inline-flex h-5 items-center justify-center rounded border border-emerald-300 bg-emerald-50 px-1.5 text-[10px] font-bold text-emerald-700'>*737#</span>
+                    <span className='rounded bg-[#2E77BC] px-1.5 py-0.5 text-[10px] font-bold text-white'>AMEX</span>
                   </div>
                 </div>
 
                 <div className='border-t border-slate-200 pt-3'>
-                  <p className='flex items-center gap-2 text-sm font-semibold text-emerald-700'>
-                    <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                  <p className='flex items-center gap-2 text-base font-semibold text-emerald-700'>
+                    <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
                       <rect x='5.2' y='10.3' width='13.6' height='9.2' rx='1.3' />
                       <path d='M8 10.3V8.8a4 4 0 1 1 8 0v1.5' />
                     </svg>
-                    Security & Privacy
+                    Privacy & Data Protection
                   </p>
-                  <p className='mt-1 text-xs leading-5 text-slate-600'>
-                    We use industry-standard safeguards to protect your personal details and checkout data.
+                  <p className='mt-1 text-sm leading-6 text-slate-600'>
+                    Your personal details and payment information are protected to ensure a safe and secure shopping experience.
                   </p>
-                  <button type='button' className='mt-1 text-[11px] font-semibold text-slate-700'>
+                  <a
+                    href='/privacy-policy'
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='mt-1 inline-flex items-center text-sm font-semibold text-slate-700'
+                  >
                     Learn more
                     <svg viewBox='0 0 20 20' className='ml-1 inline-block h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='2' aria-hidden='true'>
                       <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
                     </svg>
-                  </button>
+                  </a>
                 </div>
 
                 <div className='border-t border-slate-200 pt-3'>
-                  <p className='flex items-center gap-2 text-sm font-semibold text-emerald-700'>
-                    <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                  <p className='flex items-center gap-2 text-base font-semibold text-emerald-700'>
+                    <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
                       <path d='M3.5 8.5h10v7h-10z' />
                       <path d='M13.5 10.5h4l2 2v3h-6z' />
                       <circle cx='7' cy='16.5' r='1.2' />
                       <circle cx='16.5' cy='16.5' r='1.2' />
                     </svg>
-                    Secure Shipment Guarantee
+                    Delivery Protection
                   </p>
-                  <p className='mt-1 text-xs leading-5 text-slate-600'>
-                    Covered support is available for eligible lost, returned, or damaged packages.
+                  <p className='mt-1 text-sm leading-6 text-slate-600'>
+                    Eligible orders are supported if a package is lost, returned, or arrives damaged during delivery.
                   </p>
                 </div>
 
                 <div className='border-t border-slate-200 pt-3'>
-                  <p className='flex items-center gap-2 text-sm font-semibold text-emerald-700'>
-                    <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                  <p className='flex items-center gap-2 text-base font-semibold text-emerald-700'>
+                    <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
                       <path d='M5.5 11.5a6.5 6.5 0 1 1 13 0' />
                       <rect x='4' y='11.5' width='3.5' height='6' rx='1.2' />
                       <rect x='16.5' y='11.5' width='3.5' height='6' rx='1.2' />
@@ -1371,9 +1651,15 @@ function CheckoutPaymentPageContent() {
                     </svg>
                     Customer Support
                   </p>
-                  <p className='mt-1 text-xs leading-5 text-slate-600'>
-                    Need help with your order? Our support team is available to assist you.
+                  <p className='mt-1 text-sm leading-6 text-slate-600'>
+                    Need assistance with your order or account? Our support team is ready to help.
                   </p>
+                  <a href='/UserBackend/messages' className='mt-1 inline-flex items-center gap-1 text-sm font-semibold text-slate-700'>
+                    <span>Get help</span>
+                    <svg viewBox='0 0 20 20' className='h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='2' aria-hidden='true'>
+                      <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
+                    </svg>
+                  </a>
                 </div>
               </div>
             </aside>
@@ -1393,7 +1679,7 @@ function CheckoutPaymentPageContent() {
               'Connecting to Paystack...'
             ) : (
               <>
-                <span>{`Pay now ${formatMoney(totalAmount)}`}</span>
+                <span>{`Pay now ${totalAmount == null ? '...' : formatMoney(totalAmount)}`}</span>
                 <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2' aria-hidden='true'>
                   <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
                 </svg>
@@ -1403,154 +1689,45 @@ function CheckoutPaymentPageContent() {
         </div>
       </div>
 
-      {isAddressModalOpen ? (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4'>
-          <div className='mx-auto w-full max-w-2xl rounded-lg border border-slate-200 bg-white p-5 shadow-2xl max-h-[calc(100vh-6rem)] overflow-y-auto'>
-            <div className='flex items-center justify-between gap-3'>
-              <h2 className='text-lg font-semibold text-slate-900'>
-                {editingAddressId ? 'Edit billing address' : 'Add billing address'}
-              </h2>
-              <button
-                type='button'
-                onClick={closeAddressModal}
-                className='inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50'
-                aria-label='Close billing address editor'
-              >
-                <svg viewBox='0 0 20 20' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='1.8'>
-                  <path d='M5 5l10 10M15 5 5 15' strokeLinecap='round' />
-                </svg>
-              </button>
-            </div>
-
-            <div className='mt-4 grid gap-3 sm:grid-cols-2'>
-              <label className='text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:col-span-2'>
-                Address Label
-                <input
-                  value={draftAddress.label}
-                  onChange={(event) =>
-                    setDraftAddress((prev) => ({ ...prev, label: event.target.value }))
-                  }
-                  placeholder='Home, Office, etc.'
-                  className='mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-slate-900'
-                />
-              </label>
-
-              <label className='text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:col-span-2'>
-                Address Line 1
-                <input
-                  value={draftAddress.line1}
-                  onChange={(event) =>
-                    setDraftAddress((prev) => ({ ...prev, line1: event.target.value }))
-                  }
-                  className='mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-slate-900'
-                />
-              </label>
-
-              <label className='text-xs font-semibold uppercase tracking-[0.08em] text-slate-500 sm:col-span-2'>
-                Address Line 2
-                <input
-                  value={draftAddress.line2}
-                  onChange={(event) =>
-                    setDraftAddress((prev) => ({ ...prev, line2: event.target.value }))
-                  }
-                  className='mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-slate-900'
-                />
-              </label>
-
-              <label className='text-xs font-semibold uppercase tracking-[0.08em] text-slate-500'>
-                City
-                <input
-                  value={draftAddress.city}
-                  onChange={(event) =>
-                    setDraftAddress((prev) => ({ ...prev, city: event.target.value }))
-                  }
-                  className='mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-slate-900'
-                />
-              </label>
-
-              <label className='text-xs font-semibold uppercase tracking-[0.08em] text-slate-500'>
-                State
-                <input
-                  value={draftAddress.state}
-                  onChange={(event) =>
-                    setDraftAddress((prev) => ({ ...prev, state: event.target.value }))
-                  }
-                  className='mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-slate-900'
-                />
-              </label>
-
-              <label className='text-xs font-semibold uppercase tracking-[0.08em] text-slate-500'>
-                Postal Code
-                <input
-                  value={draftAddress.postalCode}
-                  onChange={(event) =>
-                    setDraftAddress((prev) => ({ ...prev, postalCode: event.target.value }))
-                  }
-                  className='mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-slate-900'
-                />
-              </label>
-
-              <label className='text-xs font-semibold uppercase tracking-[0.08em] text-slate-500'>
-                Country
-                <CustomSelect
-                  value={draftAddress.country}
-                  onChange={(event) =>
-                    setDraftAddress((prev) => ({ ...prev, country: event.target.value }))
-                  }
-                  className='mt-2 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-slate-900'
-                >
-                  {ACCEPTED_COUNTRIES.map((country) => (
-                    <option key={country} value={country}>
-                      {country}
-                    </option>
-                  ))}
-                </CustomSelect>
-              </label>
-
-              <label className='sm:col-span-2 inline-flex items-center gap-2 text-sm text-slate-700'>
-                <input
-                  type='checkbox'
-                  checked={Boolean(draftAddress.isDefault)}
-                  onChange={(event) =>
-                    setDraftAddress((prev) => ({ ...prev, isDefault: event.target.checked }))
-                  }
-                  className='h-4 w-4 rounded border-slate-300 text-slate-900'
-                />
-                Set as default address
-              </label>
-            </div>
-
-            {addressError ? <p className='mt-3 text-xs text-rose-600'>{addressError}</p> : null}
-
-            <div className='mt-5 grid gap-3 sm:grid-cols-2'>
-              <button
-                type='button'
-                onClick={closeAddressModal}
-                className='h-10 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700'
-              >
-                Cancel
-              </button>
-              <button
-                type='button'
-                onClick={saveBillingAddress}
-                disabled={isSavingAddress}
-                className='h-10 rounded-xl bg-[#0f1f35] text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60'
-              >
-                {isSavingAddress ? 'Saving...' : 'Save Address'}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <AddressEditorModal
+        isOpen={isAddressModalOpen}
+        addressType='billing'
+        editingId={editingAddressId}
+        draft={draftAddress}
+        setDraft={setDraftAddress}
+        draftLabelSuggestion='Eg. Billing address'
+        isSaving={isSavingAddress}
+        errorMessage={addressError}
+        onClose={closeAddressModal}
+        onSave={saveBillingAddress}
+        overlayTopClassName='top-0'
+        closeAriaLabel='Close billing address editor'
+      />
     </div>
   )
 }
 
 function PaymentPageFallback() {
   return (
-    <div className='min-h-screen bg-white px-4 py-10 sm:px-6 lg:px-8'>
-      <div className='mx-auto w-full max-w-6xl rounded-lg border border-slate-200 bg-white p-10 text-sm text-slate-500'>
-        Loading checkout...
+    <div className='min-h-screen bg-white px-4 py-4 sm:px-6 sm:py-6'>
+      <div className='mx-auto w-full max-w-7xl space-y-4'>
+        <div className='h-10 w-48 animate-pulse rounded-md bg-slate-200' />
+        <div className='grid gap-4 lg:grid-cols-2'>
+          <div className='space-y-3 rounded-xl border border-slate-200 bg-white p-4'>
+            <div className='h-6 w-56 animate-pulse rounded bg-slate-200' />
+            <div className='h-4 w-72 animate-pulse rounded bg-slate-100' />
+            <div className='h-20 animate-pulse rounded-lg bg-slate-100' />
+            <div className='h-20 animate-pulse rounded-lg bg-slate-100' />
+            <div className='h-12 animate-pulse rounded-full bg-slate-200' />
+          </div>
+          <div className='space-y-3 rounded-xl border border-slate-200 bg-white p-4'>
+            <div className='h-6 w-40 animate-pulse rounded bg-slate-200' />
+            <div className='h-16 animate-pulse rounded-lg bg-slate-100' />
+            <div className='h-16 animate-pulse rounded-lg bg-slate-100' />
+            <div className='h-20 animate-pulse rounded-lg bg-slate-100' />
+            <div className='h-28 animate-pulse rounded-lg bg-slate-100' />
+          </div>
+        </div>
       </div>
     </div>
   )

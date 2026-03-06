@@ -152,7 +152,7 @@ const ProductFilters = ({
   }, [dynamicSections])
 
   return (
-    <aside className='flex h-full flex-col bg-white'>
+    <aside className='flex h-full min-h-0 flex-col bg-white'>
       <div className='flex items-center justify-between border-b border-gray-200 px-4 py-3'>
         {showClose ? (
           <button

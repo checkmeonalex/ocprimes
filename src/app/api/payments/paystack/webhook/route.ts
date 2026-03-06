@@ -119,11 +119,7 @@ export async function POST(request: NextRequest) {
   const expectedCurrency = toString(orderQuery.data.currency || 'NGN').toUpperCase() || 'NGN'
 
   const isChargeSuccess = eventName === 'charge.success' || transactionStatus === 'success'
-  const isChargeFailure =
-    eventName === 'charge.failed' ||
-    transactionStatus === 'failed' ||
-    transactionStatus === 'abandoned' ||
-    transactionStatus === 'reversed'
+  const isChargeFailure = eventName === 'charge.failed' || transactionStatus === 'failed'
 
   if (isChargeSuccess) {
     const amountMatches = Number.isFinite(amountKobo) && amountKobo === expectedAmountKobo

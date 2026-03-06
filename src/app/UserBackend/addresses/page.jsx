@@ -1533,8 +1533,6 @@ export default function AddressesPage() {
       cityFieldRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
       if (isDraftNigeria && draftCityOptions.length > 0 && citySelectTriggerRef.current) {
         citySelectTriggerRef.current.click()
-      } else {
-        cityInputRef.current?.focus()
       }
     })
 
@@ -1949,6 +1947,7 @@ export default function AddressesPage() {
                       onChange={(event) => updateDraftState(event.target.value)}
                       autoFlip
                       searchable
+                      autoFocusSearch={false}
                       searchPlaceholder='Search state'
                       noResultsText='No state found'
                       className={stateSelectInputClass}
@@ -1996,6 +1995,7 @@ export default function AddressesPage() {
                       onChange={(event) => updateDraft('city', event.target.value)}
                       autoFlip
                       searchable
+                      autoFocusSearch={false}
                       searchPlaceholder='Search city'
                       noResultsText='No city found'
                       className={stateSelectInputClass}

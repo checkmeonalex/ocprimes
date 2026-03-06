@@ -37,15 +37,18 @@ const formatRelativeTime = (value) => {
 const formatCurrency = (value, currency = 'NGN') => {
   const amount = Number(value || 0);
   const safeCurrency = String(currency || 'NGN').toUpperCase();
-  if (!Number.isFinite(amount)) return safeCurrency === 'NGN' ? 'NGN 0.00' : '$0.00';
+  const fractionDigits = safeCurrency === 'NGN' ? 0 : 2;
+  if (!Number.isFinite(amount)) return safeCurrency === 'NGN' ? 'NGN 0' : '$0.00';
   try {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
       currency: safeCurrency,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
     }).format(amount);
   } catch {
-    return `${safeCurrency} ${amount.toFixed(2)}`;
+    const nextAmount = fractionDigits === 0 ? String(Math.round(amount)) : amount.toFixed(2);
+    return `${safeCurrency} ${nextAmount}`;
   }
 };
 

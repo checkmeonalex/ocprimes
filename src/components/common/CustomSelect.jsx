@@ -86,9 +86,11 @@ export default function CustomSelect({
   'aria-label': ariaLabel = undefined,
   autoFlip = false,
   searchable = false,
+  autoFocusSearch = true,
   searchPlaceholder = 'Search...',
   noResultsText = 'No result found',
   triggerRef = undefined,
+  maxMenuHeight = 256,
 }) {
   const rootRef = useRef(null)
   const optionListRef = useRef(null)
@@ -119,6 +121,7 @@ export default function CustomSelect({
     })
   }, [normalizedSearch, options, searchable])
   const searchHeaderHeight = searchable ? 48 : 0
+  const normalizedMaxMenuHeight = Math.max(180, Number(maxMenuHeight) || 256)
 
   useEffect(() => {
     if (isControlled) return
@@ -159,7 +162,7 @@ export default function CustomSelect({
       )
       const spaceAbove = Math.max(0, triggerRect.top - boundaryTop - gap)
       const desiredPanelHeight = Math.min(
-        256,
+        normalizedMaxMenuHeight,
         Math.max(minPanelHeight, options.length * estimatedOptionHeight),
       )
 
@@ -171,7 +174,7 @@ export default function CustomSelect({
       )
       const nextMaxHeight = Math.max(
         108,
-        Math.min(256, Math.floor(availableSpace)),
+        Math.min(normalizedMaxMenuHeight, Math.floor(availableSpace)),
       )
 
       setPlacement(nextPlacement)
@@ -187,21 +190,21 @@ export default function CustomSelect({
       window.removeEventListener('resize', updateMenuPlacement)
       window.removeEventListener('scroll', updateMenuPlacement, true)
     }
-  }, [autoFlip, isOpen, options.length])
+  }, [autoFlip, isOpen, normalizedMaxMenuHeight, options.length])
 
   useEffect(() => {
     if (!isOpen) {
       setSearchTerm('')
       return undefined
     }
-    if (!searchable) return undefined
+    if (!searchable || !autoFocusSearch) return undefined
     const rafId = window.requestAnimationFrame(() => {
       searchInputRef.current?.focus()
     })
     return () => {
       window.cancelAnimationFrame(rafId)
     }
-  }, [isOpen, searchable])
+  }, [autoFocusSearch, isOpen, searchable])
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -305,7 +308,7 @@ export default function CustomSelect({
             style={{
               maxHeight: `${Math.max(
                 96,
-                (autoFlip ? menuMaxHeight : 256) - searchHeaderHeight,
+                (autoFlip ? menuMaxHeight : normalizedMaxMenuHeight) - searchHeaderHeight,
               )}px`,
             }}
           >

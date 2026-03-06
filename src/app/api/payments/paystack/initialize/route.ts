@@ -13,9 +13,15 @@ import {
   CART_SHIPPING_PROGRESS_DEFAULTS,
   normalizeCartShippingProgressConfig,
 } from '@/lib/cart/shipping-progress-config'
+import { readLogisticsRateByStateCity } from '@/lib/logistics/repository'
+import {
+  isWorldwideCountry,
+  readWorldwideLogisticsSettings,
+  resolveWorldwideFeeInNgn,
+} from '@/lib/logistics/worldwide'
 
-const SHIPPING_FEE = 5
-const TAX_RATE = 0.05
+const STANDARD_SHIPPING_FEE = 5
+const EXPRESS_SHIPPING_FEE = 10
 const ORDER_NUMBER_PREFIX = 'OCP'
 const ORDER_NUMBER_SUFFIX_LENGTH = 5
 const ORDER_NUMBER_MAX_ATTEMPTS = 8
@@ -28,6 +34,8 @@ const initializeSchema = z.object({
 })
 
 const toMinorUnits = (amount: number) => Math.round(Number(amount || 0) * 100)
+const normalizeDeliveryType = (value: unknown) =>
+  String(value || '').trim().toLowerCase() === 'express' ? 'express' : 'standard'
 const normalizeAddressObject = (input: unknown) => {
   const source = input && typeof input === 'object' ? (input as Record<string, unknown>) : {}
   return {
@@ -174,17 +182,6 @@ export async function POST(request: NextRequest) {
     return sum + Number(item.price || 0) * Number(item.quantity || 0)
   }, 0)
   const protectionFee = calculateOrderProtectionFee(protectedSubtotal, protectionConfig)
-  const shippingFee =
-    subtotal >= Number(shippingConfig.standardFreeShippingThreshold || 50) ? 0 : SHIPPING_FEE
-  const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100
-  const expectedTotal = subtotal + shippingFee + taxAmount + protectionFee
-  const amountInKobo = toMinorUnits(expectedTotal)
-  if (!Number.isFinite(amountInKobo) || amountInKobo < 100) {
-    const response = jsonError('Amount must be at least 1.00.', 400)
-    applyCookies(response)
-    return response
-  }
-
   const userProfile =
     auth.user?.user_metadata && typeof auth.user.user_metadata === 'object'
       ? (auth.user.user_metadata as Record<string, unknown>).profile
@@ -224,12 +221,78 @@ export async function POST(request: NextRequest) {
     paymentMethod: String(metadata.selected_payment_method || ''),
     paymentChannel: String(metadata.selected_payment_channel || ''),
   })
+  const useWorldwideLogistics = isWorldwideCountry(shippingAddress.country)
+  const selectedDeliveryType = useWorldwideLogistics
+    ? 'express'
+    : normalizeDeliveryType(metadata.selected_delivery_type)
+  const worldwideSettings = useWorldwideLogistics
+    ? await readWorldwideLogisticsSettings(supabase)
+    : null
+  const worldwideFeeNgn =
+    useWorldwideLogistics && worldwideSettings
+      ? await resolveWorldwideFeeInNgn(supabase, worldwideSettings.fixedPriceUsd)
+      : null
+  const logisticsRate = useWorldwideLogistics
+    ? null
+    : await readLogisticsRateByStateCity(
+        supabase,
+        String(shippingAddress.state || ''),
+        String(shippingAddress.city || ''),
+        selectedDeliveryType,
+      )
+  const hasShippingLocation = Boolean(
+    String(shippingAddress.state || '').trim() && String(shippingAddress.city || '').trim(),
+  )
+  const standardThreshold = Number(shippingConfig.standardFreeShippingThreshold || 50)
+  const expressThreshold = Number(shippingConfig.expressFreeShippingThreshold || 100)
+  const fallbackShippingFee =
+    selectedDeliveryType === 'express'
+      ? subtotal >= expressThreshold
+        ? 0
+        : EXPRESS_SHIPPING_FEE
+      : subtotal >= standardThreshold
+        ? 0
+        : STANDARD_SHIPPING_FEE
+  const shippingFee = useWorldwideLogistics
+    ? Math.max(0, Number(worldwideFeeNgn || 0))
+    : logisticsRate
+      ? Number(logisticsRate.price || 0)
+      : hasShippingLocation
+        ? 0
+        : fallbackShippingFee
+  const taxAmount = 0
+  const expectedTotal = subtotal + shippingFee + protectionFee
+  const amountInKobo = toMinorUnits(expectedTotal)
+  if (!Number.isFinite(amountInKobo) || amountInKobo < 100) {
+    const response = jsonError('Amount must be at least 1.00.', 400)
+    applyCookies(response)
+    return response
+  }
+
   const protectedItemKeys = checkoutItems
     .filter((item) => Boolean(item?.isProtected))
     .map((item) => String(item?.key || '').trim())
     .filter(Boolean)
+  const resolvedLogisticsEtaKey = useWorldwideLogistics
+    ? String(worldwideSettings?.etaKey || '')
+    : String(logisticsRate?.etaKey || '')
+  const resolvedLogisticsEtaHours = useWorldwideLogistics
+    ? Number(worldwideSettings?.etaHours || 0)
+    : Number(logisticsRate?.etaHours || 0)
+  const resolvedLogisticsEstimate = useWorldwideLogistics
+    ? String(worldwideSettings?.checkoutEstimate || '')
+    : String(logisticsRate?.checkoutEstimate || '')
   const orderShippingAddress = {
     ...shippingAddress,
+    logistics_delivery_type: selectedDeliveryType,
+    logistics_scope: useWorldwideLogistics ? 'worldwide' : 'nigeria',
+    logistics_eta_key: resolvedLogisticsEtaKey,
+    logistics_eta_hours: resolvedLogisticsEtaHours,
+    logistics_estimate: resolvedLogisticsEstimate,
+    logistics_display_currency: useWorldwideLogistics ? 'USD' : 'NGN',
+    logistics_display_price: useWorldwideLogistics
+      ? Number(worldwideSettings?.fixedPriceUsd || 0)
+      : Number(logisticsRate?.price || 0),
     protectedItemKeys,
     protected_item_keys: protectedItemKeys,
   }

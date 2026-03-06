@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
+import { reconcilePendingCheckoutOrderPayment } from '@/lib/payments/reconcile-pending-checkout'
 
 type RawOrder = {
   id: string
@@ -22,7 +24,7 @@ type RawOrderItem = {
   quantity: number | string
 }
 
-const PAYMENT_WINDOW_MINUTES = 2
+const PAYMENT_WINDOW_MINUTES = 10
 const PAYMENT_WINDOW_MS = PAYMENT_WINDOW_MINUTES * 60 * 1000
 
 const getManualStatus = (shippingAddress: Record<string, unknown>) =>
@@ -88,11 +90,57 @@ export async function GET(request: NextRequest) {
     return response
   }
 
-  const orders = (ordersData || []) as RawOrder[]
+  let orders = (ordersData || []) as RawOrder[]
   if (orders.length === 0) {
     const response = jsonOk({ items: [] })
     applyCookies(response)
     return response
+  }
+
+  const pendingOrders = orders.filter((order) => {
+    const normalized = String(order.payment_status || '').trim().toLowerCase()
+    return normalized === 'pending' && String(order.paystack_reference || '').trim().length > 0
+  })
+  if (pendingOrders.length > 0) {
+    let adminDb: ReturnType<typeof createAdminSupabaseClient> | null = null
+    try {
+      adminDb = createAdminSupabaseClient()
+    } catch {
+      adminDb = null
+    }
+    if (adminDb) {
+      orders = await Promise.all(
+        orders.map(async (order) => {
+          const normalized = String(order.payment_status || '').trim().toLowerCase()
+          if (normalized !== 'pending' || !String(order.paystack_reference || '').trim()) {
+            return order
+          }
+          const reconciledPaymentStatus = await reconcilePendingCheckoutOrderPayment({
+            adminDb,
+            input: {
+              id: String(order.id || ''),
+              userId: String(auth.user.id || ''),
+              reference: String(order.paystack_reference || ''),
+              paymentStatus: String(order.payment_status || ''),
+              createdAt: String(order.created_at || ''),
+              totalAmount: Number(order.total_amount || 0),
+              currency: String(order.currency || 'NGN'),
+            },
+            paymentWindowMinutes: PAYMENT_WINDOW_MINUTES,
+          })
+          if (
+            String(reconciledPaymentStatus || '').trim() &&
+            reconciledPaymentStatus !== String(order.payment_status || '')
+          ) {
+            return {
+              ...order,
+              payment_status: reconciledPaymentStatus,
+            }
+          }
+          return order
+        }),
+      )
+    }
   }
 
   const orderIds = orders.map((entry) => entry.id)

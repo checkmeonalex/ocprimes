@@ -20,6 +20,7 @@ const HEADER_META = [
   { match: '/backend/admin/attributes', title: 'Attributes', subtitle: 'Configure product attributes and terms' },
   { match: '/backend/admin/library', title: 'Library', subtitle: 'Manage your uploaded media assets' },
   { match: '/backend/admin/size-guides', title: 'Size Guides', subtitle: 'Maintain sizing information and charts' },
+  { match: '/backend/admin/logistics', title: 'Logistics', subtitle: 'Configure city delivery fees and ETA windows' },
   { match: '/backend/admin/pages', title: 'Pages', subtitle: 'Edit storefront pages and sections' },
   { match: '/backend/admin/settings', title: 'Settings', subtitle: 'Configure store and admin preferences' },
   { match: '/backend/admin/admin/users', title: 'Admin Users', subtitle: 'Manage administrator access' },
@@ -38,7 +39,7 @@ function resolveHeaderMeta(pathname) {
   return { title: 'Admin', subtitle: 'Manage your workspace' };
 }
 
-export default function AdminDesktopHeader() {
+export default function AdminDesktopHeader({ noMargin = false, noBleed = false }) {
   const pathname = usePathname();
   const router = useRouter();
   const meta = useMemo(() => resolveHeaderMeta(pathname), [pathname]);
@@ -69,7 +70,13 @@ export default function AdminDesktopHeader() {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-20 -mx-4 mb-4 hidden border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/75 sm:-mx-6 sm:px-6 lg:-mx-10 lg:flex lg:px-10">
+    <header
+      className={`sticky top-0 z-20 hidden border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/75 sm:px-6 lg:flex lg:px-10 ${
+        noBleed ? '' : '-mx-4 sm:-mx-6 lg:-mx-10'
+      } ${
+        noMargin ? 'mb-0' : 'mb-4'
+      }`}
+    >
       <div className="flex w-full items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold leading-tight text-slate-900">{meta.title}</h1>

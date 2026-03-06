@@ -263,22 +263,32 @@ export function UserLocaleProvider({ children }: { children: ReactNode }) {
       )
       const localeTag = LANGUAGE_TO_INTL_LOCALE[locale.language] || 'en-US'
       const symbol = getCurrencyMeta(locale.currency).symbol || locale.currency
-      const decimals = Number.isInteger(convertedAmount) ? 0 : 2
+      const defaultFractionDigits =
+        locale.currency === 'NGN' ? 0 : Number.isInteger(convertedAmount) ? 0 : 2
       const withSpace = !['$', '£', '€', 'C$'].includes(symbol)
-      const { sourceCurrency: _unusedSourceCurrency, ...intlOptions } = options
+      const {
+        sourceCurrency: _unusedSourceCurrency,
+        minimumFractionDigits,
+        maximumFractionDigits,
+        ...intlOptions
+      } = options
+      const initialMinDigits = minimumFractionDigits ?? defaultFractionDigits
+      const initialMaxDigits = maximumFractionDigits ?? defaultFractionDigits
+      const resolvedMinDigits = Math.min(initialMinDigits, initialMaxDigits)
+      const resolvedMaxDigits = Math.max(initialMinDigits, initialMaxDigits)
       try {
         const numberPart = new Intl.NumberFormat(localeTag, {
           style: 'decimal',
-          minimumFractionDigits: options.minimumFractionDigits ?? decimals,
-          maximumFractionDigits: options.maximumFractionDigits ?? decimals,
+          minimumFractionDigits: resolvedMinDigits,
+          maximumFractionDigits: resolvedMaxDigits,
           ...intlOptions,
         }).format(convertedAmount)
         return withSpace ? `${symbol} ${numberPart}` : `${symbol}${numberPart}`
       } catch {
         const fallback =
-          decimals === 0
-            ? String(Math.trunc(convertedAmount))
-            : convertedAmount.toFixed(2)
+          resolvedMaxDigits === 0
+            ? String(Math.round(convertedAmount))
+            : convertedAmount.toFixed(resolvedMaxDigits)
         return withSpace ? `${symbol} ${fallback}` : `${symbol}${fallback}`
       }
     },

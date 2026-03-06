@@ -19,7 +19,7 @@ function MobileNavbar({ initialAuthUser = null }) {
   const router = useRouter()
   const pathname = usePathname()
   const { isOpen, toggleSidebar } = useSidebar()
-  const { summary } = useCart()
+  const { summary, isReady, isServerReady } = useCart()
   const { user } = useAuthUser(initialAuthUser, true)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
@@ -323,6 +323,9 @@ function MobileNavbar({ initialAuthUser = null }) {
     router.push('/login')
   }
 
+  const cartCount = summary?.itemCount ?? 0
+  const showCartLoadingSpinner = (!isReady || !isServerReady) && cartCount <= 0
+
   return (
     <>
       {/* Main Mobile Navbar */}
@@ -594,7 +597,36 @@ function MobileNavbar({ initialAuthUser = null }) {
                   xmlns='http://www.w3.org/2000/svg'
                   aria-hidden='true'
                 >
-                  {summary?.itemCount > 0 ? null : (
+                  {showCartLoadingSpinner ? (
+                    <g>
+                      <circle
+                        cx='14'
+                        cy='8'
+                        r='2.2'
+                        fill='none'
+                        stroke='#520000'
+                        strokeWidth='1.4'
+                        opacity='0.25'
+                      />
+                      <g>
+                        <path
+                          d='M14 5.8a2.2 2.2 0 0 1 2.2 2.2'
+                          fill='none'
+                          stroke='#520000'
+                          strokeWidth='1.4'
+                          strokeLinecap='round'
+                        />
+                        <animateTransform
+                          attributeName='transform'
+                          type='rotate'
+                          from='0 14 8'
+                          to='360 14 8'
+                          dur='0.75s'
+                          repeatCount='indefinite'
+                        />
+                      </g>
+                    </g>
+                  ) : cartCount > 0 ? null : (
                     <path
                       d='M14,12a1,1,0,0,1-1-1V9H11a1,1,0,0,1,0-2h2V5a1,1,0,0,1,2,0V7h2a1,1,0,0,1,0,2H15v2A1,1,0,0,1,14,12Z'
                       fill='#520000'
@@ -608,13 +640,13 @@ function MobileNavbar({ initialAuthUser = null }) {
                     d='M18.22,17H9.8a2,2,0,0,1-2-1.55L5.2,4H3A1,1,0,0,1,3,2H5.2a2,2,0,0,1,2,1.55L9.8,15h8.42L20,7.76A1,1,0,0,1,22,8.24l-1.81,7.25A2,2,0,0,1,18.22,17Z'
                     fill='#000000'
                   />
-                  {summary?.itemCount > 0 && (
+                  {cartCount > 0 && (
                     <text
                       x='14'
                       y='9.25'
                       textAnchor='middle'
                       dominantBaseline='middle'
-                      fontSize={summary?.itemCount > 9 ? 7 : 8}
+                      fontSize={cartCount > 9 ? 7 : 8}
                       fontWeight='500'
                       fill='#000000'
                       style={{
@@ -622,7 +654,7 @@ function MobileNavbar({ initialAuthUser = null }) {
                           'system-ui, -apple-system, Segoe UI, Roboto, Arial',
                       }}
                     >
-                      {summary?.itemCount > 99 ? '99+' : summary?.itemCount}
+                      {cartCount > 99 ? '99+' : cartCount}
                     </text>
                   )}
                 </svg>
@@ -641,7 +673,7 @@ function MobileNavbar({ initialAuthUser = null }) {
         >
           <div className='px-4 py-2'>
             <div className='flex items-center gap-3'>
-              <div className='min-w-0 flex-1 overflow-x-auto'>
+              <div className='min-w-0 flex-1 overflow-x-auto no-scrollbar'>
                 <div className='flex items-center space-x-6'>
                   <button
                     onClick={handleCategoriesClick}

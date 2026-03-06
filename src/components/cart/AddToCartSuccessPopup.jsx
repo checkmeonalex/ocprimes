@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -96,6 +96,8 @@ const resolveCategorySignal = (product) => {
 }
 
 export default function AddToCartSuccessPopup() {
+  const AUTO_CLOSE_MS = 15000
+  const READY_FALLBACK_MS = 20000
   const pathname = usePathname()
   const { lastAddedItem, clearLastAddedItem } = useCart()
   const { isMobile } = useScreenSize()
@@ -103,25 +105,77 @@ export default function AddToCartSuccessPopup() {
   const [relatedItems, setRelatedItems] = useState([])
   const [isLoadingRelated, setIsLoadingRelated] = useState(false)
   const [open, setOpen] = useState(false)
+  const [loadedImageKeys, setLoadedImageKeys] = useState([])
+  const [hasReadyFallbackElapsed, setHasReadyFallbackElapsed] = useState(false)
+  const readyFallbackTimerRef = useRef(null)
 
   const addedProduct = lastAddedItem?.product || null
+  const visibleRelatedItems = useMemo(() => relatedItems.slice(0, 5), [relatedItems])
+  const expectedImageKeys = useMemo(() => {
+    const keys = []
+    if (addedProduct?.image) {
+      keys.push(`primary:${String(addedProduct.id || addedProduct.slug || addedProduct.image)}`)
+    }
+    visibleRelatedItems.forEach((item) => {
+      if (!item?.image) return
+      keys.push(`related:${String(item.id || item.slug || item.image)}`)
+    })
+    return keys
+  }, [addedProduct, visibleRelatedItems])
+  const loadedImageKeySet = useMemo(() => new Set(loadedImageKeys), [loadedImageKeys])
+  const areVisibleImagesReady = useMemo(
+    () => expectedImageKeys.every((key) => loadedImageKeySet.has(key)),
+    [expectedImageKeys, loadedImageKeySet],
+  )
+  const isPopupContentReady = useMemo(() => {
+    if (!open || !addedProduct) return false
+    if (isLoadingRelated) return false
+    if (hasReadyFallbackElapsed) return true
+    return areVisibleImagesReady
+  }, [addedProduct, areVisibleImagesReady, hasReadyFallbackElapsed, isLoadingRelated, open])
+
+  const markImageLoaded = (key) => {
+    if (!key) return
+    setLoadedImageKeys((current) => (current.includes(key) ? current : [...current, key]))
+  }
 
   useEffect(() => {
     if (!lastAddedItem?.createdAt) return
     setOpen(true)
+    setRelatedItems([])
+    setLoadedImageKeys([])
+    setHasReadyFallbackElapsed(false)
   }, [lastAddedItem?.createdAt])
 
   useEffect(() => {
     if (!open || !lastAddedItem?.createdAt) return
+    if (readyFallbackTimerRef.current) {
+      window.clearTimeout(readyFallbackTimerRef.current)
+      readyFallbackTimerRef.current = null
+    }
+    readyFallbackTimerRef.current = window.setTimeout(() => {
+      setHasReadyFallbackElapsed(true)
+      readyFallbackTimerRef.current = null
+    }, READY_FALLBACK_MS)
+    return () => {
+      if (readyFallbackTimerRef.current) {
+        window.clearTimeout(readyFallbackTimerRef.current)
+        readyFallbackTimerRef.current = null
+      }
+    }
+  }, [lastAddedItem?.createdAt, open])
+
+  useEffect(() => {
+    if (!open || !lastAddedItem?.createdAt || !isPopupContentReady) return
     const shouldAutoClose =
       typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches
     if (!shouldAutoClose) return
     const timer = window.setTimeout(() => {
       setOpen(false)
       clearLastAddedItem()
-    }, 9000)
+    }, AUTO_CLOSE_MS)
     return () => window.clearTimeout(timer)
-  }, [clearLastAddedItem, lastAddedItem?.createdAt, open])
+  }, [AUTO_CLOSE_MS, clearLastAddedItem, isPopupContentReady, lastAddedItem?.createdAt, open])
 
   useEffect(() => {
     if (!open || !addedProduct) return
@@ -284,7 +338,16 @@ export default function AddToCartSuccessPopup() {
           <div className='flex gap-3 rounded-xl bg-gray-50 p-2.5 sm:p-3.5'>
             <div className='relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-gray-100 sm:h-24 sm:w-24'>
               {addedProduct.image ? (
-                <Image src={addedProduct.image} alt={addedProduct.name} fill sizes='80px' className='object-cover' />
+                <Image
+                  src={addedProduct.image}
+                  alt={addedProduct.name}
+                  fill
+                  sizes='80px'
+                  className='object-cover'
+                  onLoadingComplete={() =>
+                    markImageLoaded(`primary:${String(addedProduct.id || addedProduct.slug || addedProduct.image)}`)
+                  }
+                />
               ) : null}
             </div>
             <div className='min-w-0 max-w-full flex-1 basis-0 overflow-hidden'>
@@ -342,7 +405,7 @@ export default function AddToCartSuccessPopup() {
             </div>
           ) : relatedItems.length ? (
             <div className='flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-5 sm:gap-3 sm:overflow-visible [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'>
-              {relatedItems.slice(0, 5).map((item) => (
+              {visibleRelatedItems.map((item) => (
                 <Link
                   key={`${item.id}-${item.slug}`}
                   href={`/product/${item.slug}`}
@@ -364,6 +427,9 @@ export default function AddToCartSuccessPopup() {
                           fill
                           sizes='98px'
                           className='object-cover transition duration-200 group-hover:scale-105'
+                          onLoadingComplete={() =>
+                            markImageLoaded(`related:${String(item.id || item.slug || item.image)}`)
+                          }
                         />
                       ) : null}
                     </div>

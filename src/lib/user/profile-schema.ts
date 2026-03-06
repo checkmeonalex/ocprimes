@@ -39,6 +39,7 @@ const addressEntrySchema = z.object({
   isDefault: z.boolean().optional(),
   line1: z.preprocess(trimmed, z.string().max(120).optional().or(z.literal(''))),
   line2: z.preprocess(trimmed, z.string().max(120).optional().or(z.literal(''))),
+  phone: z.preprocess(trimmed, z.string().max(30).optional().or(z.literal(''))),
   city: z.preprocess(trimmed, z.string().max(80).optional().or(z.literal(''))),
   state: z.preprocess(trimmed, z.string().max(80).optional().or(z.literal(''))),
   postalCode: z.preprocess(trimmed, z.string().max(20).optional().or(z.literal(''))),
@@ -48,6 +49,7 @@ const addressBlockSchema = z
   .object({
     line1: z.preprocess(trimmed, z.string().max(120).optional().or(z.literal(''))),
     line2: z.preprocess(trimmed, z.string().max(120).optional().or(z.literal(''))),
+    phone: z.preprocess(trimmed, z.string().max(30).optional().or(z.literal(''))),
     city: z.preprocess(trimmed, z.string().max(80).optional().or(z.literal(''))),
     state: z.preprocess(trimmed, z.string().max(80).optional().or(z.literal(''))),
     postalCode: z.preprocess(trimmed, z.string().max(20).optional().or(z.literal(''))),

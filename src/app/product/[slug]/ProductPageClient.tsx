@@ -19,6 +19,7 @@ import ShareProductModal from '../../../components/product/ShareProductModal'
 import CartQuantitySelect from '../../../components/cart/CartQuantitySelect'
 import ProductFloatingDock from '../../../components/product/ProductFloatingDock'
 import SellerChatPopup from '../../../components/product/SellerChatPopup'
+import ShippingTabDetails from '../../../components/product/ShippingTabDetails'
 import {
   DeferredSectionLoader,
   RelatedProductsSkeleton,
@@ -416,19 +417,17 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   const [shouldLoadRelated, setShouldLoadRelated] = useState(false)
   const [isReviewsLoading, setIsReviewsLoading] = useState(false)
   const [isRelatedLoading, setIsRelatedLoading] = useState(false)
+  const [isDesktopHeaderVisible, setIsDesktopHeaderVisible] = useState(true)
   const { addItem, items, updateQuantity } = useCart()
   const { openSaveModal, isRecentlySaved } = useWishlist()
   const searchParams = useSearchParams()
   const addToCartRef = useRef<HTMLDivElement | null>(null)
   const galleryMainRef = useRef<HTMLDivElement | null>(null)
+  const galleryStickyWrapRef = useRef<HTMLDivElement | null>(null)
+  const galleryStickyContentRef = useRef<HTMLDivElement | null>(null)
   const conditionInfoRef = useRef<HTMLDivElement | null>(null)
   const returnInfoRef = useRef<HTMLDivElement | null>(null)
   const productContentAreaRef = useRef<HTMLDivElement | null>(null)
-  const sectionRef = useRef<HTMLDivElement | null>(null)
-  const rightColumnRef = useRef<HTMLDivElement | null>(null)
-  const rightPinRef = useRef<HTMLDivElement | null>(null)
-  const rightSpacerRef = useRef<HTMLDivElement | null>(null)
-  const leftColumnRef = useRef<HTMLDivElement | null>(null)
   const mobileGallerySectionRef = useRef<HTMLDivElement | null>(null)
   const reviewsTriggerRef = useRef<HTMLDivElement | null>(null)
   const relatedTriggerRef = useRef<HTMLDivElement | null>(null)
@@ -436,6 +435,10 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   const variationSectionRef = useRef<HTMLDivElement | null>(null)
   const cartSelectionHydratedRef = useRef<string | null>(null)
   const addToCartLoadingTimeoutRef = useRef<number | null>(null)
+  const lastDesktopScrollYRef = useRef(0)
+  const galleryStickyModeRef = useRef('static')
+  const galleryStickyKeyRef = useRef('')
+  const [galleryStickyStyle, setGalleryStickyStyle] = useState<Record<string, string>>({})
   const handleReviewSubmitted = useCallback(() => {
     setShouldLoadReviews(true)
     setReviewReloadKey((prev) => prev + 1)
@@ -922,12 +925,27 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   }, [])
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const handleScroll = () => {
+      const currentY = window.scrollY
+      const nearTop = currentY < 20
+      const scrollingUp = currentY < lastDesktopScrollYRef.current
+      setIsDesktopHeaderVisible(nearTop || scrollingUp)
+      lastDesktopScrollYRef.current = currentY
+    }
+
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  useEffect(() => {
     if (!addToCartRef.current) {
       setIsInlineAddToCartVisible(false)
       setShowFloatingCart(false)
       return
     }
-    const panel = rightPinRef.current
     let frameId = 0
 
     const measureInlineCartVisibility = () => {
@@ -961,17 +979,111 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
     scheduleMeasureInlineCartVisibility()
     window.addEventListener('scroll', scheduleMeasureInlineCartVisibility, { passive: true })
     window.addEventListener('resize', scheduleMeasureInlineCartVisibility, { passive: true })
-    panel?.addEventListener('scroll', scheduleMeasureInlineCartVisibility, { passive: true })
 
     return () => {
       window.removeEventListener('scroll', scheduleMeasureInlineCartVisibility)
       window.removeEventListener('resize', scheduleMeasureInlineCartVisibility)
-      panel?.removeEventListener('scroll', scheduleMeasureInlineCartVisibility)
       if (frameId) {
         window.cancelAnimationFrame(frameId)
       }
     }
   }, [isMobile, product?.id])
+
+  useEffect(() => {
+    const wrapEl = galleryStickyWrapRef.current
+    const contentEl = galleryStickyContentRef.current
+    if (!wrapEl || !contentEl) return
+
+    let frameId = 0
+    const applyStickyStyle = (mode: string, nextStyle: Record<string, string>) => {
+      const key = JSON.stringify(nextStyle)
+      if (galleryStickyModeRef.current === mode && galleryStickyKeyRef.current === key) {
+        return
+      }
+      galleryStickyModeRef.current = mode
+      galleryStickyKeyRef.current = key
+      setGalleryStickyStyle(nextStyle)
+    }
+
+    const updateSticky = () => {
+      const isDesktop = window.innerWidth >= 768
+      if (!isDesktop) {
+        wrapEl.style.minHeight = ''
+        applyStickyStyle('static', {})
+        return
+      }
+
+      const topOffset = isDesktopHeaderVisible ? 118 : 12
+      const wrapRect = wrapEl.getBoundingClientRect()
+      const scrollY = window.scrollY
+      const wrapTop = wrapRect.top + scrollY
+      const wrapBottom = wrapRect.bottom + scrollY
+      const contentHeight = Math.round(contentEl.getBoundingClientRect().height)
+      const topEnterBuffer = 2
+      const topReleaseBuffer = 20
+
+      if (!contentHeight) {
+        applyStickyStyle('static', {})
+        return
+      }
+
+      wrapEl.style.minHeight = `${contentHeight}px`
+
+      const isPinned = galleryStickyModeRef.current === 'fixed'
+      if (isPinned ? scrollY + topOffset <= wrapTop - topReleaseBuffer : scrollY + topOffset < wrapTop + topEnterBuffer) {
+        applyStickyStyle('static', {})
+        return
+      }
+
+      const absoluteTop = Math.max(0, wrapBottom - wrapTop - contentHeight)
+      if (scrollY + topOffset >= wrapBottom - contentHeight) {
+        applyStickyStyle('bottom', {
+          position: 'absolute',
+          top: `${absoluteTop}px`,
+          left: '0px',
+          width: '100%',
+        })
+        return
+      }
+
+      applyStickyStyle('fixed', {
+        position: 'fixed',
+        top: `${topOffset}px`,
+        left: `${wrapRect.left}px`,
+        width: `${wrapRect.width}px`,
+      })
+    }
+
+    const queueUpdate = () => {
+      if (frameId) return
+      frameId = window.requestAnimationFrame(() => {
+        frameId = 0
+        updateSticky()
+      })
+    }
+
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(() => {
+          queueUpdate()
+        })
+
+    resizeObserver?.observe(wrapEl)
+    resizeObserver?.observe(contentEl)
+
+    queueUpdate()
+    window.addEventListener('scroll', queueUpdate, { passive: true })
+    window.addEventListener('resize', queueUpdate, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', queueUpdate)
+      window.removeEventListener('resize', queueUpdate)
+      resizeObserver?.disconnect()
+      if (frameId) {
+        window.cancelAnimationFrame(frameId)
+      }
+    }
+  }, [isDesktopHeaderVisible, product?.id])
 
   useEffect(() => {
     const contentArea = productContentAreaRef.current
@@ -990,203 +1102,6 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
     observer.observe(contentArea)
     return () => observer.disconnect()
   }, [product?.id])
-
-  useEffect(() => {
-    if (isMobile) return
-    if (!product) return
-
-    const sectionEl = sectionRef.current
-    const pinEl = rightPinRef.current
-    const spacerEl = rightSpacerRef.current
-    const rightCol = rightColumnRef.current
-    if (!sectionEl || !pinEl || !spacerEl || !rightCol) return
-
-    let frameId = 0
-    let autoScrollFrameId = 0
-    let isAutoScrollingRight = false
-    let autoScrollDirection: 'down' | 'up' | null = null
-    const headerOffset = 96
-    const epsilon = 1
-    const autoStepPx = 18
-    let previousScrollY = window.scrollY
-
-    const stopAutoScroll = () => {
-      if (autoScrollFrameId) {
-        window.cancelAnimationFrame(autoScrollFrameId)
-        autoScrollFrameId = 0
-      }
-      isAutoScrollingRight = false
-      autoScrollDirection = null
-    }
-
-    const update = () => {
-      const scrollY = window.scrollY
-      const sectionRect = sectionEl.getBoundingClientRect()
-      const rightRect = rightCol.getBoundingClientRect()
-      const sectionTop = sectionRect.top + scrollY
-      const sectionBottom = sectionRect.bottom + scrollY
-      const pinHeight = pinEl.offsetHeight
-      const maxTop = Math.max(0, sectionBottom - pinHeight - sectionTop)
-      const pinStartScrollY = sectionTop - headerOffset
-      const pinEndScrollY = sectionBottom - pinHeight - headerOffset
-      const pinTravel = Math.max(1, pinEndScrollY - pinStartScrollY)
-      const rightMaxScroll = Math.max(0, pinEl.scrollHeight - pinEl.clientHeight)
-      const isScrollingUp = scrollY < previousScrollY - epsilon
-      const shouldPin = scrollY + headerOffset >= sectionTop
-      const shouldUnpinBottom =
-        scrollY + headerOffset >= sectionBottom - pinHeight - epsilon
-
-      spacerEl.style.height = `${pinHeight}px`
-      rightCol.style.minHeight = `${pinHeight}px`
-
-      if (!shouldPin) {
-        stopAutoScroll()
-        pinEl.style.position = 'absolute'
-        pinEl.style.top = '0px'
-        pinEl.style.left = '0px'
-        pinEl.style.width = '100%'
-        pinEl.style.zIndex = '1'
-        previousScrollY = scrollY
-        return
-      }
-
-      if (shouldUnpinBottom) {
-        const canAutoFinishRight =
-          rightMaxScroll > 0 && pinEl.scrollTop < rightMaxScroll - epsilon
-
-        if (canAutoFinishRight) {
-          // Keep the panel constrained to the section while auto-finishing right scroll.
-          pinEl.style.position = 'absolute'
-          pinEl.style.top = `${maxTop}px`
-          pinEl.style.left = '0px'
-          pinEl.style.width = '100%'
-          pinEl.style.zIndex = '1'
-          if (!isAutoScrollingRight) {
-            isAutoScrollingRight = true
-            autoScrollDirection = 'down'
-            if (Math.abs(window.scrollY - pinEndScrollY) > epsilon) {
-              window.scrollTo({ top: pinEndScrollY, behavior: 'auto' })
-            }
-            const autoStep = () => {
-              if (!isAutoScrollingRight || autoScrollDirection !== 'down') return
-              pinEl.scrollTop = Math.min(rightMaxScroll, pinEl.scrollTop + autoStepPx)
-              if (pinEl.scrollTop >= rightMaxScroll - epsilon) {
-                stopAutoScroll()
-                return
-              }
-              autoScrollFrameId = window.requestAnimationFrame(autoStep)
-            }
-            autoScrollFrameId = window.requestAnimationFrame(autoStep)
-          }
-          previousScrollY = scrollY
-          return
-        }
-
-        stopAutoScroll()
-        pinEl.style.position = 'absolute'
-        pinEl.style.top = `${maxTop}px`
-        pinEl.style.left = '0px'
-        pinEl.style.width = '100%'
-        pinEl.style.zIndex = '1'
-        previousScrollY = scrollY
-        return
-      }
-
-      pinEl.style.position = 'fixed'
-      pinEl.style.top = `${headerOffset}px`
-      pinEl.style.left = `${rightRect.left}px`
-      pinEl.style.width = `${rightRect.width}px`
-      pinEl.style.zIndex = '10'
-
-      if (isScrollingUp && rightMaxScroll > 0) {
-        const progress = Math.min(
-          1,
-          Math.max(0, (scrollY - pinStartScrollY) / pinTravel)
-        )
-        const syncedRightTop = progress * rightMaxScroll
-        if (Math.abs(pinEl.scrollTop - syncedRightTop) > 0.5) {
-          pinEl.scrollTop = syncedRightTop
-        }
-      }
-
-      if (isAutoScrollingRight) {
-        stopAutoScroll()
-      }
-      previousScrollY = scrollY
-    }
-
-    const onScroll = () => {
-      if (frameId) return
-      frameId = window.requestAnimationFrame(() => {
-        frameId = 0
-        update()
-      })
-    }
-
-    const onWheelWhileAuto = (event: WheelEvent) => {
-      if (!isAutoScrollingRight) return
-      if (autoScrollDirection === 'down' && event.deltaY > 0) {
-        event.preventDefault()
-        return
-      }
-      if (autoScrollDirection === 'up' && event.deltaY < 0) {
-        event.preventDefault()
-        return
-      }
-      stopAutoScroll()
-    }
-
-    const onRightWheelSyncUp = (event: WheelEvent) => {
-      if (isAutoScrollingRight) return
-      if (event.deltaY >= 0) return
-
-      const scrollY = window.scrollY
-      const sectionRect = sectionEl.getBoundingClientRect()
-      const sectionTop = sectionRect.top + scrollY
-      const sectionBottom = sectionRect.bottom + scrollY
-      const pinHeight = pinEl.offsetHeight
-      const pinStartScrollY = sectionTop - headerOffset
-      const pinEndScrollY = sectionBottom - pinHeight - headerOffset
-      const inPinnedRange =
-        scrollY >= pinStartScrollY - epsilon && scrollY <= pinEndScrollY + epsilon
-      if (!inPinnedRange) return
-
-      // Scroll left/body together while right column scrolls upward.
-      window.scrollBy({ top: event.deltaY, behavior: 'auto' })
-    }
-
-    update()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll, { passive: true })
-    window.addEventListener('wheel', onWheelWhileAuto, { passive: false })
-    pinEl.addEventListener('wheel', onRightWheelSyncUp, { passive: true })
-
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
-      window.removeEventListener('wheel', onWheelWhileAuto)
-      pinEl.removeEventListener('wheel', onRightWheelSyncUp)
-      stopAutoScroll()
-      if (frameId) window.cancelAnimationFrame(frameId)
-    }
-  }, [isMobile, product])
-
-  useEffect(() => {
-    if (!isMobile) return
-    const pinEl = rightPinRef.current
-    const spacerEl = rightSpacerRef.current
-    const rightCol = rightColumnRef.current
-    if (spacerEl) spacerEl.style.height = '0px'
-    if (rightCol) rightCol.style.minHeight = ''
-    if (!pinEl) return
-    pinEl.style.position = ''
-    pinEl.style.top = ''
-    pinEl.style.left = ''
-    pinEl.style.width = ''
-    pinEl.style.zIndex = ''
-    pinEl.style.maxHeight = ''
-    pinEl.style.overflowY = ''
-  }, [isMobile, product?.id])
 
   useEffect(() => {
     if (!isMobile) {
@@ -1233,29 +1148,19 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
       const raw = window.sessionStorage.getItem(storageKey)
       if (raw === null) {
         window.scrollTo({ top: 0, behavior: 'auto' })
-        if (rightPinRef.current) {
-          rightPinRef.current.scrollTop = 0
-        }
         return
       }
       let windowTop = 0
-      let rightTop = 0
       try {
         const parsed = JSON.parse(raw)
         windowTop = Number.isFinite(Number(parsed?.windowY))
           ? Math.max(0, Number(parsed.windowY))
-          : 0
-        rightTop = Number.isFinite(Number(parsed?.rightY))
-          ? Math.max(0, Number(parsed.rightY))
           : 0
       } catch {
         const parsed = Number(raw)
         windowTop = Number.isFinite(parsed) ? Math.max(0, parsed) : 0
       }
       window.scrollTo({ top: windowTop, behavior: 'auto' })
-      if (rightPinRef.current) {
-        rightPinRef.current.scrollTop = rightTop
-      }
     }
 
     const restoreTimer = window.requestAnimationFrame(() => {
@@ -1265,7 +1170,6 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
     const persistPosition = () => {
       const payload = {
         windowY: window.scrollY,
-        rightY: rightPinRef.current?.scrollTop || 0,
       }
       window.sessionStorage.setItem(storageKey, JSON.stringify(payload))
     }
@@ -1283,22 +1187,14 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
     const onPageHide = () => {
       persistPosition()
     }
-    const onRightScroll = () => {
-      if (ticking) return
-      ticking = true
-      window.requestAnimationFrame(persist)
-    }
 
-    const rightScrollEl = rightPinRef.current
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('pagehide', onPageHide)
-    rightScrollEl?.addEventListener('scroll', onRightScroll, { passive: true })
 
     return () => {
       window.cancelAnimationFrame(restoreTimer)
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('pagehide', onPageHide)
-      rightScrollEl?.removeEventListener('scroll', onRightScroll)
       persistPosition()
     }
   }, [product?.id, slug])
@@ -1533,12 +1429,35 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
     slugifyCategory(String(rawCategorySlug)),
   )
   const fallbackCategoryHref = categorySlug ? `/products/${categorySlug}` : '/products'
-  const breadcrumbItems =
-    Array.isArray(product.categoryPath) && product.categoryPath.length > 0
-      ? product.categoryPath
-      : [
-          { label: product.category, href: fallbackCategoryHref },
-        ]
+  const breadcrumbItems = (() => {
+    const sourcePath =
+      Array.isArray(product.categoryPath) && product.categoryPath.length > 0
+        ? product.categoryPath
+        : [{ label: product.category, href: fallbackCategoryHref }]
+
+    const normalizedPath = sourcePath
+      .map((segment: any) => {
+        const label = String(segment?.label || '').trim()
+        if (!label) return null
+        const href = String(segment?.href || '').trim()
+        return href ? { label, href } : { label }
+      })
+      .filter(Boolean)
+      .filter((segment: any, index: number, list: any[]) => {
+        const key = `${String(segment?.label || '').toLowerCase()}::${String(segment?.href || '')}`
+        return (
+          list.findIndex((entry: any) => {
+            const compareKey = `${String(entry?.label || '').toLowerCase()}::${String(entry?.href || '')}`
+            return compareKey === key
+          }) === index
+        )
+      })
+
+    const startsWithHome = String(normalizedPath[0]?.label || '').toLowerCase() === 'home'
+    const withoutHome = startsWithHome ? normalizedPath.slice(1) : normalizedPath
+
+    return [{ label: 'Home', href: '/' }, ...withoutHome]
+  })()
   const cartSelection = {
     id: product.id,
     selectedVariationId: selectedVariation?.id,
@@ -1660,12 +1579,13 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
     },
   ]
   const activeTabData = tabs.find((tab) => tab.id === activeTab) || tabs[0]
+  const isShippingTab = activeTabData?.id === 'shipping'
   const activeTabHtml = sanitizeRichHtml(String(activeTabData?.content || ''))
 
   return (
-    <div className='min-h-screen flex overflow-x-hidden'>
+    <div className='product-page-sticky-shell min-h-screen flex overflow-x-hidden md:overflow-x-visible'>
       <div className='flex-1 min-w-0'>
-        <main className='min-h-screen bg-white overflow-x-hidden w-full'>
+        <main className='min-h-screen bg-white overflow-x-hidden w-full md:overflow-x-visible'>
           {isMobile ? (
             <div className='main-container px-2 pt-2 md:hidden'>
               <Breadcrumb
@@ -1698,109 +1618,76 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
             </div>
           ) : null}
 
-          <div className='main-container px-2 sm:px-4 lg:px-6 py-0'>
-              <div className='hidden md:block pt-2 sm:pt-0'>
-                <Breadcrumb
-                  items={breadcrumbItems}
-                  collapseFrom={4}
-                />
-              </div>
+          <div className='main-container px-2 sm:px-4 lg:px-6 py-0 md:overflow-x-visible'>
+            <div className='hidden md:block pb-3 pt-2 sm:pb-4 sm:pt-0'>
+              <Breadcrumb
+                items={breadcrumbItems}
+                collapseFrom={4}
+              />
+            </div>
             <div ref={productContentAreaRef} className='bg-white rounded-none shadow-none sm:rounded-2xl sm:shadow-sm'>
               <div
-                ref={sectionRef}
-                className='grid md:grid-cols-[minmax(0,45%)_minmax(0,55%)] md:items-stretch lg:grid-cols-[minmax(0,40%)_minmax(0,60%)] xl:grid-cols-[640px_minmax(0,1fr)]'
+                className='grid md:min-h-screen md:grid-cols-[minmax(0,45%)_minmax(0,55%)] lg:grid-cols-[minmax(0,40%)_minmax(0,60%)] xl:grid-cols-[640px_minmax(0,1fr)]'
               >
                 {/* Left side - Images */}
-                <div ref={leftColumnRef} className='space-y-6 md:pr-4 lg:pr-6'>
-                  <div className='hidden md:block'>
-                    <Gallery
-                      images={product.gallery}
-                      media={product.galleryMedia}
-                      currentImage={activeImage}
-                      setCurrentImage={setCurrentImage}
-                      productName={product.name}
-                      vendorNameOverlay={String(product.vendor || '').trim()}
-                      badgeText={
-                        isNewProduct
-                          ? 'New'
-                          : discountPercentage
-                            ? `-${discountPercentage}%`
-                            : null
-                      }
-                      badgeVariant={isNewProduct ? 'new' : 'discount'}
-                      mainImageRef={galleryMainRef}
-                    />
-                  </div>
-                  {!isMobile && shouldShowReviewsSection && (
-                    <div id='reviews-section'>
-                      <div ref={reviewsTriggerRef} className='h-0 w-full' aria-hidden='true' />
-                      {!shouldLoadReviews ? (
-                        <DeferredSectionLoader
-                          title='Customer reviews will load as you scroll'
-                          description='We prioritize product media and key buying details first.'
-                        />
-                      ) : isReviewsLoading ? (
-                        <DeferredSectionLoader
-                          title='Loading customer reviews'
-                          description='Fetching latest reviews and ratings...'
-                        />
-                      ) : (
-                        <CustomerReviews
-                          data={reviewData}
-                          productSlug={product.slug}
-                          onReviewSubmitted={handleReviewSubmitted}
-                        />
-                      )}
+                <div className='md:h-full md:pt-2 md:pr-4 lg:pr-6'>
+                  <div ref={galleryStickyWrapRef} className='relative hidden h-full md:block'>
+                    <div
+                      ref={galleryStickyContentRef}
+                      style={galleryStickyStyle}
+                    >
+                      <Gallery
+                        images={product.gallery}
+                        media={product.galleryMedia}
+                        currentImage={activeImage}
+                        setCurrentImage={setCurrentImage}
+                        productName={product.name}
+                        vendorNameOverlay={String(product.vendor || '').trim()}
+                        badgeText={
+                          isNewProduct
+                            ? 'New'
+                            : discountPercentage
+                              ? `-${discountPercentage}%`
+                              : null
+                        }
+                        badgeVariant={isNewProduct ? 'new' : 'discount'}
+                        mainImageRef={galleryMainRef}
+                      />
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Right side - Product info */}
-                <div
-                  ref={rightColumnRef}
-                  className='relative overflow-x-hidden'
-                >
-                  <div ref={rightSpacerRef} />
-                  <div
-                    ref={rightPinRef}
-                    className='space-y-4 md:space-y-5 no-scrollbar overflow-x-hidden lg:sticky lg:top-6'
-                    style={
-                      isMobile
-                        ? undefined
-                        : {
-                            maxHeight: 'calc(100vh - 96px)',
-                            overflowY: 'auto',
-                          }
-                    }
-                  >
-                  <div className='flex items-center justify-between'>
-                    <Link
-                      href={fallbackCategoryHref}
-                      className='text-[11px] font-medium bg-gray-50 text-gray-500 px-2 py-0.5 rounded-[3px] hover:text-gray-700 transition'
-                    >
-                      {product.category}
-                    </Link>
-                    <button
-                      type='button'
-                      onClick={() => setShowShareModal(true)}
-                      className='flex items-center gap-2 text-xs font-medium text-gray-600 px-3 py-2 hover:bg-gray-50 transition'
-                    >
-                      <svg
-                        className='h-4 w-4'
-                        fill='none'
-                        stroke='currentColor'
-                        viewBox='0 0 24 24'
+                <div className='relative overflow-x-hidden md:min-w-0'>
+                  <div className='space-y-4 overflow-x-hidden md:space-y-5'>
+                    <div className='flex items-center justify-between'>
+                      <Link
+                        href={fallbackCategoryHref}
+                        className='text-[11px] font-medium bg-gray-50 text-gray-500 px-2 py-0.5 rounded-[3px] hover:text-gray-700 transition'
                       >
-                        <path
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                          strokeWidth={1.8}
-                          d='M12 3v12m0-12l-4 4m4-4l4 4M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6'
-                        />
-                      </svg>
-                      Share
-                    </button>
-                  </div>
+                        {product.category}
+                      </Link>
+                      <button
+                        type='button'
+                        onClick={() => setShowShareModal(true)}
+                        className='flex items-center gap-2 text-xs font-medium text-gray-600 px-3 py-2 hover:bg-gray-50 transition'
+                      >
+                        <svg
+                          className='h-4 w-4'
+                          fill='none'
+                          stroke='currentColor'
+                          viewBox='0 0 24 24'
+                        >
+                          <path
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                            strokeWidth={1.8}
+                            d='M12 3v12m0-12l-4 4m4-4l4 4M5 13v6a2 2 0 002 2h10a2 2 0 002-2v-6'
+                          />
+                        </svg>
+                        Share
+                      </button>
+                    </div>
 
                   <div className='space-y-2 !mt-0'>
                     <h1 className='text-3xl font-semibold text-gray-900 font-serif'>
@@ -2191,14 +2078,19 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                     ))}
                   </div>
                   <div className='relative'>
-                    <div
-                      ref={descriptionRef}
-                      className={`overflow-x-hidden text-sm text-gray-600 leading-relaxed [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-gray-900 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:mt-0 [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_img]:!max-w-full [&_img]:!h-auto [&_.packaging-preview-image]:-mt-8 ${
-                        activeTab === 'details' ? 'max-h-28 overflow-hidden' : ''
-                      }`}
-                      dangerouslySetInnerHTML={{ __html: activeTabHtml }}
-                    >
-                    </div>
+                    {isShippingTab ? (
+                      <div ref={descriptionRef} className='overflow-x-hidden'>
+                        <ShippingTabDetails shippingEstimate={shippingEstimate} />
+                      </div>
+                    ) : (
+                      <div
+                        ref={descriptionRef}
+                        className={`overflow-x-hidden text-sm text-gray-600 leading-relaxed [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-gray-900 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:mt-0 [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_img]:!max-w-full [&_img]:!h-auto [&_.packaging-preview-image]:-mt-8 ${
+                          activeTab === 'details' ? 'max-h-28 overflow-hidden' : ''
+                        }`}
+                        dangerouslySetInnerHTML={{ __html: activeTabHtml }}
+                      />
+                    )}
                     {showSeeMore && (
                       <>
                         <div className='pointer-events-none absolute inset-0 z-10 backdrop-blur-[0.6px] bg-gradient-to-b from-white/0 via-white/65 to-white' />
@@ -2243,13 +2135,13 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                           <button
                             type='button'
                             onClick={() => setShowConditionInfo((prev) => !prev)}
-                            className='inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-600 hover:bg-gray-50'
+                            className='inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100 hover:text-gray-900'
                             aria-label='Show condition details'
                           >
-                            <svg viewBox='0 0 20 20' className='h-3 w-3' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                            <svg viewBox='0 0 20 20' className='h-4 w-4 text-gray-800' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
                               <circle cx='10' cy='10' r='7' />
-                              <path d='M10 8.2v5' strokeLinecap='round' />
-                              <circle cx='10' cy='5.7' r='0.8' fill='currentColor' stroke='none' />
+                              <path d='M10 8.25v4.8' strokeLinecap='round' />
+                              <circle cx='10' cy='5.9' r='0.9' fill='currentColor' stroke='none' />
                             </svg>
                           </button>
                         </span>
@@ -2271,13 +2163,13 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                           <button
                             type='button'
                             onClick={() => setShowReturnInfo((prev) => !prev)}
-                            className='inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 text-[10px] text-gray-600 hover:bg-gray-50'
+                            className='inline-flex h-5 w-5 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100 hover:text-gray-900'
                             aria-label='Show return policy details'
                           >
-                            <svg viewBox='0 0 20 20' className='h-3 w-3' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                            <svg viewBox='0 0 20 20' className='h-4 w-4 text-gray-800' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
                               <circle cx='10' cy='10' r='7' />
-                              <path d='M10 8.2v5' strokeLinecap='round' />
-                              <circle cx='10' cy='5.7' r='0.8' fill='currentColor' stroke='none' />
+                              <path d='M10 8.25v4.8' strokeLinecap='round' />
+                              <circle cx='10' cy='5.9' r='0.9' fill='currentColor' stroke='none' />
                             </svg>
                           </button>
                         </span>
@@ -2334,24 +2226,48 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                   </div>
                 </div>
               </div>
-              <div ref={relatedTriggerRef} className='h-0 w-full' aria-hidden='true' />
-              {!shouldLoadRelated ? (
-                <DeferredSectionLoader
-                  className='mt-4'
-                  title='More products will load as you continue'
-                  description='Related items are deferred to keep this page fast.'
-                />
-              ) : isRelatedLoading ? (
-                <RelatedProductsSkeleton />
-              ) : (
-                <RelatedProductsSection
-                  items={relatedProducts}
-                  seeAllHref={categorySlug ? `/products/${categorySlug}` : undefined}
-                />
+              {!isMobile && shouldShowReviewsSection && (
+                <div id='reviews-section' className='mt-6'>
+                  <div ref={reviewsTriggerRef} className='h-0 w-full' aria-hidden='true' />
+                  {!shouldLoadReviews ? (
+                    <DeferredSectionLoader
+                      title='Customer reviews will load as you scroll'
+                      description='We prioritize product media and key buying details first.'
+                    />
+                  ) : isReviewsLoading ? (
+                    <DeferredSectionLoader
+                      title='Loading customer reviews'
+                      description='Fetching latest reviews and ratings...'
+                    />
+                  ) : (
+                    <CustomerReviews
+                      data={reviewData}
+                      productSlug={product.slug}
+                      onReviewSubmitted={handleReviewSubmitted}
+                    />
+                  )}
+                </div>
               )}
-              {shouldLoadRelated && !isRelatedLoading ? (
-                <RecentlyViewedSection currentSlug={product.slug} />
-              ) : null}
+              <div ref={relatedTriggerRef} className='h-0 w-full' aria-hidden='true' />
+              <div className='mt-4 sm:mt-5'>
+                {!shouldLoadRelated ? (
+                  <DeferredSectionLoader
+                    className='mt-0'
+                    title='More products will load as you continue'
+                    description='Related items are deferred to keep this page fast.'
+                  />
+                ) : isRelatedLoading ? (
+                  <RelatedProductsSkeleton />
+                ) : (
+                  <RelatedProductsSection
+                    items={relatedProducts}
+                    seeAllHref={categorySlug ? `/products/${categorySlug}` : undefined}
+                  />
+                )}
+                {shouldLoadRelated && !isRelatedLoading ? (
+                  <RecentlyViewedSection currentSlug={product.slug} />
+                ) : null}
+              </div>
             </div>
         </main>
       </div>
@@ -2435,10 +2351,18 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
               </button>
             </div>
             <div
-              className='mt-4 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pr-0 text-sm text-gray-600 leading-relaxed whitespace-pre-line sm:pr-1 [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-gray-900 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:mt-0 [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_img]:!max-w-full [&_img]:!h-auto [&_.packaging-preview-image]:-mt-8'
+              className='mt-4 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pr-0 sm:pr-1'
               style={{ WebkitOverflowScrolling: 'touch' }}
-              dangerouslySetInnerHTML={{ __html: activeTabHtml }}
-            />
+            >
+              {isShippingTab ? (
+                <ShippingTabDetails shippingEstimate={shippingEstimate} />
+              ) : (
+                <div
+                  className='text-sm text-gray-600 leading-relaxed whitespace-pre-line [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-gray-900 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:mt-0 [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_img]:!max-w-full [&_img]:!h-auto [&_.packaging-preview-image]:-mt-8'
+                  dangerouslySetInnerHTML={{ __html: activeTabHtml }}
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

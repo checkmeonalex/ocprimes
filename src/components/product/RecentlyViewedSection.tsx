@@ -76,7 +76,7 @@ const RecentlyViewedSection = ({
   if (!items.length) return null
 
   return (
-    <section className='px-6 pb-6 pt-5 overflow-x-hidden'>
+    <section className='px-3 pb-6 pt-5 overflow-x-hidden sm:px-6'>
       <div className='flex items-center justify-between'>
         <h2 className='text-base font-semibold text-gray-900'>
           Recently Viewed
@@ -86,7 +86,7 @@ const RecentlyViewedSection = ({
             type='button'
             aria-label='Scroll left'
             onClick={() => {
-              scrollRef.current?.scrollBy({ left: -260, behavior: 'smooth' })
+              scrollRef.current?.scrollBy({ left: -220, behavior: 'smooth' })
             }}
             className='h-8 w-8 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center justify-center'
           >
@@ -96,7 +96,7 @@ const RecentlyViewedSection = ({
             type='button'
             aria-label='Scroll right'
             onClick={() => {
-              scrollRef.current?.scrollBy({ left: 260, behavior: 'smooth' })
+              scrollRef.current?.scrollBy({ left: 220, behavior: 'smooth' })
             }}
             className='h-8 w-8 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center justify-center'
           >
@@ -117,10 +117,10 @@ const RecentlyViewedSection = ({
         {showViewAll ? (
           <Link
             href={viewAllHref}
-            className='group block min-w-[240px] max-w-[240px] flex-shrink-0'
+            className='group block min-w-[200px] max-w-[200px] flex-shrink-0 sm:min-w-[240px] sm:max-w-[240px]'
           >
             <div className='rounded-xl bg-white shadow-sm transition hover:shadow-md'>
-              <div className='relative rounded-xl border border-gray-200/80 w-[240px] h-[300px] flex flex-col overflow-hidden'>
+              <div className='relative rounded-xl border border-gray-200/80 w-[200px] h-[272px] sm:w-[240px] sm:h-[300px] flex flex-col overflow-hidden'>
                 <div className='relative h-[70%] overflow-hidden rounded-t-xl border-b border-gray-200 bg-white'>
                   <div className='absolute inset-0 grid grid-cols-3 grid-rows-3 gap-0 opacity-70 blur-[2px]'>
                     {remainingItems.slice(0, 9).map((item) => (
@@ -133,7 +133,7 @@ const RecentlyViewedSection = ({
                             src={item.image}
                             alt={item.name}
                             fill
-                            sizes='240px'
+                            sizes='(max-width: 640px) 200px, 240px'
                             className='object-cover'
                             unoptimized
                           />

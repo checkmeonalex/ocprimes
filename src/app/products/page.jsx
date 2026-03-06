@@ -28,7 +28,7 @@ export default async function ProductsPage({ searchParams }) {
   })
   const items = listing.items
 
-  let title = 'Products'
+  let title = 'All'
   let subtitle = ''
 
   if (search) {

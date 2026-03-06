@@ -10,7 +10,7 @@ const verifyPayloadSchema = z.object({
   reference: z.string().trim().min(1, 'Payment reference is required.'),
 })
 
-const PAYMENT_WINDOW_MINUTES = 2
+const PAYMENT_WINDOW_MINUTES = 10
 const PAYMENT_WINDOW_MS = PAYMENT_WINDOW_MINUTES * 60 * 1000
 
 type CheckoutOrderRow = {
@@ -315,10 +315,15 @@ export async function POST(request: NextRequest) {
   }
 
   if (paymentStatus === 'failed' || paymentStatus === 'cancelled' || paymentStatus === 'refunded') {
-    const response = jsonError(
-      paymentStatus === 'failed'
-        ? 'Payment window expired. This order payment failed.'
-        : 'Payment was not successful.',
+    const response = jsonOk(
+      {
+        error:
+          paymentStatus === 'failed'
+            ? 'Payment window expired. This order payment failed.'
+            : 'Payment was not successful.',
+        paymentStatus,
+        order,
+      },
       402,
     )
     applyCookies(response)

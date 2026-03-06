@@ -133,16 +133,19 @@ const formatCurrency = (value, currency) => {
   const amount = Number(value || 0)
   const safeCurrency = String(currency || 'NGN').toUpperCase()
   if (!Number.isFinite(amount)) return '0'
+  const fractionDigits = safeCurrency === 'NGN' ? 0 : 2
 
   try {
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
       currency: safeCurrency,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
     }).format(amount)
   } catch {
     const symbol = safeCurrency === 'NGN' ? '₦' : '$'
-    return `${symbol}${amount.toFixed(2)}`
+    const nextAmount = fractionDigits === 0 ? String(Math.round(amount)) : amount.toFixed(2)
+    return `${symbol}${nextAmount}`
   }
 }
 

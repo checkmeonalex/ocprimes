@@ -26,6 +26,18 @@ const formatShipRange = (createdAt) => {
   return `${startLabel} - ${endLabel}, ${maxDate.getFullYear()}`
 }
 
+const toFailedOrderLabel = (payload) =>
+  String(
+    payload?.order?.orderNumber ||
+      payload?.order?.order_number ||
+      payload?.order?.displayOrderId ||
+      payload?.order?.id ||
+      payload?.order_number ||
+      payload?.order_id ||
+      payload?.orderId ||
+      '',
+  ).trim()
+
 export default function CheckoutReviewPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -70,6 +82,8 @@ export default function CheckoutReviewPage() {
           failedParams.set('source', 'review')
           failedParams.set('reason', String(payload?.error || 'Unable to confirm payment.'))
           if (reference) failedParams.set('reference', reference)
+          const orderLabel = toFailedOrderLabel(payload)
+          if (orderLabel) failedParams.set('order', orderLabel)
           router.replace(`/checkout/payment-failed?${failedParams.toString()}`)
           return
         }
@@ -478,12 +492,6 @@ export default function CheckoutReviewPage() {
                   <span>Shipping</span>
                   <span className='font-semibold text-slate-900'>
                     {Number(order.shippingFee || 0) > 0 ? formatMoney(order.shippingFee) : 'FREE'}
-                  </span>
-                </div>
-                <div className='mt-1 flex items-center justify-between text-sm text-slate-600'>
-                  <span>Tax</span>
-                  <span className='font-semibold text-slate-900'>
-                    {Number(order.taxAmount || 0) > 0 ? formatMoney(order.taxAmount) : 'FREE'}
                   </span>
                 </div>
                 {Number(order.protectionFee || 0) > 0 ? (

@@ -7,6 +7,7 @@ export default function StickySidebar({
   topOffset = 112,
   collapsedTopOffset = null,
   collapseAfter = 20,
+  minWidth = 1024,
 }) {
   const wrapRef = useRef(null)
   const contentRef = useRef(null)
@@ -19,7 +20,7 @@ export default function StickySidebar({
       const contentEl = contentRef.current
       if (!wrapEl || !contentEl) return
 
-      const isDesktop = window.innerWidth >= 1024
+      const isDesktop = window.innerWidth >= minWidth
       if (!isDesktop) {
         wrapEl.style.minHeight = ''
         setStickyStyle({})
@@ -90,7 +91,7 @@ export default function StickySidebar({
         window.cancelAnimationFrame(frameRef.current)
       }
     }
-  }, [topOffset, collapsedTopOffset, collapseAfter])
+  }, [topOffset, collapsedTopOffset, collapseAfter, minWidth])
 
   return (
     <aside ref={wrapRef} className='relative h-full'>

@@ -18,6 +18,8 @@ const CUSTOM_ATTRIBUTE_EXCLUDE = new Set([
   'brands',
   'price',
   'discount_price',
+  'product_video_url',
+  'product_type',
   'stock',
   'stock_quantity',
   'vendor',
@@ -36,13 +38,14 @@ const SECTION_EXCLUDE = new Set([
   'brand',
   'vendor',
   'price',
+  'product_type',
+  'product_video_url',
 ])
 
 const FIXED_LABELS = {
   condition_check: 'Condition Check',
   packaging_style: 'Packaging Style',
   return_policy: 'Return Policy',
-  product_type: 'Product Type',
 }
 
 const normalizeKey = (value = '') =>
@@ -122,8 +125,6 @@ export const extractDynamicAttributeRows = (product) => {
   tryAddValue(rows, 'condition_check', 'Condition Check', product?.conditionCheck)
   tryAddValue(rows, 'packaging_style', 'Packaging Style', product?.packagingStyle)
   tryAddValue(rows, 'return_policy', 'Return Policy', product?.returnPolicy)
-  tryAddValue(rows, 'product_type', 'Product Type', product?.productType)
-
   appendCustomAttributes(rows, product?.customAttributes)
   appendVariationAttributes(rows, product?.variations)
 

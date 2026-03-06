@@ -13,11 +13,14 @@ import UserMenu from './auth/UserMenu'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { getAccountSearchSuggestions } from '@/lib/user/account-search.ts'
 
-export default function Navbar({ initialAuthUser = null }) {
+export default function Navbar({
+  initialAuthUser = null,
+  initialTopCategories = [],
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { summary } = useCart()
+  const { summary, isReady, isServerReady } = useCart()
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isSearchCategoryOpen, setIsSearchCategoryOpen] = useState(false)
@@ -27,8 +30,15 @@ export default function Navbar({ initialAuthUser = null }) {
     slug: '',
   })
   const [recentSearches, setRecentSearches] = useState([])
-  const [topCategories, setTopCategories] = useState([])
-  const [activeTopCategoryId, setActiveTopCategoryId] = useState(null)
+  const [topCategories, setTopCategories] = useState(() =>
+    Array.isArray(initialTopCategories) ? initialTopCategories : [],
+  )
+  const [activeTopCategoryId, setActiveTopCategoryId] = useState(() => {
+    if (!Array.isArray(initialTopCategories) || !initialTopCategories.length) {
+      return null
+    }
+    return initialTopCategories[0]?.id || null
+  })
   const [isHistoryOpen, setIsHistoryOpen] = useState(false)
   const [isHistoryPinned, setIsHistoryPinned] = useState(false)
   const [historyHoverTimeout, setHistoryHoverTimeout] = useState(null)
@@ -290,6 +300,9 @@ export default function Navbar({ initialAuthUser = null }) {
     let cancelled = false
 
     const loadTopCategories = async () => {
+      if (Array.isArray(initialTopCategories) && initialTopCategories.length) {
+        return
+      }
       const data = await fetchCategoriesData()
       if (cancelled) return
       const categories = Array.isArray(data?.categories) ? data.categories : []
@@ -303,7 +316,7 @@ export default function Navbar({ initialAuthUser = null }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [initialTopCategories])
 
   useEffect(() => {
     let cancelled = false
@@ -444,6 +457,7 @@ export default function Navbar({ initialAuthUser = null }) {
   }
 
   const cartCount = summary?.itemCount ?? 0
+  const showCartLoadingSpinner = (!isReady || !isServerReady) && cartCount <= 0
   const isCartRoute = pathname?.startsWith('/cart')
   const isCheckoutRoute = pathname?.startsWith('/checkout')
   const isCheckoutFlow = isCartRoute || isCheckoutRoute
@@ -949,12 +963,41 @@ export default function Navbar({ initialAuthUser = null }) {
               xmlns='http://www.w3.org/2000/svg'
               aria-hidden='true'
             >
-              {cartCount <= 0 && (
+              {showCartLoadingSpinner ? (
+                <g>
+                  <circle
+                    cx='14'
+                    cy='8'
+                    r='2.2'
+                    fill='none'
+                    stroke='#520000'
+                    strokeWidth='1.4'
+                    opacity='0.25'
+                  />
+                  <g>
+                    <path
+                      d='M14 5.8a2.2 2.2 0 0 1 2.2 2.2'
+                      fill='none'
+                      stroke='#520000'
+                      strokeWidth='1.4'
+                      strokeLinecap='round'
+                    />
+                    <animateTransform
+                      attributeName='transform'
+                      type='rotate'
+                      from='0 14 8'
+                      to='360 14 8'
+                      dur='0.75s'
+                      repeatCount='indefinite'
+                    />
+                  </g>
+                </g>
+              ) : cartCount <= 0 ? (
                 <path
                   d='M14,12a1,1,0,0,1-1-1V9H11a1,1,0,0,1,0-2h2V5a1,1,0,0,1,2,0V7h2a1,1,0,0,1,0,2H15v2A1,1,0,0,1,14,12Z'
                   fill='#520000'
                 />
-              )}
+              ) : null}
               <path
                 d='M17,19a1.5,1.5,0,1,0,1.5,1.5A1.5,1.5,0,0,0,17,19Zm-6,0a1.5,1.5,0,1,0,1.5,1.5A1.5,1.5,0,0,0,11,19Z'
                 fill='#520000'
@@ -1166,7 +1209,7 @@ export default function Navbar({ initialAuthUser = null }) {
                     ? `/products/${encodeURIComponent(category.slug)}`
                     : '/products'
                 }
-                className='text-sm font-semibold text-gray-900 hover:text-gray-600'
+                className='text-sm font-normal text-gray-900 hover:text-gray-600'
                 onMouseEnter={() => handleTopCategoryHover(category)}
               >
                 {category.name}

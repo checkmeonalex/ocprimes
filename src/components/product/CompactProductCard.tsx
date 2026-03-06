@@ -39,6 +39,8 @@ export const CompactProductCard = ({
   const stock = Number(product.stock || 0)
   const lowStockLabel = stock > 0 && stock < 10 ? `Only ${stock} left in stock` : ''
   const isFluid = variant === 'fluid'
+  const fixedCardWidthClass = 'min-w-[200px] max-w-[200px] sm:min-w-[240px] sm:max-w-[240px] flex-shrink-0'
+  const fixedCardFrameClass = 'w-[200px] h-[272px] sm:w-[240px] sm:h-[300px]'
 
   return (
     <Link
@@ -46,12 +48,12 @@ export const CompactProductCard = ({
       target={openInNewTab ? '_blank' : undefined}
       rel={openInNewTab ? 'noopener noreferrer' : undefined}
       data-next-navigation='true'
-      className={`group block ${isFluid ? 'w-full' : 'min-w-[240px] max-w-[240px] flex-shrink-0'}`}
+      className={`group block ${isFluid ? 'w-full' : fixedCardWidthClass}`}
     >
       <div className='bg-white shadow-sm transition hover:shadow-md'>
         <div
           className={`border border-gray-200/80 flex flex-col ${
-            isFluid ? 'w-full aspect-[3/4]' : 'w-[240px] h-[300px]'
+            isFluid ? 'w-full aspect-[3/4]' : fixedCardFrameClass
           }`}
         >
           <div className='relative basis-[75%] flex-shrink-0 overflow-hidden rounded-none border-b border-gray-200 bg-white'>
@@ -63,7 +65,7 @@ export const CompactProductCard = ({
                 sizes={
                   isFluid
                     ? '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 200px'
-                    : '200px'
+                    : '(max-width: 640px) 200px, 240px'
                 }
                 className='object-cover rounded-none'
               />

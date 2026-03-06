@@ -79,6 +79,14 @@ main {
     overflow-x: hidden;
 
   }
+
+  @media (min-width: 768px) {
+    .product-page-sticky-shell,
+    .product-page-sticky-shell main,
+    .product-page-sticky-shell .main-container {
+      overflow-x: visible;
+    }
+  }
   
   /* ADDED: Mobile-specific container */
   @media (max-width: 640px) {

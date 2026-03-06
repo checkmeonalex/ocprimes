@@ -27,6 +27,7 @@ const DESKTOP_NAV_ITEMS = [
   { label: 'Customers', href: '/backend/admin/customers', icon: 'customers' },
   { label: 'Library', href: '/backend/admin/library', icon: 'library' },
   { label: 'Size Guides', href: '/backend/admin/size-guides', icon: 'guides' },
+  { label: 'Logistics', href: '/backend/admin/logistics', icon: 'logistics' },
   { label: 'Settings', href: '/backend/admin/settings', icon: 'settings' },
   { label: 'Shortcut', href: '/backend/admin/shortcut', icon: 'shortcut' },
   { label: 'Vendor Users', href: '/backend/admin/admin/users', icon: 'adminUsers' },
@@ -153,6 +154,15 @@ const NavIcon = ({ icon }) => {
       return (
         <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M5 5.5h6v13H5zM13 5.5h6v13h-6z" />
+        </svg>
+      );
+    case 'logistics':
+      return (
+        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M3.5 6.5h10v9h-10z" />
+          <path d="M13.5 9h3.8l3.2 3.3v3.2h-7" />
+          <path d="M6.8 17.5a1.8 1.8 0 1 1-3.6 0 1.8 1.8 0 0 1 3.6 0Z" />
+          <path d="M18.8 17.5a1.8 1.8 0 1 1-3.6 0 1.8 1.8 0 0 1 3.6 0Z" />
         </svg>
       );
     case 'settings':
@@ -289,6 +299,7 @@ const AdminSidebar = () => {
         item.href !== '/backend/admin/brands' &&
         item.href !== '/backend/admin/customers' &&
         item.href !== '/backend/admin/pages' &&
+        item.href !== '/backend/admin/logistics' &&
         item.href !== '/backend/admin/admin/users' &&
         item.href !== '/backend/admin/admin/brands',
     );

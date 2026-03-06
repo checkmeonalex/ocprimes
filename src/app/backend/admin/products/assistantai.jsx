@@ -12,11 +12,11 @@ const ASSISTANT_AI_SYSTEM_INSTRUCTIONS = [
   'Always use open-tag format for updates: <field>value<field> (e.g., <price>5000<price>).',
   'Do not use spaces in tag names; use underscores (short_description, regular_price, sale_price, stock_quantity, size_guide).',
   'Use product_name for the title field (not name).',
-  'Only use these fields: Product Name, Name, Short Description, Description, Tags, Categories, Brands, Price, Regular Price, Sale Price, Discount Price, SKU, Stock Quantity, Variations, Variation Attributes, Variants, Status, Size Guide, Attributes.',
-  'Allowed tags: product_name, short_description, description, price, regular_price, sale_price, discount_price, sku, stock_quantity, status, categories, tags, size_guide, variations, variation_attributes, variants, attributes.',
+  'Only use these fields: Product Name, Name, Short Description, Description, Tags, Categories, Brands, Price, Regular Price, Sale Price, Discount Price, SKU, Stock Quantity, Product Video Url, Variations, Variation Attributes, Variants, Status, Size Guide, Attributes.',
+  'Allowed tags: product_name, short_description, description, price, regular_price, sale_price, discount_price, sku, stock_quantity, product_video_url, status, categories, tags, size_guide, variations, variation_attributes, variants, attributes.',
   'Avoid instructional text in update replies.',
   'Strict mode: only follow these instructions and do not invent categories, tags, or attributes.',
-  'Supported commands: name, price, regular price, sale/discount price, short description, description, sku, stock quantity.',
+  'Supported commands: name, price, regular price, sale/discount price, short description, description, sku, stock quantity, product video url.',
   'Categories and tags can be set by name.',
   'Use only names/slugs from the provided lists when setting categories, tags, or attributes.',
   'You must only use the attributes listed.',
@@ -203,6 +203,7 @@ const FIELD_LABELS = [
   'Discount Price',
   'SKU',
   'Stock Quantity',
+  'Product Video Url',
   'Variations',
   'Variation Attributes',
   'Variants',
@@ -210,6 +211,11 @@ const FIELD_LABELS = [
   'Size Guide',
   'Attributes',
 ];
+
+const STANDALONE_FIELD_TAGS = {
+  productvideourl: 'product_video_url',
+  videourl: 'product_video_url',
+}
 
 const formatAssistantReply = (value) => {
   const cleaned = stripMarkdown(value).trim();
@@ -237,6 +243,9 @@ const formatTagLabel = (value) => {
     sale_price: 'Sale price',
     sku: 'SKU',
     stock_quantity: 'Stock quantity',
+    product_video_url: 'Product Video Url',
+    videourl: 'Product Video Url',
+    video_url: 'Product Video Url',
     status: 'Status',
     categories: 'Categories',
     tags: 'Tags',
@@ -523,11 +532,15 @@ function AssistantAI({
       pushRow(match[1], match[2]);
     }
     const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    lines.forEach((line) => {
+    lines.forEach((line, index) => {
       const labelMatch = line.match(/^(.+?)\s*:\s*(.+)$/);
       if (labelMatch) {
         const rawLabel = labelMatch[1].replace(/^product\s+/i, '').trim();
         pushRow(rawLabel, labelMatch[2]);
+      }
+      const standaloneField = STANDALONE_FIELD_TAGS[normalizeToken(line)];
+      if (standaloneField && typeof lines[index + 1] === 'string') {
+        pushRow(standaloneField, lines[index + 1]);
       }
       const selectMatch = line.match(/<select\s+[^>]*name\s*=\s*["']?([^"'\s>]+)["']?[^>]*value\s*=\s*["']?([^"']+)["']?[^>]*>/i);
       if (selectMatch) {
@@ -581,6 +594,10 @@ function AssistantAI({
       discountprice: 'sale_price',
       sku: 'sku',
       stockquantity: 'stock_quantity',
+      productvideourl: 'product_video_url',
+      product_video_url: 'product_video_url',
+      videourl: 'product_video_url',
+      video_url: 'product_video_url',
       quantity: 'stock_quantity',
       status: 'status',
       categories: 'categories',
@@ -746,6 +763,13 @@ function AssistantAI({
       if (line.includes('<')) {
         continue;
       }
+      const standaloneField = STANDALONE_FIELD_TAGS[normalizeToken(line)]
+      if (standaloneField && typeof lines[index + 1] === 'string') {
+        payload[standaloneField] = stripAngleTags(lines[index + 1])
+        inVariationsBlock = false
+        index += 1
+        continue
+      }
       const name = matchLine(line, 'name|product name');
       if (name) {
         payload.name = name;
@@ -811,6 +835,12 @@ function AssistantAI({
       const status = matchLine(line, 'status');
       if (status) {
         payload.status = status;
+        inVariationsBlock = false;
+        continue;
+      }
+      const productVideoUrl = matchLine(line, 'product video url|video url|video');
+      if (productVideoUrl) {
+        payload.product_video_url = productVideoUrl;
         inVariationsBlock = false;
         continue;
       }
@@ -1003,6 +1033,10 @@ function AssistantAI({
       nextFormUpdates.stock_quantity = String(payload.stock_quantity);
       nextFormUpdates.manage_stock = payload.stock_quantity !== '' && payload.stock_quantity !== null;
       changes.push('stock quantity');
+    }
+    if (payload.product_video_url !== undefined) {
+      nextFormUpdates.product_video_url = String(payload.product_video_url);
+      changes.push('product video url');
     }
     if (payload.status) {
       const normalized = String(payload.status).trim().toLowerCase();

@@ -50,14 +50,32 @@ export async function PATCH(request: NextRequest) {
 
   const metadata = data.user.user_metadata || {}
   const existingProfile = metadata.profile || {}
+  const existingDeliveryAddress =
+    existingProfile.deliveryAddress && typeof existingProfile.deliveryAddress === 'object'
+      ? existingProfile.deliveryAddress
+      : {}
+  const existingBillingAddress =
+    existingProfile.billingAddress && typeof existingProfile.billingAddress === 'object'
+      ? existingProfile.billingAddress
+      : {}
+  const nextDeliveryAddress =
+    parsed.data.deliveryAddress && typeof parsed.data.deliveryAddress === 'object'
+      ? parsed.data.deliveryAddress
+      : null
+  const nextBillingAddress =
+    parsed.data.billingAddress && typeof parsed.data.billingAddress === 'object'
+      ? parsed.data.billingAddress
+      : null
   const nextProfile = {
     ...parsed.data,
     contactInfo: parsed.data.contactInfo || existingProfile.contactInfo || {},
-    deliveryAddress:
-      parsed.data.deliveryAddress || existingProfile.deliveryAddress || {},
+    deliveryAddress: nextDeliveryAddress
+      ? { ...existingDeliveryAddress, ...nextDeliveryAddress }
+      : existingDeliveryAddress,
     addresses: parsed.data.addresses || existingProfile.addresses || [],
-    billingAddress:
-      parsed.data.billingAddress || existingProfile.billingAddress || {},
+    billingAddress: nextBillingAddress
+      ? { ...existingBillingAddress, ...nextBillingAddress }
+      : existingBillingAddress,
     billingAddresses:
       parsed.data.billingAddresses || existingProfile.billingAddresses || [],
     shortcuts: parsed.data.shortcuts || existingProfile.shortcuts || {},

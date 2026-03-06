@@ -16,7 +16,11 @@ const isNextNavigationExemptPath = (pathname = '') =>
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   )
 
-export default function ClientLayout({ children, initialAuthUser = null }) {
+export default function ClientLayout({
+  children,
+  initialAuthUser = null,
+  initialTopCategories = [],
+}) {
   const { isMobile } = useScreenSize()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -121,7 +125,10 @@ export default function ClientLayout({ children, initialAuthUser = null }) {
         <MobileNavbar initialAuthUser={initialAuthUser} />
       ) : null}
       {!isMobile || isCheckoutFlowRoute ? (
-        <Navbar initialAuthUser={initialAuthUser} />
+        <Navbar
+          initialAuthUser={initialAuthUser}
+          initialTopCategories={initialTopCategories}
+        />
       ) : null}
       <div
         className={`flex ${

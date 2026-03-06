@@ -1,5 +1,4 @@
 'use client'
-import CustomSelect from '@/components/common/CustomSelect'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useOptionalCart } from '../../../context/CartContext'
 import ProductFilters from '../ProductFilters'
@@ -106,6 +105,8 @@ const ProductCatalogPage = ({
   const cart = useOptionalCart()
   const addItem = cart?.addItem || (() => {})
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filterSheetOffset, setFilterSheetOffset] = useState(0)
+  const [isFilterSheetDragging, setIsFilterSheetDragging] = useState(false)
   const [selectedCategories, setSelectedCategories] = useState(() => new Set())
   const [selectedVendors, setSelectedVendors] = useState(() => new Set())
   const [selectedStorefrontItemKey, setSelectedStorefrontItemKey] = useState('')
@@ -901,6 +902,7 @@ const ProductCatalogPage = ({
   const desktopFilterGridRef = useRef(null)
   const desktopFilterColRef = useRef(null)
   const desktopFilterPanelRef = useRef(null)
+  const lastDesktopScrollYRef = useRef(0)
   const [desktopFilterState, setDesktopFilterState] = useState({
     mode: 'static',
     left: 0,
@@ -908,6 +910,82 @@ const ProductCatalogPage = ({
     height: 0,
     placeholder: 0,
   })
+  const [isDesktopHeaderVisible, setIsDesktopHeaderVisible] = useState(true)
+  const filterSheetDragRef = useRef({ startY: 0, dragging: false })
+  const filterSheetCloseTimerRef = useRef(null)
+
+  const closeFilterSheet = useCallback(() => {
+    setFilterSheetOffset(240)
+    if (filterSheetCloseTimerRef.current) {
+      window.clearTimeout(filterSheetCloseTimerRef.current)
+    }
+    filterSheetCloseTimerRef.current = window.setTimeout(() => {
+      setFiltersOpen(false)
+      setFilterSheetOffset(0)
+    }, 180)
+  }, [])
+
+  const handleFilterSheetTouchStart = useCallback(
+    (event) => {
+      if (!filtersOpen) return
+      const touchY = event.touches?.[0]?.clientY
+      if (!Number.isFinite(touchY)) return
+      filterSheetDragRef.current = { startY: touchY, dragging: true }
+      setIsFilterSheetDragging(true)
+    },
+    [filtersOpen],
+  )
+
+  const handleFilterSheetTouchMove = useCallback((event) => {
+    if (!filterSheetDragRef.current.dragging) return
+    const touchY = event.touches?.[0]?.clientY
+    if (!Number.isFinite(touchY)) return
+    const delta = touchY - filterSheetDragRef.current.startY
+    setFilterSheetOffset(Math.max(-28, Math.min(260, delta)))
+    if (event.cancelable) event.preventDefault()
+  }, [])
+
+  const handleFilterSheetTouchEnd = useCallback(() => {
+    if (!filterSheetDragRef.current.dragging) return
+    filterSheetDragRef.current.dragging = false
+    setIsFilterSheetDragging(false)
+    if (filterSheetOffset > 84) {
+      closeFilterSheet()
+      return
+    }
+    setFilterSheetOffset(0)
+  }, [closeFilterSheet, filterSheetOffset])
+
+  useEffect(() => {
+    return () => {
+      if (filterSheetCloseTimerRef.current) {
+        window.clearTimeout(filterSheetCloseTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !filtersOpen || window.innerWidth >= 1024) return
+
+    const html = document.documentElement
+    const body = document.body
+    const previousHtmlOverflow = html.style.overflow
+    const previousBodyOverflow = body.style.overflow
+    const previousHtmlOverscroll = html.style.overscrollBehavior
+    const previousBodyOverscroll = body.style.overscrollBehavior
+
+    html.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
+    html.style.overscrollBehavior = 'none'
+    body.style.overscrollBehavior = 'none'
+
+    return () => {
+      html.style.overflow = previousHtmlOverflow
+      body.style.overflow = previousBodyOverflow
+      html.style.overscrollBehavior = previousHtmlOverscroll
+      body.style.overscrollBehavior = previousBodyOverscroll
+    }
+  }, [filtersOpen])
 
   useEffect(() => {
     const el = desktopStripRef.current
@@ -929,7 +1007,25 @@ const ProductCatalogPage = ({
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    const topOffset = 96
+    const handleDesktopHeaderVisibility = () => {
+      const currentY = window.scrollY
+      const nearTop = currentY < 20
+      const scrollingUp = currentY < lastDesktopScrollYRef.current
+      setIsDesktopHeaderVisible(nearTop || scrollingUp)
+      lastDesktopScrollYRef.current = currentY
+    }
+
+    handleDesktopHeaderVisibility()
+    window.addEventListener('scroll', handleDesktopHeaderVisibility, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', handleDesktopHeaderVisibility)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
     let rafId = 0
 
     const updateDesktopFilterPosition = () => {
@@ -937,6 +1033,8 @@ const ProductCatalogPage = ({
       const colEl = desktopFilterColRef.current
       const panelEl = desktopFilterPanelRef.current
       if (!gridEl || !colEl || !panelEl) return
+
+      const topOffset = isDesktopHeaderVisible ? 96 : 12
 
       if (window.innerWidth < 1024) {
         setDesktopFilterState((prev) =>
@@ -949,25 +1047,30 @@ const ProductCatalogPage = ({
 
       const gridRect = gridEl.getBoundingClientRect()
       const colRect = colEl.getBoundingClientRect()
-      const panelRect = panelEl.getBoundingClientRect()
-      const panelHeight = Math.round(panelRect.height || panelEl.scrollHeight || 0)
-      const maxHeight = Math.max(320, window.innerHeight - topOffset - 16)
-      const clampedHeight = Math.min(panelHeight || maxHeight, maxHeight)
       const nextLeft = Math.round(colRect.left)
       const nextWidth = Math.round(colRect.width)
+      const pinnedAvailableHeight = Math.max(
+        0,
+        Math.round(window.innerHeight - topOffset - 16),
+      )
 
       let nextMode = 'static'
       if (gridRect.top <= topOffset) {
         nextMode =
-          gridRect.bottom <= topOffset + clampedHeight + 16 ? 'bottom' : 'fixed'
+          gridRect.bottom <= topOffset + pinnedAvailableHeight + 16
+            ? 'bottom'
+            : 'fixed'
       }
+
+      const visibleTop = nextMode === 'static' ? Math.max(Math.round(colRect.top), 12) : topOffset
+      const availableHeight = Math.max(0, Math.round(window.innerHeight - visibleTop - 16))
 
       const nextState = {
         mode: nextMode,
         left: nextLeft,
         width: nextWidth,
-        height: clampedHeight,
-        placeholder: clampedHeight,
+        height: availableHeight,
+        placeholder: availableHeight,
       }
 
       setDesktopFilterState((prev) => {
@@ -1001,7 +1104,7 @@ const ProductCatalogPage = ({
       window.removeEventListener('resize', onChange)
       resizeObserver.disconnect()
     }
-  }, [filteredProducts.length])
+  }, [filteredProducts.length, isDesktopHeaderVisible])
 
   const scrollByAmount = (dir = 1) => {
     const el = desktopStripRef.current
@@ -1529,7 +1632,7 @@ const ProductCatalogPage = ({
                 desktopFilterState.mode === 'fixed'
                   ? {
                       position: 'fixed',
-                      top: '96px',
+                      top: `${isDesktopHeaderVisible ? 96 : 12}px`,
                       left: `${desktopFilterState.left}px`,
                       width: `${desktopFilterState.width}px`,
                       height: `${desktopFilterState.height}px`,
@@ -1542,7 +1645,11 @@ const ProductCatalogPage = ({
                         width: '100%',
                         height: `${desktopFilterState.height}px`,
                       }
-                    : undefined
+                    : desktopFilterState.height > 0
+                      ? {
+                          height: `${desktopFilterState.height}px`,
+                        }
+                      : undefined
               }
             >
               <ProductFilters
@@ -1605,12 +1712,12 @@ const ProductCatalogPage = ({
               >
                 Filters
               </button>
-              <div className='hidden items-center gap-1.5 text-xs text-gray-600 lg:flex'>
-                <span>Sort by</span>
-                <CustomSelect
+              <div className='hidden shrink-0 items-center gap-2 whitespace-nowrap text-xs text-gray-600 lg:flex'>
+                <span className='whitespace-nowrap'>Sort by</span>
+                <select
                   value={sortValue}
                   onChange={(event) => setSortValue(event.target.value)}
-                  className='rounded border border-gray-300 bg-white px-1.5 py-0.5 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-300'
+                  className='h-9 min-w-[140px] shrink-0 rounded-md border border-gray-300 bg-white px-3 pr-8 text-xs text-gray-800 outline-none focus:ring-1 focus:ring-gray-300'
                   aria-label='Sort products'
                 >
                   <option value='default'>Featured</option>
@@ -1619,7 +1726,7 @@ const ProductCatalogPage = ({
                   <option value='price_desc'>High to Low</option>
                   <option value='name_asc'>Name (A-Z)</option>
                   <option value='name_desc'>Name (Z-A)</option>
-                </CustomSelect>
+                </select>
               </div>
             </div>
             {sortedProducts.length ? (
@@ -1650,43 +1757,63 @@ const ProductCatalogPage = ({
       {filtersOpen && (
         <div className='fixed inset-0 z-[9999] lg:hidden'>
           <div
-            className='absolute inset-0 bg-black/30'
-            onClick={() => setFiltersOpen(false)}
+            className='absolute inset-0 bg-black/35'
+            onClick={closeFilterSheet}
           />
-          <div className='absolute right-0 top-0 h-full w-full bg-white shadow-xl'>
-            <ProductFiltersMobile
-              categories={categories}
-              vendors={vendors}
-              colors={colors}
-              sizes={sizes}
-              priceBounds={priceBounds}
-              priceRange={priceRange}
-              selectedCategories={selectedCategories}
-              selectedVendors={selectedVendors}
-              selectedColors={selectedColors}
-              selectedSizes={selectedSizes}
-              dynamicSections={dynamicFilterSections}
-              selectedDynamic={selectedDynamicFilters}
-              onToggleCategory={(value) => toggleValue(setSelectedCategories, value)}
-              onToggleVendor={(value) => toggleValue(setSelectedVendors, value)}
-              onToggleColor={(value) => toggleValue(setSelectedColors, value)}
-              onToggleSize={(value) => toggleValue(setSelectedSizes, value)}
-              onToggleDynamic={(sectionKey, value) =>
-                setSelectedDynamicFilters((prev) => {
-                  const next = { ...prev }
-                  const sectionSet = new Set(next[sectionKey] || [])
-                  if (sectionSet.has(value)) sectionSet.delete(value)
-                  else sectionSet.add(value)
-                  next[sectionKey] = sectionSet
-                  return next
-                })
-              }
-              sortValue={sortValue}
-              onSortChange={setSortValue}
-              onPriceChange={setPriceRange}
-              onClear={handleClear}
-              onClose={() => setFiltersOpen(false)}
-            />
+          <div className='absolute inset-x-0 bottom-0 flex items-end justify-center'>
+            <div
+              className={`w-full max-h-[82dvh] overflow-hidden rounded-t-3xl bg-white shadow-[0_-16px_40px_rgba(15,23,42,0.2)] ${
+                isFilterSheetDragging ? '' : 'transition-transform duration-200 ease-out'
+              }`}
+              style={{ transform: `translateY(${filterSheetOffset}px)` }}
+            >
+              <div className='flex justify-center pb-1 pt-2'>
+                <button
+                  type='button'
+                  className='h-1.5 w-14 rounded-full bg-slate-300'
+                  aria-label='Drag or tap to close filters'
+                  onClick={closeFilterSheet}
+                  onTouchStart={handleFilterSheetTouchStart}
+                  onTouchMove={handleFilterSheetTouchMove}
+                  onTouchEnd={handleFilterSheetTouchEnd}
+                />
+              </div>
+              <div className='h-[min(82dvh,760px)] overflow-hidden'>
+                <ProductFiltersMobile
+                  categories={categories}
+                  vendors={vendors}
+                  colors={colors}
+                  sizes={sizes}
+                  priceBounds={priceBounds}
+                  priceRange={priceRange}
+                  selectedCategories={selectedCategories}
+                  selectedVendors={selectedVendors}
+                  selectedColors={selectedColors}
+                  selectedSizes={selectedSizes}
+                  dynamicSections={dynamicFilterSections}
+                  selectedDynamic={selectedDynamicFilters}
+                  onToggleCategory={(value) => toggleValue(setSelectedCategories, value)}
+                  onToggleVendor={(value) => toggleValue(setSelectedVendors, value)}
+                  onToggleColor={(value) => toggleValue(setSelectedColors, value)}
+                  onToggleSize={(value) => toggleValue(setSelectedSizes, value)}
+                  onToggleDynamic={(sectionKey, value) =>
+                    setSelectedDynamicFilters((prev) => {
+                      const next = { ...prev }
+                      const sectionSet = new Set(next[sectionKey] || [])
+                      if (sectionSet.has(value)) sectionSet.delete(value)
+                      else sectionSet.add(value)
+                      next[sectionKey] = sectionSet
+                      return next
+                    })
+                  }
+                  sortValue={sortValue}
+                  onSortChange={setSortValue}
+                  onPriceChange={setPriceRange}
+                  onClear={handleClear}
+                  onClose={closeFilterSheet}
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}

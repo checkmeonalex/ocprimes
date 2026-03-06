@@ -87,6 +87,18 @@ const formatCountdown = (secondsLeft) => {
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
+const toFailedOrderLabel = (value) => {
+  if (!value || typeof value !== 'object') return ''
+  const source = value
+  return String(
+    source.orderNumber ||
+      source.order_number ||
+      source.displayOrderId ||
+      source.id ||
+      '',
+  ).trim()
+}
+
 export default function AwaitingPaymentPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -103,11 +115,13 @@ export default function AwaitingPaymentPage() {
   const [resumeUrl, setResumeUrl] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
 
-  const redirectToFailed = useCallback((message, source = 'awaiting_payment') => {
+  const redirectToFailed = useCallback((message, source = 'awaiting_payment', orderDetails = null) => {
     const failedParams = new URLSearchParams()
     failedParams.set('source', source)
     failedParams.set('reason', String(message || 'Payment could not be confirmed.'))
     if (reference) failedParams.set('reference', reference)
+    const orderLabel = toFailedOrderLabel(orderDetails)
+    if (orderLabel) failedParams.set('order', orderLabel)
     router.replace(`/checkout/payment-failed?${failedParams.toString()}`)
   }, [reference, router])
 
@@ -168,7 +182,11 @@ export default function AwaitingPaymentPage() {
           return
         }
 
-        redirectToFailed(payload?.error || 'Unable to load payment status.')
+        redirectToFailed(
+          payload?.error || 'Unable to load payment status.',
+          'awaiting_payment',
+          payload?.order || null,
+        )
       } catch {
         if (!cancelled) {
           redirectToFailed('Unable to load payment status.')
@@ -232,7 +250,7 @@ export default function AwaitingPaymentPage() {
 
   if (isLoading) {
     return (
-      <div className='min-h-screen bg-[radial-gradient(circle_at_top,#e8f0ff_0%,#f4f6fb_45%,#f8fafc_100%)] px-4 py-10 text-slate-900 sm:px-6'>
+      <div className='min-h-screen bg-white px-4 py-10 text-slate-900 sm:px-6'>
         <div className='mx-auto max-w-3xl rounded-2xl border border-[#d9e4f3] bg-white/95 p-8 text-center shadow-[0_24px_60px_rgba(15,23,42,0.08)] backdrop-blur'>
           <div className='mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-[3px] border-[#c8d7f3] border-t-[#1d4ed8]' />
           <p className='text-base font-semibold text-slate-800'>Preparing your secure payment session...</p>
@@ -243,7 +261,7 @@ export default function AwaitingPaymentPage() {
   }
 
   return (
-    <div className='min-h-screen bg-[radial-gradient(circle_at_top,#e8f0ff_0%,#f4f6fb_45%,#f8fafc_100%)] px-0 py-4 text-slate-900 sm:px-6 sm:py-10'>
+    <div className='min-h-screen bg-white px-0 py-4 text-slate-900 sm:px-6 sm:py-10'>
       <div className='mx-auto w-full max-w-6xl'>
         <section className='pb-4 sm:hidden'>
           <header className='flex items-center justify-between py-2'>
@@ -321,7 +339,7 @@ export default function AwaitingPaymentPage() {
             <p className='text-xs font-semibold uppercase tracking-[0.1em] text-slate-500'>Payment Status</p>
             <h1 className='mt-2 text-3xl font-bold tracking-tight text-slate-900'>Complete your payment</h1>
             <p className='mt-2 text-sm text-slate-600'>
-              We&apos;ve prepared your order. Please complete payment within <span className='font-semibold text-slate-900'>2 minutes</span> to proceed.
+              We&apos;ve prepared your order. Please complete payment within <span className='font-semibold text-slate-900'>10 minutes</span> to proceed.
             </p>
 
             <div className='mt-5 rounded-xl border border-[#e2e8f5] bg-[linear-gradient(135deg,#f8fbff_0%,#eef5ff_100%)] p-4'>
@@ -419,10 +437,6 @@ export default function AwaitingPaymentPage() {
               <div className='flex items-center justify-between text-slate-600'>
                 <span>Shipping</span>
                 <span>{Number(order?.shippingFee || 0) > 0 ? formatMoney(Number(order?.shippingFee || 0)) : 'FREE'}</span>
-              </div>
-              <div className='flex items-center justify-between text-slate-600'>
-                <span>Tax</span>
-                <span>{formatMoney(Number(order?.taxAmount || 0))}</span>
               </div>
               <div className='mt-1 flex items-center justify-between border-t border-slate-200 pt-2 text-base font-bold text-slate-900'>
                 <span>Total</span>

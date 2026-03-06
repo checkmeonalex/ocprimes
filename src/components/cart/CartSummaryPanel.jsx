@@ -38,13 +38,11 @@ const CartSummaryPanel = ({
 
   const amounts = useMemo(() => {
     const shipping = 0
-    const tax = Math.round(selectedSummary.subtotal * 0.1 * 100) / 100
     const protection = Number(selectedSummary.protection || 0)
-    const total = selectedSummary.subtotal + shipping + tax + protection
+    const total = selectedSummary.subtotal + shipping + protection
 
     return {
       shipping,
-      tax,
       protection,
       total,
     }
@@ -108,12 +106,6 @@ const CartSummaryPanel = ({
           <div className='flex items-center justify-between'>
             <span className='text-slate-600'>Shipping :</span>
             <span className='font-semibold text-slate-500'>Calculated at checkout</span>
-          </div>
-          <div className='flex items-center justify-between'>
-            <span className='text-slate-600'>Tax :</span>
-            <span className='whitespace-nowrap font-semibold tabular-nums text-slate-900'>
-              {formatMoney(amounts.tax)}
-            </span>
           </div>
           {amounts.protection > 0 ? (
             <div className='flex items-center justify-between'>
