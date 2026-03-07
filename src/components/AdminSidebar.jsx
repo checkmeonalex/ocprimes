@@ -29,6 +29,7 @@ const DESKTOP_NAV_ITEMS = [
   { label: 'Size Guides', href: '/backend/admin/size-guides', icon: 'guides' },
   { label: 'Logistics', href: '/backend/admin/logistics', icon: 'logistics' },
   { label: 'Settings', href: '/backend/admin/settings', icon: 'settings' },
+  { label: 'Extra', href: '/backend/admin/extra', icon: 'extra' },
   { label: 'Shortcut', href: '/backend/admin/shortcut', icon: 'shortcut' },
   { label: 'Vendor Users', href: '/backend/admin/admin/users', icon: 'adminUsers' },
   { label: 'Vendor Brands', href: '/backend/admin/admin/brands', icon: 'adminBrands' },
@@ -188,6 +189,13 @@ const NavIcon = ({ icon }) => {
           />
         </svg>
       );
+    case 'extra':
+      return (
+        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M6 6h5v5H6zM13 6h5v5h-5zM6 13h5v5H6zM13 13h5v5h-5z" />
+          <path d="M12 3v3M12 18v3M3 12h3M18 12h3" />
+        </svg>
+      );
     case 'shortcut':
       return (
         <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -300,6 +308,7 @@ const AdminSidebar = () => {
         item.href !== '/backend/admin/customers' &&
         item.href !== '/backend/admin/pages' &&
         item.href !== '/backend/admin/logistics' &&
+        item.href !== '/backend/admin/extra' &&
         item.href !== '/backend/admin/admin/users' &&
         item.href !== '/backend/admin/admin/brands',
     );

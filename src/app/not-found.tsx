@@ -4,17 +4,12 @@ const exits = [
   {
     href: '/',
     label: 'Back home',
-    copy: 'Return to the storefront landing page.',
-  },
-  {
-    href: '/products',
-    label: 'Shop all',
-    copy: 'Browse the full catalog from a clean starting point.',
+    copy: 'Return to the home page.',
   },
   {
     href: '/wishlist',
     label: 'Open wishlist',
-    copy: 'Pick up from items you already saved.',
+    copy: 'Continue with items you’ve already saved.',
   },
 ]
 
@@ -30,16 +25,19 @@ export default function NotFound() {
                 404
               </span>
               <span className='pb-3 text-xs uppercase tracking-[0.38em] text-slate-400 sm:text-sm'>
-                Lost page
+                Page not found
               </span>
             </div>
 
             <h1 className='mt-5 max-w-2xl text-3xl font-semibold leading-tight text-slate-900 [font-family:Georgia,serif] sm:text-4xl lg:text-5xl'>
-              This page is gone, but the store is not.
+              Page not found
             </h1>
             <p className='mt-4 max-w-xl text-sm leading-7 text-slate-600 sm:text-base'>
-              The link you opened does not point to a live page anymore. Use search,
-              jump back home, or reopen the full catalog and continue from there.
+              This page is no longer available. The link may be broken or the page may
+              have been removed.
+            </p>
+            <p className='mt-4 max-w-xl text-sm leading-7 text-slate-600 sm:text-base'>
+              Use search, go back home, or browse all products to continue shopping.
             </p>
 
             <form action='/products' method='get' className='mt-8 max-w-xl'>
@@ -51,14 +49,14 @@ export default function NotFound() {
                   id='not-found-search'
                   name='search'
                   type='text'
-                  placeholder='Search products, brands, categories...'
+                  placeholder='Search products, brands, or categories...'
                   className='h-12 min-h-12 w-full min-w-0 flex-1 appearance-none rounded-full border border-slate-300 bg-white px-5 py-0 text-sm leading-none text-slate-900 outline-none placeholder:text-slate-400 focus:border-black focus:ring-2 focus:ring-black/10'
                 />
                 <button
                   type='submit'
                   className='inline-flex h-12 items-center justify-center rounded-full bg-black px-6 text-sm font-semibold text-white transition hover:bg-slate-800'
                 >
-                  Search store
+                  Search
                 </button>
               </div>
             </form>
@@ -76,19 +74,20 @@ export default function NotFound() {
         <div className='flex flex-col gap-4'>
           <div className='border border-black bg-white p-6 text-slate-900 shadow-[0_20px_50px_rgba(0,0,0,0.06)]'>
             <p className='text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400'>
-              Best recovery
+              Continue shopping
             </p>
             <h2 className='mt-3 text-2xl font-semibold tracking-tight text-slate-900'>
-              Restart from all products
+              Browse all products
             </h2>
             <p className='mt-3 text-sm leading-7 text-slate-600'>
-              The full catalog is the safest reset when a category page, product link, or old bookmark breaks.
+              If a product or category link no longer works, you can start again from
+              the full product list.
             </p>
             <Link
               href='/products'
               className='mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-900'
             >
-              Open catalog
+              Browse all products
               <span aria-hidden='true'>→</span>
             </Link>
           </div>

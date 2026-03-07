@@ -1,13 +1,13 @@
 .masonry {
   column-count: 6;
-  column-gap: 14px;
+  column-gap: var(--masonry-gap, 24px);
   max-width: 2400px;
   margin: 0 auto;
 }
 
 .masonry-item {
   break-inside: avoid;
-  margin-bottom: 15px;
+  margin-bottom: var(--masonry-item-gap, 15px);
 }
 
 /* Responsive breakpoints */
@@ -38,6 +38,11 @@
 @media (max-width: 640px) {
   .masonry {
     column-count: 2;
+    column-gap: var(--masonry-gap-mobile, 12px);
+  }
+
+  .masonry-item {
+    margin-bottom: var(--masonry-item-gap-mobile, 10px);
   }
 }
 

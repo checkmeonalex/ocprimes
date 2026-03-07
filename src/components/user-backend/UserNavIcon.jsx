@@ -1,3 +1,5 @@
+import AccountSecurityIcon from '@/components/common/AccountSecurityIcon'
+
 export default function UserNavIcon({ label, className = 'h-5 w-5' }) {
   const iconProps = {
     className,
@@ -129,51 +131,7 @@ export default function UserNavIcon({ label, className = 'h-5 w-5' }) {
   }
 
   if (label === 'Account & security') {
-    return (
-      <svg
-        className={className}
-        viewBox='0 0 256 256'
-        fill='none'
-        xmlns='http://www.w3.org/2000/svg'
-        aria-hidden='true'
-      >
-        <path
-          d='M127.99999 239.96468C127.99999 239.96468 223.98505 207.96965 223.98505 127.98211'
-          stroke='currentColor'
-          strokeWidth='16'
-          strokeLinecap='round'
-          strokeLinejoin='round'
-        />
-        <path
-          d='M223.98505 127.98211V31.997059C223.98505 31.997059 191.99003 15.999548 127.99999 15.999548'
-          stroke='currentColor'
-          strokeWidth='16'
-          strokeLinecap='round'
-          strokeLinejoin='round'
-        />
-        <path
-          d='M128 239.96468C128 239.96468 32.014944 207.96965 32.014944 127.98211'
-          stroke='currentColor'
-          strokeWidth='16'
-          strokeLinecap='round'
-          strokeLinejoin='round'
-        />
-        <path
-          d='M32.014944 127.98211V31.997059C32.014944 31.997059 64.009963 15.99955 128 15.99955'
-          stroke='currentColor'
-          strokeWidth='16'
-          strokeLinecap='round'
-          strokeLinejoin='round'
-        />
-        <path
-          d='M191.99003 63.99208C128 111.9846 112.00249 175.97464 112.00249 175.97464C112.00249 175.97464 96.004979 156.88004 80.007471 143.97962'
-          stroke='currentColor'
-          strokeWidth='16'
-          strokeLinecap='round'
-          strokeLinejoin='round'
-        />
-      </svg>
-    )
+    return <AccountSecurityIcon className={className} aria-hidden='true' />
   }
 
   return (

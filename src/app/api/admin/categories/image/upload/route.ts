@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { requireAdmin } from '@/lib/auth/require-admin'
 import { jsonError, jsonOk } from '@/lib/http/response'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_UPLOAD_BYTES,
@@ -14,11 +15,12 @@ const formSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { applyCookies, isAdmin } = await requireAdmin(request)
 
   if (!isAdmin) {
     return jsonError('Forbidden.', 403)
   }
+  const db = createAdminSupabaseClient()
 
   let formData: FormData
   try {
@@ -59,7 +61,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await supabase
+    await db
       .from('component_images')
       .insert({ r2_key: uploaded?.key || key, url: uploaded?.url || '', alt_text: file.name || null })
   } catch (err) {

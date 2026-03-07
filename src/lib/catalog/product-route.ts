@@ -13,6 +13,10 @@ import {
   rankProductsWithSignals,
   toPersonalizationSignals,
 } from '@/lib/personalization/rank-products'
+import {
+  fetchPublicLinkedProductIds,
+  resolvePublicTaxonomyIdBySlugOrId,
+} from '@/lib/catalog/public-taxonomy'
 
 const PRODUCT_TABLE = 'products'
 const CATEGORY_TABLE = 'admin_categories'
@@ -220,7 +224,7 @@ const resolveVendorBrandIds = async (supabase, vendorValue) => {
 
   const normalizedSlug = toVendorSlug(rawVendor)
   const readableName = toVendorReadableName(rawVendor)
-  const ids = new Set()
+  const ids = new Set<string>()
 
   const appendBrandIds = (rows = []) => {
     rows.forEach((row) => {
@@ -362,7 +366,7 @@ const attachRelations = async (supabase, items) => {
 
   const categoryRows = categoryRes.data || []
   let tagRows = tagRes.data || []
-  const brandRows = brandRes.data || []
+  let brandRows = brandRes.data || []
   const imageRows = imageRes.data || []
   const hasReadableTagRows = (rows: any[] = []) =>
     rows.some((row) => {
@@ -388,6 +392,33 @@ const attachRelations = async (supabase, items) => {
       }
     } catch (error: any) {
       console.error('public tag fallback init failed:', error?.message || String(error))
+    }
+  }
+
+  const hasReadableBrandRows = (rows: any[] = []) =>
+    rows.some((row) => {
+      const embedded = row?.admin_brands
+      if (!embedded) return false
+      if (Array.isArray(embedded)) {
+        return embedded.some((entry) => String(entry?.name || '').trim())
+      }
+      return Boolean(String(embedded?.name || '').trim())
+    })
+
+  if (!brandRows.length || !hasReadableBrandRows(brandRows)) {
+    try {
+      const adminDb = createAdminSupabaseClient()
+      const fallbackBrandResult = await adminDb
+        .from(BRAND_LINKS)
+        .select('product_id, admin_brands(id, name, slug, logo_url, created_by)')
+        .in('product_id', ids)
+      if (!fallbackBrandResult.error && Array.isArray(fallbackBrandResult.data)) {
+        brandRows = fallbackBrandResult.data
+      } else if (fallbackBrandResult.error) {
+        console.error('public brand fallback lookup failed:', fallbackBrandResult.error.message)
+      }
+    } catch (error: any) {
+      console.error('public brand fallback init failed:', error?.message || String(error))
     }
   }
 
@@ -519,33 +550,31 @@ export async function listPublicProducts(request: NextRequest) {
     let vendorProductIds: string[] | null = null
 
     if (category) {
-      const { data: categoryBySlug } = await supabase
-        .from(CATEGORY_TABLE)
-        .select('id')
-        .eq('slug', category)
-        .maybeSingle()
-
-      const categoryId = categoryBySlug?.id || category
-      const { data: linkData } = await supabase
-        .from(CATEGORY_LINKS)
-        .select('product_id')
-        .eq('category_id', categoryId)
-      categoryProductIds = Array.isArray(linkData) ? linkData.map((row) => row.product_id) : []
+      const categoryId = await resolvePublicTaxonomyIdBySlugOrId({
+        table: CATEGORY_TABLE,
+        value: category,
+        supabase,
+      })
+      categoryProductIds = await fetchPublicLinkedProductIds({
+        table: CATEGORY_LINKS,
+        column: 'category_id',
+        values: [categoryId],
+        supabase,
+      })
     }
 
     if (tag) {
-      const { data: tagBySlug } = await supabase
-        .from(TAG_TABLE)
-        .select('id')
-        .eq('slug', tag)
-        .maybeSingle()
-
-      const tagId = tagBySlug?.id || tag
-      const { data: linkData } = await supabase
-        .from(TAG_LINKS)
-        .select('product_id')
-        .eq('tag_id', tagId)
-      tagProductIds = Array.isArray(linkData) ? linkData.map((row) => row.product_id) : []
+      const tagId = await resolvePublicTaxonomyIdBySlugOrId({
+        table: TAG_TABLE,
+        value: tag,
+        supabase,
+      })
+      tagProductIds = await fetchPublicLinkedProductIds({
+        table: TAG_LINKS,
+        column: 'tag_id',
+        values: [tagId],
+        supabase,
+      })
     }
 
     if (vendor) {
@@ -553,11 +582,12 @@ export async function listPublicProducts(request: NextRequest) {
       if (!brandIds.length) {
         vendorProductIds = []
       } else {
-        const { data: linkData } = await supabase
-          .from(BRAND_LINKS)
-          .select('product_id')
-          .in('brand_id', brandIds)
-        vendorProductIds = Array.isArray(linkData) ? linkData.map((row) => row.product_id) : []
+        vendorProductIds = await fetchPublicLinkedProductIds({
+          table: BRAND_LINKS,
+          column: 'brand_id',
+          values: brandIds,
+          supabase,
+        })
       }
     }
 

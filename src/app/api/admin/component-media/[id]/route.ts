@@ -1,19 +1,21 @@
 import type { NextRequest } from 'next/server'
 import { requireAdmin } from '@/lib/auth/require-admin'
 import { jsonError, jsonOk } from '@/lib/http/response'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { deleteFromR2 } from '@/lib/storage/r2'
 
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { applyCookies, isAdmin } = await requireAdmin(request)
   if (!isAdmin) {
     return jsonError('Forbidden.', 403)
   }
+  const db = createAdminSupabaseClient()
 
   const params = await context.params
   const id = params?.id
   if (!id) return jsonError('Missing id.', 400)
 
-  const { data, error: fetchErr } = await supabase
+  const { data, error: fetchErr } = await db
     .from('component_images')
     .select('id, r2_key')
     .eq('id', id)
@@ -32,7 +34,7 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     }
   }
 
-  const { error: delErr } = await supabase.from('component_images').delete().eq('id', id)
+  const { error: delErr } = await db.from('component_images').delete().eq('id', id)
   if (delErr) {
     console.error('component media delete DB failed:', delErr.message)
     return jsonError('Unable to delete image.', 500)

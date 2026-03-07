@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { requireAdmin } from '@/lib/auth/require-admin'
 import { jsonError, jsonOk } from '@/lib/http/response'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -11,11 +12,12 @@ const querySchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { applyCookies, isAdmin } = await requireAdmin(request)
 
   if (!isAdmin) {
     return jsonError('Forbidden.', 403)
   }
+  const db = createAdminSupabaseClient()
 
   const parseResult = querySchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -28,7 +30,7 @@ export async function GET(request: NextRequest) {
   const from = (page - 1) * per_page
   const to = from + per_page - 1
 
-  let query = supabase
+  let query = db
     .from('component_images')
     .select('id, r2_key, url, alt_text, created_at')
     .order('created_at', { ascending: false })
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
     return jsonError('Unable to load media.', 500)
   }
 
-  let countQuery = supabase.from('component_images').select('id', { count: 'exact', head: true })
+  let countQuery = db.from('component_images').select('id', { count: 'exact', head: true })
   if (filter === 'stale') {
     const cutoff = new Date(Date.now() - stale_days * 24 * 60 * 60 * 1000).toISOString()
     countQuery = countQuery.lt('created_at', cutoff)

@@ -12,10 +12,6 @@ import {
   loadUserProfileBootstrap,
   primeUserProfileBootstrap,
 } from '@/lib/user/profile-bootstrap-client'
-import {
-  normalizeOrderProtectionConfig,
-  ORDER_PROTECTION_DEFAULTS,
-} from '@/lib/order-protection/config'
 
 const navItems = [
   { id: 'profile', label: 'Profile' },
@@ -56,15 +52,6 @@ const emptyNotifications = {
   productReviewAlerts: true,
   securityAlerts: true,
 }
-const defaultCheckoutProgress = {
-  enabled: true,
-  standardFreeShippingThreshold: 50,
-  expressFreeShippingThreshold: 100,
-}
-const defaultOrderProtectionSettings = {
-  ...ORDER_PROTECTION_DEFAULTS,
-}
-
 const buildSafeProfilePayload = (profile, patch = {}) => {
   const base = profile && typeof profile === 'object' ? profile : {}
   const contactInfo = base.contactInfo && typeof base.contactInfo === 'object' ? base.contactInfo : {}
@@ -91,8 +78,6 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
-  const [isSavingCartShippingProgress, setIsSavingCartShippingProgress] = useState(false)
-  const [isSavingOrderProtection, setIsSavingOrderProtection] = useState(false)
   const [isSavingSocial, setIsSavingSocial] = useState(false)
   const [isSavingNotifications, setIsSavingNotifications] = useState(false)
   const [isChangingPassword, setIsChangingPassword] = useState(false)
@@ -116,10 +101,6 @@ export default function SettingsPage() {
   })
   const [socialForm, setSocialForm] = useState({ ...emptySocials })
   const [notificationsForm, setNotificationsForm] = useState({ ...emptyNotifications })
-  const [checkoutProgressForm, setCheckoutProgressForm] = useState({ ...defaultCheckoutProgress })
-  const [orderProtectionForm, setOrderProtectionForm] = useState({
-    ...defaultOrderProtectionSettings,
-  })
   const [securityForm, setSecurityForm] = useState({
     currentPassword: '',
     newPassword: '',
@@ -193,57 +174,8 @@ export default function SettingsPage() {
     }
   }
 
-  const loadCartShippingProgressSettings = async () => {
-    try {
-      const response = await fetch('/api/admin/cart-shipping-progress-settings', {
-        cache: 'no-store',
-        credentials: 'include',
-      })
-      if (shouldRedirectForAuthFailure(response.status)) {
-        redirectToSignIn()
-        return
-      }
-      if (!response.ok) return
-      const payload = await response.json().catch(() => null)
-      setCheckoutProgressForm({
-        enabled: payload?.enabled !== false,
-        standardFreeShippingThreshold:
-          Number(payload?.standardFreeShippingThreshold) >= 0
-            ? Number(payload.standardFreeShippingThreshold)
-            : defaultCheckoutProgress.standardFreeShippingThreshold,
-        expressFreeShippingThreshold:
-          Number(payload?.expressFreeShippingThreshold) >= 0
-            ? Number(payload.expressFreeShippingThreshold)
-            : defaultCheckoutProgress.expressFreeShippingThreshold,
-      })
-    } catch {
-      setCheckoutProgressForm({ ...defaultCheckoutProgress })
-    }
-  }
-
-  const loadOrderProtectionSettings = async () => {
-    try {
-      const response = await fetch('/api/admin/order-protection-settings', {
-        cache: 'no-store',
-        credentials: 'include',
-      })
-      if (shouldRedirectForAuthFailure(response.status)) {
-        redirectToSignIn()
-        return
-      }
-      if (!response.ok) return
-      const payload = await response.json().catch(() => null)
-      const normalized = normalizeOrderProtectionConfig(payload)
-      setOrderProtectionForm(normalized)
-    } catch {
-      setOrderProtectionForm({ ...defaultOrderProtectionSettings })
-    }
-  }
-
   useEffect(() => {
     loadProfile()
-    loadCartShippingProgressSettings()
-    loadOrderProtectionSettings()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -339,79 +271,6 @@ export default function SettingsPage() {
       setError(saveError?.message || 'Unable to save social profiles.')
     } finally {
       setIsSavingSocial(false)
-    }
-  }
-
-  const saveOrderProtectionSection = async () => {
-    setError('')
-    setSuccess('')
-    setIsSavingOrderProtection(true)
-    try {
-      const normalized = normalizeOrderProtectionConfig(orderProtectionForm)
-      const response = await fetch('/api/admin/order-protection-settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(normalized),
-      })
-      if (shouldRedirectForAuthFailure(response.status)) {
-        redirectToSignIn()
-        return
-      }
-      const payload = await response.json().catch(() => null)
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Unable to save order protection settings.')
-      }
-      setOrderProtectionForm(normalizeOrderProtectionConfig(payload))
-      setSuccess('Order protection settings saved.')
-    } catch (saveError) {
-      setError(saveError?.message || 'Unable to save order protection settings.')
-    } finally {
-      setIsSavingOrderProtection(false)
-    }
-  }
-
-  const saveCartShippingProgressSection = async () => {
-    setError('')
-    setSuccess('')
-    setIsSavingCartShippingProgress(true)
-    try {
-      const payload = {
-        enabled: Boolean(checkoutProgressForm.enabled),
-        standardFreeShippingThreshold: Math.max(
-          0,
-          Number(checkoutProgressForm.standardFreeShippingThreshold) || 0,
-        ),
-        expressFreeShippingThreshold: Math.max(
-          0,
-          Number(checkoutProgressForm.expressFreeShippingThreshold) || 0,
-        ),
-      }
-
-      const response = await fetch('/api/admin/cart-shipping-progress-settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      })
-      if (shouldRedirectForAuthFailure(response.status)) {
-        redirectToSignIn()
-        return
-      }
-      const data = await response.json().catch(() => null)
-      if (!response.ok) {
-        throw new Error(data?.error || 'Unable to save shipping progress settings.')
-      }
-      setCheckoutProgressForm({
-        enabled: data?.enabled !== false,
-        standardFreeShippingThreshold: Number(data?.standardFreeShippingThreshold) || 0,
-        expressFreeShippingThreshold: Number(data?.expressFreeShippingThreshold) || 0,
-      })
-      setSuccess('Shipping progress settings saved.')
-    } catch (saveError) {
-      setError(saveError?.message || 'Unable to save shipping progress settings.')
-    } finally {
-      setIsSavingCartShippingProgress(false)
     }
   }
 
@@ -1135,148 +994,6 @@ export default function SettingsPage() {
                               ))}
                             </CustomSelect>
                           </div>
-                        </div>
-                        <div className='rounded-xl border border-slate-200 bg-slate-50 p-4'>
-                          <p className='text-sm font-semibold text-slate-900'>Cart shipping progress</p>
-                          <p className='mt-1 text-xs text-slate-500'>
-                            Configure standard and express free-shipping milestones shown in cart.
-                          </p>
-                          <div className='mt-3 grid gap-4 sm:grid-cols-2'>
-                            <div>
-                              <label className={labelClass}>Standard free-shipping threshold</label>
-                              <input
-                                className={inputClass}
-                                type='number'
-                                min='0'
-                                value={checkoutProgressForm.standardFreeShippingThreshold}
-                                onChange={(event) =>
-                                  setCheckoutProgressForm((prev) => ({
-                                    ...prev,
-                                    standardFreeShippingThreshold: event.target.value,
-                                  }))
-                                }
-                              />
-                            </div>
-                            <div>
-                              <label className={labelClass}>Express free-shipping threshold</label>
-                              <input
-                                className={inputClass}
-                                type='number'
-                                min='0'
-                                value={checkoutProgressForm.expressFreeShippingThreshold}
-                                onChange={(event) =>
-                                  setCheckoutProgressForm((prev) => ({
-                                    ...prev,
-                                    expressFreeShippingThreshold: event.target.value,
-                                  }))
-                                }
-                              />
-                            </div>
-                          </div>
-                          <label className='mt-3 inline-flex items-center gap-2 text-sm text-slate-700'>
-                            <input
-                              type='checkbox'
-                              checked={Boolean(checkoutProgressForm.enabled)}
-                              onChange={(event) =>
-                                setCheckoutProgressForm((prev) => ({
-                                  ...prev,
-                                  enabled: event.target.checked,
-                                }))
-                              }
-                              className='h-4 w-4 rounded border-slate-300 text-slate-900'
-                            />
-                            Enable progress bar in cart
-                          </label>
-                          <button
-                            type='button'
-                            onClick={saveCartShippingProgressSection}
-                            disabled={isSavingCartShippingProgress}
-                            className='mt-3 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100 disabled:opacity-60'
-                          >
-                            {isSavingCartShippingProgress ? 'Saving...' : 'Save shipping progress settings'}
-                          </button>
-                        </div>
-                        <div className='rounded-xl border border-slate-200 bg-slate-50 p-4'>
-                          <p className='text-sm font-semibold text-slate-900'>Order protection settings</p>
-                          <p className='mt-1 text-xs text-slate-500'>
-                            Controls fee calculation and claim deadline for all shoppers.
-                          </p>
-                          <div className='mt-3 grid gap-4 sm:grid-cols-2'>
-                            <div>
-                              <label className={labelClass}>Protection percentage (0-1)</label>
-                              <input
-                                className={inputClass}
-                                type='number'
-                                min='0.001'
-                                max='1'
-                                step='0.001'
-                                value={orderProtectionForm.percentage}
-                                onChange={(event) =>
-                                  setOrderProtectionForm((prev) => ({
-                                    ...prev,
-                                    percentage: event.target.value,
-                                  }))
-                                }
-                              />
-                            </div>
-                            <div>
-                              <label className={labelClass}>Claim window (hours)</label>
-                              <input
-                                className={inputClass}
-                                type='number'
-                                min='1'
-                                max='720'
-                                step='1'
-                                value={orderProtectionForm.claimWindowHours}
-                                onChange={(event) =>
-                                  setOrderProtectionForm((prev) => ({
-                                    ...prev,
-                                    claimWindowHours: event.target.value,
-                                  }))
-                                }
-                              />
-                            </div>
-                            <div>
-                              <label className={labelClass}>Minimum fee</label>
-                              <input
-                                className={inputClass}
-                                type='number'
-                                min='0'
-                                step='0.01'
-                                value={orderProtectionForm.minimumFee}
-                                onChange={(event) =>
-                                  setOrderProtectionForm((prev) => ({
-                                    ...prev,
-                                    minimumFee: event.target.value,
-                                  }))
-                                }
-                              />
-                            </div>
-                            <div>
-                              <label className={labelClass}>Maximum cap</label>
-                              <input
-                                className={inputClass}
-                                type='number'
-                                min='0'
-                                step='0.01'
-                                value={orderProtectionForm.maximumFee}
-                                onChange={(event) =>
-                                  setOrderProtectionForm((prev) => ({
-                                    ...prev,
-                                    maximumFee: event.target.value,
-                                  }))
-                                }
-                              />
-                            </div>
-                          </div>
-                          <button
-                            type='button'
-                            onClick={saveOrderProtectionSection}
-                            disabled={isSavingOrderProtection}
-                            className='mt-3 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100 disabled:opacity-60'
-                          >
-                            {isSavingOrderProtection ? 'Saving...' : 'Save order protection settings'}
-                          </button>
                         </div>
                         <div>
                           <button

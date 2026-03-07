@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuthUser } from '@/lib/auth/useAuthUser.ts'
 import { USER_MENU_ITEMS } from '@/lib/user/menu-items'
+import AccountSecurityIcon from '@/components/common/AccountSecurityIcon'
 import CountryFlagIcon from '@/components/common/CountryFlagIcon'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import {
@@ -142,12 +143,7 @@ const renderMenuItemIcon = (label) => {
     )
   }
   if (label === 'Account & security') {
-    return (
-      <svg {...iconProps}>
-        <path d='M12 4 5 7v5c0 4.5 3.1 7 7 8 3.9-1 7-3.5 7-8V7l-7-3z' stroke='currentColor' strokeWidth='1.5' />
-        <path d='M10.5 11.5v-1a1.5 1.5 0 1 1 3 0v1M10 11.5h4v3h-4z' stroke='currentColor' strokeWidth='1.5' />
-      </svg>
-    )
+    return <AccountSecurityIcon className={iconProps.className} aria-hidden='true' />
   }
 
   return (

@@ -769,3 +769,51 @@ button,
 .thin-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(75, 85, 99, 0.6);
 }
+
+.desktop-search-scrollbar {
+  scrollbar-width: auto;
+  scrollbar-color: rgba(31, 41, 55, 0.85) rgba(226, 232, 240, 0.95);
+}
+
+.desktop-search-scrollbar::-webkit-scrollbar {
+  width: 12px;
+}
+
+.desktop-search-scrollbar::-webkit-scrollbar-track {
+  background: rgba(226, 232, 240, 0.95);
+  border-left: 1px solid rgba(203, 213, 225, 0.9);
+}
+
+.desktop-search-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(55, 65, 81, 0.96), rgba(17, 24, 39, 0.96));
+  border-radius: 999px;
+  border: 2px solid rgba(226, 232, 240, 0.95);
+}
+
+.desktop-search-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(31, 41, 55, 1), rgba(15, 23, 42, 1));
+}
+
+.mobile-sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(71, 85, 105, 0.78) rgba(226, 232, 240, 0.9);
+}
+
+.mobile-sidebar-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.mobile-sidebar-scrollbar::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, rgba(241, 245, 249, 0.92), rgba(226, 232, 240, 0.92));
+  border-left: 1px solid rgba(203, 213, 225, 0.7);
+}
+
+.mobile-sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(71, 85, 105, 0.9), rgba(51, 65, 85, 0.9));
+  border-radius: 999px;
+  border: 2px solid rgba(241, 245, 249, 0.95);
+}
+
+.mobile-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(51, 65, 85, 0.98), rgba(30, 41, 59, 0.98));
+}

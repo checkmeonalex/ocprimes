@@ -16,6 +16,7 @@ import { useWishlist } from '../../context/WishlistContext'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { buildVendorHref } from '@/lib/catalog/vendor'
 import { useScreenSize } from '@/hooks/useScreenSize'
+import ProductCardLoadingState from './ProductCardLoadingState'
 
 const ProductCard = ({
   product,
@@ -166,7 +167,7 @@ const ProductCard = ({
   }
 
   if (!product) {
-    return <ProductCardSkeleton />
+    return <ProductCardLoadingState className={className} />
   }
 
   return (

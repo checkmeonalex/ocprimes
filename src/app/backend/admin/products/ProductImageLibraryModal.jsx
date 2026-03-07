@@ -10,6 +10,8 @@ const MEDIA_PAGE_SIZE = 20;
 const MOBILE_MEDIA_PAGE_SIZE = 8;
 const MAX_BATCH_UPLOADS = 8;
 const LIBRARY_CACHE = new Map();
+const EMPTY_SELECTION_IDS = [];
+const EMPTY_SELECTION_IMAGES = [];
 const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i;
 const VIDEO_EXT_RE = /\.(mp4|webm|mov|m4v)$/i;
 
@@ -91,8 +93,8 @@ function ProductImageLibraryModal({
   onApply,
   productId,
   selectedId,
-  selectedIds = [],
-  selectedImages = [],
+  selectedIds = EMPTY_SELECTION_IDS,
+  selectedImages = EMPTY_SELECTION_IMAGES,
   selectedVideoId = '',
   selectedVideoUrl = '',
   listEndpoint = '/api/admin/media',

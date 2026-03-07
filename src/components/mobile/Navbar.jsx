@@ -6,48 +6,75 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import { useSidebar } from '../../context/SidebarContext'
 import dynamic from 'next/dynamic'
+import BrandLogo from '@/components/common/BrandLogo'
 import { useCart } from '../../context/CartContext'
 import { fetchCategoriesData } from '@/lib/catalog/categories-menu'
 import { useAuthUser } from '../../lib/auth/useAuthUser.ts'
+import { formatSuggestionLabel } from '@/components/search/formatSuggestionLabel'
+import { openPopularSearchTarget } from '@/components/search/openPopularSearchTarget'
+import PopularRightNowSection from '@/components/search/PopularRightNowSection'
+import { usePopularSearchItems } from '@/components/search/usePopularSearchItems'
+import { useSearchSuggestions } from '@/components/search/useSearchSuggestions'
+import { reportSearchQuery } from '@/components/search/reportSearchQuery'
+
+const MOBILE_HEADER_SEARCH_MIN_RATIO = 0.4
+const MOBILE_HEADER_SEARCH_GAP = 16
 
 // Lazy load CategoriesMenu since it's not immediately visible
 const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
   loading: () => null, // No loading spinner needed
 })
 
-function MobileNavbar({ initialAuthUser = null }) {
+function MobileNavbar({
+  initialAuthUser = null,
+  initialTopCategories = [],
+}) {
   const router = useRouter()
   const pathname = usePathname()
-  const { isOpen, toggleSidebar } = useSidebar()
+  const {
+    isOpen,
+    toggleSidebar,
+    isCategoriesOpen,
+    toggleCategories,
+    openCategories,
+    closeCategories,
+    activeMobileCategoryId,
+  } = useSidebar()
   const { summary, isReady, isServerReady } = useCart()
   const { user } = useAuthUser(initialAuthUser, true)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
-  const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const [recentSearches, setRecentSearches] = useState([])
-  const [mobileCategories, setMobileCategories] = useState([])
-  const [activeMobileCategoryId, setActiveMobileCategoryId] = useState(null)
+  const [mobileCategories, setMobileCategories] = useState(() =>
+    Array.isArray(initialTopCategories) ? initialTopCategories : [],
+  )
   const [isSecondBarVisible, setIsSecondBarVisible] = useState(true)
   const [menuTopOffset, setMenuTopOffset] = useState(56)
+  const [useCompactHeaderLogo, setUseCompactHeaderLogo] = useState(false)
   const searchRef = useRef(null)
   const accountMenuRef = useRef(null)
   const navRef = useRef(null)
+  const mobileHeaderMenuButtonRef = useRef(null)
+  const mobileHeaderRowRef = useRef(null)
+  const mobileHeaderRightRef = useRef(null)
+  const mobileHeaderSearchRef = useRef(null)
+  const mobileHeaderFullLogoMeasureRef = useRef(null)
   const lastScrollYRef = useRef(0)
   const attemptedSearchImageTermsRef = useRef(new Set())
-
-  const popularSearches = [
-    'high quality men clothes',
-    'men wears',
-    'mobile offer',
-    'joggers for men',
-    'trousers for men',
-    'cheap mobile phones',
-    'two piece for men',
-    'samsung galaxy mobile phones',
-    'headphones',
-    'shoes for men sale',
-  ]
+  const {
+    suggestions: liveSearchSuggestions,
+    isLoading: isLiveSearchLoading,
+    hasQuery: hasLiveSearchQuery,
+  } = useSearchSuggestions({
+    query: searchValue,
+    enabled: isSearchOpen,
+    limit: 6,
+  })
+  const { items: popularSearchItems } = usePopularSearchItems({
+    enabled: isSearchOpen && !hasLiveSearchQuery,
+    limit: 10,
+  })
   const placeholderChipImage =
     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="20" fill="%23e5e7eb"/></svg>'
 
@@ -161,12 +188,23 @@ function MobileNavbar({ initialAuthUser = null }) {
   }, [isSearchOpen, recentSearches])
 
   useEffect(() => {
+    if (!Array.isArray(initialTopCategories) || !initialTopCategories.length) {
+      return
+    }
+
+    setMobileCategories((current) =>
+      current.length ? current : initialTopCategories,
+    )
+  }, [initialTopCategories])
+
+  useEffect(() => {
     let cancelled = false
 
     const loadMobileCategories = async () => {
       const data = await fetchCategoriesData()
       if (cancelled) return
       const categories = Array.isArray(data?.categories) ? data.categories : []
+      if (!categories.length) return
       setMobileCategories(categories)
     }
 
@@ -243,6 +281,57 @@ function MobileNavbar({ initialAuthUser = null }) {
   }, [pathname, mobileCategories.length])
 
   useEffect(() => {
+    const rowEl = mobileHeaderRowRef.current
+    const searchEl = mobileHeaderSearchRef.current
+    const menuButtonEl = mobileHeaderMenuButtonRef.current
+    const rightEl = mobileHeaderRightRef.current
+    const fullLogoEl = mobileHeaderFullLogoMeasureRef.current
+    if (!rowEl || !searchEl || !menuButtonEl || !rightEl || !fullLogoEl || typeof window === 'undefined') {
+      return undefined
+    }
+
+    const updateLogoVariant = () => {
+      const rowWidth = Number(rowEl.getBoundingClientRect().width || 0)
+      if (rowWidth <= 0) {
+        setUseCompactHeaderLogo(false)
+        return
+      }
+
+      const searchIsVisible = window.getComputedStyle(searchEl).display !== 'none'
+      if (!searchIsVisible) {
+        setUseCompactHeaderLogo(false)
+        return
+      }
+
+      const menuButtonWidth = Number(menuButtonEl.getBoundingClientRect().width || 0)
+      const rightWidth = Number(rightEl.getBoundingClientRect().width || 0)
+      const fullLogoWidth = Number(fullLogoEl.getBoundingClientRect().width || 0)
+      const availableSearchWidth =
+        rowWidth - menuButtonWidth - fullLogoWidth - rightWidth - MOBILE_HEADER_SEARCH_GAP
+
+      setUseCompactHeaderLogo(availableSearchWidth / rowWidth < MOBILE_HEADER_SEARCH_MIN_RATIO)
+    }
+
+    updateLogoVariant()
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateLogoVariant()
+    })
+
+    resizeObserver.observe(rowEl)
+    resizeObserver.observe(searchEl)
+    resizeObserver.observe(menuButtonEl)
+    resizeObserver.observe(rightEl)
+    resizeObserver.observe(fullLogoEl)
+    window.addEventListener('resize', updateLogoVariant)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', updateLogoVariant)
+    }
+  }, [])
+
+  useEffect(() => {
     const rawY =
       window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0
     const currentY = Math.max(0, rawY)
@@ -284,31 +373,117 @@ function MobileNavbar({ initialAuthUser = null }) {
     }
   }
 
+  const pushRecentSearch = (term, image = '') => {
+    const trimmed = term.trim()
+    if (!trimmed) return []
+
+    const existing = recentSearches.find((item) => item.term === trimmed)
+    const next = [
+      { term: trimmed, image: image || existing?.image || '' },
+      ...recentSearches.filter((item) => item.term !== trimmed),
+    ].slice(0, 8)
+
+    persistRecentSearches(next)
+    return next
+  }
+
   const handleSearchSubmit = async (value) => {
     const trimmed = value.trim()
     if (!trimmed) return
-    const existing = recentSearches.find((item) => item.term === trimmed)
-    const next = [
-      { term: trimmed, image: existing?.image || '' },
-      ...recentSearches.filter((item) => item.term !== trimmed),
-    ].slice(0, 8)
-    persistRecentSearches(next)
+    pushRecentSearch(trimmed)
+    void reportSearchQuery(trimmed)
     router.push(`/products?search=${encodeURIComponent(trimmed)}`)
     setIsSearchOpen(false)
+  }
+
+  const handleSearchSuggestionSelect = (suggestion) => {
+    if (!suggestion?.href) return
+    pushRecentSearch(suggestion.label || searchValue, suggestion.imageUrl || '')
+    if (suggestion.kind === 'query') {
+      void reportSearchQuery(suggestion.label || '')
+    }
+    setSearchValue(suggestion.label || '')
+    setIsSearchOpen(false)
+    router.push(suggestion.href)
+  }
+
+  const handleClearSearchInput = () => {
+    setSearchValue('')
+  }
+
+  const getSuggestionThumbClassName = (kind) => {
+    if (kind === 'product') return 'h-11 w-11 rounded-xl object-cover'
+    if (kind === 'brand') return 'h-11 w-11 rounded-2xl object-cover'
+    return 'h-11 w-11 rounded-full object-cover'
+  }
+
+  const getSuggestionFallbackClassName = (kind) => {
+    if (kind === 'product') {
+      return 'inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f2] text-slate-500'
+    }
+    if (kind === 'brand') {
+      return 'inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef0f2] text-slate-500'
+    }
+    return 'inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#eef0f2] text-slate-500'
+  }
+
+  const renderSuggestionFallbackIcon = (kind) => {
+    if (kind === 'category') {
+      return (
+        <svg
+          className='h-5 w-5'
+          fill='none'
+          stroke='currentColor'
+          viewBox='0 0 24 24'
+          aria-hidden='true'
+        >
+          <path
+            strokeLinecap='round'
+            strokeLinejoin='round'
+            strokeWidth={1.8}
+            d='M4.75 6.75A2 2 0 0 1 6.75 4.75h3.5a2 2 0 0 1 2 2v3.5a2 2 0 0 1-2 2h-3.5a2 2 0 0 1-2-2zm7 0a2 2 0 0 1 2-2h3.5a2 2 0 0 1 2 2v3.5a2 2 0 0 1-2 2h-3.5a2 2 0 0 1-2-2zm-7 7a2 2 0 0 1 2-2h3.5a2 2 0 0 1 2 2v3.5a2 2 0 0 1-2 2h-3.5a2 2 0 0 1-2-2zm7 0a2 2 0 0 1 2-2h3.5a2 2 0 0 1 2 2v3.5a2 2 0 0 1-2 2h-3.5a2 2 0 0 1-2-2z'
+          />
+        </svg>
+      )
+    }
+
+    return (
+      <svg
+        className='h-5 w-5'
+        fill='none'
+        stroke='currentColor'
+        viewBox='0 0 24 24'
+        aria-hidden='true'
+      >
+        <path
+          strokeLinecap='round'
+          strokeLinejoin='round'
+          strokeWidth={1.8}
+          d='m21 21-4.3-4.3m1.3-5.2a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0'
+        />
+      </svg>
+    )
   }
 
   const clearRecentSearches = () => {
     persistRecentSearches([])
   }
 
+  const handlePopularSearchSelect = (item) => {
+    const targetUrl = String(item?.targetUrl || '').trim()
+    if (!targetUrl) return
+
+    setIsSearchOpen(false)
+    openPopularSearchTarget(targetUrl)
+  }
+
   const handleCategoriesClick = useCallback(() => {
-    setIsCategoriesOpen((prev) => !prev)
-  }, [])
+    toggleCategories()
+  }, [toggleCategories])
 
   const handleCategoryListClick = useCallback((categoryId) => {
-    setActiveMobileCategoryId(categoryId || null)
-    setIsCategoriesOpen(true)
-  }, [])
+    openCategories(categoryId || null)
+  }, [openCategories])
 
   const handleSearchToggle = useCallback(() => {
     setIsSearchOpen((prev) => !prev)
@@ -325,16 +500,29 @@ function MobileNavbar({ initialAuthUser = null }) {
 
   const cartCount = summary?.itemCount ?? 0
   const showCartLoadingSpinner = (!isReady || !isServerReady) && cartCount <= 0
+  const showLiveSuggestionPanel = isSearchOpen && hasLiveSearchQuery
 
   return (
     <>
       {/* Main Mobile Navbar */}
       <nav ref={navRef} className='fixed top-0 left-0 right-0 isolate bg-white shadow-sm border-b border-gray-200 z-[2147483000] lg:hidden'>
         <div className='px-4'>
-          <div className='flex items-center justify-between h-14'>
+          <div className='pointer-events-none absolute left-4 top-0 -z-10 opacity-0'>
+            <div ref={mobileHeaderFullLogoMeasureRef}>
+              <BrandLogo
+                href={null}
+                variant='full'
+                className='inline-flex items-center gap-2 text-slate-900'
+                markClassName='h-7 w-7 shrink-0 text-[#f5d10b]'
+                labelClassName='whitespace-nowrap text-lg font-bold tracking-tight text-slate-900 max-[374px]:text-[15px]'
+              />
+            </div>
+          </div>
+          <div ref={mobileHeaderRowRef} className='flex items-center justify-between h-14'>
             {/* Updated hamburger button with active state */}
-            <div className='flex items-center space-x-1'>
+            <div className='flex min-w-0 items-center space-x-2'>
               <button
+                ref={mobileHeaderMenuButtonRef}
                 onClick={toggleSidebar}
                 className={`p-2 rounded-lg transition-all duration-200 ${
                   isOpen
@@ -367,13 +555,18 @@ function MobileNavbar({ initialAuthUser = null }) {
               </button>
 
               {/* Logo/Brand */}
-              <Link href='/' className='text-xl font-bold text-red-500'>
-                OcPrimes
-              </Link>
+              <BrandLogo
+                href='/'
+                variant={useCompactHeaderLogo ? 'mark' : 'full'}
+                className='inline-flex min-w-0 items-center gap-2 text-slate-900'
+                markClassName='h-7 w-7 shrink-0 text-[#f5d10b]'
+                labelClassName='whitespace-nowrap text-lg font-bold tracking-tight text-slate-900 max-[374px]:text-[15px]'
+                ariaLabel='OCPRIMES home'
+              />
             </div>
 
             {/* Center section - Search bar trigger */}
-            <div className='mx-2 min-w-0 flex-1 max-[374px]:hidden'>
+            <div ref={mobileHeaderSearchRef} className='mx-2 min-w-0 flex-1 max-[374px]:hidden'>
               <button
                 type='button'
                 onClick={handleSearchToggle}
@@ -403,7 +596,7 @@ function MobileNavbar({ initialAuthUser = null }) {
             </div>
 
             {/* Right section - Account and Cart */}
-            <div className='flex items-center space-x-1'>
+            <div ref={mobileHeaderRightRef} className='flex items-center space-x-1'>
               {/* Search Button (extra-small screens) */}
               <button
                 type='button'
@@ -776,7 +969,7 @@ function MobileNavbar({ initialAuthUser = null }) {
                   <input
                     type='text'
                     placeholder='Search OCPRIMES'
-                    className='h-12 w-full rounded-xl border-2 border-gray-900 bg-white pl-4 pr-14 text-base text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-black'
+                    className='h-12 w-full rounded-xl border-2 border-gray-900 bg-white pl-4 pr-24 text-base text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-black'
                     autoFocus
                     value={searchValue}
                     onChange={(event) => setSearchValue(event.target.value)}
@@ -787,6 +980,29 @@ function MobileNavbar({ initialAuthUser = null }) {
                       }
                     }}
                   />
+                  {searchValue.trim() ? (
+                    <button
+                      type='button'
+                      className='absolute right-12 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-800'
+                      onClick={handleClearSearchInput}
+                      aria-label='Clear search'
+                    >
+                      <svg
+                        className='h-5 w-5'
+                        fill='none'
+                        stroke='currentColor'
+                        viewBox='0 0 24 24'
+                        strokeWidth={2}
+                        aria-hidden='true'
+                      >
+                        <path
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                          d='M6 6l12 12M18 6 6 18'
+                        />
+                      </svg>
+                    </button>
+                  ) : null}
                   <button
                     className='absolute right-1.5 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-gray-900 text-white'
                     onClick={() => void handleSearchSubmit(searchValue)}
@@ -812,121 +1028,149 @@ function MobileNavbar({ initialAuthUser = null }) {
 
             {/* Search menu */}
             <div className='p-4'>
-              <div className='flex items-center justify-between'>
-                <span className='text-sm font-semibold text-gray-900'>
-                  Recently searched
-                </span>
-                <button
-                  type='button'
-                  className='text-gray-400 hover:text-gray-600'
-                  aria-label='Clear recent searches'
-                  onClick={clearRecentSearches}
-                >
-                  <svg
-                    className='h-4 w-4'
-                    viewBox='0 0 24 24'
-                    fill='none'
-                    xmlns='http://www.w3.org/2000/svg'
-                  >
-                    <path
-                      d='M20.5001 6H3.5'
-                      stroke='#000000'
-                      strokeWidth='1.5'
-                      strokeLinecap='round'
-                    />
-                    <path
-                      d='M9.5 11L10 16'
-                      stroke='#000000'
-                      strokeWidth='1.5'
-                      strokeLinecap='round'
-                    />
-                    <path
-                      d='M14.5 11L14 16'
-                      stroke='#000000'
-                      strokeWidth='1.5'
-                      strokeLinecap='round'
-                    />
-                    <path
-                      d='M6.5 6C6.55588 6 6.58382 6 6.60915 5.99936C7.43259 5.97849 8.15902 5.45491 8.43922 4.68032C8.44784 4.65649 8.45667 4.62999 8.47434 4.57697L8.57143 4.28571C8.65431 4.03708 8.69575 3.91276 8.75071 3.8072C8.97001 3.38607 9.37574 3.09364 9.84461 3.01877C9.96213 3 10.0932 3 10.3553 3H13.6447C13.9068 3 14.0379 3 14.1554 3.01877C14.6243 3.09364 15.03 3.38607 15.2493 3.8072C15.3043 3.91276 15.3457 4.03708 15.4286 4.28571L15.5257 4.57697C15.5433 4.62992 15.5522 4.65651 15.5608 4.68032C15.841 5.45491 16.5674 5.97849 17.3909 5.99936C17.4162 6 17.4441 6 17.5 6'
-                      stroke='#000000'
-                      strokeWidth='1.5'
-                    />
-                    <path
-                      d='M18.3735 15.3991C18.1965 18.054 18.108 19.3815 17.243 20.1907C16.378 21 15.0476 21 12.3868 21H11.6134C8.9526 21 7.6222 21 6.75719 20.1907C5.89218 19.3815 5.80368 18.054 5.62669 15.3991L5.16675 8.5M18.8334 8.5L18.6334 11.5'
-                      stroke='#000000'
-                      strokeWidth='1.5'
-                      strokeLinecap='round'
-                    />
-                  </svg>
-                </button>
-              </div>
-              <div className='mt-3 flex flex-wrap gap-2'>
-                {recentSearches.length ? (
-                  recentSearches.map((item) => (
+              {showLiveSuggestionPanel ? (
+                <>
+                  <div className='max-h-[min(26rem,calc(100vh-10rem))] overflow-y-auto overscroll-contain'>
+                    {isLiveSearchLoading ? (
+                      <div className='flex items-center justify-center px-3 py-6'>
+                        <span
+                          className='inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700'
+                          aria-hidden='true'
+                        />
+                      </div>
+                    ) : liveSearchSuggestions.length ? (
+                      liveSearchSuggestions.map((item, index) => (
+                        <button
+                          key={`${item.kind}-${item.id}-${item.href}`}
+                          type='button'
+                          onClick={() => handleSearchSuggestionSelect(item)}
+                          className={`flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-[#f7f4ef] ${
+                            index < liveSearchSuggestions.length - 1
+                              ? 'border-b border-gray-100'
+                              : ''
+                          }`}
+                        >
+                          {item.imageUrl ? (
+                            <Image
+                              src={item.imageUrl}
+                              alt=''
+                              width={44}
+                              height={44}
+                              className={getSuggestionThumbClassName(item.kind)}
+                              unoptimized
+                            />
+                          ) : (
+                            <span className={getSuggestionFallbackClassName(item.kind)} aria-hidden='true'>
+                              {renderSuggestionFallbackIcon(item.kind)}
+                            </span>
+                          )}
+                          <div className='min-w-0 flex-1'>
+                            <div className='truncate text-sm font-medium text-gray-900'>
+                              {formatSuggestionLabel(item)}
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className='px-3 py-4 text-sm text-gray-500'>
+                        No suggestions found for &quot;{searchValue.trim()}&quot;.
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className='flex items-center justify-between'>
+                    <span className='text-sm font-semibold text-gray-900'>
+                      Recently searched
+                    </span>
                     <button
-                      key={item.term}
                       type='button'
-                      onClick={() => setSearchValue(item.term)}
-                      className='rounded-full bg-gray-100 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-200 flex items-center gap-2'
+                      className='text-gray-400 hover:text-gray-600'
+                      aria-label='Clear recent searches'
+                      onClick={clearRecentSearches}
                     >
-                      <Image
-                        src={item.image || placeholderChipImage}
-                        alt=''
-                        width={20}
-                        height={20}
-                        className='h-5 w-5 rounded-full object-cover'
-                        unoptimized
-                      />
-                      {item.term}
+                      <svg
+                        className='h-4 w-4'
+                        viewBox='0 0 24 24'
+                        fill='none'
+                        xmlns='http://www.w3.org/2000/svg'
+                      >
+                        <path
+                          d='M20.5001 6H3.5'
+                          stroke='#000000'
+                          strokeWidth='1.5'
+                          strokeLinecap='round'
+                        />
+                        <path
+                          d='M9.5 11L10 16'
+                          stroke='#000000'
+                          strokeWidth='1.5'
+                          strokeLinecap='round'
+                        />
+                        <path
+                          d='M14.5 11L14 16'
+                          stroke='#000000'
+                          strokeWidth='1.5'
+                          strokeLinecap='round'
+                        />
+                        <path
+                          d='M6.5 6C6.55588 6 6.58382 6 6.60915 5.99936C7.43259 5.97849 8.15902 5.45491 8.43922 4.68032C8.44784 4.65649 8.45667 4.62999 8.47434 4.57697L8.57143 4.28571C8.65431 4.03708 8.69575 3.91276 8.75071 3.8072C8.97001 3.38607 9.37574 3.09364 9.84461 3.01877C9.96213 3 10.0932 3 10.3553 3H13.6447C13.9068 3 14.0379 3 14.1554 3.01877C14.6243 3.09364 15.03 3.38607 15.2493 3.8072C15.3043 3.91276 15.3457 4.03708 15.4286 4.28571L15.5257 4.57697C15.5433 4.62992 15.5522 4.65651 15.5608 4.68032C15.841 5.45491 16.5674 5.97849 17.3909 5.99936C17.4162 6 17.4441 6 17.5 6'
+                          stroke='#000000'
+                          strokeWidth='1.5'
+                        />
+                        <path
+                          d='M18.3735 15.3991C18.1965 18.054 18.108 19.3815 17.243 20.1907C16.378 21 15.0476 21 12.3868 21H11.6134C8.9526 21 7.6222 21 6.75719 20.1907C5.89218 19.3815 5.80368 18.054 5.62669 15.3991L5.16675 8.5M18.8334 8.5L18.6334 11.5'
+                          stroke='#000000'
+                          strokeWidth='1.5'
+                          strokeLinecap='round'
+                        />
+                      </svg>
                     </button>
-                  ))
-                ) : (
-                  <span className='text-xs text-gray-400'>
-                    No recent searches
-                  </span>
-                )}
-              </div>
-              <div className='mt-4 text-sm font-semibold text-gray-900'>
-                Popular right now
-              </div>
-              <div className='mt-3 flex flex-wrap gap-2'>
-                {popularSearches.map((item) => (
-                  <button
-                    key={item}
-                    type='button'
-                    onClick={() => setSearchValue(item)}
-                    className='rounded-full bg-gray-100 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-200 flex items-center gap-2'
-                  >
-                    <Image
-                      src={placeholderChipImage}
-                      alt=''
-                      width={20}
-                      height={20}
-                      className='h-5 w-5 rounded-full object-cover'
-                      unoptimized
-                    />
-                    {item}
-                  </button>
-                ))}
-              </div>
+                  </div>
+                  <div className='mt-3 flex flex-wrap gap-2'>
+                    {recentSearches.length ? (
+                      recentSearches.map((item) => (
+                        <button
+                          key={item.term}
+                          type='button'
+                          onClick={() => setSearchValue(item.term)}
+                          className='rounded-full bg-gray-100 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-200 flex items-center gap-2'
+                        >
+                          <Image
+                            src={item.image || placeholderChipImage}
+                            alt=''
+                            width={20}
+                            height={20}
+                            className='h-5 w-5 rounded-full object-cover'
+                            unoptimized
+                          />
+                          {item.term}
+                        </button>
+                      ))
+                    ) : (
+                      <span className='text-xs text-gray-400'>
+                        No recent searches
+                      </span>
+                    )}
+                  </div>
+                  <PopularRightNowSection
+                    items={popularSearchItems}
+                    onSelect={handlePopularSearchSelect}
+                    placeholderChipImage={placeholderChipImage}
+                  />
+                </>
+              )}
             </div>
           </div>
         </div>
-      )}
-
-      {/* Sidebar Overlay - Only render when open */}
-      {isOpen && (
-        <div
-          className='fixed inset-0 bg-black bg-opacity-50 z-[2147482990] lg:hidden'
-          onClick={toggleSidebar}
-        />
       )}
 
       {/* Categories Menu - Only render when needed */}
       {isCategoriesOpen && (
         <CategoriesMenu
           isOpen={isCategoriesOpen}
-          onClose={() => setIsCategoriesOpen(false)}
+          onClose={closeCategories}
           initialActiveCategoryId={activeMobileCategoryId}
           mobileTopOffset={menuTopOffset}
           applyMobileOffset

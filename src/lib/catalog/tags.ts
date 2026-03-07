@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { unstable_noStore as noStore } from 'next/cache'
+import { fetchPublicTaxonomyBySlugOrId } from './public-taxonomy'
 
 export const fetchTagBySlugOrId = async (value: string) => {
   const trimmed = String(value || '').trim()
@@ -7,18 +8,9 @@ export const fetchTagBySlugOrId = async (value: string) => {
 
   noStore()
   const supabase = await createServerSupabaseClient()
-
-  const baseQuery = () =>
-    supabase
-      .from('admin_tags')
-      .select('id, name, slug, description')
-      .limit(1)
-
-  const { data: bySlug } = await baseQuery().eq('slug', trimmed).maybeSingle()
-  if (bySlug?.id) return bySlug
-
-  const { data: byId } = await baseQuery().eq('id', trimmed).maybeSingle()
-  if (byId?.id) return byId
-
-  return null
+  return fetchPublicTaxonomyBySlugOrId({
+    table: 'admin_tags',
+    value: trimmed,
+    supabase,
+  })
 }

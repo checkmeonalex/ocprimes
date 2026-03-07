@@ -7,11 +7,18 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useCart } from '../context/CartContext'
 import CategoriesMenu from './Catergories/CategoriesMenu'
+import BrandLogo from './common/BrandLogo'
 import { fetchCategoriesData } from '@/lib/catalog/categories-menu'
 import { getRecentlyViewed } from '@/lib/recently-viewed/storage'
 import UserMenu from './auth/UserMenu'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { getAccountSearchSuggestions } from '@/lib/user/account-search.ts'
+import { formatSuggestionLabel } from '@/components/search/formatSuggestionLabel'
+import { openPopularSearchTarget } from '@/components/search/openPopularSearchTarget'
+import PopularRightNowSection from '@/components/search/PopularRightNowSection'
+import { usePopularSearchItems } from '@/components/search/usePopularSearchItems'
+import { useSearchSuggestions } from '@/components/search/useSearchSuggestions'
+import { reportSearchQuery } from '@/components/search/reportSearchQuery'
 
 export default function Navbar({
   initialAuthUser = null,
@@ -53,6 +60,19 @@ export default function Navbar({
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState('')
   const { formatMoney } = useUserI18n()
+  const {
+    suggestions: liveSearchSuggestions,
+    isLoading: isLiveSearchLoading,
+    hasQuery: hasLiveSearchQuery,
+  } = useSearchSuggestions({
+    query: searchValue,
+    enabled: isSearchOpen,
+    limit: 6,
+  })
+  const { items: popularSearchItems } = usePopularSearchItems({
+    enabled: isSearchOpen && !hasLiveSearchQuery,
+    limit: 10,
+  })
 
   const categoriesRef = useRef(null)
   const menuRef = useRef(null)
@@ -62,19 +82,6 @@ export default function Navbar({
   const browsingHistoryRef = useRef(null)
   const historyPanelRef = useRef(null)
   const historyListRef = useRef(null)
-
-  const popularSearches = [
-    'high quality men clothes',
-    'men wears',
-    'mobile offer',
-    'joggers for men',
-    'trousers for men',
-    'cheap mobile phones',
-    'two piece for men',
-    'samsung galaxy mobile phones',
-    'headphones',
-    'shoes for men sale',
-  ]
 
   const placeholderChipImage =
     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="20" fill="%23e5e7eb"/></svg>'
@@ -151,17 +158,26 @@ export default function Navbar({
     }
   }
 
-  const handleSearchSubmit = async (value) => {
-    const trimmed = value.trim()
-    if (!trimmed) return
+  const pushRecentSearch = (term, image = '') => {
+    const trimmed = term.trim()
+    if (!trimmed) return []
 
     const existing = recentSearches.find((item) => item.term === trimmed)
     const next = [
-      { term: trimmed, image: existing?.image || '' },
+      { term: trimmed, image: image || existing?.image || '' },
       ...recentSearches.filter((item) => item.term !== trimmed),
     ].slice(0, 8)
 
     persistRecentSearches(next)
+    return next
+  }
+
+  const handleSearchSubmit = async (value) => {
+    const trimmed = value.trim()
+    if (!trimmed) return
+
+    const next = pushRecentSearch(trimmed)
+    void reportSearchQuery(trimmed)
 
     const image = await fetchFirstSearchImage(trimmed)
     if (image) {
@@ -180,6 +196,87 @@ export default function Navbar({
     router.push(`/products?${params.toString()}`)
     setIsSearchOpen(false)
     setIsSearchCategoryOpen(false)
+  }
+
+  const handleSearchSuggestionSelect = (suggestion) => {
+    if (!suggestion?.href) return
+    pushRecentSearch(suggestion.label || searchValue, suggestion.imageUrl || '')
+    if (suggestion.kind === 'query') {
+      void reportSearchQuery(suggestion.label || '')
+    }
+    setSearchValue(suggestion.label || '')
+    setIsSearchOpen(false)
+    setIsSearchCategoryOpen(false)
+    router.push(suggestion.href)
+  }
+
+  const handleClearSearchInput = () => {
+    setSearchValue('')
+    setIsSearchOpen(false)
+    setIsSearchCategoryOpen(false)
+  }
+
+  const handlePopularSearchSelect = (item) => {
+    const targetUrl = String(item?.targetUrl || '').trim()
+    if (!targetUrl) return
+
+    setIsSearchOpen(false)
+    setIsSearchCategoryOpen(false)
+    openPopularSearchTarget(targetUrl)
+  }
+
+  const getSuggestionThumbClassName = (kind) => {
+    if (kind === 'product') return 'h-11 w-11 rounded-xl object-cover'
+    if (kind === 'brand') return 'h-11 w-11 rounded-2xl object-cover'
+    return 'h-11 w-11 rounded-full object-cover'
+  }
+
+  const getSuggestionFallbackClassName = (kind) => {
+    if (kind === 'product') {
+      return 'inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#eef0f2] text-slate-500'
+    }
+    if (kind === 'brand') {
+      return 'inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef0f2] text-slate-500'
+    }
+    return 'inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#eef0f2] text-slate-500'
+  }
+
+  const renderSuggestionFallbackIcon = (kind) => {
+    if (kind === 'category') {
+      return (
+        <svg
+          className='h-5 w-5'
+          fill='none'
+          stroke='currentColor'
+          viewBox='0 0 24 24'
+          aria-hidden='true'
+        >
+          <path
+            strokeLinecap='round'
+            strokeLinejoin='round'
+            strokeWidth={1.8}
+            d='M4.75 6.75A2 2 0 0 1 6.75 4.75h3.5a2 2 0 0 1 2 2v3.5a2 2 0 0 1-2 2h-3.5a2 2 0 0 1-2-2zm7 0a2 2 0 0 1 2-2h3.5a2 2 0 0 1 2 2v3.5a2 2 0 0 1-2 2h-3.5a2 2 0 0 1-2-2zm-7 7a2 2 0 0 1 2-2h3.5a2 2 0 0 1 2 2v3.5a2 2 0 0 1-2 2h-3.5a2 2 0 0 1-2-2zm7 0a2 2 0 0 1 2-2h3.5a2 2 0 0 1 2 2v3.5a2 2 0 0 1-2 2h-3.5a2 2 0 0 1-2-2z'
+          />
+        </svg>
+      )
+    }
+
+    return (
+      <svg
+        className='h-5 w-5'
+        fill='none'
+        stroke='currentColor'
+        viewBox='0 0 24 24'
+        aria-hidden='true'
+      >
+        <path
+          strokeLinecap='round'
+          strokeLinejoin='round'
+          strokeWidth={1.8}
+          d='m21 21-4.3-4.3m1.3-5.2a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0'
+        />
+      </svg>
+    )
   }
 
   const handleSearchKeyDown = (event) => {
@@ -458,6 +555,7 @@ export default function Navbar({
 
   const cartCount = summary?.itemCount ?? 0
   const showCartLoadingSpinner = (!isReady || !isServerReady) && cartCount <= 0
+  const showLiveSuggestionPanel = isSearchOpen && hasLiveSearchQuery
   const isCartRoute = pathname?.startsWith('/cart')
   const isCheckoutRoute = pathname?.startsWith('/checkout')
   const isCheckoutFlow = isCartRoute || isCheckoutRoute
@@ -686,24 +784,12 @@ export default function Navbar({
       >
         <div className='flex h-16 items-center gap-5'>
         <div className='flex items-center gap-5'>
-          <Link href='/' className='inline-flex items-center gap-3 text-gray-900'>
-            <svg
-              className='h-8 w-8 text-[#f5d10b]'
-              viewBox='0 0 24 24'
-              fill='currentColor'
-              aria-hidden='true'
-            >
-              <circle cx='12' cy='3.2' r='2.2' />
-              <circle cx='12' cy='20.8' r='2.2' />
-              <circle cx='3.2' cy='12' r='2.2' />
-              <circle cx='20.8' cy='12' r='2.2' />
-              <circle cx='6.3' cy='6.3' r='2.2' />
-              <circle cx='17.7' cy='17.7' r='2.2' />
-              <circle cx='17.7' cy='6.3' r='2.2' />
-              <circle cx='6.3' cy='17.7' r='2.2' />
-            </svg>
-            <span className='text-xl font-semibold tracking-tight'>OCPRIMES</span>
-          </Link>
+          <BrandLogo
+            href='/'
+            className='inline-flex items-center gap-3 text-gray-900'
+            markClassName='h-8 w-8 shrink-0 text-[#f5d10b]'
+            labelClassName='text-xl font-semibold tracking-tight text-current'
+          />
 
           <div
             className='relative'
@@ -770,6 +856,26 @@ export default function Navbar({
               onKeyDown={handleSearchKeyDown}
               className='h-full w-full bg-white px-4 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none'
             />
+
+            {searchValue.trim() ? (
+              <button
+                type='button'
+                className='inline-flex h-full shrink-0 items-center justify-center px-3 text-gray-500 transition hover:text-gray-800'
+                aria-label='Clear search'
+                onClick={handleClearSearchInput}
+              >
+                <svg
+                  className='h-5 w-5'
+                  fill='none'
+                  stroke='currentColor'
+                  viewBox='0 0 24 24'
+                  strokeWidth={2}
+                  aria-hidden='true'
+                >
+                  <path strokeLinecap='round' strokeLinejoin='round' d='M6 6l12 12M18 6 6 18' />
+                </svg>
+              </button>
+            ) : null}
 
             <button
               type='button'
@@ -841,70 +947,102 @@ export default function Navbar({
 
           {isSearchOpen ? (
             <div
-              className='absolute left-0 right-0 top-11 z-50 rounded-2xl border border-gray-200 bg-white p-4 shadow-xl'
+              className='absolute left-0 right-0 top-11 z-50 border border-gray-200 bg-white p-4 shadow-xl'
               onMouseDown={(event) => event.preventDefault()}
             >
-              <div className='flex items-center justify-between'>
-                <span className='text-sm font-semibold text-gray-900'>
-                  Recently searched
-                </span>
-                <button
-                  type='button'
-                  className='text-xs font-medium text-gray-500 hover:text-gray-700'
-                  onClick={clearRecentSearches}
-                >
-                  Clear
-                </button>
-              </div>
-
-              <div className='mt-3 flex flex-wrap gap-2'>
-                {recentSearches.length ? (
-                  recentSearches.map((item) => (
+              {showLiveSuggestionPanel ? (
+                <>
+                  <div className='desktop-search-scrollbar mt-3 flex max-h-[calc(100vh-7rem)] flex-col divide-y divide-gray-100 overflow-y-auto overscroll-contain'>
+                    {isLiveSearchLoading ? (
+                      <div className='flex items-center justify-center px-3 py-6'>
+                        <span
+                          className='inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700'
+                          aria-hidden='true'
+                        />
+                      </div>
+                    ) : liveSearchSuggestions.length ? (
+                      liveSearchSuggestions.map((item) => (
+                        <button
+                          key={`${item.kind}-${item.id}-${item.href}`}
+                          type='button'
+                          onClick={() => handleSearchSuggestionSelect(item)}
+                          className='flex items-center gap-3 px-3 py-3 text-left hover:bg-[#f7f4ef]'
+                        >
+                          {item.imageUrl ? (
+                            <Image
+                              src={item.imageUrl}
+                              alt=''
+                              width={44}
+                              height={44}
+                              className={getSuggestionThumbClassName(item.kind)}
+                              unoptimized
+                            />
+                          ) : (
+                            <span className={getSuggestionFallbackClassName(item.kind)} aria-hidden='true'>
+                              {renderSuggestionFallbackIcon(item.kind)}
+                            </span>
+                          )}
+                          <div className='min-w-0 flex-1'>
+                            <div className='truncate text-sm font-medium text-gray-900'>
+                              {formatSuggestionLabel(item)}
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className='px-3 py-4 text-sm text-gray-500'>
+                        No suggestions found for &quot;{searchValue.trim()}&quot;.
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className='flex items-center justify-between'>
+                    <span className='text-sm font-semibold text-gray-900'>
+                      Recently searched
+                    </span>
                     <button
-                      key={item.term}
                       type='button'
-                      onClick={() => setSearchValue(item.term)}
-                      className='flex items-center gap-2 rounded-full bg-gray-100 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-200'
+                      className='text-xs font-medium text-gray-500 hover:text-gray-700'
+                      onClick={clearRecentSearches}
                     >
-                      <Image
-                        src={item.image || placeholderChipImage}
-                        alt=''
-                        width={20}
-                        height={20}
-                        className='h-5 w-5 rounded-full object-cover'
-                        unoptimized
-                      />
-                      {item.term}
+                      Clear
                     </button>
-                  ))
-                ) : (
-                  <span className='text-xs text-gray-400'>No recent searches</span>
-                )}
-              </div>
+                  </div>
 
-              <div className='mt-4 text-sm font-semibold text-gray-900'>
-                Popular right now
-              </div>
-              <div className='mt-3 flex flex-wrap gap-2'>
-                {popularSearches.map((item) => (
-                  <button
-                    key={item}
-                    type='button'
-                    onClick={() => setSearchValue(item)}
-                    className='flex items-center gap-2 rounded-full bg-gray-100 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-200'
-                  >
-                    <Image
-                      src={placeholderChipImage}
-                      alt=''
-                      width={20}
-                      height={20}
-                      className='h-5 w-5 rounded-full object-cover'
-                      unoptimized
-                    />
-                    {item}
-                  </button>
-                ))}
-              </div>
+                  <div className='mt-3 flex flex-wrap gap-2'>
+                    {recentSearches.length ? (
+                      recentSearches.map((item) => (
+                        <button
+                          key={item.term}
+                          type='button'
+                          onClick={() => setSearchValue(item.term)}
+                          className='flex items-center gap-2 rounded-full bg-gray-100 px-2 py-1.5 text-xs text-gray-700 hover:bg-gray-200'
+                        >
+                          <Image
+                            src={item.image || placeholderChipImage}
+                            alt=''
+                            width={20}
+                            height={20}
+                            className='h-5 w-5 rounded-full object-cover'
+                            unoptimized
+                          />
+                          {item.term}
+                        </button>
+                      ))
+                    ) : (
+                      <span className='text-xs text-gray-400'>No recent searches</span>
+                    )}
+                  </div>
+
+                  <PopularRightNowSection
+                    items={popularSearchItems}
+                    onSelect={handlePopularSearchSelect}
+                    placeholderChipImage={placeholderChipImage}
+                  />
+                </>
+              )}
             </div>
           ) : null}
         </div>
@@ -912,7 +1050,7 @@ export default function Navbar({
         <div className='flex items-center gap-1'>
           <HeaderAction href='/wishlist' label='Wishlist'>
             <svg
-              className='h-5 w-5'
+              className='h-6 w-6'
               fill='none'
               stroke='currentColor'
               viewBox='0 0 24 24'
@@ -927,25 +1065,21 @@ export default function Navbar({
             </svg>
           </HeaderAction>
 
-          <HeaderAction href='/UserBackend/orders' label='Reorder'>
+          <HeaderAction href='/UserBackend/orders' label='Support'>
             <svg
-              className='h-5 w-5'
-              viewBox='0 0 24 24'
+              className='h-6 w-6'
+              viewBox='0 0 18 18'
               role='img'
               xmlns='http://www.w3.org/2000/svg'
-              aria-labelledby='repeatIconTitle'
-              stroke='currentColor'
-              strokeWidth='1'
-              strokeLinecap='square'
-              strokeLinejoin='miter'
-              fill='none'
+              aria-labelledby='supportIconTitle'
+              fill='currentColor'
               color='currentColor'
             >
-              <title id='repeatIconTitle'>Repeat</title>
-              <path d='M2 13.0399V11C2 7.68629 4.68629 5 8 5H21V5'></path>
-              <path d='M19 2L22 5L19 8'></path>
-              <path d='M22 9.98004V12.02C22 15.3337 19.3137 18.02 16 18.02H3V18.02'></path>
-              <path d='M5 21L2 18L5 15'></path>
+              <title id='supportIconTitle'>Support</title>
+              <path
+                d='M16 7.184C16 3.14 12.86 0 9 0S2 3.14 2 7c-1.163.597-2 1.696-2 3v2a3 3 0 0 0 3 3h1a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1 5 5 0 0 1 10 0 1 1 0 0 0-1 1v6a1 1 0 0 0 1 1v1h-2.592c-.206-.581-.756-1-1.408-1H8a1.5 1.5 0 0 0 0 3h6a2 2 0 0 0 2-2v-1.183A2.992 2.992 0 0 0 18 12v-2a2.99 2.99 0 0 0-2-2.816Z'
+                fillRule='evenodd'
+              />
             </svg>
           </HeaderAction>
 
@@ -1462,10 +1596,10 @@ export default function Navbar({
             onClick={(event) => event.stopPropagation()}
           >
             <h2 id='logout-confirm-title' className='text-lg font-semibold text-slate-900'>
-              You're about to log out.
+              You&apos;re about to log out.
             </h2>
             <p id='logout-confirm-description' className='mt-2 text-sm text-slate-600'>
-              To access your account, orders, and saved items again, you'll need to sign in.
+              To access your account, orders, and saved items again, you&apos;ll need to sign in.
             </p>
             {logoutError ? (
               <p className='mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700'>

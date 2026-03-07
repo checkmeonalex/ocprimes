@@ -1,5 +1,6 @@
 // components/CategoriesMenu.jsx
 'use client'
+import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { fetchCategoriesData } from '@/lib/catalog/categories-menu'
 
@@ -19,6 +20,18 @@ const CategoriesMenu = ({
       <text x="30" y="30" text-anchor="middle" dy="0.35em" font-family="Arial" font-size="12" fill="#9ca3af">Image</text>
     </svg>
   `)}`
+
+  const toCategorySlug = (value) =>
+    String(value || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+
+  const buildCategoryHref = (entry) => {
+    const slug = toCategorySlug(entry?.slug || entry?.name || '')
+    return slug ? `/products/${encodeURIComponent(slug)}` : '/products'
+  }
 
   useEffect(() => {
     if (isOpen && !categoriesData) {
@@ -138,13 +151,14 @@ const CategoriesMenu = ({
                         </svg>
                       )}
                     </h3>
-                    {activeCategory?.slug && (
-                      <a
-                        href={`/products/${encodeURIComponent(activeCategory.slug)}`}
+                    {(subcategory?.slug || subcategory?.name || activeCategory?.slug) && (
+                      <Link
+                        href={buildCategoryHref(subcategory?.slug || subcategory?.name ? subcategory : activeCategory)}
+                        onClick={onClose}
                         className="text-xs font-semibold text-blue-600 hover:underline"
                       >
                         View all
-                      </a>
+                      </Link>
                     )}
                   </div>
 
@@ -152,9 +166,10 @@ const CategoriesMenu = ({
                   {subcategory.items && (
                     <div className="grid gap-2 lg:gap-8 justify-start grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                       {activeCategory?.slug && (
-                        <a
+                        <Link
                           key={`${activeCategory.id}-view-all`}
-                          href={`/products/${encodeURIComponent(activeCategory.slug)}`}
+                          href={buildCategoryHref(activeCategory)}
+                          onClick={onClose}
                           className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 p-3 hover:border-gray-200 hover:shadow-sm transition"
                         >
                           <div className="h-14 w-14 lg:h-20 lg:w-20 rounded-full border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-gray-500">
@@ -174,10 +189,15 @@ const CategoriesMenu = ({
                           <span className="text-[11px] lg:text-sm text-center font-semibold text-gray-800">
                             View All
                           </span>
-                        </a>
+                        </Link>
                       )}
                       {subcategory.items.map((item) => (
-                        <div key={item.id} className="flex flex-col items-center group cursor-pointer">
+                        <Link
+                          key={item.id}
+                          href={buildCategoryHref(item)}
+                          onClick={onClose}
+                          className="flex flex-col items-center group cursor-pointer"
+                        >
                           <div className="relative mb-2">
                             <div className="w-14 h-14 lg:w-24 lg:h-24 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden group-hover:shadow-md transition-shadow">
                               <img
@@ -198,7 +218,7 @@ const CategoriesMenu = ({
                           <span className="text-[11px] lg:text-sm text-center text-gray-700 group-hover:text-blue-600 transition-colors">
                             {item.name}
                           </span>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   )}

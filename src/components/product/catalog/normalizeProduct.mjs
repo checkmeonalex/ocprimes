@@ -74,6 +74,69 @@ const buildCustomAttributes = (item) => {
   return output
 }
 
+const resolveVendorName = (item) => {
+  const directCandidates = [
+    item?.vendor,
+    item?.vendor_name,
+    item?.vendorName,
+    item?.brand_name,
+    item?.brandName,
+    item?.store_name,
+    item?.storeName,
+    item?.seller_name,
+    item?.sellerName,
+  ]
+
+  const directMatch = directCandidates.find(
+    (value) => String(value || '').trim(),
+  )
+  if (directMatch) return String(directMatch).trim()
+
+  if (Array.isArray(item?.brands)) {
+    const firstBrand = item.brands.find((brand) =>
+      String(brand?.name || brand?.brand_name || '').trim(),
+    )
+    if (firstBrand) {
+      return String(
+        firstBrand?.name || firstBrand?.brand_name || '',
+      ).trim()
+    }
+  }
+
+  return ''
+}
+
+const resolveVendorSlug = (item) => {
+  const directCandidates = [
+    item?.vendorSlug,
+    item?.vendor_slug,
+    item?.brand_slug,
+    item?.brandSlug,
+    item?.store_slug,
+    item?.storeSlug,
+    item?.seller_slug,
+    item?.sellerSlug,
+  ]
+
+  const directMatch = directCandidates.find(
+    (value) => String(value || '').trim(),
+  )
+  if (directMatch) return String(directMatch).trim()
+
+  if (Array.isArray(item?.brands)) {
+    const firstBrand = item.brands.find((brand) =>
+      String(brand?.slug || brand?.brand_slug || '').trim(),
+    )
+    if (firstBrand) {
+      return String(
+        firstBrand?.slug || firstBrand?.brand_slug || '',
+      ).trim()
+    }
+  }
+
+  return ''
+}
+
 const normalizeProduct = (item) => {
   const images = Array.isArray(item?.images) ? item.images : []
   const imageUrls = images
@@ -120,15 +183,8 @@ const normalizeProduct = (item) => {
       item?.category ||
       (Array.isArray(item?.categories) ? item.categories[0]?.name : '') ||
       'Uncategorized',
-    vendor:
-      item?.vendor ||
-      (Array.isArray(item?.brands) ? item.brands[0]?.name : '') ||
-      '',
-    vendorSlug:
-      item?.vendorSlug ||
-      item?.vendor_slug ||
-      (Array.isArray(item?.brands) ? item.brands[0]?.slug : '') ||
-      '',
+    vendor: resolveVendorName(item),
+    vendorSlug: resolveVendorSlug(item),
     vendorFont: item?.vendorFont || 'Georgia, serif',
     shortDescription: item?.short_description || item?.shortDescription || '',
     fullDescription: item?.description || item?.fullDescription || '',

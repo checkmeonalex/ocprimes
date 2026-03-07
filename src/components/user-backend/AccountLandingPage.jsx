@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import AccountSecurityIcon from '@/components/common/AccountSecurityIcon'
 import { USER_MENU_ITEMS } from '@/lib/user/menu-items'
 import UserNavIcon from '@/components/user-backend/UserNavIcon'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
@@ -155,9 +156,7 @@ export default function AccountLandingPage({
                           onClick={() => setIsAvatarMenuOpen(false)}
                           className='flex items-center gap-3 rounded-xl px-3 py-2.5 text-base text-slate-700'
                         >
-                          <svg className='h-5 w-5' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
-                            <path strokeLinecap='round' strokeLinejoin='round' d='M12 4 5 7v5c0 4.5 3.1 7 7 8 3.9-1 7-3.5 7-8V7l-7-3z' />
-                          </svg>
+                          <AccountSecurityIcon className='h-5 w-5' aria-hidden='true' />
                           Settings
                         </Link>
                         <Link
@@ -316,5 +315,4 @@ export default function AccountLandingPage({
     </div>
   )
 }
-
 

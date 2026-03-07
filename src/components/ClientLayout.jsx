@@ -1,6 +1,7 @@
 'use client'
 import Navbar from './Navbar'
 import MobileNavbar from './mobile/Navbar'
+import ScrollHistoryRestoration from './ScrollHistoryRestoration'
 import Sidebar from './Sidebar'
 import AdminMobileHeader from './admin/AdminMobileHeader'
 import AddToCartSuccessPopup from './cart/AddToCartSuccessPopup'
@@ -121,8 +122,12 @@ export default function ClientLayout({
   return (
     <>
       <UserPresenceHeartbeat />
+      <ScrollHistoryRestoration />
       {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute ? (
-        <MobileNavbar initialAuthUser={initialAuthUser} />
+        <MobileNavbar
+          initialAuthUser={initialAuthUser}
+          initialTopCategories={initialTopCategories}
+        />
       ) : null}
       {!isMobile || isCheckoutFlowRoute ? (
         <Navbar

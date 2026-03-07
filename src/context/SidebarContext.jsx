@@ -5,6 +5,8 @@ const SidebarContext = createContext()
 
 export function SidebarProvider({ children }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
+  const [activeMobileCategoryId, setActiveMobileCategoryId] = useState(null)
   const [isHydrated, setIsHydrated] = useState(false)
   const [isHovering, setIsHovering] = useState(false)
 
@@ -16,6 +18,15 @@ export function SidebarProvider({ children }) {
   const toggleSidebar = useCallback(() => setIsOpen((prev) => !prev), [])
   const openSidebar = useCallback(() => setIsOpen(true), [])
   const closeSidebar = useCallback(() => setIsOpen(false), [])
+  const toggleCategories = useCallback(() => {
+    setActiveMobileCategoryId(null)
+    setIsCategoriesOpen((prev) => !prev)
+  }, [])
+  const openCategories = useCallback((categoryId = null) => {
+    setActiveMobileCategoryId(categoryId)
+    setIsCategoriesOpen(true)
+  }, [])
+  const closeCategories = useCallback(() => setIsCategoriesOpen(false), [])
 
   return (
     <SidebarContext.Provider
@@ -24,6 +35,12 @@ export function SidebarProvider({ children }) {
         toggleSidebar,
         openSidebar,
         closeSidebar,
+        isCategoriesOpen,
+        toggleCategories,
+        openCategories,
+        closeCategories,
+        activeMobileCategoryId,
+        setActiveMobileCategoryId,
         isHydrated,
         isHovering,
         setIsHovering,
