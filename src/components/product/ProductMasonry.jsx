@@ -1,6 +1,5 @@
 'use client'
 import ProductCard from './ProductCard'
-import MasonryGrid from './MasonryGrid'
 
 const ProductMasonry = ({ products, onAddToCart }) => {
   if (!products || !Array.isArray(products)) {
@@ -8,7 +7,7 @@ const ProductMasonry = ({ products, onAddToCart }) => {
   }
 
   return (
-    <MasonryGrid>
+    <div className='grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'>
       {products.map((product) => (
         <ProductCard
           key={product.id}
@@ -16,7 +15,7 @@ const ProductMasonry = ({ products, onAddToCart }) => {
           onAddToCart={onAddToCart}
         />
       ))}
-    </MasonryGrid>
+    </div>
   )
 }
 

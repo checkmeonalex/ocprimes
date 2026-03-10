@@ -1,14 +1,10 @@
-import AuthShell from '@/components/auth/AuthShell'
-import ResetPasswordForm from '@/components/auth/ResetPasswordForm'
+import CustomerAuthShell from '@/components/auth/customer/CustomerAuthShell'
+import CustomerResetPasswordPage from '@/components/auth/customer/CustomerResetPasswordPage'
 
 export default function ResetPasswordPage() {
   return (
-    <AuthShell
-      eyebrow='Account Recovery'
-      title='Reset password'
-      subtitle='Choose a new password to secure your account.'
-    >
-      <ResetPasswordForm />
-    </AuthShell>
+    <CustomerAuthShell>
+      <CustomerResetPasswordPage />
+    </CustomerAuthShell>
   )
 }

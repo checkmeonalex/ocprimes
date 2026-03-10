@@ -60,7 +60,7 @@ export default function ShopAccessPage() {
 
         <div className='mt-5 flex flex-wrap gap-3'>
           <Link
-            href='/vendor/signup'
+            href='/sellersignup'
             className='rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800'
           >
             Become a seller

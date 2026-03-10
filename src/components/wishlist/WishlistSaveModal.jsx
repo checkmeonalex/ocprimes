@@ -17,7 +17,16 @@ const VISIBILITY_OPTIONS = [
 ]
 
 export default function WishlistSaveModal() {
-  const { isOpen, view, product, selectedListId, closeSaveModal, markProductSaved } = useWishlist()
+  const {
+    isOpen,
+    view,
+    product,
+    selectedListId,
+    overlayZIndexClass,
+    createOverlayZIndexClass,
+    closeSaveModal,
+    markProductSaved,
+  } = useWishlist()
   const { pushAlert } = useAlerts()
   const { user, isLoading } = useAuthUser()
   const router = useRouter()
@@ -179,7 +188,12 @@ export default function WishlistSaveModal() {
 
   return (
     <>
-    <div className='fixed inset-0 z-[120] flex items-end justify-center bg-black/40'>
+    <div
+      className={`fixed inset-0 ${overlayZIndexClass} flex items-end justify-center bg-black/40 ${
+        showCreateModal ? 'pointer-events-none' : ''
+      }`}
+      aria-hidden={showCreateModal}
+    >
       <div className='w-full max-w-2xl rounded-t-3xl bg-white px-4 pb-4 pt-3 shadow-2xl max-h-[65vh] overflow-hidden'>
         <div className='relative flex items-center justify-center pb-2'>
           <button
@@ -270,13 +284,24 @@ export default function WishlistSaveModal() {
             disabled={!canSubmit || isSaving}
             className='w-full max-w-xs rounded-full bg-gray-900 px-5 py-2 text-xs font-semibold text-white hover:bg-gray-800 disabled:opacity-60'
           >
-            {isSaving ? 'Saving...' : view === 'add' ? 'DONE' : 'SAVE'}
+            {isSaving ? (
+              <span className='flex items-center justify-center gap-1.5' aria-label='Saving'>
+                {[0, 1, 2].map((index) => (
+                  <span
+                    key={index}
+                    className='h-2 w-2 animate-bounce rounded-full bg-white/95'
+                    style={{ animationDelay: `${index * 0.12}s` }}
+                    aria-hidden='true'
+                  />
+                ))}
+              </span>
+            ) : view === 'add' ? 'DONE' : 'SAVE'}
           </button>
         </div>
       </div>
     </div>
     {showCreateModal ? (
-      <div className='fixed inset-0 z-[130] flex items-center justify-center bg-black/50 p-4'>
+      <div className={`fixed inset-0 ${createOverlayZIndexClass} flex items-center justify-center bg-black/50 p-4`}>
         <div className='w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl'>
           <div className='flex items-center justify-between'>
             <h4 className='text-sm font-semibold text-gray-900'>Create new list</h4>

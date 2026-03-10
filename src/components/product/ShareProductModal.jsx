@@ -60,7 +60,13 @@ const fallbackCopy = async (text) => {
   document.body.removeChild(input)
 }
 
-const ShareProductModal = ({ open, onClose, shareUrl, productName }) => {
+const ShareProductModal = ({
+  open,
+  onClose,
+  shareUrl,
+  productName,
+  overlayZIndexClass = 'z-[60]',
+}) => {
   const [copied, setCopied] = useState(false)
 
   const targets = useMemo(
@@ -105,7 +111,7 @@ const ShareProductModal = ({ open, onClose, shareUrl, productName }) => {
 
   return (
     <div
-      className='fixed inset-0 z-[60] flex items-center justify-center bg-black/30 p-4'
+      className={`fixed inset-0 ${overlayZIndexClass} flex items-center justify-center bg-black/30 p-4`}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}

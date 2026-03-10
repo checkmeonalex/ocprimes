@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import StoriesComponent from '../StoriesComponent'
+import StoriesComponent from '../pvideos/StoriesComponent'
 
 const SNAP_THRESHOLD = 0.35
 const SNAP_ROOT_MARGIN = '0px 0px -20% 0px'

@@ -11,14 +11,14 @@ const LogoGrid = ({
   if (!logos.length) return null
 
   return (
-    <section className={`mb-10 ${className}`}>
+    <section className={`mb-6 ${className}`}>
       {title ? (
         <div
-          className="mb-4 rounded-lg px-4 py-2 text-center"
+          className="mb-3 rounded-lg px-4 py-2 text-center"
           style={{ backgroundColor: titleBgColor || '#fed7aa' }}
         >
           <h3
-            className="text-base font-semibold"
+            className="text-sm font-semibold sm:text-base"
             style={{ color: titleTextColor || '#111827' }}
           >
             {title}

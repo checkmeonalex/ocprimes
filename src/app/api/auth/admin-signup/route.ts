@@ -5,6 +5,7 @@ import { jsonError } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { isSuperAdminEmail } from '@/lib/auth/superAdmin'
+import { findAuthUserByEmail } from '@/lib/auth/find-user-by-email'
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
@@ -36,17 +37,13 @@ export async function POST(request: NextRequest) {
 
     let userId = data?.user?.id
     if (!userId && isAlreadyRegistered) {
-      const { data: listData, error: listError } = await adminClient.auth.admin.listUsers({
-        page: 1,
-        perPage: 200,
+      const matched = await findAuthUserByEmail(email).catch((lookupError) => {
+        console.error(
+          'Admin super signup lookup failed:',
+          lookupError instanceof Error ? lookupError.message : lookupError,
+        )
+        return null
       })
-      if (listError) {
-        console.error('Admin super signup lookup failed:', listError.message)
-        return jsonError('Unable to locate existing account.', 400)
-      }
-      const matched = listData?.users?.find(
-        (item: { email?: string }) => item.email?.toLowerCase() === email.toLowerCase(),
-      )
       if (!matched?.id) {
         console.error('Admin super signup lookup failed: user not found')
         return jsonError('Unable to locate existing account.', 400)

@@ -9,25 +9,33 @@ export function WishlistProvider({ children }) {
   const [view, setView] = useState('save')
   const [product, setProduct] = useState(null)
   const [selectedListId, setSelectedListId] = useState('')
+  const [overlayZIndexClass, setOverlayZIndexClass] = useState('z-[120]')
+  const [createOverlayZIndexClass, setCreateOverlayZIndexClass] = useState('z-[220]')
   const [recentlySavedProductIds, setRecentlySavedProductIds] = useState({})
   const [wishlistedProductIds, setWishlistedProductIds] = useState({})
   const [isWishlistStatusLoaded, setIsWishlistStatusLoaded] = useState(false)
   const saveTimersRef = useRef(new Map())
 
-  const openSaveModal = useCallback((nextProduct) => {
+  const openSaveModal = useCallback((nextProduct, options = {}) => {
     setProduct(nextProduct || null)
     setView('save')
+    setOverlayZIndexClass(String(options?.overlayZIndexClass || 'z-[120]'))
+    setCreateOverlayZIndexClass(String(options?.createOverlayZIndexClass || 'z-[220]'))
     setIsOpen(true)
   }, [])
 
   const closeSaveModal = useCallback(() => {
     setIsOpen(false)
+    setOverlayZIndexClass('z-[120]')
+    setCreateOverlayZIndexClass('z-[220]')
   }, [])
 
-  const openAddSheet = useCallback((nextProduct, listId) => {
+  const openAddSheet = useCallback((nextProduct, listId, options = {}) => {
     setProduct(nextProduct || null)
     setSelectedListId(listId || '')
     setView('add')
+    setOverlayZIndexClass(String(options?.overlayZIndexClass || 'z-[120]'))
+    setCreateOverlayZIndexClass(String(options?.createOverlayZIndexClass || 'z-[220]'))
     setIsOpen(true)
   }, [])
 
@@ -114,6 +122,8 @@ export function WishlistProvider({ children }) {
       openAddSheet,
       closeSaveModal,
       selectedListId,
+      overlayZIndexClass,
+      createOverlayZIndexClass,
       markProductSaved,
       isRecentlySaved,
       isWishlisted,
@@ -128,6 +138,8 @@ export function WishlistProvider({ children }) {
       openAddSheet,
       closeSaveModal,
       selectedListId,
+      overlayZIndexClass,
+      createOverlayZIndexClass,
       markProductSaved,
       isRecentlySaved,
       isWishlisted,

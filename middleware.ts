@@ -9,6 +9,7 @@ const USER_PREFIXES = ['/UserBackend', '/wishlist']
 const AUTH_PUBLIC_PATHS = [
   '/login',
   '/signup',
+  '/sellersignup',
   '/vendor/login',
   '/vendor/signup',
   '/vendor/set-password',
@@ -105,6 +106,7 @@ export const config = {
   matcher: [
     '/login',
     '/signup',
+    '/sellersignup',
     '/vendor/login',
     '/vendor/signup',
     '/vendor/set-password',

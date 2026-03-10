@@ -1,6 +1,6 @@
 import ProductCardList from '@/components/product/ProductCardList'
-import { fetchCategoryWithChildren } from '@/lib/catalog/categories'
 import { fetchProductListing } from '@/lib/catalog/product-listing'
+import { getCachedHomePageSettings } from '@/lib/home/settings'
 
 const DEFAULT_TITLE = 'Fashion Collection'
 const DEFAULT_SUBTITLE = 'Discover our latest trends and bestsellers'
@@ -11,13 +11,13 @@ const clampLimit = (value) => {
   return Math.min(30, Math.max(1, Math.floor(parsed)))
 }
 
-export default async function HomeProductCatalogSection({ categorySlug = 'home' }) {
-  const { parent } = await fetchCategoryWithChildren(categorySlug)
+export default async function HomeProductCatalogSection() {
+  const settings = await getCachedHomePageSettings()
 
-  const mode = String(parent?.home_catalog_filter_mode || 'none')
-  const categoryId = parent?.home_catalog_category_id || ''
-  const tagId = parent?.home_catalog_tag_id || ''
-  const perPage = clampLimit(parent?.home_catalog_limit || 12)
+  const mode = String(settings?.home_catalog_filter_mode || 'none')
+  const categoryId = settings?.home_catalog_category_id || ''
+  const tagId = settings?.home_catalog_tag_id || ''
+  const perPage = clampLimit(settings?.home_catalog_limit || 12)
 
   const shouldFetchByCategory = mode === 'category' && Boolean(categoryId)
   const shouldFetchByTag = mode === 'tag' && Boolean(tagId)
@@ -36,8 +36,8 @@ export default async function HomeProductCatalogSection({ categorySlug = 'home' 
     <ProductCardList
       products={products}
       useSeedFallback={false}
-      title={parent?.home_catalog_title || DEFAULT_TITLE}
-      subtitle={parent?.home_catalog_description || DEFAULT_SUBTITLE}
+      title={settings?.home_catalog_title || DEFAULT_TITLE}
+      subtitle={settings?.home_catalog_description || DEFAULT_SUBTITLE}
     />
   )
 }

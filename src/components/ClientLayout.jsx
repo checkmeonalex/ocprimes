@@ -29,6 +29,9 @@ export default function ClientLayout({
   const isAuthRoute =
     pathname?.startsWith('/login') ||
     pathname?.startsWith('/signup') ||
+    pathname?.startsWith('/sellersignup') ||
+    pathname?.startsWith('/forgot-password') ||
+    pathname?.startsWith('/reset-password') ||
     pathname?.startsWith('/admin/login') ||
     pathname?.startsWith('/admin/signup') ||
     pathname?.startsWith('/vendor/login') ||
@@ -37,6 +40,7 @@ export default function ClientLayout({
   const isUserBackendRoute = pathname?.startsWith('/UserBackend')
   const isCartRoute = pathname?.startsWith('/cart')
   const isCheckoutRoute = pathname?.startsWith('/checkout')
+  const isPlayRoute = pathname?.startsWith('/play')
   const isCheckoutFlowRoute = isCartRoute || isCheckoutRoute
 
   useEffect(() => {
@@ -123,13 +127,13 @@ export default function ClientLayout({
     <>
       <UserPresenceHeartbeat />
       <ScrollHistoryRestoration />
-      {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute ? (
+      {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute && (!isPlayRoute || isMobile) ? (
         <MobileNavbar
           initialAuthUser={initialAuthUser}
           initialTopCategories={initialTopCategories}
         />
       ) : null}
-      {!isMobile || isCheckoutFlowRoute ? (
+      {(!isMobile || isCheckoutFlowRoute) && !isPlayRoute ? (
         <Navbar
           initialAuthUser={initialAuthUser}
           initialTopCategories={initialTopCategories}
@@ -139,6 +143,8 @@ export default function ClientLayout({
         className={`flex ${
           isCheckoutFlowRoute
             ? 'pt-0 sm:pt-16'
+            : isPlayRoute
+              ? 'pt-16 lg:pt-0'
             : isUserBackendRoute
               ? 'pt-0 lg:pt-[106px]'
               : 'pt-24 lg:pt-[106px]'

@@ -72,6 +72,7 @@ export default function WishlistPage() {
   const [isEditingDescription, setIsEditingDescription] = useState(false)
   const [descriptionDraft, setDescriptionDraft] = useState('')
   const [collapsedLists, setCollapsedLists] = useState({})
+  const [removingItemIds, setRemovingItemIds] = useState({})
 
   const countWords = (value) =>
     value
@@ -97,8 +98,11 @@ export default function WishlistPage() {
   )
   const isAllSelected = Boolean(selectedListId && allListId && selectedListId === allListId)
 
-  const loadBootstrap = async (preferredListId = '') => {
-    setIsLoading(true)
+  const loadBootstrap = async (preferredListId = '', options = {}) => {
+    const showLoader = options?.showLoader !== false
+    if (showLoader) {
+      setIsLoading(true)
+    }
     try {
       const response = await fetch(
         `/api/wishlist/bootstrap?per_list_limit=${WISHLIST_BOOTSTRAP_LIMIT}`,
@@ -128,7 +132,9 @@ export default function WishlistPage() {
     } catch (error) {
       pushAlert({ type: 'error', title: 'Wishlist', message: error.message })
     } finally {
-      setIsLoading(false)
+      if (showLoader) {
+        setIsLoading(false)
+      }
       setIsBootstrapReady(true)
     }
   }
@@ -254,21 +260,27 @@ export default function WishlistPage() {
   }
 
   const handleRemoveItem = async (itemId) => {
-    setIsLoading(true)
+    const nextItemId = String(itemId || '').trim()
+    if (!nextItemId || removingItemIds[nextItemId]) return
+    setRemovingItemIds((prev) => ({ ...prev, [nextItemId]: true }))
     try {
-      const response = await fetch(`/api/wishlist/items/${itemId}`, {
+      const response = await fetch(`/api/wishlist/items/${nextItemId}`, {
         method: 'DELETE',
       })
       const payload = await response.json().catch(() => null)
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to remove item.')
       }
-      await loadBootstrap(selectedListId)
+      await loadBootstrap(selectedListId, { showLoader: false })
       pushAlert({ type: 'success', title: 'Wishlist', message: 'Item removed.' })
     } catch (error) {
       pushAlert({ type: 'error', title: 'Wishlist', message: error.message })
     } finally {
-      setIsLoading(false)
+      setRemovingItemIds((prev) => {
+        const next = { ...prev }
+        delete next[nextItemId]
+        return next
+      })
     }
   }
 
@@ -631,6 +643,7 @@ export default function WishlistPage() {
                               className={`${getCardColor(product.id)} border border-white/70`}
                               wishlistMode
                               showTopAddToCart
+                              isRemoving={Boolean(removingItemIds[String(product.wishlistItemId || '').trim()])}
                               onRemove={() => {
                                 if (product.wishlistItemId) handleRemoveItem(product.wishlistItemId)
                               }}
@@ -652,6 +665,7 @@ export default function WishlistPage() {
                     className={`${getCardColor(product.id)} border border-white/70`}
                     wishlistMode
                     showTopAddToCart
+                    isRemoving={Boolean(removingItemIds[String(product.wishlistItemId || '').trim()])}
                     onRemove={() => {
                       if (product.wishlistItemId) handleRemoveItem(product.wishlistItemId)
                     }}

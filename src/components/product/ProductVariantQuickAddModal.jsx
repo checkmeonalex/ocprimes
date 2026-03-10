@@ -90,6 +90,8 @@ const ProductVariantQuickAddModal = ({
   initialSize = '',
   onClose,
   onConfirm,
+  overlayZIndexClass = 'z-[10050]',
+  lightboxZIndexClass = 'z-[2147483000]',
 }) => {
   const [mounted, setMounted] = useState(false)
   const [selected, setSelected] = useState({})
@@ -480,7 +482,7 @@ const ProductVariantQuickAddModal = ({
 
   return createPortal(
     <>
-    <div className='fixed inset-0 z-[10050] flex items-end justify-center bg-black/45 p-0 md:items-center md:p-3' onClick={onClose}>
+    <div className={`fixed inset-0 ${overlayZIndexClass} flex items-end justify-center bg-black/45 p-0 md:items-center md:p-3`} onClick={onClose}>
       <div
         className='relative h-[65vh] max-h-[65vh] w-full overflow-hidden rounded-t-xl rounded-b-none bg-white shadow-2xl animate-[oc-sheet-up_220ms_ease-out] md:h-[min(82vh,720px)] md:max-h-[720px] md:w-full md:max-w-5xl md:rounded-lg md:animate-none'
         style={{ transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined, transition: sheetDraggingRef.current ? 'none' : 'transform 180ms ease-out' }}
@@ -1019,7 +1021,7 @@ const ProductVariantQuickAddModal = ({
       </div>
     </div>,
     {isMobileLightboxOpen ? (
-      <div className='fixed inset-0 z-[2147483000] bg-black/95 md:hidden' onClick={closeMobileLightbox}>
+      <div className={`fixed inset-0 ${lightboxZIndexClass} bg-black/95 md:hidden`} onClick={closeMobileLightbox}>
         <div
           className='relative h-full w-full'
           onClick={(event) => event.stopPropagation()}

@@ -5,6 +5,10 @@ import { jsonError } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { isSuperAdminEmail } from '@/lib/auth/superAdmin'
+import {
+  isWeakPassword,
+  PASSWORD_REQUIREMENTS_MESSAGE,
+} from '@/lib/auth/password-strength'
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +22,10 @@ export async function POST(request: NextRequest) {
     const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
     const email = parsed.data.email
     const password = parsed.data.password
+
+    if (isWeakPassword(password)) {
+      return jsonError(PASSWORD_REQUIREMENTS_MESSAGE, 400)
+    }
 
     if (isSuperAdminEmail(email)) {
       const adminClient = createAdminSupabaseClient()

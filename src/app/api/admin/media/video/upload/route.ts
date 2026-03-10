@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { jsonError, jsonOk } from '@/lib/http/response'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import {
   ALLOWED_VIDEO_TYPES,
   MAX_VIDEO_UPLOAD_BYTES,
@@ -29,7 +30,7 @@ const toMediaId = (key: string) =>
   Buffer.from(String(key || ''), 'utf8').toString('base64url')
 
 export async function POST(request: NextRequest) {
-  const { applyCookies, canManageCatalog } = await requireDashboardUser(request)
+  const { applyCookies, canManageCatalog, user } = await requireDashboardUser(request)
 
   if (!canManageCatalog) {
     return jsonError('Forbidden.', 403)
@@ -79,6 +80,22 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Product video upload failed:', error)
     return jsonError('Upload failed.', 500)
+  }
+
+  try {
+    const adminDb = createAdminSupabaseClient()
+    const { error: insertError } = await adminDb.from('product_videos').insert({
+      product_id: parsed.data.product_id || null,
+      r2_key: uploaded?.key || key,
+      url: uploaded?.url || '',
+      created_by: user?.id || null,
+    })
+
+    if (insertError && (insertError as { code?: string })?.code !== '42P01') {
+      console.error('Product video inventory insert failed:', insertError.message)
+    }
+  } catch (inventoryError) {
+    console.error('Product video inventory insert failed:', inventoryError)
   }
 
   const response = jsonOk({

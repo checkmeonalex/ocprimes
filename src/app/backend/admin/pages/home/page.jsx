@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { requireDashboardAccess } from '@/lib/auth/dashboard-access'
 import AdminSidebar from '@/components/AdminSidebar'
 import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
-import HomePageEditorRedirect from '../components/HomePageEditorRedirect'
+import HomePageEditorClient from './components/HomePageEditorClient'
 
 export default async function AdminHomePageRoute() {
   const { role } = await requireDashboardAccess('/backend/admin/pages/home')
@@ -18,8 +18,8 @@ export default async function AdminHomePageRoute() {
         </div>
 
         <main className='flex-1 px-4 py-8 sm:px-6 lg:px-10'>
-                  <AdminDesktopHeader />
-          <HomePageEditorRedirect />
+          <AdminDesktopHeader />
+          <HomePageEditorClient />
         </main>
       </div>
     </div>

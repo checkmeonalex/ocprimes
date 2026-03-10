@@ -1,11 +1,11 @@
 import FeaturedStrip from '@/components/layout/FeaturedStrip'
 import HotspotProductSlider from '@/components/layout/HotspotProductSlider'
 import LogoGrid from '@/components/layout/LogoGrid'
-import { fetchCategoryWithChildren } from '@/lib/catalog/categories'
 import { fetchHotspotLayoutsByCategory } from '@/lib/catalog/hotspot'
 import { fetchLogoGridByCategory } from '@/lib/catalog/logo-grid'
 import { fetchProductListing } from '@/lib/catalog/product-listing'
-import { normalizeCategoryLayoutOrder } from '@/lib/layouts/category-layout'
+import { getCachedHomePageSettings } from '@/lib/home/settings'
+import { normalizeHomeLayoutOrder } from '@/lib/home/schema'
 
 const ALLOWED_KEYS = new Set(['featured_strip', 'hotspot', 'logo_grid'])
 const FEATURED_STRIP_FETCH_SIZE = 30
@@ -48,31 +48,31 @@ const buildLogoGridSection = ({ logoGrid }) => {
   )
 }
 
-export default async function HomeLayoutSections({ categorySlug = 'home' }) {
-  const { parent } = await fetchCategoryWithChildren(categorySlug)
-  if (!parent?.id) return null
+export default async function HomeLayoutSections() {
+  const settings = await getCachedHomePageSettings()
+  if (!settings?.id) return null
 
   const shouldFetchFeaturedStrip =
-    parent?.featured_strip_image_url
+    settings?.featured_strip_image_url
 
   const [hotspotLayouts, logoGrid, products] = await Promise.all([
-    fetchHotspotLayoutsByCategory(parent.id),
-    fetchLogoGridByCategory(parent.id),
+    fetchHotspotLayoutsByCategory(settings.legacy_category_id || ''),
+    fetchLogoGridByCategory(settings.legacy_category_id || ''),
     shouldFetchFeaturedStrip
       ? fetchProductListing({
           page: 1,
           perPage: FEATURED_STRIP_FETCH_SIZE,
-          category: parent?.featured_strip_category_id || '',
-          tag: parent?.featured_strip_tag_id || '',
+          category: settings?.featured_strip_category_id || '',
+          tag: settings?.featured_strip_tag_id || '',
         })
       : Promise.resolve([]),
   ])
 
-  const featuredStripSection = buildFeaturedStrip({ parent, products })
-  const hotspotSection = buildHotspotSection({ parent, hotspotLayouts })
+  const featuredStripSection = buildFeaturedStrip({ parent: settings, products })
+  const hotspotSection = buildHotspotSection({ parent: settings, hotspotLayouts })
   const logoGridSection = buildLogoGridSection({ logoGrid })
 
-  const orderedSections = normalizeCategoryLayoutOrder(parent.layout_order)
+  const orderedSections = normalizeHomeLayoutOrder(settings.layout_order)
     .filter((key) => ALLOWED_KEYS.has(key))
     .map((key) => ({
       key,
@@ -90,7 +90,7 @@ export default async function HomeLayoutSections({ categorySlug = 'home' }) {
   if (!orderedSections.length) return null
 
   return (
-    <div className='mt-6'>
+    <div className='mt-4'>
       {orderedSections.map(({ key, element }) => (
         <div key={`home-layout-${key}`}>{element}</div>
       ))}

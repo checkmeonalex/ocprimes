@@ -259,7 +259,7 @@ const FeaturedStrip = ({
   if (!hasImage && !hasProducts) return null
 
   return (
-    <section className={`mb-10 w-full max-w-full overflow-hidden px-3 md:px-4 ${className}`}>
+    <section className={`mb-6 w-full max-w-full overflow-hidden px-3 md:px-4 ${className}`}>
       <SectionHeading title={titleMain} />
       <div className='flex flex-col gap-2 md:flex-row md:gap-2'>
         {hasImage ? (

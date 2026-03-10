@@ -265,12 +265,12 @@ const HotspotProductSlider = ({
   }, [preview])
 
   return (
-    <section className={`mb-10 w-full max-w-full overflow-hidden px-3 md:px-4 ${className}`}>
+    <section className={`mb-6 w-full max-w-full overflow-hidden px-3 md:px-4 ${className}`}>
       <SectionHeading title={titleMain} />
       <div className="relative">
         <div
           ref={scrollRef}
-          className="featured-scroll flex min-w-0 w-full max-w-full gap-4 overflow-x-auto pb-6 pr-1"
+          className="featured-scroll flex min-w-0 w-full max-w-full gap-3 overflow-x-auto pb-4 pr-1"
         >
           {items.map((layout) => (
             <div

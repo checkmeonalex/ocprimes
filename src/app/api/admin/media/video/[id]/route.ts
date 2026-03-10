@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3'
 import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { jsonError, jsonOk } from '@/lib/http/response'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 
 const paramsSchema = z.object({
   id: z.string().min(1),
@@ -78,6 +79,72 @@ export async function DELETE(
   } catch (deleteError) {
     console.error('Video R2 delete failed:', deleteError)
     return jsonError('Unable to delete storage object.', 500)
+  }
+
+  try {
+    const adminDb = createAdminSupabaseClient()
+
+    const { data: linkedRows, error: linkedError } = await adminDb
+      .from('product_videos')
+      .select('id, product_id')
+      .eq('r2_key', key)
+
+    const tableMissing = (linkedError as { code?: string } | null)?.code === '42P01'
+    if (linkedError && !tableMissing) {
+      console.error('Product video lookup failed:', linkedError.message)
+      return jsonError('Unable to clean up video references.', 500)
+    }
+
+    const linkedProductIds = Array.from(
+      new Set(
+        (Array.isArray(linkedRows) ? linkedRows : [])
+          .map((row) => String(row?.product_id || '').trim())
+          .filter(Boolean),
+      ),
+    )
+
+    const { error: clearProductError } = await adminDb
+      .from('products')
+      .update({
+        product_video_key: null,
+        product_video_url: null,
+      })
+      .eq('product_video_key', key)
+
+    if (clearProductError) {
+      console.error('Product video cleanup failed:', clearProductError.message)
+      return jsonError('Unable to clean up product video references.', 500)
+    }
+
+    if (linkedProductIds.length) {
+      const { error: linkedProductCleanupError } = await adminDb
+        .from('products')
+        .update({
+          product_video_key: null,
+          product_video_url: null,
+        })
+        .in('id', linkedProductIds)
+
+      if (linkedProductCleanupError) {
+        console.error('Linked product video cleanup failed:', linkedProductCleanupError.message)
+        return jsonError('Unable to clean up linked product videos.', 500)
+      }
+    }
+
+    if (!tableMissing) {
+      const { error: deleteInventoryError } = await adminDb
+        .from('product_videos')
+        .delete()
+        .eq('r2_key', key)
+
+      if (deleteInventoryError) {
+        console.error('Product video inventory delete failed:', deleteInventoryError.message)
+        return jsonError('Unable to delete video inventory.', 500)
+      }
+    }
+  } catch (cleanupError) {
+    console.error('Video cleanup failed:', cleanupError)
+    return jsonError('Unable to clean up video references.', 500)
   }
 
   const response = jsonOk({ id: parsed.data.id, key })

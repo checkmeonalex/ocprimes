@@ -1785,7 +1785,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     }
   };
 
-  const handleDraftSave = useCallback(async ({ background = false } = {}) => {
+  const handleDraftSave = useCallback(async ({ background = false, silent = false } = {}) => {
     if (!canDraftSave) return '';
     if (background && !hasUnsyncedDraft) return '';
     const basePrice = form.regular_price || form.price;
@@ -1824,7 +1824,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
       const nextUrl = buildProductUrl(saved, previewSlug, { preview: true });
       setPreviewUrl(nextUrl);
       setDraftReady(true);
-      if (!background) {
+      if (!background && !silent) {
         setStatusMessage('Draft saved.');
       } else {
         setAutoSaveState('saved');
@@ -1862,6 +1862,20 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     sizeGuideEnabled,
     variationEnabled,
   ]);
+
+  const handlePublishLive = useCallback(async () => {
+    if (isDraftSaving || isSaving) return;
+
+    if (canDraftSave && hasUnsyncedDraft) {
+      const syncedDraftUrl = await handleDraftSave({ silent: true });
+      if (!syncedDraftUrl) {
+        setError('Unable to save draft before going live. Try saving draft first.');
+        return;
+      }
+    }
+
+    await handleSave({ statusOverride: 'publish' });
+  }, [canDraftSave, handleDraftSave, handleSave, hasUnsyncedDraft, isDraftSaving, isSaving]);
 
   const queueBackgroundDraftSave = useCallback(() => {
     if (!canDraftSave || !hasUnsyncedDraft || isDraftSaving || isSaving) return;
@@ -2241,7 +2255,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                   type="button"
                   onClick={async () => {
                     setIsMobileActionsOpen(false);
-                    await handleSave({ statusOverride: 'publish' });
+                    await handlePublishLive();
                   }}
                   disabled={isDraftSaving}
                   isLoading={isSaving}
@@ -2417,8 +2431,9 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 </button>
                 <LoadingButton
                   type="button"
-                  onClick={() => handleSave({ statusOverride: 'publish' })}
+                  onClick={handlePublishLive}
                   isLoading={isSaving}
+                  disabled={isDraftSaving}
                   className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm"
                 >
                   Go Live
@@ -3771,9 +3786,10 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 type="button"
                 onClick={() => {
                   setIsPreviewNavigationBlockedOpen(false);
-                  handleSave({ statusOverride: 'publish' });
+                  handlePublishLive();
                 }}
                 isLoading={isSaving}
+                disabled={isDraftSaving}
                 className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
               >
                 Go Live

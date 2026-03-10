@@ -34,13 +34,13 @@ const ProductCardList = ({
   }
 
   return (
-    <div className='min-h-screen bg-gray-50'>
+    <div className='w-full bg-white'>
    <div className='max-w-7xl mx-auto px-3'>
 
         {/* Header */}
-        <div className='mb-8'>
-          <h1 className='text-3xl font-bold text-gray-900 mb-2'>{title}</h1>
-          <p className='text-gray-600'>
+        <div className='mb-5'>
+          <h1 className='mb-1.5 text-xl font-semibold text-gray-900 sm:text-2xl'>{title}</h1>
+          <p className='text-sm text-gray-600'>
             {subtitle}
           </p>
         </div>

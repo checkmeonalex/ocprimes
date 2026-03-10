@@ -14,6 +14,7 @@ const EMPTY_SELECTION_IDS = [];
 const EMPTY_SELECTION_IMAGES = [];
 const IMAGE_EXT_RE = /\.(png|jpe?g|webp|gif|bmp|svg|avif)$/i;
 const VIDEO_EXT_RE = /\.(mp4|webm|mov|m4v)$/i;
+const MEDIA_FILTERS = ['all', 'images', 'videos'];
 
 const toTimestamp = (value) => {
   const ms = new Date(value || 0).getTime();
@@ -87,6 +88,14 @@ const dedupeMediaItems = (items = []) => {
   return deduped;
 };
 
+const EMPTY_UPLOAD_PROGRESS = {
+  current: 0,
+  total: 0,
+  activeFileName: '',
+  phase: 'idle',
+  filePercent: 0,
+};
+
 function ProductImageLibraryModal({
   isOpen,
   onClose,
@@ -106,16 +115,23 @@ function ProductImageLibraryModal({
   title = 'Image Library',
   maxSelection = 8,
   enableVideoTab = false,
+  allowUpload = true,
+  allowVideoUpload = true,
+  allowMultiVideoSelection = false,
   zIndexClass = 'z-[60]',
   zIndex = 999,
 }) {
   const allowVideo = Boolean(enableVideoTab);
+  const canUpload = Boolean(allowUpload);
+  const canMultiSelectVideos = Boolean(allowMultiVideoSelection);
+  const allowVideoFilesInUpload = allowVideo && allowVideoUpload;
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(EMPTY_UPLOAD_PROGRESS);
   const [uploadError, setUploadError] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -127,6 +143,7 @@ function ProductImageLibraryModal({
   const [previewPlayingId, setPreviewPlayingId] = useState('');
   const [isMobile, setIsMobile] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [mediaFilter, setMediaFilter] = useState('all');
   const inputRef = useRef(null);
   const loadMoreRef = useRef(null);
   const isLoadingRef = useRef(false);
@@ -151,6 +168,34 @@ function ProductImageLibraryModal({
   );
   const selectedCount =
     Object.keys(selectedImageMap).length + Object.keys(selectedVideoMap).length;
+  const uploadPercent =
+    uploadProgress.total > 0 && uploadProgress.phase === 'uploading'
+      ? Math.min(100, Math.round((uploadProgress.current / uploadProgress.total) * 100))
+      : 0;
+  const uploadStep =
+    uploadProgress.total > 0
+      ? Math.max(1, Math.min(uploadProgress.total, Math.floor(uploadProgress.current) + 1))
+      : 0;
+  const mediaCounts = useMemo(() => {
+    const allItems = Array.isArray(items) ? items : [];
+    const imageCount = allItems.filter((item) => String(item?.media_type || 'image') !== 'video').length;
+    const videoCount = allItems.filter((item) => String(item?.media_type || '') === 'video').length;
+    return {
+      all: allItems.length,
+      images: imageCount,
+      videos: videoCount,
+    };
+  }, [items]);
+  const visibleItems = useMemo(() => {
+    const allItems = Array.isArray(items) ? items : [];
+    if (mediaFilter === 'images') {
+      return allItems.filter((item) => String(item?.media_type || 'image') !== 'video');
+    }
+    if (mediaFilter === 'videos') {
+      return allItems.filter((item) => String(item?.media_type || '') === 'video');
+    }
+    return allItems;
+  }, [items, mediaFilter]);
 
   const writeCache = useCallback(
     (nextItems, nextPage, nextHasMore) => {
@@ -226,6 +271,7 @@ function ProductImageLibraryModal({
       setIsVisible(false);
       return;
     }
+    setMediaFilter('all');
     const timer = setTimeout(() => setIsVisible(true), 10);
     return () => clearTimeout(timer);
   }, [isOpen]);
@@ -392,12 +438,16 @@ function ProductImageLibraryModal({
       const files = capped.filter((file) => {
         const mime = String(file?.type || '').toLowerCase();
         const name = String(file?.name || '');
-        if (allowVideo && (mime.startsWith('video/') || VIDEO_EXT_RE.test(name))) return true;
+        if (allowVideoFilesInUpload && (mime.startsWith('video/') || VIDEO_EXT_RE.test(name))) return true;
         return mime.startsWith('image/') || IMAGE_EXT_RE.test(name);
       });
 
       if (!files.length) {
-        setUploadError('Please select valid image or video files.');
+        setUploadError(
+          allowVideoFilesInUpload
+            ? 'Please select valid image or video files.'
+            : 'Please select valid image files.',
+        );
         return;
       }
 
@@ -406,19 +456,74 @@ function ProductImageLibraryModal({
       }
 
       setIsUploading(true);
+      setUploadProgress({
+        current: 0,
+        total: files.length,
+        activeFileName: files[0]?.name || '',
+        phase: 'uploading',
+        filePercent: 0,
+      });
       if (selected.length <= MAX_BATCH_UPLOADS) setUploadError('');
 
       const uploadedItems = [];
       const failed = [];
 
-      for (const file of files) {
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
         const mime = String(file?.type || '').toLowerCase();
         const name = String(file?.name || '');
-        const isVideo = allowVideo && (mime.startsWith('video/') || VIDEO_EXT_RE.test(name));
+        const isVideo = allowVideoFilesInUpload && (mime.startsWith('video/') || VIDEO_EXT_RE.test(name));
+        setUploadProgress({
+          current: index,
+          total: files.length,
+          activeFileName: file?.name || '',
+          phase: 'uploading',
+          filePercent: 0,
+        });
         try {
           const uploaded = isVideo
-            ? await uploadProductVideoFile({ file, productId, endpoint: videoUploadEndpoint })
-            : await uploadMediaFile({ file, productId, endpoint: uploadEndpoint });
+            ? await uploadProductVideoFile({
+                file,
+                productId,
+                endpoint: videoUploadEndpoint,
+                onProgress: (fraction) =>
+                  setUploadProgress({
+                    current: index + Math.max(0, Math.min(1, Number(fraction) || 0)),
+                    total: files.length,
+                    activeFileName: file?.name || '',
+                    phase: 'uploading',
+                    filePercent: Math.max(0, Math.min(1, Number(fraction) || 0)),
+                  }),
+                onStageChange: (phase) =>
+                  setUploadProgress((prev) => ({
+                    current: phase === 'processing' || phase === 'complete' ? index + 1 : index,
+                    total: files.length,
+                    activeFileName: file?.name || '',
+                    phase: phase === 'processing' ? 'processing' : 'uploading',
+                    filePercent: phase === 'processing' || phase === 'complete' ? 1 : prev.filePercent || 0,
+                  })),
+              })
+            : await uploadMediaFile({
+                file,
+                productId,
+                endpoint: uploadEndpoint,
+                onProgress: (fraction) =>
+                  setUploadProgress({
+                    current: index + Math.max(0, Math.min(1, Number(fraction) || 0)),
+                    total: files.length,
+                    activeFileName: file?.name || '',
+                    phase: 'uploading',
+                    filePercent: Math.max(0, Math.min(1, Number(fraction) || 0)),
+                  }),
+                onStageChange: (phase) =>
+                  setUploadProgress((prev) => ({
+                    current: phase === 'processing' || phase === 'complete' ? index + 1 : index,
+                    total: files.length,
+                    activeFileName: file?.name || '',
+                    phase: phase === 'processing' ? 'processing' : 'uploading',
+                    filePercent: phase === 'processing' || phase === 'complete' ? 1 : prev.filePercent || 0,
+                  })),
+              });
           uploadedItems.push(
             isVideo
               ? normalizeVideoItem(uploaded, videoDeleteEndpointBase)
@@ -427,6 +532,13 @@ function ProductImageLibraryModal({
         } catch (uploadErr) {
           failed.push(file?.name || uploadErr?.message || 'Upload failed');
         }
+        setUploadProgress({
+          current: index + 1,
+          total: files.length,
+          activeFileName: file?.name || '',
+          phase: 'uploading',
+          filePercent: 1,
+        });
       }
 
       if (uploadedItems.length) {
@@ -448,8 +560,9 @@ function ProductImageLibraryModal({
       }
 
       setIsUploading(false);
+      setUploadProgress(EMPTY_UPLOAD_PROGRESS);
     },
-    [allowVideo, deleteEndpointBase, hasMore, page, productId, uploadEndpoint, videoDeleteEndpointBase, videoUploadEndpoint, writeCache],
+    [allowVideoFilesInUpload, deleteEndpointBase, hasMore, page, productId, uploadEndpoint, videoDeleteEndpointBase, videoUploadEndpoint, writeCache],
   );
 
   const toggleSelection = (mediaItem) => {
@@ -462,10 +575,22 @@ function ProductImageLibraryModal({
         const next = { ...prev };
         if (next[id]) {
           delete next[id];
+          setUploadError('');
           setSelectedVideoOrder((order) => order.filter((entry) => entry !== id));
+        } else if (canMultiSelectVideos) {
+          const combinedCount =
+            Object.keys(selectedImageMap).length + Object.keys(selectedVideoMap).length;
+          if (combinedCount >= maxSelection) {
+            setUploadError(`Maximum ${maxSelection} media items can be selected.`);
+            return prev;
+          }
+          next[id] = true;
+          setUploadError('');
+          setSelectedVideoOrder((order) => [...order, id]);
         } else {
           Object.keys(next).forEach((key) => delete next[key]);
           next[id] = true;
+          setUploadError('');
           setSelectedVideoOrder([id]);
         }
         return next;
@@ -479,12 +604,12 @@ function ProductImageLibraryModal({
         delete next[id];
         setUploadError('');
         setSelectedImageOrder((order) => order.filter((entry) => entry !== id));
-      } else if (Object.keys(next).length < maxSelection) {
+      } else if (Object.keys(next).length + Object.keys(selectedVideoMap).length < maxSelection) {
         next[id] = true;
         setUploadError('');
         setSelectedImageOrder((order) => [...order, id]);
       } else {
-        setUploadError(`Maximum ${maxSelection} images can be selected.`);
+        setUploadError(`Maximum ${maxSelection} media items can be selected.`);
       }
       return next;
     });
@@ -572,34 +697,38 @@ function ProductImageLibraryModal({
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">{title}</p>
             <p className="mt-1 text-sm font-semibold text-slate-800">
-              Pick media or upload new files
+              {canUpload ? 'Pick media or upload new files' : 'Pick existing media'}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="file"
-              accept={allowVideo ? 'image/*,video/mp4,video/webm,video/quicktime' : 'image/*'}
-              multiple
-              className="hidden"
-              onChange={(event) => {
-                const files = event.target.files;
-                if (files?.length) {
-                  handleUploadFiles(files);
-                }
-                if (inputRef.current) {
-                  inputRef.current.value = '';
-                }
-              }}
-            />
-            <LoadingButton
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600"
-              isLoading={isUploading}
-            >
-              Upload file(s)
-            </LoadingButton>
+            {canUpload ? (
+              <>
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept={allowVideoFilesInUpload ? 'image/*,video/mp4,video/webm,video/quicktime' : 'image/*'}
+                  multiple
+                  className="hidden"
+                  onChange={(event) => {
+                    const files = event.target.files;
+                    if (files?.length) {
+                      handleUploadFiles(files);
+                    }
+                    if (inputRef.current) {
+                      inputRef.current.value = '';
+                    }
+                  }}
+                />
+                <LoadingButton
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600"
+                  isLoading={isUploading}
+                >
+                  Upload file(s)
+                </LoadingButton>
+              </>
+            ) : null}
             <button
               type="button"
               onClick={onClose}
@@ -611,7 +740,7 @@ function ProductImageLibraryModal({
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 sm:px-5 sm:py-5 sm:pb-24">
-          {!isMobile && (
+          {canUpload && !isMobile && (
             <div
               onDragOver={(event) => {
                 event.preventDefault();
@@ -640,10 +769,61 @@ function ProductImageLibraryModal({
               Drag and drop media files here, or use Upload file(s) (max {MAX_BATCH_UPLOADS})
             </div>
           )}
-          {isMobile && <p className="mb-3 text-xs text-slate-500">Use Upload file(s) to add files.</p>}
+          {canUpload && isMobile && <p className="mb-3 text-xs text-slate-500">Use Upload file(s) to add files.</p>}
           {error && <p className="mb-4 text-xs text-rose-500">{error}</p>}
           {uploadError && <p className="mb-4 text-xs text-rose-500">{uploadError}</p>}
           {deleteError && <p className="mb-4 text-xs text-rose-500">{deleteError}</p>}
+          {isUploading && uploadProgress.total > 0 && (
+            <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+              <div className="flex items-center justify-between gap-3 text-xs font-semibold text-blue-800">
+                {uploadProgress.phase === 'processing' ? (
+                  <span>Processing {uploadStep} of {uploadProgress.total} on server...</span>
+                ) : (
+                  <>
+                    <span>Uploading {uploadStep} of {uploadProgress.total}</span>
+                    <span>{uploadPercent}%</span>
+                  </>
+                )}
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-blue-100">
+                {uploadProgress.phase === 'processing' ? (
+                  <div className="h-full w-2/5 rounded-full bg-blue-600 animate-pulse" />
+                ) : (
+                  <div
+                    className="h-full rounded-full bg-blue-600 transition-[width] duration-200"
+                    style={{ width: `${uploadPercent}%` }}
+                  />
+                )}
+              </div>
+              {uploadProgress.activeFileName ? (
+                <p className="mt-2 truncate text-[11px] text-blue-700">
+                  {uploadProgress.activeFileName}
+                </p>
+              ) : null}
+            </div>
+          )}
+
+          {allowVideo && (
+            <div className="mb-4 inline-flex flex-wrap rounded-full border border-slate-200 bg-slate-50 p-1">
+              {MEDIA_FILTERS.map((filterKey) => {
+                const active = mediaFilter === filterKey;
+                const label =
+                  filterKey === 'all' ? 'All' : filterKey === 'images' ? 'Images' : 'Videos';
+                return (
+                  <button
+                    key={filterKey}
+                    type="button"
+                    onClick={() => setMediaFilter(filterKey)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      active ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-white'
+                    }`}
+                  >
+                    {label} ({mediaCounts[filterKey] || 0})
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {!items.length && isLoading && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
@@ -653,13 +833,14 @@ function ProductImageLibraryModal({
             </div>
           )}
 
-          {items.length > 0 && (
+          {visibleItems.length > 0 && (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
-              {items.map((mediaItem) => {
+              {visibleItems.map((mediaItem) => {
                 const id = String(mediaItem?.id || '');
                 const mediaType = String(mediaItem?.media_type || 'image');
                 const selected = Boolean(selectedUnionMap[id]);
                 const isVideo = mediaType === 'video';
+                const canDelete = mediaItem?.can_delete !== false;
                 return (
                   <div
                     key={`${mediaType}-${id}-${mediaItem?.url || ''}`}
@@ -735,7 +916,14 @@ function ProductImageLibraryModal({
                               </>
                             ) : (
                               <>
-                                <div className="h-full w-full bg-slate-300" />
+                                <video
+                                  ref={(node) => setPreviewVideoRef(id, node)}
+                                  src={`${String(mediaItem.url || '').trim()}#t=0,10`}
+                                  muted
+                                  playsInline
+                                  preload="metadata"
+                                  className="h-full w-full object-cover"
+                                />
                                 <span className="absolute inset-0 flex items-center justify-center bg-black/20">
                                   <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-14 w-14">
                                     <path
@@ -769,32 +957,57 @@ function ProductImageLibraryModal({
                         </span>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleDeleteMedia(mediaItem);
-                      }}
-                      disabled={deletingId === id}
-                      className="absolute bottom-3 right-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-rose-600 shadow-sm transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                      aria-label="Delete media"
-                      title="Delete media"
-                    >
-                      {deletingId === id ? (
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-rose-600 border-t-transparent" />
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
-                          <path d="M3 6h18" />
-                          <path d="M8 6V4h8v2" />
-                          <path d="M19 6l-1 14H6L5 6" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                        </svg>
-                      )}
-                    </button>
+                    <div className="border-t border-slate-200 bg-white px-3 py-2">
+                      <p className="line-clamp-2 text-xs font-semibold text-slate-800">
+                        {mediaItem?.title || 'Media'}
+                      </p>
+                      {isVideo && mediaItem?.product_name ? (
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          Product: {mediaItem.product_name}
+                        </p>
+                      ) : null}
+                      {isVideo && mediaItem?.seller_name ? (
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          Seller: {mediaItem.seller_name}
+                        </p>
+                      ) : null}
+                    </div>
+                    {canDelete ? (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDeleteMedia(mediaItem);
+                        }}
+                        disabled={deletingId === id}
+                        className={`absolute right-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-rose-600 shadow-sm transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 ${
+                          isVideo ? 'bottom-14' : 'bottom-3'
+                        }`}
+                        aria-label="Delete media"
+                        title="Delete media"
+                      >
+                        {deletingId === id ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-rose-600 border-t-transparent" />
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
+                            <path d="M3 6h18" />
+                            <path d="M8 6V4h8v2" />
+                            <path d="M19 6l-1 14H6L5 6" />
+                            <path d="M10 11v6" />
+                            <path d="M14 11v6" />
+                          </svg>
+                        )}
+                      </button>
+                    ) : null}
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {!isLoading && items.length > 0 && visibleItems.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">
+              No {mediaFilter === 'videos' ? 'videos' : 'images'} in this view.
             </div>
           )}
 

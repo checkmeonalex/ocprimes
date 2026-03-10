@@ -26,6 +26,10 @@ export const vendorOnboardingEmailSchema = z.object({
   email: emailSchema,
 })
 
+export const authEmailLookupSchema = z.object({
+  email: emailSchema,
+})
+
 export const vendorOnboardingVerifySchema = z.object({
   email: emailSchema,
   code: z.string().trim().min(4).max(12),

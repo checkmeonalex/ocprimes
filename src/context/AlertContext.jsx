@@ -135,9 +135,22 @@ export function AlertProvider({ children }) {
     window.fetch = async (input, init) => {
       const requestPath = readUrlPath(input)
       const isApiCall = requestPath.startsWith('/api/')
+      const currentPath = window.location.pathname
+      const isAuthRoute =
+        currentPath.startsWith('/login') ||
+        currentPath.startsWith('/signup') ||
+        currentPath.startsWith('/vendor/login') ||
+        currentPath.startsWith('/vendor/signup') ||
+        currentPath.startsWith('/admin/login') ||
+        currentPath.startsWith('/admin/signup')
       try {
         const response = await originalFetch(input, init)
-        if (isApiCall && !response.ok && !shouldSkipGlobalAlert(input, init)) {
+        if (
+          isApiCall &&
+          !response.ok &&
+          !shouldSkipGlobalAlert(input, init) &&
+          !(isAuthRoute && response.status === 401)
+        ) {
           const message = await parseErrorMessage(response)
           const code = Number(response.status || 0)
           const title = code >= 500 ? 'Something went wrong' : code === 401 ? 'Sign in required' : code === 403 ? 'Permission denied' : 'Request failed'

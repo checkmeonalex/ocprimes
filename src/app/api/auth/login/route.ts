@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
   const parsed = loginSchema.safeParse(body)
 
   if (!parsed.success) {
-    return jsonError('Invalid email or password.', 400)
+    return jsonError('Email or password is incorrect.', 400)
   }
 
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   })
 
   if (error) {
-    return jsonError('Invalid email or password.', 401)
+    return jsonError('Email or password is incorrect.', 401)
   }
 
   const userId = data.user?.id
