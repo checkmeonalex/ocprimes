@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
+import { PASSWORD_MISMATCH_MESSAGE } from '@/lib/auth/validation'
 
 export default function ResetPasswordForm() {
   const router = useRouter()
@@ -52,7 +53,7 @@ export default function ResetPasswordForm() {
       return
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match.')
+      setError(PASSWORD_MISMATCH_MESSAGE)
       return
     }
 

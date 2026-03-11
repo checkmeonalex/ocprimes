@@ -8,9 +8,9 @@ import BrandLogo from '@/components/common/BrandLogo'
 import CountryFlagIcon from '@/components/common/CountryFlagIcon'
 import { useAuthUser } from '@/lib/auth/useAuthUser.ts'
 import {
+  CURRENCY_OPTIONS,
   LOCALE_COUNTRY_OPTIONS,
   getCurrencyMeta,
-  getCountryLocaleDefaults,
 } from '@/lib/i18n/locale-config'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { MOBILE_SIDEBAR_SECTIONS } from './mobileSidebarSections'
@@ -69,11 +69,11 @@ function DrawerRow({ href, label, icon: Icon, onNavigate, isActive = false, trai
       }`}
     >
       <span
-        className={`inline-flex h-9 w-9 items-center justify-center rounded-md ${
+        className={`inline-flex h-11 w-11 items-center justify-center rounded-md ${
           isActive ? 'bg-orange-100 text-orange-600' : 'text-gray-900'
         }`}
       >
-        <Icon className='h-5 w-5' strokeWidth={1.8} aria-hidden='true' />
+        <Icon className='h-6 w-6' strokeWidth={1.8} aria-hidden='true' />
       </span>
       <span className='min-w-0 flex-1 truncate font-medium'>{label}</span>
       {trailingNode || <ChevronRight className='h-[18px] w-[18px] text-slate-400' strokeWidth={1.8} aria-hidden='true' />}
@@ -97,7 +97,7 @@ function PreferencePickerRow({
         className='flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left text-[15px] text-slate-700 transition-colors hover:bg-slate-50'
         aria-expanded={isOpen}
       >
-        <span className='inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-900'>
+        <span className='inline-flex h-11 w-11 items-center justify-center rounded-md text-gray-900'>
           {icon}
         </span>
         <span className='min-w-0 flex-1'>
@@ -161,15 +161,13 @@ export default function MobileSidebar({ isOpen, onClose, onOpenCategories }) {
   const currencyLabel = `${currencyMeta.label} (${currencyMeta.code})`
   const currencyOptions = useMemo(
     () =>
-      LOCALE_COUNTRY_OPTIONS.map((country) => {
-        const defaults = getCountryLocaleDefaults(country)
-        const meta = getCurrencyMeta(defaults.currency)
-        return {
-          country,
-          symbol: meta.symbol,
-          label: `${meta.label} (${meta.code})`,
-        }
-      }),
+      CURRENCY_OPTIONS
+        .filter((option) => option.code === 'NGN' || option.code === 'USD')
+        .map((option) => ({
+          code: option.code,
+          symbol: option.symbol,
+          label: `${option.label} (${option.code})`,
+        })),
     [],
   )
 
@@ -286,9 +284,9 @@ export default function MobileSidebar({ isOpen, onClose, onOpenCategories }) {
               className='flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-[15px] font-medium text-gray-900 transition-colors hover:bg-slate-50'
               aria-label='Toggle categories'
             >
-              <span className='inline-flex h-9 w-9 items-center justify-center rounded-md text-gray-900'>
+              <span className='inline-flex h-11 w-11 items-center justify-center rounded-md text-gray-900'>
                 <svg
-                  className='h-5 w-5'
+                  className='h-6 w-6'
                   fill='none'
                   stroke='currentColor'
                   viewBox='0 0 24 24'
@@ -376,15 +374,12 @@ export default function MobileSidebar({ isOpen, onClose, onOpenCategories }) {
                 <div className='space-y-1'>
                   {currencyOptions.map((option) => (
                     <PreferenceOption
-                      key={option.country}
+                      key={option.code}
                       label={option.label}
-                      selected={locale.country === option.country}
+                      selected={locale.currency === option.code}
                       onClick={() => {
-                        const defaults = getCountryLocaleDefaults(option.country)
                         setLocale({
-                          country: option.country,
-                          language: locale.language,
-                          currency: defaults.currency,
+                          currency: option.code,
                         })
                         setActivePreference(null)
                       }}
@@ -409,11 +404,8 @@ export default function MobileSidebar({ isOpen, onClose, onOpenCategories }) {
                       label={country}
                       selected={locale.country === country}
                       onClick={() => {
-                        const defaults = getCountryLocaleDefaults(country)
                         setLocale({
                           country,
-                          language: defaults.language,
-                          currency: defaults.currency,
                         })
                         setActivePreference(null)
                       }}

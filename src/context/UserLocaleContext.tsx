@@ -88,7 +88,7 @@ const resolveLocale = (input: Partial<UserLocale>): UserLocale => {
   const country = normalizeCountry(input.country || DEFAULT_COUNTRY)
   const defaults = getCountryLocaleDefaults(country)
   const language = normalizeLanguage(input.language || defaults.language)
-  const currency = normalizeCurrency(input.currency || defaults.currency, country)
+  const currency = normalizeCurrency(input.currency || DEFAULT_LOCALE.currency, country)
   return { country, language, currency }
 }
 

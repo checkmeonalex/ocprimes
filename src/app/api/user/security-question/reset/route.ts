@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
-import { createHash, randomUUID } from 'crypto'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { createSecurityAnswerHash } from '@/lib/auth/security-answer'
 
 export async function POST(request: NextRequest) {
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
@@ -40,8 +40,7 @@ export async function POST(request: NextRequest) {
   }
 
   const metadata = data.user.user_metadata || {}
-  const salt = randomUUID()
-  const hash = createHash('sha256').update(`${answer}:${salt}`).digest('hex')
+  const { hash, salt } = createSecurityAnswerHash(answer)
 
   const nextProfile = {
     ...(metadata.profile || {}),

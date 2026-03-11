@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { jsonError, jsonOk } from '@/lib/http/response'
+import { PASSWORD_MISMATCH_MESSAGE } from '@/lib/auth/validation'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 
 const schema = z
@@ -10,7 +11,7 @@ const schema = z
     confirm_password: z.string().min(8).max(128),
   })
   .refine((value) => value.new_password === value.confirm_password, {
-    message: 'Passwords do not match.',
+    message: PASSWORD_MISMATCH_MESSAGE,
     path: ['confirm_password'],
   })
   .refine((value) => value.current_password !== value.new_password, {

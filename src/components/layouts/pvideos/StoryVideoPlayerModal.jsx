@@ -8,14 +8,22 @@ import StoryVideoFeedSlide from './StoryVideoFeedSlide'
 const STORY_PLAYER_Z_INDEX = 'z-[2147483200]'
 const STORY_PLAYER_TRANSITION_MS = 320
 const STORY_PLAYER_TOUCH_THRESHOLD = 48
+const STORY_PLAYER_INTERACTIVE_SELECTOR =
+  'button, a, input, select, textarea, summary, label, [role="button"]'
 
-const StoryVideoPlayerModal = ({ open, story, stories = [], onClose }) => {
+const StoryVideoPlayerModal = ({ open, story, stories = [], onClose, onActiveStoryChange }) => {
   const [mounted, setMounted] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const wheelLockRef = useRef(false)
   const wheelUnlockTimerRef = useRef(null)
   const touchStartYRef = useRef(0)
   const touchActiveRef = useRef(false)
+  const touchMovedRef = useRef(false)
+
+  const isInteractiveTouchTarget = useCallback((target) => {
+    if (!(target instanceof Element)) return false
+    return Boolean(target.closest(STORY_PLAYER_INTERACTIVE_SELECTOR))
+  }, [])
 
   const videoStories = useMemo(
     () =>
@@ -90,6 +98,13 @@ const StoryVideoPlayerModal = ({ open, story, stories = [], onClose }) => {
   }, [initialStoryId, open, videoStories])
 
   useEffect(() => {
+    if (!open) return
+    const activeStory = videoStories[activeIndex] || null
+    if (!activeStory) return
+    onActiveStoryChange?.(activeStory)
+  }, [activeIndex, onActiveStoryChange, open, videoStories])
+
+  useEffect(() => {
     if (!open) return undefined
 
     const previousOverflow = document.body.style.overflow
@@ -160,21 +175,36 @@ const StoryVideoPlayerModal = ({ open, story, stories = [], onClose }) => {
         }}
         onTouchStart={(event) => {
           event.stopPropagation()
+          if (isInteractiveTouchTarget(event.target)) {
+            touchActiveRef.current = false
+            touchMovedRef.current = false
+            return
+          }
           touchStartYRef.current = event.changedTouches[0]?.clientY || 0
           touchActiveRef.current = true
+          touchMovedRef.current = false
         }}
         onTouchMove={(event) => {
+          if (!touchActiveRef.current) return
+          const nextY = event.changedTouches[0]?.clientY || 0
+          const deltaY = touchStartYRef.current - nextY
+          touchMovedRef.current = Math.abs(deltaY) >= 6
+          if (!touchMovedRef.current) return
           event.preventDefault()
           event.stopPropagation()
         }}
         onTouchEnd={(event) => {
-          event.preventDefault()
           event.stopPropagation()
           if (!touchActiveRef.current) return
           touchActiveRef.current = false
           const endY = event.changedTouches[0]?.clientY || 0
           const deltaY = touchStartYRef.current - endY
-          if (Math.abs(deltaY) < STORY_PLAYER_TOUCH_THRESHOLD) return
+          if (Math.abs(deltaY) < STORY_PLAYER_TOUCH_THRESHOLD) {
+            touchMovedRef.current = false
+            return
+          }
+          event.preventDefault()
+          touchMovedRef.current = false
           if (deltaY > 0) {
             goToNext()
             return

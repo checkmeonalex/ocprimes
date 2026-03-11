@@ -2,7 +2,8 @@ import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { userProfileSchema } from '@/lib/user/profile-schema'
-import { createHash, randomUUID } from 'crypto'
+import { getEffectiveTwoStepMethod } from '@/lib/auth/account-security'
+import { createSecurityAnswerHash } from '@/lib/auth/security-answer'
 
 export async function GET(request: NextRequest) {
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
@@ -93,10 +94,7 @@ export async function PATCH(request: NextRequest) {
         parsed.data.security?.phoneNumber ??
         existingProfile.security?.phoneNumber ??
         '',
-      twoStepMethod:
-        parsed.data.security?.twoStepMethod ||
-        existingProfile.security?.twoStepMethod ||
-        'none',
+      twoStepMethod: getEffectiveTwoStepMethod(),
       recoveryCodesGeneratedAt:
         parsed.data.security?.recoveryCodesGeneratedAt ??
         existingProfile.security?.recoveryCodesGeneratedAt ??
@@ -116,10 +114,7 @@ export async function PATCH(request: NextRequest) {
     return jsonError('Use reset to change your security question.', 409)
   }
   if (question && answer) {
-    const salt = randomUUID()
-    const hash = createHash('sha256')
-      .update(`${answer}:${salt}`)
-      .digest('hex')
+    const { hash, salt } = createSecurityAnswerHash(answer)
     updates.security_answer_hash = hash
     updates.security_answer_salt = salt
   }

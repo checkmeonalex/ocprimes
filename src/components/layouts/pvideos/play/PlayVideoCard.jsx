@@ -650,25 +650,25 @@ export default function PlayVideoCard({
         </div>
 
         <div className='pointer-events-none absolute z-20 lg:hidden' style={mediaBoundsStyle}>
-          <div className='absolute right-2.5 top-1/2 -translate-y-1/2'>
-            <div className='pointer-events-auto flex flex-col items-center gap-2'>
+          <div className='absolute right-2 top-1/2 -translate-y-1/2'>
+            <div className='pointer-events-auto flex flex-col items-center gap-2.5'>
               {actionItems.map((action) => {
               const content = (
                 <>
                   <span
-                      className={`inline-flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-sm transition ${
+                      className={`inline-flex h-[52px] w-[52px] items-center justify-center rounded-full border backdrop-blur-sm transition ${
                         action.active
                           ? 'border-white/30 bg-white text-slate-950 shadow-[0_10px_24px_rgba(0,0,0,0.18)]'
                           : 'border-white/18 bg-black/38 text-white hover:bg-black/48'
                       }`}
                     >
                       {action.key === 'cart' ? (
-                        <StoreCartIcon className='h-4 w-4' />
+                        <StoreCartIcon className='h-[22px] w-[22px]' />
                       ) : (
-                        <action.icon size={16} strokeWidth={2.1} />
+                        <action.icon size={22} strokeWidth={2.1} />
                       )}
                     </span>
-                    <span className='text-[9px] font-medium text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.38)]'>
+                    <span className='text-[10px] font-medium text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.38)]'>
                       {action.label}
                     </span>
                   </>
@@ -683,7 +683,7 @@ export default function PlayVideoCard({
                       event.stopPropagation()
                       action.onClick?.()
                     }}
-                    className='flex flex-col items-center gap-1'
+                    className='flex flex-col items-center gap-1.5'
                   >
                     {content}
                   </button>

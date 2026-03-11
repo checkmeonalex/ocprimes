@@ -315,12 +315,20 @@ const StoryVideoFeedSlide = ({
         <div
           className='relative h-full w-full overflow-hidden bg-black md:w-auto md:max-w-full md:overflow-visible'
           style={mediaFrameStyle}
+          onMouseMove={() => {
+            if (!isVideoPlaying) return
+            revealPlaybackButton(900)
+          }}
+          onTouchStart={() => {
+            if (!isVideoPlaying) return
+            revealPlaybackButton(900)
+          }}
         >
           {shouldAttachVideo ? (
             <video
               ref={videoRef}
               src={story.media_url}
-              className='h-full w-full cursor-pointer object-cover'
+              className='pointer-events-none h-full w-full object-cover'
               playsInline
               loop
               controls={false}
@@ -340,7 +348,6 @@ const StoryVideoFeedSlide = ({
               onSeeking={() => setIsVideoBuffering(true)}
               onCanPlay={() => setIsVideoBuffering(false)}
               onCanPlayThrough={() => setIsVideoBuffering(false)}
-              onClick={toggleVideoPlayback}
               onPlay={() => {
                 setIsVideoPlaying(true)
                 setIsVideoBuffering(false)
@@ -368,18 +375,17 @@ const StoryVideoFeedSlide = ({
             <div className='h-full w-full bg-black' />
           )}
 
-          <div className='absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/25' />
+          <div className='pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/25' />
 
-          <div
-            className='absolute inset-0'
-            onMouseMove={() => {
-              if (!isVideoPlaying) return
-              revealPlaybackButton(900)
+          <button
+            type='button'
+            onClick={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              toggleVideoPlayback()
             }}
-            onTouchStart={() => {
-              if (!isVideoPlaying) return
-              revealPlaybackButton(900)
-            }}
+            className='absolute inset-0 z-0 block'
+            aria-label={isVideoPlaying ? 'Pause story video' : 'Play story video'}
           />
 
           <button
@@ -389,7 +395,7 @@ const StoryVideoFeedSlide = ({
               event.stopPropagation()
               toggleVideoPlayback()
             }}
-            className={`absolute left-1/2 top-1/2 z-20 inline-flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center transition duration-300 ${
+            className={`absolute left-1/2 top-1/2 z-30 inline-flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center transition duration-300 ${
               (showPlaybackButton || !isVideoPlaying) && !isVideoBuffering
                 ? 'opacity-100'
                 : 'pointer-events-none opacity-0'
@@ -434,7 +440,7 @@ const StoryVideoFeedSlide = ({
           </button>
 
           {isVideoBuffering ? (
-            <div className='pointer-events-none absolute left-1/2 top-1/2 z-20 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur-sm'>
+            <div className='pointer-events-none absolute left-1/2 top-1/2 z-30 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur-sm'>
               <span
                 className='h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-white'
                 aria-hidden='true'
@@ -448,7 +454,7 @@ const StoryVideoFeedSlide = ({
             </div>
           ) : null}
 
-          <div className='absolute left-4 top-5 max-w-[65%]'>
+          <div className='absolute left-4 top-5 z-20 max-w-[65%]'>
             <p
               className='truncate text-sm font-semibold uppercase tracking-[0.18em] text-white/90'
               title={storeName || 'Store'}
@@ -461,14 +467,14 @@ const StoryVideoFeedSlide = ({
             type='button'
             onClick={handlePrimaryAddAction}
             disabled={!story?.product_id || !productSlug || isProductLoading}
-            className='absolute right-4 top-16 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-lg transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50'
+            className='absolute right-4 top-16 z-30 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-lg transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50'
             aria-label={story?.has_variants ? 'Open product options' : 'Add product to cart'}
             title={story?.has_variants ? 'Choose options' : 'Add to cart'}
           >
             <StoreCartIcon className='h-6 w-6' />
           </button>
 
-          <div className='absolute right-4 top-1/2 flex -translate-y-1/2 flex-col items-center gap-4'>
+          <div className='absolute right-4 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-4'>
             <button
               type='button'
               onClick={handleWishlist}
@@ -507,7 +513,7 @@ const StoryVideoFeedSlide = ({
             type='button'
             onClick={handleProductClick}
             disabled={!productHref}
-            className='absolute bottom-4 left-4 right-4 rounded-[26px] border border-white/10 bg-black/45 p-3 text-left backdrop-blur-md transition hover:bg-black/55 disabled:cursor-not-allowed disabled:opacity-80'
+            className='absolute bottom-4 left-4 right-4 z-30 rounded-[26px] border border-white/10 bg-black/45 p-3 text-left backdrop-blur-md transition hover:bg-black/55 disabled:cursor-not-allowed disabled:opacity-80'
           >
             <div className='flex items-center gap-3'>
               <div className='relative h-14 w-14 flex-none overflow-hidden rounded-full border border-white/20 bg-white/10'>

@@ -3,6 +3,7 @@ import Navbar from './Navbar'
 import MobileNavbar from './mobile/Navbar'
 import ScrollHistoryRestoration from './ScrollHistoryRestoration'
 import Sidebar from './Sidebar'
+import Footer from './Footer'
 import AdminMobileHeader from './admin/AdminMobileHeader'
 import AddToCartSuccessPopup from './cart/AddToCartSuccessPopup'
 import UserPresenceHeartbeat from './presence/UserPresenceHeartbeat'
@@ -42,6 +43,14 @@ export default function ClientLayout({
   const isCheckoutRoute = pathname?.startsWith('/checkout')
   const isPlayRoute = pathname?.startsWith('/play')
   const isCheckoutFlowRoute = isCartRoute || isCheckoutRoute
+  const showStorefrontFooter =
+    !isUserBackendRoute &&
+    !isCartRoute &&
+    !isCheckoutRoute &&
+    !isPlayRoute &&
+    !isAuthRoute &&
+    !isBackendAdmin &&
+    !isEmbedPreview
 
   useEffect(() => {
     const handleDocumentClickCapture = (event) => {
@@ -155,6 +164,7 @@ export default function ClientLayout({
           {children}
         </main>
       </div>
+      {showStorefrontFooter ? <Footer /> : null}
       <AddToCartSuccessPopup />
     </>
   )

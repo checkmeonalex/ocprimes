@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { buildVendorHref } from '@/lib/catalog/vendor'
 import { useScreenSize } from '@/hooks/useScreenSize'
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
 
 type CompactProductCardProps = {
   product: {
@@ -24,17 +25,13 @@ type CompactProductCardProps = {
   variant?: 'fixed' | 'fluid'
 }
 
-const formatPrice = (value: number) => {
-  if (!Number.isFinite(value)) return '--'
-  return value.toFixed(2)
-}
-
 export const CompactProductCard = ({
   product,
   variant = 'fixed',
 }: CompactProductCardProps) => {
   const router = useRouter()
   const { isMobile } = useScreenSize()
+  const { formatMoney } = useUserI18n()
   const openInNewTab = !isMobile
   const stock = Number(product.stock || 0)
   const lowStockLabel = stock > 0 && stock < 10 ? `Only ${stock} left in stock` : ''
@@ -100,11 +97,11 @@ export const CompactProductCard = ({
             </div>
             <div className='mt-1 flex items-baseline gap-2'>
               <span className='text-sm font-semibold text-gray-900'>
-                ${formatPrice(product.price)}
+                {formatMoney(product.price)}
               </span>
               {product.originalPrice ? (
                 <span className='text-xs text-gray-400 line-through'>
-                  ${formatPrice(product.originalPrice)}
+                  {formatMoney(product.originalPrice)}
                 </span>
               ) : null}
             </div>

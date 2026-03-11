@@ -70,7 +70,7 @@ function PasswordVisibilityIcon({ visible }) {
 
 const getRoleMessage = (role) => {
   if (role === 'admin') {
-    return 'This email is linked to an admin account. You will be redirected after sign in.'
+    return 'You’re signing in with a store account. You’ll be taken to your dashboard.'
   }
   if (role === 'vendor') {
     return 'This email is linked to a vendor account. You will be redirected after sign in.'
@@ -155,7 +155,7 @@ export default function CustomerAuthFlow() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, next: safeNextPath || '' }),
       })
       const payload = await response.json().catch(() => null)
 
@@ -328,7 +328,10 @@ export default function CustomerAuthFlow() {
             {error ? <p className='text-sm text-rose-600'>{error}</p> : null}
 
             <div className='grid gap-3'>
-              <Link href='/forgot-password' className='text-sm font-medium text-slate-600 transition hover:text-slate-900'>
+              <Link
+                href='/forgot-password'
+                className='inline-flex w-fit text-sm font-medium text-slate-600 transition hover:text-slate-900'
+              >
                 Forgot password?
               </Link>
               <button

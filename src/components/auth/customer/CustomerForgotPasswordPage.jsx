@@ -22,7 +22,11 @@ function LoadingDot() {
 }
 
 export default function CustomerForgotPasswordPage() {
+  const [mode, setMode] = useState('email')
   const [email, setEmail] = useState('')
+  const [recoveryEmail, setRecoveryEmail] = useState('')
+  const [question, setQuestion] = useState('')
+  const [answer, setAnswer] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -65,38 +69,210 @@ export default function CustomerForgotPasswordPage() {
     }
   }
 
+  const handleRecoveryStart = async () => {
+    setIsSubmitting(true)
+    setError('')
+    setNotice('')
+
+    try {
+      const response = await fetch('/api/auth/recovery-access/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountEmail: email,
+          recoveryEmail,
+        }),
+      })
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        setError(payload?.error || 'Unable to verify recovery details.')
+        return
+      }
+
+      setQuestion(payload?.question || '')
+      setNotice('Answer your security question to continue to password reset.')
+    } catch {
+      setError('Unable to verify recovery details.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleRecoveryComplete = async (event) => {
+    event.preventDefault()
+    if (isSubmitting) return
+
+    setIsSubmitting(true)
+    setError('')
+    setNotice('')
+
+    try {
+      const response = await fetch('/api/auth/recovery-access/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountEmail: email,
+          recoveryEmail,
+          question,
+          answer,
+        }),
+      })
+      const payload = await response.json().catch(() => null)
+
+      if (!response.ok || !payload?.recoveryUrl) {
+        setError(payload?.error || 'Unable to start recovery.')
+        return
+      }
+
+      window.location.assign(payload.recoveryUrl)
+    } catch {
+      setError('Unable to start recovery.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <div className='mx-auto w-full max-w-md'>
       <CustomerAuthHeader
         title='Forgot password'
-        subtitle='Enter your email address and we will send you a reset link.'
+        subtitle='Use your account email or recovery email to regain access.'
       />
 
-      <form className='mt-8 grid gap-4' onSubmit={handleSubmit}>
-        <label className='space-y-2 text-sm font-medium text-slate-700'>
-          Email address
-          <input
-            type='email'
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder='Enter your email'
-            autoComplete='email'
-            className={inputClassName}
-            required
-          />
-        </label>
+      <div className='mt-8 grid gap-3'>
+        <div className='grid grid-cols-2 gap-2 rounded-sm border border-slate-200 bg-slate-50 p-1'>
+          <button
+            type='button'
+            onClick={() => {
+              setMode('email')
+              setError('')
+              setNotice('')
+              setQuestion('')
+              setAnswer('')
+            }}
+            className={`rounded-sm px-3 py-2 text-sm font-medium transition ${
+              mode === 'email' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+            }`}
+          >
+            Account email
+          </button>
+          <button
+            type='button'
+            onClick={() => {
+              setMode('recovery')
+              setError('')
+              setNotice('')
+              setQuestion('')
+              setAnswer('')
+            }}
+            className={`rounded-sm px-3 py-2 text-sm font-medium transition ${
+              mode === 'recovery' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+            }`}
+          >
+            Recovery email
+          </button>
+        </div>
 
-        {error ? <p className='text-sm text-rose-600'>{error}</p> : null}
-        {notice ? <p className='text-sm text-emerald-700'>{notice}</p> : null}
+        {mode === 'email' ? (
+          <form className='grid gap-4' onSubmit={handleSubmit}>
+            <label className='space-y-2 text-sm font-medium text-slate-700'>
+              Email address
+              <input
+                type='email'
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                  setQuestion('')
+                  setAnswer('')
+                }}
+                placeholder='Enter your email'
+                autoComplete='email'
+                className={inputClassName}
+                required
+              />
+            </label>
 
-        <button
-          type='submit'
-          disabled={isSubmitting}
-          className={primaryButtonClassName}
-          aria-label={isSubmitting ? 'Sending reset link' : 'Send reset link'}
-        >
-          {isSubmitting ? <LoadingDot /> : 'Send reset link'}
-        </button>
+            {error ? <p className='text-sm text-rose-600'>{error}</p> : null}
+            {notice ? <p className='text-sm text-emerald-700'>{notice}</p> : null}
+
+            <button
+              type='submit'
+              disabled={isSubmitting}
+              className={primaryButtonClassName}
+              aria-label={isSubmitting ? 'Sending reset link' : 'Send reset link'}
+            >
+              {isSubmitting ? <LoadingDot /> : 'Send reset link'}
+            </button>
+          </form>
+        ) : (
+          <form className='grid gap-4' onSubmit={handleRecoveryComplete}>
+            <label className='space-y-2 text-sm font-medium text-slate-700'>
+              Account email
+              <input
+                type='email'
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder='Enter your account email'
+                autoComplete='email'
+                className={inputClassName}
+                required
+              />
+            </label>
+
+            <label className='space-y-2 text-sm font-medium text-slate-700'>
+              Recovery email
+              <input
+                type='email'
+                value={recoveryEmail}
+                onChange={(event) => {
+                  setRecoveryEmail(event.target.value)
+                  setQuestion('')
+                  setAnswer('')
+                }}
+                placeholder='Enter your recovery email'
+                autoComplete='email'
+                className={inputClassName}
+                required
+              />
+            </label>
+
+            {!question ? (
+              <button
+                type='button'
+                disabled={isSubmitting}
+                className={primaryButtonClassName}
+                onClick={() => void handleRecoveryStart()}
+              >
+                {isSubmitting ? <LoadingDot /> : 'Continue'}
+              </button>
+            ) : (
+              <>
+                <div className='rounded-sm border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700'>
+                  {question}
+                </div>
+                <label className='space-y-2 text-sm font-medium text-slate-700'>
+                  Security answer
+                  <input
+                    type='text'
+                    value={answer}
+                    onChange={(event) => setAnswer(event.target.value)}
+                    placeholder='Enter your answer'
+                    className={inputClassName}
+                    autoComplete='off'
+                    required
+                  />
+                </label>
+                <button type='submit' disabled={isSubmitting} className={primaryButtonClassName}>
+                  {isSubmitting ? <LoadingDot /> : 'Continue to reset'}
+                </button>
+              </>
+            )}
+
+            {error ? <p className='text-sm text-rose-600'>{error}</p> : null}
+            {notice ? <p className='text-sm text-emerald-700'>{notice}</p> : null}
+          </form>
+        )}
 
         <div className='text-center text-sm text-slate-600'>
           <Link
@@ -117,7 +293,7 @@ export default function CustomerForgotPasswordPage() {
             Help Center
           </Link>
         </div>
-      </form>
+      </div>
     </div>
   )
 }

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   const parsed = signupSchema.safeParse(body)
 
   if (!parsed.success) {
-    return jsonError('Invalid signup details.', 400)
+    return jsonError(parsed.error.issues[0]?.message || 'Invalid signup details.', 400)
   }
 
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)

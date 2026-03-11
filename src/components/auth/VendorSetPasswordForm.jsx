@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
+import { PASSWORD_MISMATCH_MESSAGE } from '@/lib/auth/validation'
 
 export default function VendorSetPasswordForm() {
   const router = useRouter()
@@ -51,7 +52,7 @@ export default function VendorSetPasswordForm() {
       return
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match.')
+      setError(PASSWORD_MISMATCH_MESSAGE)
       return
     }
 
@@ -123,4 +124,3 @@ export default function VendorSetPasswordForm() {
     </form>
   )
 }
-

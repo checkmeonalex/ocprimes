@@ -1352,7 +1352,7 @@ export default function Navbar({
           </div>
 
           <Link
-            href='/products'
+            href='/play'
             className='inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-gray-900 hover:text-gray-600'
           >
             <svg

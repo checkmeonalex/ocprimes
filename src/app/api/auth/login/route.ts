@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { loginSchema } from '@/lib/auth/validation'
-import { jsonError, jsonOk } from '@/lib/http/response'
+import { jsonError } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 

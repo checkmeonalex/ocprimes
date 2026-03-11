@@ -1,8 +1,13 @@
 'use client'
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import useWindowWidth from '../../hooks/useWindowWidth'
 import StoryVideoPlayerModal from './StoryVideoPlayerModal'
+
+const STORY_PREVIEW_LOOP_SECONDS = 10
+const STORY_PREVIEW_LOOP_RESET_OFFSET = 0.2
+const STORY_URL_PARAM_KEY = 'play'
+const STORY_HISTORY_FLAG = '__ocpHomeStoryModal'
 
 const StoriesCarousel = ({ stories = [] }) => {
   const windowWidth = useWindowWidth()
@@ -15,6 +20,8 @@ const StoriesCarousel = ({ stories = [] }) => {
   const [mounted, setMounted] = useState(false)
   const scrollRef = useRef(null)
   const videoRefs = useRef({})
+  const autoPlayedStoryIdRef = useRef('')
+  const storyHistoryModeRef = useRef('none')
   const [scrollWidth, setScrollWidth] = useState(0)
   const [containerWidth, setContainerWidth] = useState(0)
 
@@ -168,6 +175,9 @@ useEffect(() => {
   }
 
   const storiesList = Array.isArray(stories) ? stories : []
+  const firstVideoStoryId = String(
+    storiesList.find((story) => story?.media_type === 'video' && story?.media_url)?.id || '',
+  ).trim()
 
   if (!storiesList.length) return null
 
@@ -186,6 +196,138 @@ useEffect(() => {
     delete videoRefs.current[key]
   }
 
+  const pauseOtherVideos = (activeStoryId = '') => {
+    Object.entries(videoRefs.current).forEach(([entryId, videoEl]) => {
+      if (entryId !== activeStoryId && videoEl && typeof videoEl.pause === 'function') {
+        videoEl.pause()
+      }
+    })
+  }
+
+  const loopStoryPreviewWithinWindow = (storyId) => {
+    const key = String(storyId || '').trim()
+    const activeVideo = videoRefs.current[key]
+    if (!activeVideo) return
+
+    const duration = Number(activeVideo.duration) || 0
+    if (duration <= 0 || duration <= STORY_PREVIEW_LOOP_SECONDS) return
+    if (activeVideo.currentTime < STORY_PREVIEW_LOOP_SECONDS - STORY_PREVIEW_LOOP_RESET_OFFSET) return
+
+    activeVideo.currentTime = 0
+    if (playingStoryId === key) {
+      void activeVideo.play().catch(() => {})
+    }
+  }
+
+  const findVideoStoryById = useCallback(
+    (storyId) => {
+      const targetId = String(storyId || '').trim()
+      if (!targetId) return null
+      return (
+        storiesList.find(
+          (entry) =>
+            String(entry?.id || '').trim() === targetId &&
+            entry?.media_type === 'video' &&
+            entry?.media_url,
+        ) || null
+      )
+    },
+    [storiesList],
+  )
+
+  const buildStoryUrl = useCallback((storyId = '') => {
+    const url = new URL(window.location.href)
+    const nextId = String(storyId || '').trim()
+    if (nextId) {
+      url.searchParams.set(STORY_URL_PARAM_KEY, nextId)
+    } else {
+      url.searchParams.delete(STORY_URL_PARAM_KEY)
+    }
+    return `${url.pathname}${url.search}${url.hash}`
+  }, [])
+
+  const writeStoryHistory = useCallback((method, storyId = '') => {
+    if (typeof window === 'undefined') return
+    const currentState =
+      window.history.state && typeof window.history.state === 'object'
+        ? window.history.state
+        : {}
+    const nextId = String(storyId || '').trim()
+    const nextState = nextId
+      ? {
+          ...currentState,
+          [STORY_HISTORY_FLAG]: true,
+          [STORY_URL_PARAM_KEY]: nextId,
+        }
+      : (() => {
+          const { [STORY_HISTORY_FLAG]: _modalFlag, [STORY_URL_PARAM_KEY]: _storyId, ...rest } = currentState
+          return rest
+        })()
+
+    const nextUrl = buildStoryUrl(nextId)
+    if (method === 'push') {
+      window.history.pushState(nextState, '', nextUrl)
+      return
+    }
+    window.history.replaceState(nextState, '', nextUrl)
+  }, [buildStoryUrl])
+
+  const syncModalWithLocation = useCallback(() => {
+    if (typeof window === 'undefined') return
+    const storyId = new URL(window.location.href).searchParams.get(STORY_URL_PARAM_KEY)
+    const matchingStory = findVideoStoryById(storyId)
+
+    if (matchingStory) {
+      storyHistoryModeRef.current = 'url'
+      setSelectedStory((current) => {
+        const currentId = String(current?.id || '').trim()
+        return currentId === String(matchingStory.id || '').trim() ? current : matchingStory
+      })
+      return
+    }
+
+    if (storyId) {
+      writeStoryHistory('replace', '')
+    }
+    storyHistoryModeRef.current = 'none'
+    setSelectedStory(null)
+  }, [findVideoStoryById, writeStoryHistory])
+
+  useEffect(() => {
+    if (!mounted || !firstVideoStoryId || selectedStory) return
+    if (autoPlayedStoryIdRef.current === firstVideoStoryId) return
+
+    const firstVideo = videoRefs.current[firstVideoStoryId]
+    if (!firstVideo) return
+
+    autoPlayedStoryIdRef.current = firstVideoStoryId
+    pauseOtherVideos(firstVideoStoryId)
+    firstVideo.currentTime = 0
+    firstVideo.muted = true
+
+    void firstVideo.play()
+      .then(() => {
+        setPlayingStoryId(firstVideoStoryId)
+      })
+      .catch(() => {
+        setPlayingStoryId((current) => (current === firstVideoStoryId ? '' : current))
+      })
+  }, [firstVideoStoryId, mounted, selectedStory])
+
+  useEffect(() => {
+    if (!mounted) return
+    syncModalWithLocation()
+
+    const handlePopState = () => {
+      syncModalWithLocation()
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [mounted, syncModalWithLocation])
+
   const handleToggleStoryPlayback = async (storyId) => {
     const key = String(storyId || '').trim()
     if (!key) return
@@ -199,13 +341,13 @@ useEffect(() => {
       return
     }
 
-    Object.entries(videoRefs.current).forEach(([entryId, videoEl]) => {
-      if (entryId !== key && videoEl && typeof videoEl.pause === 'function') {
-        videoEl.pause()
-      }
-    })
+    pauseOtherVideos(key)
 
     try {
+      activeVideo.currentTime =
+        activeVideo.currentTime >= STORY_PREVIEW_LOOP_SECONDS - STORY_PREVIEW_LOOP_RESET_OFFSET
+          ? 0
+          : activeVideo.currentTime
       await activeVideo.play()
       setPlayingStoryId(key)
     } catch {
@@ -230,20 +372,72 @@ useEffect(() => {
     setUnmutedStoryId(shouldUnmute ? key : '')
   }
 
-  const handleOpenStoryPlayer = (story) => {
+  const handleOpenStoryPlayer = (story, options = {}) => {
     if (story?.media_type !== 'video') return
+    const historyMode = options.historyMode || 'push'
 
     Object.values(videoRefs.current).forEach((videoEl) => {
-      if (videoEl && typeof videoEl.pause === 'function') {
-        videoEl.pause()
-        videoEl.muted = true
-      }
+      if (!videoEl || typeof videoEl.pause !== 'function') return
+      videoEl.pause()
+      videoEl.muted = true
+      videoEl.currentTime = 0
     })
 
     setPlayingStoryId('')
     setUnmutedStoryId('')
     setSelectedStory(story)
+
+    if (typeof window === 'undefined') return
+
+    const storyId = String(story?.id || '').trim()
+    const currentStoryId = new URL(window.location.href).searchParams.get(STORY_URL_PARAM_KEY)
+
+    if (historyMode === 'none') {
+      storyHistoryModeRef.current = currentStoryId ? 'url' : 'none'
+      return
+    }
+
+    if (historyMode === 'replace') {
+      storyHistoryModeRef.current = 'url'
+      writeStoryHistory('replace', storyId)
+      return
+    }
+
+    if (currentStoryId === storyId) {
+      storyHistoryModeRef.current = 'url'
+      return
+    }
+
+    storyHistoryModeRef.current = 'push'
+    writeStoryHistory('push', storyId)
   }
+
+  const handleCloseStoryPlayer = useCallback(() => {
+    if (typeof window === 'undefined') {
+      setSelectedStory(null)
+      return
+    }
+
+    if (storyHistoryModeRef.current === 'push' && window.history.length > 1) {
+      window.history.back()
+      return
+    }
+
+    storyHistoryModeRef.current = 'none'
+    writeStoryHistory('replace', '')
+    setSelectedStory(null)
+  }, [writeStoryHistory])
+
+  const handleActiveStoryChange = useCallback((story) => {
+    const storyId = String(story?.id || '').trim()
+    if (!storyId || typeof window === 'undefined') return
+    if (!selectedStory) return
+
+    const currentStoryId = new URL(window.location.href).searchParams.get(STORY_URL_PARAM_KEY)
+    if (currentStoryId === storyId) return
+
+    writeStoryHistory('replace', storyId)
+  }, [selectedStory, writeStoryHistory])
 
   return (
     <>
@@ -344,14 +538,28 @@ useEffect(() => {
                           ref={(node) => setVideoRef(story.id, node)}
                           src={story.media_url}
                           aria-label={story.title}
-                          className='h-full w-full object-cover transition-transform duration-300 group-hover:scale-105'
+                          className='pointer-events-none h-full w-full object-cover transition-transform duration-300 group-hover:scale-105'
                           muted={!isUnmuted}
-                          loop
                           playsInline
-                          preload='none'
+                          preload={storyKey === firstVideoStoryId ? 'metadata' : 'none'}
                           poster={story.product_image_url || undefined}
+                          onLoadedMetadata={(event) => {
+                            const videoEl = event.currentTarget
+                            if (storyKey !== firstVideoStoryId) return
+                            if (videoEl.currentTime > 0) {
+                              videoEl.currentTime = 0
+                            }
+                          }}
                           onPause={() => setPlayingStoryId((prev) => (prev === storyKey ? '' : prev))}
                           onPlay={() => setPlayingStoryId(storyKey)}
+                          onTimeUpdate={() => loopStoryPreviewWithinWindow(story.id)}
+                          onEnded={(event) => {
+                            const videoEl = event.currentTarget
+                            if ((Number(videoEl.duration) || 0) > STORY_PREVIEW_LOOP_SECONDS) return
+                            videoEl.currentTime = 0
+                            if (playingStoryId !== storyKey) return
+                            void videoEl.play().catch(() => {})
+                          }}
                         />
                       ) : (
                         <img
@@ -362,7 +570,7 @@ useEffect(() => {
                           draggable={false}
                         />
                       )}
-                      <div className='absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20' />
+                      <div className='pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20' />
                       {story.media_type === 'video' ? (
                         <button
                           type='button'
@@ -371,7 +579,7 @@ useEffect(() => {
                             event.stopPropagation()
                             handleToggleStoryPlayback(story.id)
                           }}
-                          className='absolute right-2 top-2 inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-900'
+                          className='absolute right-2 top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-900'
                           aria-label={isPlaying ? 'Pause story video' : 'Play story video'}
                           title={isPlaying ? 'Pause' : 'Play'}
                         >
@@ -419,7 +627,7 @@ useEffect(() => {
                             event.stopPropagation()
                             handleToggleStoryMute(story.id)
                           }}
-                          className='absolute bottom-2 right-2 inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-900'
+                          className='absolute bottom-2 right-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-900'
                           aria-label={isUnmuted ? 'Mute story video' : 'Unmute story video'}
                           title={isUnmuted ? 'Mute' : 'Unmute'}
                         >
@@ -447,7 +655,7 @@ useEffect(() => {
                         </button>
                       ) : null}
                       <div
-                        className={`absolute bottom-2 left-2 ${
+                        className={`absolute bottom-2 left-2 z-10 ${
                           story.media_type === 'video' ? 'right-12' : 'right-2'
                         }`}
                       >
@@ -515,7 +723,8 @@ useEffect(() => {
         open={Boolean(selectedStory)}
         story={selectedStory}
         stories={storiesList}
-        onClose={() => setSelectedStory(null)}
+        onClose={handleCloseStoryPlayer}
+        onActiveStoryChange={handleActiveStoryChange}
       />
     </>
   )

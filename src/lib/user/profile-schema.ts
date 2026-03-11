@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import {
+  EMAIL_TWO_STEP_METHOD,
+  SMS_TWO_STEP_METHOD,
+} from '@/lib/auth/account-security'
 
 const trimmed = (value: unknown) =>
   typeof value === 'string' ? value.trim() : value
@@ -157,9 +161,14 @@ export const userProfileSchema = z.object({
       answer: z.preprocess(trimmed, z.string().max(200).optional().or(z.literal(''))),
       phoneNumber: z.preprocess(trimmed, z.string().max(30).optional().or(z.literal(''))),
       twoStepMethod: z
-        .preprocess(trimmed, z.enum(['none', 'sms', 'auth_app']).optional().or(z.literal(''))),
-      recoveryCodesGeneratedAt: z
-        .preprocess(trimmed, z.string().max(60).optional().or(z.literal(''))),
+        .preprocess(
+          trimmed,
+          z
+            .enum([EMAIL_TWO_STEP_METHOD, SMS_TWO_STEP_METHOD, 'none', 'auth_app'])
+            .optional()
+            .or(z.literal('')),
+        ),
+      recoveryCodesGeneratedAt: z.preprocess(trimmed, z.string().max(60).optional().or(z.literal(''))),
     })
     .optional(),
 })

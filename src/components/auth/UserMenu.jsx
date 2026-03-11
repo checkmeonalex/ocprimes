@@ -11,7 +11,6 @@ import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import {
   DEFAULT_COUNTRY,
   INTERNATIONAL_COUNTRY,
-  getCountryLocaleDefaults,
   normalizeCountry,
 } from '@/lib/i18n/locale-config'
 import { translateMenuLabel } from '@/lib/i18n/messages'
@@ -216,9 +215,8 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
   const avatarUrl = typeof user?.user_metadata?.avatar_url === 'string'
     ? user.user_metadata.avatar_url.trim()
     : ''
-  const defaultCountryPrefs = useMemo(() => getCountryLocaleDefaults(localeCountry), [localeCountry])
   const isInternational = localeCountry === INTERNATIONAL_COUNTRY
-  const accountLocale = isInternational ? 'International ($)' : 'Nigeria (₦)'
+  const accountLocale = isInternational ? 'International' : 'Nigeria'
 
   useEffect(() => {
     setLocaleCountry(locale.country || DEFAULT_COUNTRY)
@@ -271,12 +269,11 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
         ...(profileDraft?.deliveryAddress || {}),
         country: localeCountry,
       }
-      const localeDefaults = getCountryLocaleDefaults(localeCountry)
       const nextProfile = {
         ...profileDraft,
         country: localeCountry,
-        language: localeDefaults.language,
-        currency: localeDefaults.currency,
+        language: locale.language,
+        currency: locale.currency,
         deliveryAddress: updatedDeliveryAddress,
         addresses: updatedAddresses,
       }
@@ -294,8 +291,8 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
       setProfileDraft(savedProfile)
       setLocale({
         country: localeCountry,
-        language: localeDefaults.language,
-        currency: localeDefaults.currency,
+        language: locale.language,
+        currency: locale.currency,
       })
       setLocaleSuccess(t('locale.preferencesUpdated', 'Preferences updated.'))
       setIsLocaleMenuOpen(false)
@@ -490,7 +487,7 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
                         <span className='inline-flex h-4 w-5 items-center justify-center overflow-hidden rounded-sm border border-gray-200 bg-white'>
                           <CountryFlagIcon country={isInternational ? INTERNATIONAL_COUNTRY : DEFAULT_COUNTRY} className='h-full w-full' />
                         </span>
-                        {isInternational ? 'International (USD)' : 'Nigeria (NGN)'}
+                        {isInternational ? 'International' : 'Nigeria'}
                       </span>
                       <button
                         type='button'

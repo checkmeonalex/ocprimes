@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
-import { NextResponse } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { clearEmailTwoStepVerifiedCookie } from '@/lib/auth/two-step-cookies'
 
 export async function POST(request: NextRequest) {
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
   }
 
   const response = jsonOk({ success: true })
+  clearEmailTwoStepVerifiedCookie(response)
   applyCookies(response)
   return response
 }

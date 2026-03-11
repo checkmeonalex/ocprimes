@@ -6,14 +6,11 @@ import Link from 'next/link'
 import SectionHeading from './SectionHeading'
 import useHorizontalScroll from '@/components/shared/useHorizontalScroll.mjs'
 import { useScreenSize } from '@/hooks/useScreenSize'
-
-const formatPrice = (value) => {
-  if (!Number.isFinite(value)) return '--'
-  return value.toFixed(2)
-}
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
 
 const HotspotCard = ({ product }) => {
   const { isMobile } = useScreenSize()
+  const { formatMoney } = useUserI18n()
   const openInNewTab = !isMobile
   if (!product) return null
   const basePrice = Number(product.price) || 0
@@ -44,11 +41,11 @@ const HotspotCard = ({ product }) => {
           <div className="text-xs font-semibold text-gray-900 line-clamp-2">{product.name}</div>
           <div className="mt-1 flex items-baseline gap-2">
             <span className="text-sm font-semibold text-gray-900">
-              ${formatPrice(displayPrice)}
+              {formatMoney(displayPrice)}
             </span>
             {originalPrice ? (
               <span className="text-[11px] text-gray-400 line-through">
-                ${formatPrice(originalPrice)}
+                {formatMoney(originalPrice)}
               </span>
             ) : null}
           </div>
@@ -74,6 +71,7 @@ const HotspotSlide = ({
   onPreviewToggle,
   activeHotspotId,
 }) => {
+  const { formatMoney } = useUserI18n()
   const hotspots = Array.isArray(layout?.hotspots) ? layout.hotspots : []
 
   if (!layout?.image_url || !hotspots.length) return null
@@ -116,9 +114,9 @@ const HotspotSlide = ({
             >
               {hotspot.product ? (
                 <div
-                  className={`absolute ${verticalClass} ${alignClass} rounded-full border border-white/70 bg-white/65 px-2 py-0.5 text-[10px] font-semibold text-gray-800 shadow-sm backdrop-blur-md pointer-events-none`}
+                  className={`pointer-events-none absolute ${verticalClass} ${alignClass} inline-flex min-w-max items-center justify-center whitespace-nowrap rounded-full border border-white/70 bg-white/65 px-2.5 py-1 text-[10px] font-semibold leading-none text-gray-800 shadow-sm backdrop-blur-md`}
                 >
-                  ${formatPrice(priceValue)}
+                  {formatMoney(priceValue)}
                 </div>
               ) : null}
             <button

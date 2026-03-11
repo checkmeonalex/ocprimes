@@ -30,6 +30,7 @@ export const COUNTRY_DEFAULT_PREFS: Record<LocaleCountry, { language: LanguageCo
   International: { language: 'EN', currency: 'USD' },
 }
 
+export const STOREFRONT_CURRENCY_OPTIONS = ['NGN', 'USD'] as const satisfies readonly CurrencyCode[]
 export const USD_CURRENCY_CODE: CurrencyCode = 'USD'
 
 const SUPPORTED_LANGUAGE_SET = new Set<string>(LANGUAGE_OPTIONS.map((item) => item.code))
@@ -53,10 +54,9 @@ export const getCountryLocaleDefaults = (country?: string | null) => {
   return COUNTRY_DEFAULT_PREFS[normalizedCountry]
 }
 
-export const getAllowedCurrencyCodes = (country?: string | null) => {
-  const normalizedCountry = normalizeCountry(country)
-  if (normalizedCountry === INTERNATIONAL_COUNTRY) return [USD_CURRENCY_CODE] as CurrencyCode[]
-  return [COUNTRY_DEFAULT_PREFS[DEFAULT_COUNTRY].currency] as CurrencyCode[]
+export const getAllowedCurrencyCodes = (country?: string | null): CurrencyCode[] => {
+  normalizeCountry(country)
+  return [...STOREFRONT_CURRENCY_OPTIONS]
 }
 
 export const normalizeCurrency = (currency?: string | null, country?: string | null) => {
@@ -65,7 +65,7 @@ export const normalizeCurrency = (currency?: string | null, country?: string | n
   if (SUPPORTED_CURRENCY_SET.has(next) && allowed.includes(next as CurrencyCode)) {
     return next as CurrencyCode
   }
-  return getCountryLocaleDefaults(country).currency
+  return COUNTRY_DEFAULT_PREFS[DEFAULT_COUNTRY].currency
 }
 
 export const getCurrencyMeta = (currency: CurrencyCode) => {

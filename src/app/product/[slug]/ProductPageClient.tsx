@@ -20,6 +20,8 @@ import CartQuantitySelect from '../../../components/cart/CartQuantitySelect'
 import ProductFloatingDock from '../../../components/product/ProductFloatingDock'
 import SellerChatPopup from '../../../components/product/SellerChatPopup'
 import ShippingTabDetails from '../../../components/product/ShippingTabDetails'
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
+import { getCurrencyMeta } from '@/lib/i18n/locale-config'
 import {
   DeferredSectionLoader,
   RelatedProductsSkeleton,
@@ -420,6 +422,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   const [isDesktopHeaderVisible, setIsDesktopHeaderVisible] = useState(true)
   const { addItem, items, updateQuantity } = useCart()
   const { openSaveModal, isRecentlySaved } = useWishlist()
+  const { locale, formatMoney } = useUserI18n()
   const searchParams = useSearchParams()
   const addToCartRef = useRef<HTMLDivElement | null>(null)
   const galleryMainRef = useRef<HTMLDivElement | null>(null)
@@ -439,6 +442,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   const galleryStickyModeRef = useRef('static')
   const galleryStickyKeyRef = useRef('')
   const [galleryStickyStyle, setGalleryStickyStyle] = useState<Record<string, string>>({})
+  const chatCurrencySymbol = getCurrencyMeta(locale.currency).symbol || locale.currency
   const handleReviewSubmitted = useCallback(() => {
     setShouldLoadReviews(true)
     setReviewReloadKey((prev) => prev + 1)
@@ -1331,9 +1335,6 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
     activeOriginalPrice && activeOriginalPrice > activePrice
       ? activeOriginalPrice - activePrice
       : 0
-  const savingsAmountLabel = Number.isInteger(savingsAmount)
-    ? String(savingsAmount)
-    : savingsAmount.toFixed(2)
   const activeImage = currentImage || selectedVariation?.image || product.video || product.image
   const conditionKey = String(product.conditionCheck || '').trim().toLowerCase()
   const conditionMeta =
@@ -1655,17 +1656,17 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                   <div>
                     <div className='flex items-center gap-4'>
                       <span className='text-3xl font-semibold text-gray-900'>
-                        ${activePrice}
+                        {formatMoney(activePrice)}
                       </span>
                       {activeOriginalPrice && (
                         <span className='text-base text-gray-400 line-through'>
-                          ${activeOriginalPrice}
+                          {formatMoney(activeOriginalPrice)}
                         </span>
                       )}
                     </div>
                     {savingsAmount > 0 && (
                       <div className='mt-0.5 text-xs font-semibold text-green-600'>
-                        Save ${savingsAmountLabel} if you buy now
+                        Save {formatMoney(savingsAmount)} if you buy now
                       </div>
                     )}
                   </div>
@@ -1781,7 +1782,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                                   {variation.color || variation.label}
                                 </div>
                                 <div className='text-[9px] font-semibold text-gray-900'>
-                                  ${variation.price}
+                                  {formatMoney(variation.price)}
                                 </div>
                               </button>
                             )
@@ -2210,7 +2211,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
         vendorAvatarUrl={String(product?.vendorLogoUrl || '')}
         hasBottomOffset={shouldShowMobileFloatingCart}
         productPrice={Number(activePrice) || 0}
-        currencySymbol='$'
+        currencySymbol={chatCurrencySymbol}
       />
 
       {shouldRenderFloatingDock && (

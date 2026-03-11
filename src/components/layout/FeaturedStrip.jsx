@@ -4,12 +4,8 @@ import { useMemo } from 'react'
 import Link from 'next/link'
 import useHorizontalScroll from '@/components/shared/useHorizontalScroll.mjs'
 import { useWishlist } from '@/context/WishlistContext'
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import SectionHeading from './SectionHeading'
-
-const formatPrice = (value) => {
-  if (!Number.isFinite(value)) return '--'
-  return value.toFixed(2)
-}
 
 const resolveProductImage = (product) => {
   if (!product || typeof product !== 'object') return ''
@@ -44,6 +40,7 @@ const matchesByIdOrSlug = (items, target) => {
 
 const DesktopProductCard = ({ product }) => {
   const { openSaveModal, isRecentlySaved } = useWishlist()
+  const { formatMoney } = useUserI18n()
   const imageSrc = resolveProductImage(product)
   const isSaved = isRecentlySaved(product?.id)
   const handleWishlist = (event) => {
@@ -111,11 +108,11 @@ const DesktopProductCard = ({ product }) => {
           </div>
           <div className='mt-2 flex items-baseline gap-2'>
             <span className='text-sm font-semibold text-gray-900'>
-              ${formatPrice(product.price)}
+              {formatMoney(product.price)}
             </span>
             {product.originalPrice ? (
               <span className='text-xs text-gray-400 line-through'>
-                ${formatPrice(product.originalPrice)}
+                {formatMoney(product.originalPrice)}
               </span>
             ) : null}
           </div>
@@ -127,6 +124,7 @@ const DesktopProductCard = ({ product }) => {
 
 const MobileProductCard = ({ product, onAddToCart }) => {
   const { openSaveModal, isRecentlySaved } = useWishlist()
+  const { formatMoney } = useUserI18n()
   const imageSrc = resolveProductImage(product)
   const isSaved = isRecentlySaved(product?.id)
   const handleAdd = () => {
@@ -197,11 +195,11 @@ const MobileProductCard = ({ product, onAddToCart }) => {
           </Link>
           <div className='mt-1 flex items-baseline gap-2'>
             <span className='text-sm font-semibold text-gray-900'>
-              ${formatPrice(product.price)}
+              {formatMoney(product.price)}
             </span>
             {product.originalPrice ? (
               <span className='text-xs text-gray-400 line-through'>
-                ${formatPrice(product.originalPrice)}
+                {formatMoney(product.originalPrice)}
               </span>
             ) : null}
           </div>

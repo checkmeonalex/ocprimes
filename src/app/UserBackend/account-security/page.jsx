@@ -1,7 +1,8 @@
 'use client'
 
 import CustomSelect from '@/components/common/CustomSelect'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
 import { useAlerts } from '@/context/AlertContext'
 import {
   accountErrorClass,
@@ -12,20 +13,10 @@ import {
   loadUserProfileBootstrap,
   primeUserProfileBootstrap,
 } from '@/lib/user/profile-bootstrap-client'
-
-const SECURITY_QUESTIONS = [
-  'What is your mother’s maiden name?',
-  'What was the name of your first pet?',
-  'What city were you born in?',
-  'What is your favorite book?',
-  'What was your first school?',
-]
-
-const TWO_STEP_OPTIONS = [
-  { value: 'none', label: 'Disabled' },
-  { value: 'sms', label: 'SMS code' },
-  { value: 'auth_app', label: 'Authenticator app' },
-]
+import {
+  EMAIL_TWO_STEP_METHOD,
+  SECURITY_QUESTIONS,
+} from '@/lib/auth/account-security'
 
 const fieldClassName =
   'mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10'
@@ -34,19 +25,8 @@ const primaryButtonClass =
   'rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60'
 const ghostButtonClass =
   'rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-slate-50 disabled:opacity-60'
-const sectionShellClass = 'overflow-hidden rounded-xl border border-slate-100 bg-white shadow-[0_18px_40px_-28px_rgba(15,23,42,0.45)]'
+const sectionShellClass = 'rounded-xl border border-slate-100 bg-white shadow-[0_18px_40px_-28px_rgba(15,23,42,0.45)]'
 const rowMetaClass = 'mt-1 text-sm leading-6 text-slate-500'
-
-const formatDateLabel = (value) => {
-  if (!value) return 'Not generated yet'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Not generated yet'
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
 
 const normalizePhoneValue = (value) => {
   const next = String(value || '')
@@ -61,11 +41,10 @@ export default function AccountSecurityPage() {
   const [profile, setProfile] = useState(null)
   const [authEmail, setAuthEmail] = useState('')
   const [linkedProviders, setLinkedProviders] = useState([])
+  const [pendingEmailChange, setPendingEmailChange] = useState('')
 
   const [recoveryEmail, setRecoveryEmail] = useState('')
   const [phoneNumber, setPhoneNumber] = useState('')
-  const [twoStepMethod, setTwoStepMethod] = useState('none')
-  const [recoveryCodesGeneratedAt, setRecoveryCodesGeneratedAt] = useState('')
 
   const [hasSecurityAnswer, setHasSecurityAnswer] = useState(false)
   const [question, setQuestion] = useState('')
@@ -77,6 +56,10 @@ export default function AccountSecurityPage() {
   const [resetPassword, setResetPassword] = useState('')
   const [resetQuestion, setResetQuestion] = useState('')
   const [resetAnswer, setResetAnswer] = useState('')
+  const [showEmailChangeModal, setShowEmailChangeModal] = useState(false)
+  const [newEmail, setNewEmail] = useState('')
+  const [emailChangeStep, setEmailChangeStep] = useState('request')
+  const emailChangeCompletionStartedRef = useRef(false)
   const { pushAlert } = useAlerts()
 
   const googleConnected = useMemo(
@@ -90,6 +73,11 @@ export default function AccountSecurityPage() {
     }
     return map[profile?.country] || { code: '', max: 15 }
   }, [profile?.country])
+  const phonePrefix = countryRule.code ? `+${countryRule.code}` : '+'
+  const showFloatingSave =
+    !showPasswordModal &&
+    !showEmailChangeModal &&
+    !resetAuthorized
 
   useEffect(() => {
     let isMounted = true
@@ -109,10 +97,9 @@ export default function AccountSecurityPage() {
 
         setRecoveryEmail(security?.recoveryEmail || '')
         setPhoneNumber(
-          normalizePhoneValue(nextProfile?.contactInfo?.phone || security?.phoneNumber || ''),
+          normalizePhoneValue(security?.phoneNumber || nextProfile?.contactInfo?.phone || ''),
         )
-        setTwoStepMethod(security?.twoStepMethod || 'none')
-        setRecoveryCodesGeneratedAt(security?.recoveryCodesGeneratedAt || '')
+        setPendingEmailChange(security?.pendingEmailChange || '')
         setQuestion(security?.question || '')
         setHasSecurityAnswer(Boolean(payload?.hasSecurityAnswer))
       } catch (err) {
@@ -130,15 +117,96 @@ export default function AccountSecurityPage() {
     }
   }, [pushAlert])
 
+  useEffect(() => {
+    let isMounted = true
+
+    const completeEmailChange = async () => {
+      if (typeof window === 'undefined') return
+
+      const supabase = createBrowserSupabaseClient()
+      const url = new URL(window.location.href)
+      const isEmailChangeFlow = url.searchParams.get('email_change') === '1'
+      const code = url.searchParams.get('code')
+      const tokenHash = url.searchParams.get('token_hash')
+      const type = url.searchParams.get('type')
+
+      if (!isEmailChangeFlow || (!code && !tokenHash)) {
+        return
+      }
+
+      if (emailChangeCompletionStartedRef.current) {
+        return
+      }
+      emailChangeCompletionStartedRef.current = true
+
+      const cleanedUrl = new URL(window.location.href)
+      cleanedUrl.searchParams.delete('email_change')
+      cleanedUrl.searchParams.delete('code')
+      cleanedUrl.searchParams.delete('token_hash')
+      cleanedUrl.searchParams.delete('type')
+      cleanedUrl.searchParams.delete('redirect_to')
+      window.history.replaceState({}, '', `${cleanedUrl.pathname}${cleanedUrl.search}${cleanedUrl.hash}`)
+
+      setIsSaving(true)
+      setError('')
+      setSuccess('')
+
+      try {
+        if (code) {
+          await supabase.auth.exchangeCodeForSession(code)
+        } else if (tokenHash) {
+          await supabase.auth.verifyOtp({
+            token_hash: tokenHash,
+            type: type || 'magiclink',
+          })
+        }
+
+        const response = await fetch('/api/user/email-change/complete', {
+          method: 'POST',
+        })
+        const payload = await response.json().catch(() => null)
+        if (!response.ok) {
+          throw new Error(payload?.error || 'Unable to complete email change.')
+        }
+
+        if (!isMounted) return
+
+        setPendingEmailChange('')
+        setShowEmailChangeModal(false)
+        setEmailChangeStep('request')
+        setNewEmail('')
+        setSuccess(
+          payload?.message ||
+            'Email change started. Confirm the new email from your inbox to finish updating it.',
+        )
+        pushAlert({
+          type: 'success',
+          title: 'Account Security',
+          message:
+            payload?.message ||
+            'Email change started. Confirm the new email from your inbox to finish updating it.',
+        })
+      } catch (err) {
+        if (!isMounted) return
+        const message = err?.message || 'Unable to complete email change.'
+        setError(message)
+        pushAlert({ type: 'error', title: 'Account Security', message })
+      } finally {
+        if (isMounted) {
+          setIsSaving(false)
+        }
+      }
+    }
+
+    void completeEmailChange()
+
+    return () => {
+      isMounted = false
+    }
+  }, [pushAlert])
+
   const persistSecurity = async (overrides = {}) => {
     if (!profile) return false
-    if (!profile?.firstName?.trim() || !profile?.country?.trim()) {
-      const message =
-        'Complete your basic profile (first name and country) before saving security settings.'
-      setError(message)
-      pushAlert({ type: 'error', title: 'Account Security', message })
-      return false
-    }
     if (recoveryEmail && !recoveryEmail.includes('@')) {
       const message = 'Recovery email is invalid.'
       setError(message)
@@ -158,22 +226,14 @@ export default function AccountSecurityPage() {
     try {
       const safePhoneNumber = normalizePhoneValue(phoneNumber)
       const payload = {
-        ...profile,
-        contactInfo: {
-          ...(profile?.contactInfo || {}),
-          phone: safePhoneNumber,
-        },
-        security: {
-          ...(profile?.security || {}),
-          recoveryEmail,
-          twoStepMethod,
-          recoveryCodesGeneratedAt,
-          question: hasSecurityAnswer ? (profile?.security?.question || question || '') : question,
-          answer: hasSecurityAnswer ? '' : answer,
-          ...overrides,
-        },
+        recoveryEmail,
+        phoneNumber: safePhoneNumber,
+        twoStepMethod: EMAIL_TWO_STEP_METHOD,
+        question: hasSecurityAnswer ? '' : question,
+        answer: hasSecurityAnswer ? '' : answer,
+        ...overrides,
       }
-      const response = await fetch('/api/user/profile', {
+      const response = await fetch('/api/user/security-settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -193,8 +253,8 @@ export default function AccountSecurityPage() {
         security: {
           ...(prev?.security || {}),
           recoveryEmail,
-          twoStepMethod,
-          recoveryCodesGeneratedAt,
+          phoneNumber: safePhoneNumber,
+          twoStepMethod: EMAIL_TWO_STEP_METHOD,
           question: hasSecurityAnswer ? (prev?.security?.question || question || '') : question,
           ...overrides,
         },
@@ -222,11 +282,43 @@ export default function AccountSecurityPage() {
     }
   }
 
-  const handleRegenerateCodes = async () => {
-    const nextDate = new Date().toISOString()
-    setRecoveryCodesGeneratedAt(nextDate)
-    const ok = await persistSecurity({ recoveryCodesGeneratedAt: nextDate })
-    if (!ok) setRecoveryCodesGeneratedAt((profile?.security?.recoveryCodesGeneratedAt || ''))
+  const handleStartEmailChange = async () => {
+    setError('')
+    setSuccess('')
+    if (!newEmail.trim()) {
+      const message = 'Enter your new email address.'
+      setError(message)
+      pushAlert({ type: 'error', title: 'Account Security', message })
+      return
+    }
+
+    setIsSaving(true)
+    try {
+      const response = await fetch('/api/user/email-change/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newEmail }),
+      })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to start email change.')
+      }
+
+      setPendingEmailChange(newEmail.trim().toLowerCase())
+      setEmailChangeStep('verify')
+      setSuccess(payload?.message || 'We sent a verification link to your current email.')
+      pushAlert({
+        type: 'success',
+        title: 'Account Security',
+        message: payload?.message || 'We sent a verification link to your current email.',
+      })
+    } catch (err) {
+      const message = err?.message || 'Unable to start email change.'
+      setError(message)
+      pushAlert({ type: 'error', title: 'Account Security', message })
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleVerifyPassword = async () => {
@@ -324,7 +416,7 @@ export default function AccountSecurityPage() {
   }
 
   return (
-    <div className='w-full space-y-4 pb-6 text-slate-900 lg:space-y-5 lg:pb-8'>
+    <div className='w-full space-y-4 pb-28 text-slate-900 lg:space-y-5 lg:pb-32'>
       <section className='lg:hidden'>
         <div className='rounded-[24px] bg-white p-5'>
           <div className='mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-slate-900 text-white'>
@@ -365,13 +457,16 @@ export default function AccountSecurityPage() {
             <div>
               <p className='text-sm font-semibold text-slate-900'>Email</p>
               <p className='mt-1 text-sm text-slate-500'>{authEmail || 'No account email found'}</p>
+              {pendingEmailChange ? (
+                <p className='mt-1 text-xs text-amber-700'>
+                  Pending change to {pendingEmailChange}. Verify with your current email first.
+                </p>
+              ) : null}
             </div>
             <button
               type='button'
               className={ghostButtonClass}
-              onClick={() =>
-                setSuccess('To change account email, update your authentication email in the auth flow.')
-              }
+              onClick={() => setShowEmailChangeModal(true)}
             >
               Change email
             </button>
@@ -380,58 +475,31 @@ export default function AccountSecurityPage() {
           <div className='grid grid-cols-[minmax(0,1fr)_auto] items-center gap-6 px-8 py-5'>
             <div>
               <div className='flex items-center gap-2'>
-                <p className='text-sm font-semibold text-slate-900'>2-step verification</p>
-                <span
-                  className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                    twoStepMethod === 'none' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-700'
-                  }`}
-                >
-                  {twoStepMethod === 'none' ? 'Disabled' : 'Enabled'}
+                <p className='text-sm font-semibold text-slate-900'>Verification for sensitive actions</p>
+                <span className='rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600'>
+                  Email only
                 </span>
               </div>
-              <p className='mt-1 text-sm text-slate-500'>An extra layer of protection to your account during login</p>
+              <p className='mt-1 text-sm text-slate-500'>
+                We only verify by email when you reset your password or change your account email.
+              </p>
             </div>
-            <div className='flex items-center gap-2'>
-              <CustomSelect
-                value={twoStepMethod}
-                onChange={(event) => setTwoStepMethod(event.target.value)}
-                className='w-40 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900'
-              >
-                {TWO_STEP_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </CustomSelect>
-              <button
-                type='button'
-                className={ghostButtonClass}
-                onClick={() => void persistSecurity()}
-                disabled={isSaving}
-              >
-                Change method
-              </button>
+            <div className='flex flex-col items-end gap-2'>
+              <span className='rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700'>
+                Password reset
+              </span>
+              <span className='rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600'>
+                Email change
+              </span>
             </div>
-          </div>
-
-          <div className='grid grid-cols-[minmax(0,1fr)_auto] items-center gap-6 px-8 py-5'>
-            <div>
-              <p className='text-sm font-semibold text-slate-900'>Recovery codes</p>
-              <p className='mt-1 text-sm text-slate-500'>Generated {formatDateLabel(recoveryCodesGeneratedAt)}</p>
-            </div>
-            <button
-              type='button'
-              className={ghostButtonClass}
-              onClick={() => void handleRegenerateCodes()}
-              disabled={isSaving}
-            >
-              Regenerate codes
-            </button>
           </div>
 
           <div className='grid grid-cols-[minmax(0,1fr)_auto] items-center gap-6 px-8 py-5'>
             <div className='min-w-0'>
               <p className='text-sm font-semibold text-slate-900'>Recovery email</p>
+              <p className='mt-1 text-sm text-slate-500'>
+                Use this email with your security question to recover access if you lose your main inbox.
+              </p>
               <input
                 type='email'
                 value={recoveryEmail}
@@ -440,22 +508,15 @@ export default function AccountSecurityPage() {
                 placeholder='Add recovery email'
               />
             </div>
-            <button
-              type='button'
-              className={ghostButtonClass}
-              onClick={() => void persistSecurity()}
-              disabled={isSaving}
-            >
-              Save recovery email
-            </button>
           </div>
 
           <div className='grid grid-cols-[minmax(0,1fr)_auto] items-center gap-6 px-8 py-5'>
             <div className='min-w-0'>
               <p className='text-sm font-semibold text-slate-900'>Phone number</p>
+              <p className='mt-1 text-sm text-slate-500'>Save your current phone number on this account.</p>
               <div className='mt-2 flex w-full max-w-md items-center rounded-xl border border-slate-300 bg-white px-4 py-2.5'>
-                <span className='mr-2 text-xs font-semibold text-slate-500'>
-                  {countryRule.code ? `+${countryRule.code}` : '+--'}
+                <span className='mr-3 min-w-[3.25rem] whitespace-nowrap border-r border-slate-200 pr-3 text-xs font-semibold text-slate-500'>
+                  {phonePrefix}
                 </span>
                 <input
                   type='tel'
@@ -471,14 +532,6 @@ export default function AccountSecurityPage() {
                 />
               </div>
             </div>
-            <button
-              type='button'
-              className={ghostButtonClass}
-              onClick={() => void persistSecurity()}
-              disabled={isSaving}
-            >
-              Save phone
-            </button>
           </div>
 
           <div className='grid grid-cols-[minmax(0,1fr)_auto] items-center gap-6 px-8 py-5'>
@@ -503,15 +556,18 @@ export default function AccountSecurityPage() {
         <article className='rounded-xl border border-slate-200 bg-white p-4 shadow-sm'>
           <div className='flex items-start justify-between gap-3'>
             <div className='min-w-0'>
-              <p className='text-sm font-semibold text-slate-900'>Password</p>
-              <p className='mt-1 text-sm text-slate-500'>Managed by account email settings</p>
+              <p className='text-sm font-semibold text-slate-900'>Email</p>
+              <p className='mt-1 text-sm text-slate-500'>{authEmail || 'No account email found'}</p>
+              {pendingEmailChange ? (
+                <p className='mt-1 text-xs text-amber-700'>
+                  Pending change to {pendingEmailChange}. Verify with your current email first.
+                </p>
+              ) : null}
             </div>
             <button
               type='button'
               className={`${ghostButtonClass} shrink-0`}
-              onClick={() =>
-                setSuccess('To change account email, update your authentication email in the auth flow.')
-              }
+              onClick={() => setShowEmailChangeModal(true)}
             >
               Change email
             </button>
@@ -522,56 +578,31 @@ export default function AccountSecurityPage() {
           <div className='flex items-start justify-between gap-3'>
             <div className='min-w-0'>
               <div className='flex items-center gap-2'>
-                <p className='text-sm font-semibold text-slate-900'>Two-factor authentication</p>
-                <span
-                  className={`rounded-md px-2 py-0.5 text-[11px] font-semibold ${
-                    twoStepMethod === 'none' ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-700'
-                  }`}
-                >
-                  {twoStepMethod === 'none' ? 'Off' : 'On'}
+                <p className='text-sm font-semibold text-slate-900'>Verification for sensitive actions</p>
+                <span className='rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600'>
+                  Email only
                 </span>
               </div>
-              <p className='mt-1 text-sm text-slate-500'>Enable 2FA to add an extra layer of security.</p>
+              <p className='mt-1 text-sm text-slate-500'>
+                Email verification is only used for password reset and email changes.
+              </p>
             </div>
           </div>
           <div className='mt-3 flex flex-col gap-2'>
-            <CustomSelect
-              value={twoStepMethod}
-              onChange={(event) => setTwoStepMethod(event.target.value)}
-              className={selectFieldClass}
-            >
-              {TWO_STEP_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </CustomSelect>
-            <button
-              type='button'
-              className={primaryButtonClass}
-              onClick={() => void persistSecurity()}
-              disabled={isSaving}
-            >
-              Change method
-            </button>
+            <div className='rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700'>
+              Password reset
+            </div>
+            <div className='rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-600'>
+              Email change
+            </div>
           </div>
-        </article>
-
-        <article className='rounded-xl border border-slate-200 bg-white p-4 shadow-sm'>
-          <p className='text-sm font-semibold text-slate-900'>Recovery Code</p>
-          <p className='mt-1 text-sm text-slate-500'>Generate backup codes to access your account.</p>
-          <button
-            type='button'
-            className='mt-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800'
-            onClick={() => void handleRegenerateCodes()}
-            disabled={isSaving}
-          >
-            Generate
-          </button>
         </article>
 
         <article className='rounded-xl border border-slate-200 bg-white p-4 shadow-sm'>
           <p className='text-sm font-semibold text-slate-900'>Recovery email</p>
+          <p className='mt-1 text-sm text-slate-500'>
+            Use this email with your security question when you need to recover your password.
+          </p>
           <input
             type='email'
             value={recoveryEmail}
@@ -579,14 +610,27 @@ export default function AccountSecurityPage() {
             className={fieldClassName}
             placeholder='Add recovery email'
           />
-          <button
-            type='button'
-            className='mt-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800'
-            onClick={() => void persistSecurity()}
-            disabled={isSaving}
-          >
-            Save recovery email
-          </button>
+        </article>
+
+        <article className='rounded-xl border border-slate-200 bg-white p-4 shadow-sm'>
+          <p className='text-sm font-semibold text-slate-900'>Phone number</p>
+          <div className='mt-2 flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2.5'>
+            <span className='mr-3 min-w-[3.25rem] whitespace-nowrap border-r border-slate-200 pr-3 text-xs font-semibold text-slate-500'>
+              {phonePrefix}
+            </span>
+            <input
+              type='tel'
+              value={phoneNumber}
+              onChange={(event) =>
+                setPhoneNumber(normalizePhoneValue(event.target.value).slice(0, countryRule.max))
+              }
+              inputMode='numeric'
+              pattern='[0-9]*'
+              maxLength={countryRule.max}
+              className='w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-900/40'
+              placeholder='Add phone number'
+            />
+          </div>
         </article>
 
         <article className='rounded-xl border border-slate-200 bg-white p-4 shadow-sm'>
@@ -658,16 +702,6 @@ export default function AccountSecurityPage() {
                 />
               </div>
             ) : null}
-            <div className='lg:col-span-2'>
-              <button
-                type='button'
-                className={`${primaryButtonClass} w-full lg:w-auto`}
-                onClick={() => void persistSecurity()}
-                disabled={isSaving}
-              >
-                {isSaving ? 'Saving...' : 'Save security settings'}
-              </button>
-            </div>
           </div>
         ) : null}
 
@@ -767,6 +801,79 @@ export default function AccountSecurityPage() {
                 {isSaving ? 'Verifying...' : 'Verify'}
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showEmailChangeModal ? (
+        <div className='fixed inset-0 z-[140] flex items-center justify-center bg-black/40 p-4'>
+          <div className='w-full max-w-md rounded-[24px] border border-slate-200 bg-white p-5 shadow-2xl'>
+            <h3 className='text-base font-semibold text-slate-900'>Change account email</h3>
+            <p className='mt-1 text-sm text-slate-500'>
+              We will send a verification link to your current email before we start the update.
+            </p>
+
+            <div className='mt-4 space-y-4'>
+              <div>
+                <label className={accountLabelClass}>New email</label>
+                <input
+                  type='email'
+                  value={newEmail}
+                  onChange={(event) => setNewEmail(event.target.value)}
+                  className={fieldClassName}
+                  placeholder='Enter new email'
+                  autoComplete='email'
+                  disabled={emailChangeStep === 'verify'}
+                />
+              </div>
+
+              {emailChangeStep === 'verify' ? (
+                <div className='rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600'>
+                  Open the verification link we sent to your current email. You will be returned here automatically.
+                </div>
+              ) : null}
+            </div>
+
+            <div className='mt-5 flex justify-end gap-2'>
+              <button
+                type='button'
+                onClick={() => {
+                  setShowEmailChangeModal(false)
+                  setNewEmail('')
+                  setEmailChangeStep('request')
+                }}
+                className={ghostButtonClass}
+              >
+                Cancel
+              </button>
+              <button
+                type='button'
+                onClick={handleStartEmailChange}
+                className={primaryButtonClass}
+                disabled={isSaving}
+              >
+                {isSaving
+                  ? 'Sending...'
+                  : emailChangeStep === 'verify'
+                    ? 'Resend link'
+                    : 'Send link'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showFloatingSave ? (
+        <div className='pointer-events-none fixed inset-x-0 bottom-4 z-30 px-4 lg:left-[18rem] lg:right-8 lg:px-0'>
+          <div className='mx-auto max-w-3xl lg:mx-0 lg:max-w-none lg:flex lg:justify-end'>
+            <button
+              type='button'
+              onClick={() => void persistSecurity()}
+              disabled={isSaving}
+              className='pointer-events-auto w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_-18px_rgba(15,23,42,0.55)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70 lg:w-auto lg:min-w-[13rem] lg:px-7'
+            >
+              {isSaving ? 'Saving...' : 'Save changes'}
+            </button>
           </div>
         </div>
       ) : null}

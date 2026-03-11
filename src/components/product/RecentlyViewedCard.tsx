@@ -4,18 +4,15 @@ import Image from 'next/image'
 import Link from 'next/link'
 import type { RecentlyViewedItem } from '@/lib/recently-viewed/storage'
 import { useScreenSize } from '@/hooks/useScreenSize'
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
 
 type RecentlyViewedCardProps = {
   item: RecentlyViewedItem
 }
 
-const formatPrice = (value: number) => {
-  if (!Number.isFinite(value)) return '--'
-  return value.toFixed(2)
-}
-
 const RecentlyViewedCard = ({ item }: RecentlyViewedCardProps) => {
   const { isMobile } = useScreenSize()
+  const { formatMoney } = useUserI18n()
   const openInNewTab = !isMobile
 
   return (
@@ -46,7 +43,7 @@ const RecentlyViewedCard = ({ item }: RecentlyViewedCardProps) => {
           {item.name}
         </div>
         <div className='mt-1 text-sm font-semibold text-gray-900'>
-          ${formatPrice(item.price)}
+          {formatMoney(item.price)}
         </div>
       </div>
     </Link>

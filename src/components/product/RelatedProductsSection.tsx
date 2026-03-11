@@ -9,11 +9,7 @@ import { useWishlist } from '@/context/WishlistContext'
 import QuantityControl from '@/components/cart/QuantityControl'
 import { findCartEntry } from '@/lib/cart/cart-match'
 import { useScreenSize } from '@/hooks/useScreenSize'
-
-const formatPrice = (value: number) => {
-  if (!Number.isFinite(value)) return '--'
-  return value.toFixed(2)
-}
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
 
 type RelatedProduct = {
   id?: string | number
@@ -47,6 +43,7 @@ const RelatedProductsSection = ({
   const { addItem, items: cartItems, updateQuantity } = useCart()
   const { openSaveModal, isRecentlySaved } = useWishlist()
   const { isMobile } = useScreenSize()
+  const { formatMoney } = useUserI18n()
   const openInNewTab = !isMobile
   const now = Date.now()
   if (!Array.isArray(items) || items.length === 0) return null
@@ -200,18 +197,18 @@ const RelatedProductsSection = ({
                   </h3>
                   <div className='mt-1 min-w-0 flex flex-wrap items-baseline gap-1.5'>
                     <span className='text-base font-semibold text-gray-900'>
-                      ${formatPrice(product.price)}
+                      {formatMoney(product.price)}
                     </span>
                     {product.originalPrice ? (
                       <span className='text-sm text-gray-400 line-through'>
-                        ${formatPrice(product.originalPrice)}
+                        {formatMoney(product.originalPrice)}
                       </span>
                       ) : null}
                   </div>
                   <div className='mt-1 min-h-[18px]'>
                     {savingsAmount > 0 ? (
                       <span className='text-xs font-semibold text-green-600'>
-                        Save ${formatPrice(savingsAmount)}
+                        Save {formatMoney(savingsAmount)}
                       </span>
                     ) : null}
                   </div>

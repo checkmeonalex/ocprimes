@@ -8,6 +8,7 @@ import {
   getPasswordStrength,
   PASSWORD_REQUIREMENTS_MESSAGE,
 } from '@/lib/auth/password-strength'
+import { PASSWORD_MISMATCH_MESSAGE } from '@/lib/auth/validation'
 import CustomerAuthHeader from './CustomerAuthHeader'
 
 const inputClassName =
@@ -151,7 +152,7 @@ export default function CustomerResetPasswordPage() {
     }
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match.')
+      setError(PASSWORD_MISMATCH_MESSAGE)
       return
     }
 
