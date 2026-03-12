@@ -3,7 +3,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 const AlertContext = createContext(null)
-const GLOBAL_ALERT_DEDUPE_MS = 4000
+const GLOBAL_ALERT_DEDUPE_MS = 8000
+const MAX_VISIBLE_ALERTS = 2
+const GLOBAL_ALERT_NOISE_PATHS = [
+  '/api/user/presence',
+  '/api/auth/role',
+  '/api/user/profile',
+  '/api/cart',
+  '/api/categories',
+  '/api/exchange-rates',
+  '/api/wishlist/items/status',
+]
 
 const buildAlert = ({ type = 'info', title, message, timeoutMs = 5000, actionLabel = '', onAction = null }) => ({
   id: crypto.randomUUID(),
@@ -48,7 +58,7 @@ export function AlertProvider({ children }) {
 
   const pushAlert = useCallback((payload) => {
     const alert = buildAlert(payload || {})
-    setAlerts((prev) => [...prev, alert])
+    setAlerts((prev) => [...prev.slice(-(MAX_VISIBLE_ALERTS - 1)), alert])
     const timeoutId = setTimeout(() => removeAlert(alert.id), alert.timeoutMs)
     timeoutsRef.current.set(alert.id, timeoutId)
     return alert.id
@@ -96,17 +106,53 @@ export function AlertProvider({ children }) {
       }
     }
 
+    const isNoisyGlobalPath = (requestPath) =>
+      GLOBAL_ALERT_NOISE_PATHS.some((prefix) => requestPath === prefix || requestPath.startsWith(`${prefix}?`))
+
+    const sanitizeErrorMessage = (message, statusCode) => {
+      const raw = String(message || '').trim()
+      if (!raw) {
+        return statusCode >= 500
+          ? 'Something went wrong. Please try again.'
+          : 'Something went wrong. Please try again.'
+      }
+
+      const normalized = raw.toLowerCase()
+      const looksTechnical =
+        normalized.includes('unauthorized') ||
+        normalized.includes('forbidden') ||
+        normalized.includes('token') ||
+        normalized.includes('jwt') ||
+        normalized.includes('session') ||
+        normalized.includes('fetch') ||
+        normalized.includes('network') ||
+        normalized.includes('failed to') ||
+        normalized.includes('unexpected') ||
+        normalized.includes('server') ||
+        normalized.includes('json') ||
+        normalized.includes('syntaxerror') ||
+        normalized.includes('typeerror') ||
+        normalized.includes('timeout') ||
+        normalized.includes('abort') ||
+        normalized.includes('permission denied')
+
+      if (statusCode === 401) return 'Please sign in to continue.'
+      if (statusCode === 403) return 'You do not have permission to do that.'
+      if (statusCode >= 500 || looksTechnical) return 'Something went wrong. Please try again.'
+      return raw
+    }
+
     const parseErrorMessage = async (response) => {
       try {
         const cloned = response.clone()
         const payload = await cloned.json().catch(() => null)
         const serverMessage = String(payload?.error || payload?.message || '').trim()
-        if (serverMessage) return serverMessage
+        if (serverMessage) return sanitizeErrorMessage(serverMessage, Number(response.status || 0))
       } catch {
         // ignore parse issues and fallback below
       }
       const fallback = String(response.statusText || '').trim()
-      return fallback || 'Something went wrong. Please try again.'
+      return sanitizeErrorMessage(fallback || 'Something went wrong. Please try again.', Number(response.status || 0))
     }
 
     const buildNetworkFailureResponse = (message) =>
@@ -132,6 +178,24 @@ export function AlertProvider({ children }) {
       pushAlert(payload)
     }
 
+    const isProtectedCustomerPath = (pathname) =>
+      pathname.startsWith('/UserBackend') || pathname.startsWith('/wishlist')
+
+    const redirectForUnauthorized = () => {
+      if (typeof window === 'undefined') return true
+      const currentPath = `${window.location.pathname}${window.location.search || ''}`
+      if (!isProtectedCustomerPath(window.location.pathname)) {
+        return false
+      }
+      const nextValue = encodeURIComponent(currentPath)
+      const authDestination = `/signup?next=${nextValue}`
+      if (window.location.pathname.startsWith('/login') || window.location.pathname.startsWith('/signup')) {
+        return true
+      }
+      window.location.assign(authDestination)
+      return true
+    }
+
     window.fetch = async (input, init) => {
       const requestPath = readUrlPath(input)
       const isApiCall = requestPath.startsWith('/api/')
@@ -145,16 +209,29 @@ export function AlertProvider({ children }) {
         currentPath.startsWith('/admin/signup')
       try {
         const response = await originalFetch(input, init)
+        if (isApiCall && response.status === 401) {
+          const redirected = redirectForUnauthorized()
+          if (!redirected) {
+            return response
+          }
+          return response
+        }
         if (
           isApiCall &&
           !response.ok &&
           !shouldSkipGlobalAlert(input, init) &&
+          !isNoisyGlobalPath(requestPath) &&
           !(isAuthRoute && response.status === 401)
         ) {
           const message = await parseErrorMessage(response)
           const code = Number(response.status || 0)
-          const title = code >= 500 ? 'Something went wrong' : code === 401 ? 'Sign in required' : code === 403 ? 'Permission denied' : 'Request failed'
-          pushGlobalErrorOnce(`${requestPath}:${code}:${message}`, {
+          const title =
+            code >= 500
+              ? 'Something went wrong'
+              : code === 403
+                ? 'Action not allowed'
+                : 'Something went wrong'
+          pushGlobalErrorOnce(`${requestPath}:${code}:${title}`, {
             type: 'error',
             title,
             message,
@@ -169,11 +246,11 @@ export function AlertProvider({ children }) {
           throw fetchError
         }
 
-        const message = String(fetchError?.message || 'Network request failed.').trim()
-        if (isApiCall && !shouldSkipGlobalAlert(input, init)) {
-          pushGlobalErrorOnce(`${requestPath}:network:${message}`, {
+        const message = sanitizeErrorMessage(fetchError?.message || 'Network request failed.', 503)
+        if (isApiCall && !shouldSkipGlobalAlert(input, init) && !isNoisyGlobalPath(requestPath)) {
+          pushGlobalErrorOnce(`${requestPath}:network`, {
             type: 'error',
-            title: 'Network error',
+            title: 'Something went wrong',
             message,
           })
         }

@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import type { MouseEvent } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { BadgePercent, Heart, Star } from 'lucide-react'
 import { useCart } from '@/context/CartContext'
 import { useWishlist } from '@/context/WishlistContext'
@@ -10,6 +10,7 @@ import QuantityControl from '@/components/cart/QuantityControl'
 import { findCartEntry } from '@/lib/cart/cart-match'
 import { useScreenSize } from '@/hooks/useScreenSize'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
+import ProductVariantQuickAddModal from '@/components/product/ProductVariantQuickAddModal'
 
 type RelatedProduct = {
   id?: string | number
@@ -25,6 +26,7 @@ type RelatedProduct = {
   selectedVariationId?: string | number | null
   selectedColor?: string | null
   selectedSize?: string | null
+  variations?: any[]
 }
 
 type RelatedProductsSectionProps = {
@@ -44,6 +46,7 @@ const RelatedProductsSection = ({
   const { openSaveModal, isRecentlySaved } = useWishlist()
   const { isMobile } = useScreenSize()
   const { formatMoney } = useUserI18n()
+  const [activeModalProduct, setActiveModalProduct] = useState<RelatedProduct | null>(null)
   const openInNewTab = !isMobile
   const now = Date.now()
   if (!Array.isArray(items) || items.length === 0) return null
@@ -103,6 +106,11 @@ const RelatedProductsSection = ({
 
           const handleAddToCart = (event?: MouseEvent<HTMLButtonElement>) => {
             event?.preventDefault()
+            event?.stopPropagation()
+            if (Array.isArray(product?.variations) && product.variations.length > 0) {
+              setActiveModalProduct(product)
+              return
+            }
             addItem({
               id: product.id,
               name: product.name,
@@ -114,9 +122,14 @@ const RelatedProductsSection = ({
           }
           const handleIncrement = (event?: MouseEvent<HTMLButtonElement>) => {
             event?.preventDefault()
+            event?.stopPropagation()
             if (cartEntry?.key) {
               updateQuantity(cartEntry.key, quantity + 1)
             } else {
+              if (Array.isArray(product?.variations) && product.variations.length > 0) {
+                setActiveModalProduct(product)
+                return
+              }
               addItem({
                 id: product.id,
                 name: product.name,
@@ -304,6 +317,25 @@ const RelatedProductsSection = ({
           </Link>
         </div>
       ) : null}
+
+      <ProductVariantQuickAddModal
+        open={Boolean(activeModalProduct)}
+        product={activeModalProduct}
+        initialColor={String(activeModalProduct?.selectedColor || '')}
+        initialSize={String(activeModalProduct?.selectedSize || '')}
+        onClose={() => setActiveModalProduct(null)}
+        onConfirm={(payload) => {
+          const quantityFromModal = Math.max(1, Number(payload?.quantity) || 1)
+          addItem(
+            {
+              ...activeModalProduct,
+              ...payload,
+            },
+            quantityFromModal,
+          )
+          setActiveModalProduct(null)
+        }}
+      />
     </section>
   )
 }

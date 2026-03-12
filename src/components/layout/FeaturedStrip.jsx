@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import useHorizontalScroll from '@/components/shared/useHorizontalScroll.mjs'
 import { useWishlist } from '@/context/WishlistContext'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
+import ProductVariantQuickAddModal from '@/components/product/ProductVariantQuickAddModal'
 import SectionHeading from './SectionHeading'
 
 const resolveProductImage = (product) => {
@@ -226,6 +227,7 @@ const FeaturedStrip = ({
   titleMain,
   className = '',
 }) => {
+  const [activeModalProduct, setActiveModalProduct] = useState(null)
   const filteredProducts = useMemo(() => {
     if (!Array.isArray(products)) return []
     if (tagId) {
@@ -256,104 +258,138 @@ const FeaturedStrip = ({
   const hasProducts = displayProducts.length > 0
   if (!hasImage && !hasProducts) return null
 
+  const handleMobileAddToCart = (product) => {
+    if (Array.isArray(product?.variations) && product.variations.length > 0) {
+      setActiveModalProduct(product)
+      return
+    }
+    if (typeof onAddToCart === 'function') {
+      onAddToCart(product)
+    }
+  }
+
   return (
-    <section className={`mb-6 w-full max-w-full overflow-hidden px-3 md:px-4 ${className}`}>
-      <SectionHeading title={titleMain} />
-      <div className='flex flex-col gap-2 md:flex-row md:gap-2'>
-        {hasImage ? (
-          <div className='relative overflow-hidden rounded-lg border border-gray-300/80 bg-white aspect-[16/9] md:h-[280px] md:w-auto md:flex-shrink-0'>
-            <img src={imageUrl} alt={imageAlt} className='h-full w-full object-cover' />
-          </div>
-        ) : null}
-        <div className='flex-1 min-w-0'>
-          <div className='hidden md:block'>
-            <div className='relative'>
-              {hasProducts ? (
-                <>
-                  <div
-                    ref={scrollRef}
-                    className='featured-scroll flex items-stretch gap-2 overflow-x-auto pb-2 pr-1'
-                  >
-                    {displayProducts.map((product) => (
-                      <DesktopProductCard key={product.id} product={product} />
-                    ))}
+    <>
+      <section className={`mb-6 w-full max-w-full overflow-hidden px-3 md:px-4 ${className}`}>
+        <SectionHeading title={titleMain} />
+        <div className='flex flex-col gap-2 md:flex-row md:gap-2'>
+          {hasImage ? (
+            <div className='relative overflow-hidden rounded-lg border border-gray-300/80 bg-white aspect-[16/9] md:h-[280px] md:w-auto md:flex-shrink-0'>
+              <img src={imageUrl} alt={imageAlt} className='h-full w-full object-cover' />
+            </div>
+          ) : null}
+          <div className='flex-1 min-w-0'>
+            <div className='hidden md:block'>
+              <div className='relative'>
+                {hasProducts ? (
+                  <>
+                    <div
+                      ref={scrollRef}
+                      className='featured-scroll flex items-stretch gap-2 overflow-x-auto pb-2 pr-1'
+                    >
+                      {displayProducts.map((product) => (
+                        <DesktopProductCard key={product.id} product={product} />
+                      ))}
+                    </div>
+                    {canScrollLeft && (
+                      <button
+                        type='button'
+                        onClick={() => scrollByAmount(-1)}
+                        className='absolute left-2 top-1/2 -translate-y-1/2 h-14 w-9 rounded-2xl bg-white text-gray-700 shadow-md hover:bg-white flex items-center justify-center border border-gray-200/70'
+                        aria-label='Scroll products left'
+                      >
+                        <svg
+                          xmlns='http://www.w3.org/2000/svg'
+                          viewBox='0 0 1024 1024'
+                          className='h-7 w-7'
+                          fill='none'
+                        >
+                          <path
+                            d='M664 200 L344 512 L664 824'
+                            stroke='currentColor'
+                            strokeWidth='44'
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                          />
+                        </svg>
+                      </button>
+                    )}
+                    {canScrollRight && (
+                      <button
+                        type='button'
+                        onClick={() => scrollByAmount(1)}
+                        className='absolute right-2 top-1/2 -translate-y-1/2 h-14 w-9 rounded-2xl bg-white text-gray-700 shadow-md hover:bg-white flex items-center justify-center border border-gray-200/70'
+                        aria-label='Scroll products right'
+                      >
+                        <svg
+                          xmlns='http://www.w3.org/2000/svg'
+                          viewBox='0 0 1024 1024'
+                          className='h-7 w-7'
+                          fill='none'
+                        >
+                          <path
+                            d='M360 200 L680 512 L360 824'
+                            stroke='currentColor'
+                            strokeWidth='44'
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className='flex h-[280px] items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white text-sm text-gray-500'>
+                    No products available yet
                   </div>
-                  {canScrollLeft && (
-                    <button
-                      type='button'
-                      onClick={() => scrollByAmount(-1)}
-                      className='absolute left-2 top-1/2 -translate-y-1/2 h-14 w-9 rounded-2xl bg-white text-gray-700 shadow-md hover:bg-white flex items-center justify-center border border-gray-200/70'
-                      aria-label='Scroll products left'
-                    >
-                      <svg
-                        xmlns='http://www.w3.org/2000/svg'
-                        viewBox='0 0 1024 1024'
-                        className='h-7 w-7'
-                        fill='none'
-                      >
-                        <path
-                          d='M664 200 L344 512 L664 824'
-                          stroke='currentColor'
-                          strokeWidth='44'
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                        />
-                      </svg>
-                    </button>
-                  )}
-                  {canScrollRight && (
-                    <button
-                      type='button'
-                      onClick={() => scrollByAmount(1)}
-                      className='absolute right-2 top-1/2 -translate-y-1/2 h-14 w-9 rounded-2xl bg-white text-gray-700 shadow-md hover:bg-white flex items-center justify-center border border-gray-200/70'
-                      aria-label='Scroll products right'
-                    >
-                      <svg
-                        xmlns='http://www.w3.org/2000/svg'
-                        viewBox='0 0 1024 1024'
-                        className='h-7 w-7'
-                        fill='none'
-                      >
-                        <path
-                          d='M360 200 L680 512 L360 824'
-                          stroke='currentColor'
-                          strokeWidth='44'
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                        />
-                      </svg>
-                    </button>
-                  )}
-                </>
-              ) : (
-                <div className='flex h-[280px] items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white text-sm text-gray-500'>
+                )}
+              </div>
+            </div>
+            {mobileProducts.length ? (
+              <div className='md:hidden'>
+                <div className='featured-scroll flex gap-3 overflow-x-auto pb-2 pr-1'>
+                  {mobileProducts.map((product) => (
+                    <MobileProductCard
+                      key={product.id}
+                      product={product}
+                      onAddToCart={handleMobileAddToCart}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className='md:hidden'>
+                <div className='flex h-28 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white text-sm text-gray-500'>
                   No products available yet
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
-          {mobileProducts.length ? (
-            <div className='md:hidden'>
-              <div className='featured-scroll flex gap-3 overflow-x-auto pb-2 pr-1'>
-                {mobileProducts.map((product) => (
-                  <MobileProductCard
-                    key={product.id}
-                    product={product}
-                    onAddToCart={onAddToCart}
-                  />
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className='md:hidden'>
-              <div className='flex h-28 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white text-sm text-gray-500'>
-                No products available yet
-              </div>
-            </div>
-          )}
         </div>
-      </div>
-    </section>
+      </section>
+
+      {activeModalProduct ? (
+        <ProductVariantQuickAddModal
+          open
+          product={activeModalProduct}
+          initialColor={activeModalProduct.selectedColor || ''}
+          initialSize={activeModalProduct.selectedSize || ''}
+          onClose={() => setActiveModalProduct(null)}
+          onConfirm={(payload) => {
+            if (typeof onAddToCart === 'function') {
+              onAddToCart(
+                {
+                  ...activeModalProduct,
+                  ...payload,
+                },
+                Math.max(1, Number(payload?.quantity) || 1),
+              )
+            }
+            setActiveModalProduct(null)
+          }}
+        />
+      ) : null}
+    </>
   )
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
 import { extractVariationValue } from './variationUtils.mjs'
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
 
 const normalizeKey = (value) => String(value || '').toLowerCase().replace(/^pa_/, '')
 
@@ -36,11 +37,6 @@ const buildVariationLabel = (attrs = {}) =>
     })
     .filter(Boolean)
     .join(' / ')
-
-const formatCurrency = (value) => {
-  const amount = Number(value || 0)
-  return `$${Number.isFinite(amount) ? amount.toFixed(2) : '0.00'}`
-}
 
 const extractMediaUrl = (value) => {
   if (!value) return ''
@@ -93,6 +89,7 @@ const ProductVariantQuickAddModal = ({
   overlayZIndexClass = 'z-[10050]',
   lightboxZIndexClass = 'z-[2147483000]',
 }) => {
+  const { formatMoney } = useUserI18n()
   const [mounted, setMounted] = useState(false)
   const [selected, setSelected] = useState({})
   const [activePreviewImage, setActivePreviewImage] = useState('')
@@ -823,14 +820,14 @@ const ProductVariantQuickAddModal = ({
               </div>
 
               <div className='mt-3 flex items-end gap-2'>
-                <span className='text-2xl font-semibold text-gray-900'>{formatCurrency(pricing.price)}</span>
+                <span className='text-2xl font-semibold text-gray-900'>{formatMoney(pricing.price)}</span>
                 {pricing.originalPrice ? (
-                  <span className='text-sm text-gray-400 line-through'>{formatCurrency(pricing.originalPrice)}</span>
+                  <span className='text-sm text-gray-400 line-through'>{formatMoney(pricing.originalPrice)}</span>
                 ) : null}
               </div>
               {discountAmount > 0 ? (
                 <div className='mt-1 text-sm font-semibold text-green-700'>
-                  Save {formatCurrency(discountAmount)} if you buy now
+                  Save {formatMoney(discountAmount)} if you buy now
                 </div>
               ) : null}
               {tags.length ? (
@@ -880,7 +877,7 @@ const ProductVariantQuickAddModal = ({
                             />
                           </div>
                           <div className='pt-1 text-[10px] font-semibold text-gray-900 truncate capitalize'>{entry.color}</div>
-                          <div className='text-[9px] font-semibold text-gray-900'>{formatCurrency(entry.price)}</div>
+                          <div className='text-[9px] font-semibold text-gray-900'>{formatMoney(entry.price)}</div>
                         </button>
                       )
                     })}

@@ -1621,7 +1621,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                     </div>
 
                   <div className='space-y-2 !mt-0'>
-                    <h1 className='text-3xl font-semibold text-gray-900 font-serif'>
+                    <h1 className='text-[17px] font-medium leading-[1.15] tracking-tight text-gray-900 sm:text-[16px] lg:text-[22px]'>
                       {product.name}
                     </h1>
                     <div className='flex items-center gap-3 text-sm text-gray-600'>
@@ -1655,7 +1655,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
 
                   <div>
                     <div className='flex items-center gap-4'>
-                      <span className='text-3xl font-semibold text-gray-900'>
+                      <span className='text-[18px] font-medium leading-none text-gray-900 sm:text-[24px] lg:text-[26px]'>
                         {formatMoney(activePrice)}
                       </span>
                       {activeOriginalPrice && (

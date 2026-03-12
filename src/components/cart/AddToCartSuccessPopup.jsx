@@ -7,11 +7,7 @@ import { usePathname } from 'next/navigation'
 import { useCart } from '@/context/CartContext'
 import normalizeProduct from '@/components/product/catalog/normalizeProduct.mjs'
 import { useScreenSize } from '@/hooks/useScreenSize'
-
-const formatPrice = (value) => {
-  const amount = Number(value || 0)
-  return `$${Number.isFinite(amount) ? amount.toFixed(2) : '0.00'}`
-}
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
 
 const shortenText = (value, limit = 40) => {
   const text = String(value || '').trim()
@@ -101,6 +97,7 @@ export default function AddToCartSuccessPopup() {
   const pathname = usePathname()
   const { lastAddedItem, clearLastAddedItem } = useCart()
   const { isMobile } = useScreenSize()
+  const { formatMoney } = useUserI18n()
   const openInNewTab = !isMobile
   const [relatedItems, setRelatedItems] = useState([])
   const [isLoadingRelated, setIsLoadingRelated] = useState(false)
@@ -355,13 +352,13 @@ export default function AddToCartSuccessPopup() {
                 {shortenText(addedProduct.name, 44)}
               </p>
               <div className='mt-1 flex items-center gap-2'>
-                <span className='text-base font-semibold text-gray-900'>{formatPrice(addedProduct.price)}</span>
+                <span className='text-base font-semibold text-gray-900'>{formatMoney(addedProduct.price)}</span>
                 {addedProduct.originalPrice ? (
-                  <span className='text-sm text-gray-400 line-through'>{formatPrice(addedProduct.originalPrice)}</span>
+                  <span className='text-sm text-gray-400 line-through'>{formatMoney(addedProduct.originalPrice)}</span>
                 ) : null}
               </div>
               {savings > 0 ? (
-                <p className='mt-0.5 text-sm font-semibold text-green-600'>Save {formatPrice(savings)}</p>
+                <p className='mt-0.5 text-sm font-semibold text-green-600'>Save {formatMoney(savings)}</p>
               ) : null}
             </div>
           </div>

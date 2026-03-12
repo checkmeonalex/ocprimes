@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import UserBackendNav from '@/components/user-backend/UserBackendNav'
 import StickySidebar from '@/components/user-backend/StickySidebar'
 import UserBackendMobileHeader from '@/components/user-backend/UserBackendMobileHeader'
@@ -17,6 +18,11 @@ export default async function UserBackendLayout({ children }) {
   const supabase = await createServerSupabaseClient()
   const { data, error } = await supabase.auth.getUser()
   const user = error ? null : data?.user || null
+
+  if (!user) {
+    redirect('/signup?next=/UserBackend')
+  }
+
   const displayName = getDisplayName(user)
   const avatarUrl = String(
     user?.user_metadata?.avatar_url || user?.user_metadata?.picture || ''

@@ -47,8 +47,11 @@ function MobileCustomVideoPlayer({
   videoClassName,
   isActive = true,
   shouldAutoPlay = false,
+  initialTime = 0,
   onAutoPlayHandled,
   onPauseToCover,
+  onExpand,
+  onTimePersist,
 }) {
   const rootRef = useRef(null)
   const videoRef = useRef(null)
@@ -56,6 +59,7 @@ function MobileCustomVideoPlayer({
   const manualPauseRef = useRef(false)
   const hideControlsTimerRef = useRef(null)
   const autoPlayHandledRef = useRef(false)
+  const appliedInitialTimeRef = useRef(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [isMuted, setIsMuted] = useState(true)
   const [isInView, setIsInView] = useState(true)
@@ -85,6 +89,10 @@ function MobileCustomVideoPlayer({
       scheduleHideControls()
     }
   }, [isPlaying, scheduleHideControls])
+
+  const stopTouchPropagation = useCallback((event) => {
+    event?.stopPropagation?.()
+  }, [])
 
   const togglePlay = useCallback((event) => {
     event?.preventDefault?.()
@@ -169,6 +177,10 @@ function MobileCustomVideoPlayer({
   }, [shouldAutoPlay])
 
   useEffect(() => {
+    appliedInitialTimeRef.current = false
+  }, [initialTime, src])
+
+  useEffect(() => {
     if (!isPlaying) {
       clearHideControlsTimer()
       setControlsVisible(true)
@@ -189,10 +201,7 @@ function MobileCustomVideoPlayer({
       ref={rootRef}
       className={`relative ${containerClassName}`}
       onClick={(event) => event.stopPropagation()}
-      onTouchStart={(event) => event.stopPropagation()}
-      onTouchMove={(event) => event.stopPropagation()}
-      onTouchEnd={(event) => {
-        event.stopPropagation()
+      onTouchEnd={() => {
         showControlsTemporarily()
       }}
     >
@@ -208,15 +217,30 @@ function MobileCustomVideoPlayer({
         className={videoClassName}
         onLoadedMetadata={(event) => {
           const videoEl = event.currentTarget
-          setDuration(Number(videoEl.duration || 0))
+          const nextDuration = Number(videoEl.duration || 0)
+          setDuration(nextDuration)
+          if (
+            !appliedInitialTimeRef.current &&
+            Number.isFinite(initialTime) &&
+            initialTime > 0 &&
+            nextDuration > 0
+          ) {
+            videoEl.currentTime = Math.max(0, Math.min(initialTime, Math.max(0, nextDuration - 0.1)))
+            setCurrentTime(Number(videoEl.currentTime || 0))
+            appliedInitialTimeRef.current = true
+          }
         }}
         onTimeUpdate={(event) => {
           const videoEl = event.currentTarget
-          setCurrentTime(Number(videoEl.currentTime || 0))
+          const nextTime = Number(videoEl.currentTime || 0)
+          setCurrentTime(nextTime)
+          if (onTimePersist) onTimePersist(nextTime)
         }}
         onPlay={() => setIsPlaying(true)}
         onPause={() => {
           setIsPlaying(false)
+          const pausedAt = Number(videoRef.current?.currentTime || 0)
+          if (onTimePersist) onTimePersist(pausedAt)
           if (manualPauseRef.current) {
             manualPauseRef.current = false
             if (onPauseToCover) onPauseToCover()
@@ -225,8 +249,35 @@ function MobileCustomVideoPlayer({
         onEnded={() => {
           setIsPlaying(false)
           resumeOnActiveRef.current = false
+          if (onTimePersist) onTimePersist(0)
         }}
       />
+      {typeof onExpand === 'function' ? (
+        <button
+          type='button'
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onExpand()
+          }}
+          onTouchStart={stopTouchPropagation}
+          onTouchMove={stopTouchPropagation}
+          onTouchEnd={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onExpand()
+          }}
+          className='absolute right-3 top-3 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white shadow-[0_8px_20px_rgba(0,0,0,0.28)] backdrop-blur-sm'
+          aria-label='Expand video'
+        >
+          <svg viewBox='0 0 28 28' fill='none' xmlns='http://www.w3.org/2000/svg' className='h-4 w-4' aria-hidden='true'>
+            <path d='M2.99701 2C2.44638 2 2 2.44637 2 2.997V6.98502C2 7.53565 2.44638 7.98203 2.99701 7.98203C3.54764 7.98203 3.99399 7.53565 3.99399 6.98502V5.40382L9.75339 11.1633C10.1427 11.5526 10.774 11.5526 11.1634 11.1633C11.5527 10.7739 11.5527 10.1426 11.1634 9.75328L5.40411 3.99401H6.98499C7.53561 3.99401 7.98199 3.54764 7.98199 2.997C7.98199 2.44637 7.53561 2 6.98499 2H2.99701Z' fill='currentColor' />
+            <path d='M2.99701 26C2.44638 26 2 25.5536 2 25.003V21.015C2 20.4643 2.44638 20.018 2.99701 20.018C3.54764 20.018 3.99399 20.4643 3.99399 21.015V22.4053L9.75299 16.6462C10.1424 16.2568 10.7736 16.2568 11.163 16.6462C11.5523 17.0356 11.5523 17.6668 11.163 18.0562L5.2132 24.006H6.98499C7.53561 24.006 7.98199 24.4524 7.98199 25.003C7.98199 25.5536 7.53561 26 6.98499 26H2.99701Z' fill='currentColor' />
+            <path d='M26 25.0028C26 25.5535 25.5536 25.9998 25.003 25.9998H21.015C20.4644 25.9998 20.018 25.5535 20.018 25.0028C20.018 24.4522 20.4644 24.0058 21.015 24.0058H22.5959L16.8321 18.242C16.4427 17.8527 16.4427 17.2214 16.8321 16.832C17.2214 16.4427 17.8527 16.4427 18.2421 16.832L24.006 22.596V21.0148C24.006 20.4642 24.4524 20.0178 25.003 20.0178C25.5536 20.0178 26 20.4642 26 21.0148V25.0028Z' fill='currentColor' />
+            <path d='M24.9824 2.00407C25.533 2.00407 25.9794 2.45044 25.9794 3.00107V6.98909C25.9794 7.53972 25.533 7.98609 24.9824 7.98609C24.4317 7.98609 23.9854 7.53972 23.9854 6.98909V5.42363L18.2462 11.1628C17.8569 11.5522 17.2256 11.5522 16.8363 11.1628C16.4469 10.7735 16.4469 10.1422 16.8363 9.75285L22.591 3.99808H20.9944C20.4438 3.99808 19.9974 3.5517 19.9974 3.00108C19.9974 2.45044 20.4438 2.00407 20.9944 2.00407H24.9824Z' fill='currentColor' />
+          </svg>
+        </button>
+      ) : null}
       <div
         className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${
           controlsVisible ? 'opacity-100' : 'opacity-0'
@@ -235,6 +286,9 @@ function MobileCustomVideoPlayer({
         <button
           type='button'
           onClick={togglePlay}
+          onTouchStart={stopTouchPropagation}
+          onTouchMove={stopTouchPropagation}
+          onTouchEnd={togglePlay}
           className={`inline-flex items-center justify-center rounded-full ${
             controlsVisible ? 'pointer-events-auto' : 'pointer-events-none'
           }`}
@@ -282,7 +336,12 @@ function MobileCustomVideoPlayer({
             value={progress}
             onChange={handleSeek}
             onClick={(event) => event.stopPropagation()}
-            onTouchStart={showControlsTemporarily}
+            onTouchStart={(event) => {
+              stopTouchPropagation(event)
+              showControlsTemporarily()
+            }}
+            onTouchMove={stopTouchPropagation}
+            onTouchEnd={stopTouchPropagation}
             className='h-1.5 w-full cursor-pointer accent-white'
             aria-label='Seek video'
           />
@@ -293,7 +352,12 @@ function MobileCustomVideoPlayer({
             <button
               type='button'
               onClick={toggleMute}
-              onTouchStart={showControlsTemporarily}
+              onTouchStart={(event) => {
+                stopTouchPropagation(event)
+                showControlsTemporarily()
+              }}
+              onTouchMove={stopTouchPropagation}
+              onTouchEnd={toggleMute}
               className='inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/15'
               aria-label={isMuted ? 'Unmute video' : 'Mute video'}
             >
@@ -348,11 +412,26 @@ export default function MobileGallery({
   const lightboxTouchStartX = useRef(0)
   const lightboxTouchEndX = useRef(0)
   const lightboxThumbStripRef = useRef(null)
+  const videoPlaybackTimeRef = useRef({})
 
   const activeMedia = mediaItems[activeIndex] || null
   const isActiveVideoPlaying =
     String(activeMedia?.type || '') === 'video' &&
     String(playingVideoUrl || '').trim() === String(activeMedia?.url || '').trim()
+
+  const getSavedPlaybackTime = useCallback((url) => {
+    const key = String(url || '').trim()
+    if (!key) return 0
+    const saved = videoPlaybackTimeRef.current[key]
+    return Number.isFinite(saved) && saved > 0 ? saved : 0
+  }, [])
+
+  const savePlaybackTime = useCallback((url, seconds) => {
+    const key = String(url || '').trim()
+    if (!key) return
+    const safeSeconds = Number.isFinite(seconds) && seconds > 0 ? seconds : 0
+    videoPlaybackTimeRef.current[key] = safeSeconds
+  }, [])
 
   const clearSwipeHintTimer = useCallback(() => {
     if (!swipeHintTimerRef.current) return
@@ -611,7 +690,10 @@ export default function MobileGallery({
                         videoClassName='h-full w-full object-contain bg-black'
                         isActive={index === activeIndex}
                         shouldAutoPlay
+                        initialTime={getSavedPlaybackTime(item.url)}
                         onPauseToCover={() => setPlayingVideoUrl('')}
+                        onExpand={openLightbox}
+                        onTimePersist={(seconds) => savePlaybackTime(item.url, seconds)}
                       />
                     ) : (
                       <button
@@ -684,7 +766,11 @@ export default function MobileGallery({
           ) : null}
 
           {activeMedia?.type === 'video' ? (
-            <span className='absolute right-4 top-4 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-white'>
+            <span
+              className={`absolute top-4 rounded-full bg-black/65 px-2 py-1 text-[10px] font-semibold text-white ${
+                isActiveVideoPlaying ? 'left-4' : 'right-4'
+              }`}
+            >
               Video
             </span>
           ) : null}
@@ -802,6 +888,9 @@ export default function MobileGallery({
                             containerClassName='max-h-full max-w-full rounded-lg bg-black'
                             videoClassName='max-h-full max-w-full rounded-lg bg-black'
                             isActive={index === lightboxCurrentIndex}
+                            shouldAutoPlay={index === lightboxCurrentIndex}
+                            initialTime={getSavedPlaybackTime(item.url)}
+                            onTimePersist={(seconds) => savePlaybackTime(item.url, seconds)}
                           />
                         ) : (
                           <img
