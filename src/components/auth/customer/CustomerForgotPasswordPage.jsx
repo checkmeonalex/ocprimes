@@ -285,9 +285,7 @@ export default function CustomerForgotPasswordPage() {
 
         <div className='mt-2 flex justify-center'>
           <Link
-            href='/UserBackend/messages?help_center=1'
-            target='_blank'
-            rel='noreferrer'
+            href='/help-center'
             className='rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900'
           >
             Help Center

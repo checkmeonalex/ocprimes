@@ -49,6 +49,9 @@ body {
   @apply overflow-x-hidden;
   min-height: 100%;
   max-width: 100vw !important;   /* Add this */
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  font-weight: 400;
   /* Better font rendering */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -60,6 +63,26 @@ body {
   padding: 0;
   background: var(--ocp-glass-base);
   color: var(--ocp-ink);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 700;
+}
+
+button,
+input[type='button'],
+input[type='submit'],
+input[type='reset'] {
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 500;
 }
 
 /* Global horizontal clamp to prevent overflow on wide layouts */

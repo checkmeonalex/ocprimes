@@ -42,6 +42,7 @@ export default function ClientLayout({
   const isCartRoute = pathname?.startsWith('/cart')
   const isCheckoutRoute = pathname?.startsWith('/checkout')
   const isPlayRoute = pathname?.startsWith('/play')
+  const isProductRoute = pathname?.startsWith('/product/')
   const isCheckoutFlowRoute = isCartRoute || isCheckoutRoute
   const showStorefrontFooter =
     !isUserBackendRoute &&
@@ -164,7 +165,7 @@ export default function ClientLayout({
           {children}
         </main>
       </div>
-      {showStorefrontFooter ? <Footer /> : null}
+      {showStorefrontFooter ? <Footer showBackToTop={!isProductRoute} /> : null}
       <AddToCartSuccessPopup />
     </>
   )

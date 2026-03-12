@@ -8,14 +8,63 @@ import CountryFlagIcon from './common/CountryFlagIcon'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { INTERNATIONAL_COUNTRY, LANGUAGE_OPTIONS, LOCALE_COUNTRY_OPTIONS } from '@/lib/i18n/locale-config'
 
+function InstagramIcon(props) {
+  return (
+    <svg viewBox='0 0 24 24' fill='none' aria-hidden='true' {...props}>
+      <rect x='3.25' y='3.25' width='17.5' height='17.5' rx='5.25' stroke='currentColor' strokeWidth='1.8' />
+      <circle cx='12' cy='12' r='4.1' stroke='currentColor' strokeWidth='1.8' />
+      <circle cx='17.4' cy='6.7' r='1.2' fill='currentColor' />
+    </svg>
+  )
+}
+
+function TikTokIcon(props) {
+  return (
+    <svg viewBox='0 0 24 24' fill='none' aria-hidden='true' {...props}>
+      <path
+        d='M14.6 4.5c.5 1.6 1.7 2.9 3.3 3.4v3.1a8 8 0 0 1-3.3-1V15a5 5 0 1 1-5-5h.5v3.2h-.5a1.8 1.8 0 1 0 1.8 1.8V4.5h3.2Z'
+        fill='currentColor'
+      />
+    </svg>
+  )
+}
+
+function XIcon(props) {
+  return (
+    <svg viewBox='0 0 24 24' fill='none' aria-hidden='true' {...props}>
+      <path d='M5 4.5h3.6l4 5.3 4.4-5.3H19l-5.6 6.7L19.4 19H15.8l-4.3-5.7L6.7 19H5l5.8-6.9L5 4.5Z' fill='currentColor' />
+    </svg>
+  )
+}
+
+function FacebookIcon(props) {
+  return (
+    <svg viewBox='0 0 24 24' fill='none' aria-hidden='true' {...props}>
+      <path
+        d='M13.4 20v-6.2h2.1l.4-2.7h-2.5V9.3c0-.8.3-1.4 1.5-1.4H16V5.5c-.4-.1-1.2-.2-2.2-.2-2.2 0-3.7 1.3-3.7 3.9v1.9H8v2.7h2.1V20h3.3Z'
+        fill='currentColor'
+      />
+    </svg>
+  )
+}
+
+const socialPlatforms = [
+  { label: 'Instagram', Icon: InstagramIcon },
+  { label: 'TikTok', Icon: TikTokIcon },
+  { label: 'Twitter / X', Icon: XIcon },
+  { label: 'Facebook', Icon: FacebookIcon },
+]
+
 const footerGroups = [
   {
-    title: 'Shop',
+    title: 'LEGAL',
     links: [
-      { label: 'All products', href: '/products' },
-      { label: 'Categories', href: '/products' },
-      { label: 'Play', href: '/play' },
-      { label: 'Wishlist', href: '/wishlist' },
+      { label: 'Terms of Service', href: '/legal/terms-of-service' },
+      { label: 'Privacy Policy', href: '/legal/privacy-policy' },
+      { label: 'Returns Policy', href: '/legal/returns-policy' },
+      { label: 'Order Protection Policy', href: '/legal/order-protection-policy' },
+      { label: 'Seller Policy', href: '/legal/seller-policy' },
+      { label: 'Acceptable Use', href: '/legal/acceptable-use' },
     ],
   },
   {
@@ -28,26 +77,28 @@ const footerGroups = [
     ],
   },
   {
-    title: 'Sell',
+    title: 'ABOUT ALXORA',
     links: [
-      { label: 'Start selling', href: '/sellersignup' },
-      { label: 'Vendor login', href: '/vendor/login' },
-      { label: 'Vendor signup', href: '/vendor/signup' },
-      { label: 'Followed stores', href: '/UserBackend/followed-stores' },
+      { label: 'About us', href: '/about/about-us' },
+      { label: 'How Alxora works', href: '/about/how-alxora-works' },
+      { label: 'Pricing & currency info', href: '/about/pricing-currency-info' },
+      { label: 'Careers (future)', href: '/about/careers' },
+      { label: 'Sell On Alxora', href: '/about/sell-on-alxora' },
     ],
   },
   {
     title: 'Support',
     links: [
-      { label: 'Browsing history', href: '/UserBackend/browsing-history' },
-      { label: 'Notifications', href: '/UserBackend/notifications' },
-      { label: 'Cart', href: '/cart' },
-      { label: 'Profile', href: '/UserBackend/profile' },
+      { label: 'Help Center', href: '/help-center' },
+      { label: 'Contact support', href: '/UserBackend/messages?help_center=1' },
+      { label: 'Track your order', href: '/help-center/orders-delivery/track-your-order' },
+      { label: 'Delivery information', href: '/help-center/orders-delivery/delivery-timelines' },
+      { label: 'Returns & refunds', href: '/help-center/returns-refunds/how-to-return-an-item' },
     ],
   },
 ]
 
-export default function Footer() {
+export default function Footer({ showBackToTop = true }) {
   const { locale, setLocale } = useUserI18n()
   const year = new Date().getFullYear()
   const isInternational = locale.country === INTERNATIONAL_COUNTRY
@@ -159,9 +210,19 @@ export default function Footer() {
         </div>
 
         <div className='flex flex-col gap-4 py-5 text-sm text-white/56 lg:flex-row lg:items-center lg:justify-between'>
-          <div className='flex flex-wrap items-center gap-2'>
-            <span>Copyright {year} OCPRIMES.</span>
-            <span className='hidden sm:inline'>All rights reserved.</span>
+          <div className='flex flex-col gap-3'>
+            <div className='flex flex-wrap items-center gap-2'>
+              <span>&copy; {year} OCPRIMES.</span>
+              <span className='hidden sm:inline'>All rights reserved.</span>
+            </div>
+            <div className='flex flex-wrap items-center gap-4 text-white/74'>
+              {socialPlatforms.map(({ label, Icon }) => (
+                <span key={label} className='inline-flex items-center gap-2 text-sm text-white/74'>
+                  <Icon className='h-4 w-4 shrink-0' />
+                  <span>{label}</span>
+                </span>
+              ))}
+            </div>
           </div>
 
           <div className='flex flex-wrap items-center gap-3'>
@@ -235,15 +296,16 @@ export default function Footer() {
                 </div>
               ) : null}
             </div>
-
-            <button
-              type='button'
-              onClick={handleBackToTop}
-              className='inline-flex items-center gap-2 rounded-full border border-white/40 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/5'
-            >
-              <ArrowUp className='h-3.5 w-3.5' aria-hidden='true' />
-              Back to top
-            </button>
+            {showBackToTop ? (
+              <button
+                type='button'
+                onClick={handleBackToTop}
+                className='inline-flex items-center gap-2 rounded-full border border-white/40 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/5'
+              >
+                <ArrowUp className='h-3.5 w-3.5' aria-hidden='true' />
+                Back to top
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

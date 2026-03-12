@@ -160,7 +160,7 @@ export default function AccountLandingPage({
                           Settings
                         </Link>
                         <Link
-                          href='/UserBackend/notifications'
+                          href='/help-center'
                           onClick={() => setIsAvatarMenuOpen(false)}
                           className='flex items-center gap-3 rounded-xl px-3 py-2.5 text-base text-slate-700'
                         >
@@ -315,4 +315,3 @@ export default function AccountLandingPage({
     </div>
   )
 }
-

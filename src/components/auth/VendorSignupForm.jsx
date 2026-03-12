@@ -228,9 +228,7 @@ export default function VendorSignupForm({
               </p>
 
               <Link
-                href='/UserBackend/messages?help_center=1'
-                target='_blank'
-                rel='noreferrer'
+                href='/help-center'
                 className='inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition hover:text-slate-950'
               >
                 <span>Need help?</span>

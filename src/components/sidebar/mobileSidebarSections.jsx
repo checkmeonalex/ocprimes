@@ -218,12 +218,12 @@ export const MOBILE_SIDEBAR_SECTIONS = [
       },
       {
         label: 'Help Center',
-        href: '/UserBackend/messages?help_center=1',
+        href: '/help-center',
         icon: SiteHelpCenterIcon,
       },
       {
         label: 'Quick help',
-        href: '/UserBackend/messages?help_center=1',
+        href: '/help-center',
         icon: SiteQuickHelpIcon,
       },
     ],

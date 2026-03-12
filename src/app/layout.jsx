@@ -1,6 +1,7 @@
 // src/app/layout.jsx
 import ClientLayout from '../components/ClientLayout'
 import './globals.css'
+import localFont from 'next/font/local'
 import { SidebarProvider } from '../context/SidebarContext'
 import { CartProvider } from '../context/CartContext'
 import { AlertProvider } from '../context/AlertContext'
@@ -17,6 +18,14 @@ export const dynamic = 'force-dynamic'
 export const metadata = {
   title: 'OcPrimes',
 }
+
+const outfit = localFont({
+  src: './fonts/outfit-variable.woff2',
+  variable: '--font-outfit',
+  weight: '100 900',
+  style: 'normal',
+  display: 'swap',
+})
 
 export default async function RootLayout({ children }) {
   let initialAuthUser = null
@@ -36,7 +45,7 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang='en'>
-      <body>
+      <body className={outfit.variable}>
         <UserLocaleProvider>
           <AlertProvider>
             <SidebarProvider>
