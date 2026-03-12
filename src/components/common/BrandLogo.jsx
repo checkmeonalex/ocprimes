@@ -1,4 +1,6 @@
+import Image from 'next/image'
 import Link from 'next/link'
+import minilogo from '@/app/storage/minilogo.png'
 
 const joinClasses = (...values) => values.filter(Boolean).join(' ')
 
@@ -7,22 +9,19 @@ export function BrandLogoMark({
   ...props
 }) {
   return (
-    <svg
-      className={className}
-      viewBox='0 0 24 24'
-      fill='currentColor'
+    <span
+      className={joinClasses('relative inline-block overflow-hidden', className)}
       aria-hidden='true'
       {...props}
     >
-      <circle cx='12' cy='3.2' r='2.2' />
-      <circle cx='12' cy='20.8' r='2.2' />
-      <circle cx='3.2' cy='12' r='2.2' />
-      <circle cx='20.8' cy='12' r='2.2' />
-      <circle cx='6.3' cy='6.3' r='2.2' />
-      <circle cx='17.7' cy='17.7' r='2.2' />
-      <circle cx='17.7' cy='6.3' r='2.2' />
-      <circle cx='6.3' cy='17.7' r='2.2' />
-    </svg>
+      <Image
+        src={minilogo}
+        alt=''
+        fill
+        sizes='64px'
+        className='object-contain'
+      />
+    </span>
   )
 }
 

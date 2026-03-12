@@ -1,5 +1,6 @@
 'use client'
 
+import AjaxPreloader from '@/components/common/AjaxPreloader'
 import CustomSelect from '@/components/common/CustomSelect'
 import LocationAutocompleteInput from '@/components/common/LocationAutocompleteInput'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -1098,45 +1099,7 @@ const getRandomAddressLabelSuggestion = (existingLabels = []) => {
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
-const AddressBookSkeleton = () => (
-  <div className='relative min-h-[calc(100vh-220px)] space-y-5 px-3 pt-0 sm:px-4 sm:pt-3 lg:px-5'>
-    <section className='relative -mx-3 overflow-hidden rounded-none border border-x-0 border-slate-200 bg-[linear-gradient(145deg,#ffffff_0%,#f8fafc_58%,#f1f5f9_100%)] p-4 sm:mx-0 sm:rounded-2xl sm:border-x sm:p-5'>
-      <div className='pointer-events-none absolute -right-20 -top-20 h-52 w-52 rounded-full bg-slate-200/70 blur-3xl' />
-      <div className='pointer-events-none absolute -bottom-20 -left-20 h-52 w-52 rounded-full bg-slate-300/55 blur-3xl' />
-      <div className='relative animate-pulse'>
-        <div className='h-7 w-40 rounded-md bg-slate-200' />
-        <div className='mt-2 h-4 w-72 max-w-full rounded-md bg-slate-100' />
-        <div className='mt-4 flex flex-col gap-2 sm:flex-row sm:items-center'>
-          <div className='h-10 w-40 rounded-xl bg-slate-100' />
-          <div className='h-8 w-32 rounded-full bg-slate-100' />
-        </div>
-        <div className='mt-4 h-11 w-full rounded-xl bg-slate-100 sm:w-44' />
-      </div>
-    </section>
-
-    <section className='grid grid-cols-1 gap-4 lg:grid-cols-2'>
-      {Array.from({ length: 4 }).map((_, index) => (
-        <article
-          key={`address-skeleton-${index}`}
-          className='rounded-2xl border border-slate-200 bg-white p-4 shadow-sm'
-        >
-          <div className='animate-pulse'>
-            <div className='h-4 w-32 rounded-md bg-slate-200' />
-            <div className='mt-3 h-3 w-full rounded-md bg-slate-100' />
-            <div className='mt-2 h-3 w-11/12 rounded-md bg-slate-100' />
-            <div className='mt-2 h-3 w-3/4 rounded-md bg-slate-100' />
-            <div className='mt-4 flex items-center gap-2'>
-              <div className='h-8 w-14 rounded-lg bg-slate-100' />
-              <div className='h-8 w-16 rounded-lg bg-slate-100' />
-            </div>
-          </div>
-        </article>
-      ))}
-    </section>
-
-    <div className='h-9 w-64 max-w-full animate-pulse rounded-xl border border-slate-200 bg-slate-50' />
-  </div>
-)
+const AddressBookSkeleton = () => <AjaxPreloader label='Loading your addresses...' />
 
 export default function AddressesPage() {
   const [addressType, setAddressType] = useState('shipping')

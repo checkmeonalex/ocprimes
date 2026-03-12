@@ -1,5 +1,6 @@
 'use client';
 
+import { BrandLogoMark } from '@/components/common/BrandLogo';
 import { toChatMessagePreview } from '@/lib/chat/voice-message';
 
 const FILTER_TABS = [
@@ -109,16 +110,7 @@ export default function SellerConversationList({
               aria-label="Help Center pinned conversation"
             >
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white">
-                <svg className="h-5 w-5 text-[#f5d10b]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <circle cx="12" cy="3.2" r="2.2"></circle>
-                  <circle cx="12" cy="20.8" r="2.2"></circle>
-                  <circle cx="3.2" cy="12" r="2.2"></circle>
-                  <circle cx="20.8" cy="12" r="2.2"></circle>
-                  <circle cx="6.3" cy="6.3" r="2.2"></circle>
-                  <circle cx="17.7" cy="17.7" r="2.2"></circle>
-                  <circle cx="17.7" cy="6.3" r="2.2"></circle>
-                  <circle cx="6.3" cy="17.7" r="2.2"></circle>
-                </svg>
+                <BrandLogoMark className="h-5 w-5 shrink-0" />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center justify-between gap-2">

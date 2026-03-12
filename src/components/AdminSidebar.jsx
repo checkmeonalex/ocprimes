@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { BrandLogoMark } from '@/components/common/BrandLogo';
 import useAdminProfileIdentity from '@/components/admin/useAdminProfileIdentity';
 import { getProfileIdentityImageUrl, getProfileIdentityInitials } from '@/lib/user/profile-identity-cache';
 
@@ -335,16 +336,7 @@ const AdminSidebar = () => {
         <Link href="/" className="rounded-2xl px-2 py-2 transition hover:bg-slate-50">
           <div className="flex items-center gap-3">
             <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white">
-              <svg className="h-5 w-5 text-[#f5d10b]" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <circle cx="12" cy="3.2" r="2.2" />
-                <circle cx="12" cy="20.8" r="2.2" />
-                <circle cx="3.2" cy="12" r="2.2" />
-                <circle cx="20.8" cy="12" r="2.2" />
-                <circle cx="6.3" cy="6.3" r="2.2" />
-                <circle cx="17.7" cy="17.7" r="2.2" />
-                <circle cx="17.7" cy="6.3" r="2.2" />
-                <circle cx="6.3" cy="17.7" r="2.2" />
-              </svg>
+              <BrandLogoMark className="h-5 w-5 shrink-0" />
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-tight text-slate-900">OCPRIMES</p>

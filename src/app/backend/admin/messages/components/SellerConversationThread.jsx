@@ -8,6 +8,7 @@ import {
   parseVoiceMessageBody,
 } from '@/lib/chat/voice-message';
 import { useVoiceRecorder } from '@/lib/chat/use-voice-recorder';
+import { BrandLogoMark } from '@/components/common/BrandLogo';
 
 const HELP_CENTER_VIRTUAL_CONVERSATION_ID = '__help_center__';
 
@@ -20,16 +21,7 @@ const getInitials = (name) =>
     .join('') || 'C';
 
 const HelpCenterLogo = ({ className = 'h-5 w-5' }) => (
-  <svg className={`${className} text-[#f5d10b]`} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <circle cx="12" cy="3.2" r="2.2" />
-    <circle cx="12" cy="20.8" r="2.2" />
-    <circle cx="3.2" cy="12" r="2.2" />
-    <circle cx="20.8" cy="12" r="2.2" />
-    <circle cx="6.3" cy="6.3" r="2.2" />
-    <circle cx="17.7" cy="17.7" r="2.2" />
-    <circle cx="17.7" cy="6.3" r="2.2" />
-    <circle cx="6.3" cy="17.7" r="2.2" />
-  </svg>
+  <BrandLogoMark className={className} />
 );
 
 const VerifiedBadge = () => (

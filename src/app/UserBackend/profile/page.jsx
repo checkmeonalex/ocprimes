@@ -1,6 +1,7 @@
 'use client'
 
 import CustomSelect from '@/components/common/CustomSelect'
+import AjaxPreloader from '@/components/common/AjaxPreloader'
 import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import { useAlerts } from '@/context/AlertContext'
@@ -86,83 +87,7 @@ const normalizeInterestsProfile = (value) => {
 }
 
 function ProfilePageSkeleton() {
-  const fieldSkeleton = (
-    <div>
-      <div className='h-3 w-24 animate-pulse rounded bg-slate-200' />
-      <div className='mt-2 h-11 w-full animate-pulse rounded-full bg-slate-100' />
-    </div>
-  )
-
-  return (
-    <div className={`${accountPageShellClass} mx-auto max-w-5xl overflow-x-hidden`}>
-      <section className={`${accountCardClass} relative overflow-hidden`}>
-        <div className='relative'>
-          <div className='h-6 w-24 animate-pulse rounded bg-slate-200' />
-          <div className='mt-2 h-4 w-56 animate-pulse rounded bg-slate-100' />
-        </div>
-
-        <div className='mt-5 flex flex-col items-center'>
-          <div className='relative h-20 w-20'>
-            <div className='h-20 w-20 animate-pulse rounded-full border border-slate-200 bg-slate-100' />
-            <div className='absolute -bottom-1 -right-1 h-7 w-7 animate-pulse rounded-full border border-slate-200 bg-slate-100' />
-          </div>
-          <div className='mt-3 h-4 w-40 animate-pulse rounded bg-slate-100' />
-        </div>
-      </section>
-
-      <section className={accountCardClass}>
-        <div className='h-4 w-32 animate-pulse rounded bg-slate-200' />
-        <div className='mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2'>
-          {fieldSkeleton}
-          {fieldSkeleton}
-          {fieldSkeleton}
-          {fieldSkeleton}
-          {fieldSkeleton}
-          {fieldSkeleton}
-        </div>
-      </section>
-
-      <section className={accountCardClass}>
-        <div className='flex items-center justify-between'>
-          <div className='h-4 w-24 animate-pulse rounded bg-slate-200' />
-          <div className='h-4 w-4 animate-pulse rounded bg-slate-100' />
-        </div>
-        <div className='mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2'>
-          {fieldSkeleton}
-          {fieldSkeleton}
-        </div>
-      </section>
-
-      <div className='grid grid-cols-1 gap-5 lg:grid-cols-2'>
-        <section className={accountCardClass}>
-          <div className='h-4 w-24 animate-pulse rounded bg-slate-200' />
-          <div className='mt-2 h-3 w-72 animate-pulse rounded bg-slate-100' />
-          <div className='mt-4 space-y-4'>
-            {Array.from({ length: 3 }).map((_, rowIndex) => (
-              <div key={`interest-question-skeleton-${rowIndex}`}>
-                <div className='h-3 w-52 animate-pulse rounded bg-slate-200' />
-                <div className='mt-2 flex flex-wrap gap-2'>
-                  {Array.from({ length: 4 }).map((__, chipIndex) => (
-                    <span
-                      key={`interest-chip-skeleton-${rowIndex}-${chipIndex}`}
-                      className='inline-flex h-8 w-24 animate-pulse rounded-full bg-slate-100'
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      <div className='fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-2.5 sm:px-5'>
-        <div className='mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2 sm:flex-nowrap'>
-          <div className='h-3 w-40 animate-pulse rounded bg-slate-100' />
-          <div className='h-10 w-28 animate-pulse rounded-full bg-slate-200' />
-        </div>
-      </div>
-    </div>
-  )
+  return <AjaxPreloader label='Loading your profile...' />
 }
 
 export default function ProfilePage() {
