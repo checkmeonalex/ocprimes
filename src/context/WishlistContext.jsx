@@ -1,10 +1,14 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { useAuthUser } from '@/lib/auth/useAuthUser'
 
 const WishlistContext = createContext(null)
 
 export function WishlistProvider({ children }) {
+  const pathname = usePathname()
+  const { user, isLoading } = useAuthUser()
   const [isOpen, setIsOpen] = useState(false)
   const [view, setView] = useState('save')
   const [product, setProduct] = useState(null)
@@ -74,7 +78,21 @@ export function WishlistProvider({ children }) {
   )
 
   const refreshWishlistStatus = useCallback(async () => {
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/backend/admin')) {
+    const normalizedPath = String(pathname || '')
+    const isAdminRoute =
+      normalizedPath.startsWith('/backend/admin') || normalizedPath.startsWith('/admin')
+    const isAuthRoute =
+      normalizedPath.startsWith('/login') ||
+      normalizedPath.startsWith('/signup') ||
+      normalizedPath.startsWith('/forgot-password') ||
+      normalizedPath.startsWith('/reset-password') ||
+      normalizedPath.startsWith('/admin/login') ||
+      normalizedPath.startsWith('/admin/signup') ||
+      normalizedPath.startsWith('/vendor/login') ||
+      normalizedPath.startsWith('/vendor/signup')
+
+    if (isAdminRoute || isAuthRoute || isLoading || !user) {
+      setWishlistedProductIds({})
       setIsWishlistStatusLoaded(true)
       return
     }
@@ -100,7 +118,7 @@ export function WishlistProvider({ children }) {
     } catch (_error) {
       setIsWishlistStatusLoaded(true)
     }
-  }, [])
+  }, [isLoading, pathname, user])
 
   useEffect(() => {
     refreshWishlistStatus()

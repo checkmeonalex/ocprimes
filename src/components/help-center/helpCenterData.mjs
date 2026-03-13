@@ -19,25 +19,25 @@ export const HELP_CENTER_SUPPORT_ACTIONS = [
     id: 'track-order',
     label: 'Track your order',
     icon: 'truck',
-    href: '/help-center/orders-delivery/track-your-order',
+    href: '/help/orders-delivery/track-your-order',
   },
   {
     id: 'payment-help',
     label: 'Payment failed',
     icon: 'credit-card',
-    href: '/help-center/payments-checkout/payment-failed-or-declined',
+    href: '/help/payments-checkout/payment-failed-or-declined',
   },
   {
     id: 'return-help',
     label: 'Start a return',
     icon: 'rotate',
-    href: '/help-center/returns-refunds/how-to-return-an-item',
+    href: '/help/returns-refunds/how-to-return-an-item',
   },
   {
     id: 'password-help',
     label: 'Reset password',
     icon: 'settings',
-    href: '/help-center/account-security/reset-or-change-password',
+    href: '/help/account-security/reset-or-change-password',
   },
 ]
 
@@ -53,12 +53,12 @@ export const HELP_CENTER_SECTIONS = [
       makeArticle(
         'create-or-sign-in',
         'Create or sign in to your account',
-        'A practical guide to opening your OCPRIMES account properly, signing back in without confusion, and setting yourself up for smoother shopping.',
+        'A practical guide to opening your Alxora account properly, signing back in without confusion, and setting yourself up for smoother shopping.',
         [
           {
             heading: 'Start with one account you will actually keep',
             paragraphs: [
-              '**OCPRIMES works best when you keep one main account** instead of creating a new one every time something goes slightly wrong.',
+              '**Alxora works best when you keep one main account** instead of creating a new one every time something goes slightly wrong.',
               'Use an email address you check often, a phone number you can still access, and a password you can remember without turning sign-in into drama. Those simple choices affect order updates, password recovery, and how quickly support can help you later.',
             ],
             bullets: [
@@ -220,7 +220,7 @@ export const HELP_CENTER_SECTIONS = [
       makeArticle(
         'track-your-order',
         'Track your order',
-        'You can follow the progress of your order directly from your OCPRIMES account after checkout.',
+        'You can follow the progress of your order directly from your Alxora account after checkout.',
         [
           {
             heading: 'How to track an order',
@@ -235,7 +235,7 @@ export const HELP_CENTER_SECTIONS = [
             heading: 'Common order statuses',
             bullets: [
               '**Pending:** Order is being reviewed or confirmed.',
-              '**Processing:** OCPRIMES is preparing your item for shipment.',
+              '**Processing:** Alxora is preparing your item for shipment.',
               '**Shipped / Out for delivery:** Your order is on the way.',
               '**Delivered:** Order has been completed.',
             ],
@@ -400,7 +400,7 @@ export const HELP_CENTER_SECTIONS = [
             heading: 'If you still cannot find the package',
             paragraphs: [
               'Contact support by email as soon as possible.',
-              'OCPRIMES will review delivery confirmation and investigate the issue with the delivery partner before advising you on the next steps.',
+              'Alxora will review delivery confirmation and investigate the issue with the delivery partner before advising you on the next steps.',
             ],
             bullets: [
               'Include your **Order ID**.',
@@ -424,7 +424,7 @@ export const HELP_CENTER_SECTIONS = [
       makeArticle(
         'accepted-payment-methods',
         'Accepted payment methods',
-        'OCPRIMES supports secure online payments during checkout.',
+        'Alxora supports secure online payments during checkout.',
         [
           {
             heading: 'How to pay',
@@ -467,7 +467,7 @@ export const HELP_CENTER_SECTIONS = [
       makeArticle(
         'why-prices-show-in-naira',
         'Why prices show in Naira',
-        'Prices on OCPRIMES are displayed in Nigerian Naira (NGN) by default.',
+        'Prices on Alxora are displayed in Nigerian Naira (NGN) by default.',
         [
           {
             heading: 'Why this happens',
@@ -794,14 +794,14 @@ export const HELP_CENTER_SECTIONS = [
             heading: 'How claims are reviewed',
             paragraphs: [
               'To be considered for Order Protection, a claim should be submitted within **48 hours of delivery**.',
-              'Supporting photo or video evidence is required to help verify the issue. Each claim is carefully reviewed by OCPRIMES before any decision is made.',
+              'Supporting photo or video evidence is required to help verify the issue. Each claim is carefully reviewed by Alxora before any decision is made.',
             ],
           },
           {
             heading: 'What happens after approval',
             paragraphs: [
               'When a claim is approved for a covered issue, Order Protection may allow support even if the item is normally listed as non-returnable.',
-              'OCPRIMES will review the case and guide you on the next steps based on investigation findings.',
+              'Alxora will review the case and guide you on the next steps based on investigation findings.',
             ],
           },
         ],
@@ -1013,7 +1013,7 @@ export const HELP_CENTER_SECTIONS = [
           {
             heading: 'What happens next',
             paragraphs: [
-              'OCPRIMES will review the report and guide you on steps to secure your account.',
+              'Alxora will review the report and guide you on steps to secure your account.',
             ],
           },
         ],
@@ -1169,7 +1169,7 @@ export const HELP_CENTER_SECTIONS = [
           {
             heading: 'What happens next',
             paragraphs: [
-              'OCPRIMES will review the report and take appropriate action if necessary.',
+              'Alxora will review the report and take appropriate action if necessary.',
             ],
           },
         ],

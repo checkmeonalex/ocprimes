@@ -291,7 +291,7 @@ export default function WishlistPage() {
         const price = Number(item?.product_price) || 0
         const originalPrice = Number(item?.product_original_price)
         const stock = Number.isFinite(Number(item?.product_stock)) ? Number(item.product_stock) : 99
-        const vendorName = String(item?.product_vendor || '').trim() || 'OCPRIMES'
+        const vendorName = String(item?.product_vendor || '').trim() || 'Alxora'
         const vendorSlug = String(item?.product_vendor_slug || '').trim()
 
         return {
@@ -322,7 +322,7 @@ export default function WishlistPage() {
       const price = Number(item?.product_price) || 0
       const originalPrice = Number(item?.product_original_price)
       const stock = Number.isFinite(Number(item?.product_stock)) ? Number(item.product_stock) : 99
-      const vendorName = String(item?.product_vendor || '').trim() || 'OCPRIMES'
+      const vendorName = String(item?.product_vendor || '').trim() || 'Alxora'
       const vendorSlug = String(item?.product_vendor_slug || '').trim()
 
       return {

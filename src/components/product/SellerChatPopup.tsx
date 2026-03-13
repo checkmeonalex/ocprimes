@@ -59,7 +59,7 @@ const CHAT_SAFETY_RULES = [
   'Do not send your full home address in chat.',
   'Keep all payments within the official platform checkout.',
   'No abusive, offensive, or threatening language is allowed.',
-  'OCPRIMES is not responsible for any transaction made outside the platform.',
+  'Alxora is not responsible for any transaction made outside the platform.',
 ]
 const CHAT_SAFETY_ACCEPTED_STORAGE_KEY = 'ocp_chat_safety_acceptance_v1'
 
@@ -703,7 +703,7 @@ export default function SellerChatPopup({
       type: 'warning',
       title: 'Confirm report',
       message:
-        'OCPRIMES takes reporting very seriously and will investigate this complaint. Please make sure your suspicion is accurate before proceeding.',
+        'Alxora takes reporting very seriously and will investigate this complaint. Please make sure your suspicion is accurate before proceeding.',
       confirmLabel: 'Continue',
       cancelLabel: 'Cancel',
     })
@@ -1364,7 +1364,7 @@ export default function SellerChatPopup({
               </div>
             ) : null}
             <div className='mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800'>
-              OCPRIMES takes reporting very seriously and investigates complaints. Please make sure your suspicion is accurate before proceeding.
+              Alxora takes reporting very seriously and investigates complaints. Please make sure your suspicion is accurate before proceeding.
             </div>
 
             <div className='mt-4 flex justify-end gap-2'>

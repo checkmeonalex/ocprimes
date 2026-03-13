@@ -394,7 +394,7 @@ export const legalPages = [
         title: 'Claim timing and review',
         paragraphs: [
           'Claims should be submitted within 48 hours of delivery wherever possible, with supporting photo or video evidence that clearly shows the issue.',
-          'OCPRIMES reviews the order context, listing details, delivery state, and supporting evidence before deciding whether protection applies and what resolution path is appropriate.',
+          'Alxora reviews the order context, listing details, delivery state, and supporting evidence before deciding whether protection applies and what resolution path is appropriate.',
         ],
         bullets: [
           'Use the order context and timeline clearly.',
@@ -419,7 +419,7 @@ export const legalPages = [
     eyebrow: 'Legal',
     title: 'Seller Policy',
     description:
-      'The operating expectations for sellers listing products, setting pricing, fulfilling orders, and interacting with buyers on OCPRIMES.',
+      'The operating expectations for sellers listing products, setting pricing, fulfilling orders, and interacting with buyers on Alxora.',
     intro:
       'A marketplace earns trust when seller standards are clear. This policy outlines the baseline expectations for listing quality, pricing integrity, fulfilment behavior, and professional conduct.',
     highlights: [
@@ -458,7 +458,7 @@ export const legalPages = [
         id: 'enforcement',
         title: 'Enforcement and seller risk',
         paragraphs: [
-          'OCPRIMES may limit listing visibility, seller privileges, or account access where repeated policy violations, fraud signals, delivery failures, or abusive conduct are identified.',
+          'Alxora may limit listing visibility, seller privileges, or account access where repeated policy violations, fraud signals, delivery failures, or abusive conduct are identified.',
           'Strong seller performance helps build buyer trust. Poor seller discipline creates platform-wide friction and may trigger stronger review.',
         ],
         bullets: [
@@ -469,7 +469,7 @@ export const legalPages = [
       },
     ],
     cta: {
-      title: 'Planning to sell on OCPRIMES?',
+      title: 'Planning to sell on Alxora?',
       description:
         'Use the seller signup flow when you are ready to move from policy reading to marketplace setup.',
       primaryLabel: 'Sell On Alxora',
@@ -484,7 +484,7 @@ export const legalPages = [
     eyebrow: 'Legal',
     title: 'Acceptable Use',
     description:
-      'The behavior standard for how users should and should not use the OCPRIMES platform, tools, and support systems.',
+      'The behavior standard for how users should and should not use the Alxora platform, tools, and support systems.',
     intro:
       'A marketplace cannot stay trustworthy if its tools are used in bad faith. Acceptable Use explains the boundaries for ordinary users, buyers, sellers, and anyone interacting with the platform.',
     highlights: [
@@ -497,7 +497,7 @@ export const legalPages = [
         id: 'allowed-use',
         title: 'Allowed use',
         paragraphs: [
-          'OCPRIMES may be used for legitimate shopping, selling, browsing, support communication, and account management activities that respect platform rules and the rights of other users.',
+          'Alxora may be used for legitimate shopping, selling, browsing, support communication, and account management activities that respect platform rules and the rights of other users.',
           'Using the platform responsibly means not only avoiding obvious abuse, but also avoiding manipulative behavior that degrades trust, pricing integrity, or support quality.',
         ],
         bullets: [
@@ -523,7 +523,7 @@ export const legalPages = [
         id: 'consequences',
         title: 'Consequences of abuse',
         paragraphs: [
-          'When abuse is detected, OCPRIMES may warn, restrict, suspend, or permanently limit access depending on severity, repetition, and platform risk.',
+          'When abuse is detected, Alxora may warn, restrict, suspend, or permanently limit access depending on severity, repetition, and platform risk.',
           'Some actions may also affect order handling, listing visibility, communication tools, or eligibility for protection and support pathways.',
         ],
         bullets: [

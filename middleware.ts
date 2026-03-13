@@ -5,7 +5,7 @@ import { getUserRoleSafe } from '@/lib/auth/roles'
 
 const ADMIN_PREFIXES = ['/backend/admin', '/admin', '/api/admin']
 const ADMIN_PUBLIC_PATHS = ['/admin/login', '/admin/signup']
-const USER_PREFIXES = ['/UserBackend', '/wishlist']
+const USER_PREFIXES = ['/UserBackend', '/account', '/wishlist']
 const AUTH_PUBLIC_PATHS = [
   '/login',
   '/signup',
@@ -41,7 +41,7 @@ export async function middleware(request: NextRequest) {
     if (!error && data.user) {
       const role = await getUserRoleSafe(supabase, data.user.id, data.user.email || '')
       const destination =
-        role === 'admin' || role === 'vendor' ? '/backend/admin/dashboard' : '/UserBackend'
+        role === 'admin' || role === 'vendor' ? '/admin/dashboard' : '/account'
       return NextResponse.redirect(new URL(destination, request.url))
     }
 
@@ -85,7 +85,7 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith(prefix),
       )
       if (isAdminOnlyPage) {
-        return NextResponse.redirect(new URL('/backend/admin/dashboard', request.url))
+        return NextResponse.redirect(new URL('/admin/dashboard', request.url))
       }
       return response
     }
@@ -115,5 +115,7 @@ export const config = {
     '/admin/:path*',
     '/api/admin/:path*',
     '/UserBackend/:path*',
+    '/account/:path*',
+    '/account',
   ],
 }

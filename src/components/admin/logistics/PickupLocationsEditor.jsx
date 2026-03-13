@@ -100,7 +100,7 @@ export default function PickupLocationsEditor({ locations = [], onChange }) {
                     value={location.label || ''}
                     onChange={(event) => updateField(index, 'label', event.target.value)}
                     className={inputClassName}
-                    placeholder='OCPRIMES Pickup Hub'
+                    placeholder='Alxora Pickup Hub'
                   />
                 </div>
 

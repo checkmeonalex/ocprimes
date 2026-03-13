@@ -53,8 +53,8 @@ export default function BrandLogo({
   className = 'inline-flex items-center gap-3 text-gray-900',
   markClassName = 'h-12 w-12 shrink-0 text-[#f5d10b] sm:h-10 sm:w-10',
   labelClassName = 'text-xl font-semibold tracking-tight text-current',
-  label = 'OCPRIMES',
-  ariaLabel = 'OCPRIMES',
+  label = 'Alxora',
+  ariaLabel = 'Alxora',
 }) {
   const content = (
     <>

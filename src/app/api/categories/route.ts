@@ -5,9 +5,6 @@ import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { buildCategoryTree, mapCategoryTreeToMenu } from '@/lib/categories/tree.mjs'
 
-export const dynamic = 'force-dynamic'
-export const revalidate = 0
-
 const querySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(200),
 })
@@ -42,7 +39,7 @@ export async function GET(request: NextRequest) {
   const categories = mapCategoryTreeToMenu(tree)
 
   const response = jsonOk({ categories })
-  response.headers.set('Cache-Control', 'no-store, max-age=0')
+  response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400')
   applyCookies(response)
   return response
 }

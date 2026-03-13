@@ -61,7 +61,7 @@ export default function SignupForm({
           type='email'
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          placeholder='you@ocprimes.com'
+          placeholder='you@alxora.com'
           autoComplete='email'
           className='w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-normal text-slate-800 shadow-sm focus:border-slate-400 focus:outline-none'
           required

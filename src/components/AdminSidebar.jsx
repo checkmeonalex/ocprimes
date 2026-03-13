@@ -8,39 +8,39 @@ import useAdminProfileIdentity from '@/components/admin/useAdminProfileIdentity'
 import { getProfileIdentityImageUrl, getProfileIdentityInitials } from '@/lib/user/profile-identity-cache';
 
 const DESKTOP_NAV_ITEMS = [
-  { label: 'Dashboard', href: '/backend/admin/dashboard', icon: 'dashboard' },
-  { label: 'Orders', href: '/backend/admin/orders', icon: 'orders' },
-  { label: 'Messages', href: '/backend/admin/messages', icon: 'messages' },
-  { label: 'Products', href: '/backend/admin/products', icon: 'products' },
-  { label: 'Notifications', href: '/backend/admin/notifications', icon: 'notifications' },
-  { label: 'Reviews', href: '/backend/admin/reviews', icon: 'reviews' },
-  { label: 'Store front', href: '/backend/admin/store-front', icon: 'storefront' },
-  { label: 'Attributes', href: '/backend/admin/attributes', icon: 'attributes' },
+  { label: 'Dashboard', href: '/admin/dashboard', icon: 'dashboard' },
+  { label: 'Orders', href: '/admin/orders', icon: 'orders' },
+  { label: 'Messages', href: '/admin/messages', icon: 'messages' },
+  { label: 'Products', href: '/admin/products', icon: 'products' },
+  { label: 'Notifications', href: '/admin/notifications', icon: 'notifications' },
+  { label: 'Reviews', href: '/admin/reviews', icon: 'reviews' },
+  { label: 'Store front', href: '/admin/store-front', icon: 'storefront' },
+  { label: 'Attributes', href: '/admin/attributes', icon: 'attributes' },
   {
     label: 'Pages',
-    href: '/backend/admin/pages',
+    href: '/admin/pages',
     icon: 'pages',
-    subItems: [{ label: 'Home', href: '/backend/admin/pages/home' }],
+    subItems: [{ label: 'Home', href: '/admin/pages/home' }],
   },
-  { label: 'Categories', href: '/backend/admin/categories', icon: 'categories' },
-  { label: 'Brands', href: '/backend/admin/brands', icon: 'brands' },
-  { label: 'Tags', href: '/backend/admin/tags', icon: 'tags' },
-  { label: 'Customers', href: '/backend/admin/customers', icon: 'customers' },
-  { label: 'Library', href: '/backend/admin/library', icon: 'library' },
-  { label: 'Size Guides', href: '/backend/admin/size-guides', icon: 'guides' },
-  { label: 'Logistics', href: '/backend/admin/logistics', icon: 'logistics' },
-  { label: 'Settings', href: '/backend/admin/settings', icon: 'settings' },
-  { label: 'Extra', href: '/backend/admin/extra', icon: 'extra' },
-  { label: 'Shortcut', href: '/backend/admin/shortcut', icon: 'shortcut' },
+  { label: 'Categories', href: '/admin/categories', icon: 'categories' },
+  { label: 'Brands', href: '/admin/brands', icon: 'brands' },
+  { label: 'Tags', href: '/admin/tags', icon: 'tags' },
+  { label: 'Customers', href: '/admin/customers', icon: 'customers' },
+  { label: 'Library', href: '/admin/library', icon: 'library' },
+  { label: 'Size Guides', href: '/admin/size-guides', icon: 'guides' },
+  { label: 'Logistics', href: '/admin/logistics', icon: 'logistics' },
+  { label: 'Settings', href: '/admin/settings', icon: 'settings' },
+  { label: 'Extra', href: '/admin/extra', icon: 'extra' },
+  { label: 'Shortcut', href: '/admin/shortcut', icon: 'shortcut' },
   { label: 'Vendor Users', href: '/backend/admin/admin/users', icon: 'adminUsers' },
   { label: 'Vendor Brands', href: '/backend/admin/admin/brands', icon: 'adminBrands' },
 ];
 
 const MOBILE_NAV_ITEMS = [
-  { key: 'home', label: 'Home', href: '/backend/admin/dashboard' },
-  { key: 'orders', label: 'Orders', href: '/backend/admin/orders' },
-  { key: 'products', label: 'Products', href: '/backend/admin/products' },
-  { key: 'more', label: 'More', href: '/backend/admin/settings' },
+  { key: 'home', label: 'Home', href: '/admin/dashboard' },
+  { key: 'orders', label: 'Orders', href: '/admin/orders' },
+  { key: 'products', label: 'Products', href: '/admin/products' },
+  { key: 'more', label: 'More', href: '/admin/settings' },
 ];
 
 const NavIcon = ({ icon }) => {
@@ -339,7 +339,7 @@ const AdminSidebar = () => {
               <BrandLogoMark className="h-5 w-5 shrink-0" />
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-tight text-slate-900">OCPRIMES</p>
+              <p className="truncate text-sm font-semibold tracking-tight text-slate-900">Alxora</p>
               <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-500">Admin</p>
             </div>
           </div>

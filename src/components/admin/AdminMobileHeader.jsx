@@ -6,8 +6,15 @@ import useAdminProfileIdentity from '@/components/admin/useAdminProfileIdentity'
 import { getProfileIdentityImageUrl, getProfileIdentityInitials } from '@/lib/user/profile-identity-cache'
 
 const TITLE_BY_PATH = {
-  '/backend/admin': 'Homepage',
-  '/backend/admin/dashboard': 'Homepage',
+  '/backend/admin': 'Dashboard',
+  '/backend/admin/dashboard': 'Dashboard',
+  '/admin': 'Dashboard',
+  '/admin/dashboard': 'Dashboard',
+  '/admin/orders': 'Orders',
+  '/admin/messages': 'Messages',
+  '/admin/products': 'Products',
+  '/admin/logistics': 'Logistics',
+  '/admin/settings': 'More',
   '/backend/admin/orders': 'Orders',
   '/backend/admin/messages': 'Messages',
   '/backend/admin/products': 'Products',
@@ -23,9 +30,9 @@ const toTitleCase = (value) =>
     .replace(/\b\w/g, (match) => match.toUpperCase())
 
 const resolveTitleFromPath = (pathname) => {
-  if (!pathname) return 'Homepage'
-  if (pathname === '/backend/admin/products/new') return 'Create Product'
-  if (pathname.startsWith('/backend/admin/products/')) {
+  if (!pathname) return 'Dashboard'
+  if (pathname === '/backend/admin/products/new' || pathname === '/admin/products/new') return 'Create Product'
+  if (pathname.startsWith('/backend/admin/products/') || pathname.startsWith('/admin/products/')) {
     const segments = pathname.split('/').filter(Boolean)
     const productSegment = segments[segments.findIndex((segment) => segment === 'products') + 1] || ''
     if (productSegment && productSegment !== 'new') return 'Edit Product'
@@ -34,7 +41,7 @@ const resolveTitleFromPath = (pathname) => {
 
   const sorted = Object.keys(TITLE_BY_PATH).sort((a, b) => b.length - a.length)
   const matchingPrefix = sorted.find(
-    (prefix) => pathname.startsWith(`${prefix}/`) && TITLE_BY_PATH[prefix] === 'Homepage',
+    (prefix) => pathname.startsWith(`${prefix}/`) && TITLE_BY_PATH[prefix] === 'Dashboard',
   )
   if (matchingPrefix) return TITLE_BY_PATH[matchingPrefix]
 
@@ -44,7 +51,7 @@ const resolveTitleFromPath = (pathname) => {
   if (firstAfterAdmin) return toTitleCase(firstAfterAdmin)
 
   const last = segments[segments.length - 1]
-  return last ? toTitleCase(last) : 'Homepage'
+  return last ? toTitleCase(last) : 'Dashboard'
 }
 
 export default function AdminMobileHeader() {
@@ -55,8 +62,8 @@ export default function AdminMobileHeader() {
   const title = useMemo(() => resolveTitleFromPath(pathname), [pathname])
   const isProductEditorRoute = useMemo(() => {
     if (!pathname) return false
-    if (pathname === '/backend/admin/products/new') return true
-    if (pathname.startsWith('/backend/admin/products/')) {
+    if (pathname === '/backend/admin/products/new' || pathname === '/admin/products/new') return true
+    if (pathname.startsWith('/backend/admin/products/') || pathname.startsWith('/admin/products/')) {
       const parts = pathname.split('/').filter(Boolean)
       const productSegment = parts[parts.findIndex((segment) => segment === 'products') + 1] || ''
       return Boolean(productSegment && productSegment !== 'new')

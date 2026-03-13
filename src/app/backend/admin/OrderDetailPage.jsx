@@ -254,7 +254,7 @@ export default function OrderDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: `New order received ${orderLabel}`,
-          message: `You received a new order from OCPRIMES.`,
+          message: `You received a new order from Alxora.`,
           template_key: 'vendor_order_received',
           template_payload: {
             orderId: String(order.id),
@@ -690,7 +690,7 @@ export default function OrderDetailPage() {
                             <div className='min-w-0'>
                               <p className='line-clamp-2 text-sm font-semibold text-slate-900'>{item.name}</p>
                               <p className='mt-1 text-xs text-slate-500'>Color: {item.variation || 'Standard option'}</p>
-                              <p className='text-xs text-slate-500'>Vendor: {item.vendor || 'OCPRIMES'}</p>
+                              <p className='text-xs text-slate-500'>Vendor: {item.vendor || 'Alxora'}</p>
                               {item.sellerStatusLabel ? (
                                 <p className='mt-1 text-[11px] font-semibold text-indigo-700'>
                                   Seller status: {item.sellerStatusLabel}

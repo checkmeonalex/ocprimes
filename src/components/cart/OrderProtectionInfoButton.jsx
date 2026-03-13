@@ -92,7 +92,7 @@ const OrderProtectionInfoButton = ({ className = '', label = '' }) => {
                 <ul className='mt-1 list-disc space-y-1 pl-5'>
                   <li>Submit claim within 48 hours of delivery</li>
                   <li>Upload photo/video evidence</li>
-                  <li>OCPRIMES reviews each claim before approval</li>
+                  <li>Alxora reviews each claim before approval</li>
                 </ul>
               </div>
 

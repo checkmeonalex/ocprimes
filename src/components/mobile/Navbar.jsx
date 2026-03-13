@@ -190,6 +190,10 @@ function MobileNavbar({
   }, [initialTopCategories])
 
   useEffect(() => {
+    if (Array.isArray(initialTopCategories) && initialTopCategories.length) {
+      return undefined
+    }
+
     let cancelled = false
 
     const loadMobileCategories = async () => {
@@ -204,7 +208,7 @@ function MobileNavbar({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [initialTopCategories])
 
   useEffect(() => {
     const SHOW_AT_Y = 80
@@ -495,7 +499,7 @@ function MobileNavbar({
                 className='inline-flex min-w-0 max-w-full items-center gap-2 text-slate-900'
                 markClassName='h-12 w-12 shrink-0 text-[#f5d10b]'
                 labelClassName='whitespace-nowrap text-lg font-bold tracking-tight text-slate-900 max-[374px]:text-[15px]'
-                ariaLabel='OCPRIMES home'
+                ariaLabel='Alxora home'
               />
             </div>
 
@@ -585,7 +589,7 @@ function MobileNavbar({
                     {user ? (
                       <>
                         <Link
-                          href='/UserBackend'
+                          href='/account'
                           onClick={closeAccountMenu}
                           className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-50'
                         >
@@ -596,7 +600,7 @@ function MobileNavbar({
                           Account center
                         </Link>
                         <Link
-                          href='/UserBackend/profile'
+                          href='/account/profile'
                           onClick={closeAccountMenu}
                           className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
                         >
@@ -606,7 +610,7 @@ function MobileNavbar({
                           Profile
                         </Link>
                         <Link
-                          href='/UserBackend/orders'
+                          href='/account/orders'
                           onClick={closeAccountMenu}
                           className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
                         >
@@ -617,7 +621,7 @@ function MobileNavbar({
                           Orders
                         </Link>
                         <Link
-                          href='/UserBackend/wishlist'
+                          href='/account/wishlist'
                           onClick={closeAccountMenu}
                           className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
                         >
@@ -627,7 +631,7 @@ function MobileNavbar({
                           Wishlist
                         </Link>
                         <Link
-                          href='/UserBackend/notifications'
+                          href='/account/notifications'
                           onClick={closeAccountMenu}
                           className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
                         >
@@ -683,7 +687,7 @@ function MobileNavbar({
                           New customer
                         </Link>
                         <Link
-                          href='/UserBackend/notifications'
+                          href='/account/notifications'
                           onClick={closeAccountMenu}
                           className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
                         >
@@ -904,7 +908,7 @@ function MobileNavbar({
                 <div className='relative flex-1'>
                   <input
                     type='text'
-                    placeholder='Search OCPRIMES'
+                    placeholder='Search Alxora'
                     className='h-12 w-full rounded-xl border-2 border-gray-900 bg-white pl-4 pr-24 text-base text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-black'
                     autoFocus
                     value={searchValue}

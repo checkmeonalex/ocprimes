@@ -46,7 +46,7 @@ const emptyPayload = {
     totalReviews: 0,
     wouldRecommendPercent: 0,
     wouldRecommendCount: 0,
-    verifiedBy: 'OCPRIMES',
+    verifiedBy: 'Alxora',
   },
   breakdown: [
     { stars: 5, count: 0 },
@@ -510,7 +510,7 @@ export async function GET(
       totalReviews,
       wouldRecommendPercent,
       wouldRecommendCount,
-      verifiedBy: 'OCPRIMES',
+      verifiedBy: 'Alxora',
     },
     breakdown: [5, 4, 3, 2, 1].map((stars) => ({
       stars,

@@ -4,7 +4,7 @@ export const toProductCardItem = (item: RecentlyViewedItem) => ({
   id: item.id,
   slug: item.slug,
   name: item.name,
-  vendor: item.vendor || 'OCPRIMES',
+  vendor: item.vendor || 'Alxora',
   vendorFont: item.vendorFont || 'Georgia, serif',
   shortDescription: '',
   fullDescription: '',

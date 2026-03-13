@@ -11,9 +11,9 @@ import { translateMenuLabel } from '@/lib/i18n/messages'
 
 const getPrimaryActions = ({ shopHref, showShopAction }) => {
   const actions = [
-    { label: 'Message', href: '/UserBackend/messages', iconLabel: 'Message' },
-    { label: 'Wishlist', href: '/UserBackend/wishlist', iconLabel: 'Wishlist' },
-    { label: 'Orders', href: '/UserBackend/orders', iconLabel: 'Your orders' },
+    { label: 'Message', href: '/account/messages', iconLabel: 'Message' },
+    { label: 'Wishlist', href: '/account/wishlist', iconLabel: 'Wishlist' },
+    { label: 'Orders', href: '/account/orders', iconLabel: 'Your orders' },
   ]
   if (showShopAction) {
     actions.push({ label: 'Shop', href: shopHref, iconLabel: 'Followed stores' })
@@ -40,7 +40,7 @@ export default function AccountLandingPage({
   email,
   location,
   isSignedIn = true,
-  shopHref = '/backend/admin/dashboard',
+  shopHref = '/admin/dashboard',
   showShopAction = false,
 }) {
   const router = useRouter()
@@ -134,7 +134,7 @@ export default function AccountLandingPage({
                     <>
                       <div className='mt-2 space-y-1'>
                         <Link
-                          href='/UserBackend/profile'
+                          href='/account/profile'
                           onClick={() => setIsAvatarMenuOpen(false)}
                           className='flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 text-base font-medium text-slate-800'
                         >
@@ -142,7 +142,7 @@ export default function AccountLandingPage({
                           {t('profile.title', 'Profile')}
                         </Link>
                         <Link
-                          href='/UserBackend/shop-access'
+                          href='/account/shop-access'
                           onClick={() => setIsAvatarMenuOpen(false)}
                           className='flex items-center gap-3 rounded-xl px-3 py-2.5 text-base text-slate-700'
                         >
@@ -152,7 +152,7 @@ export default function AccountLandingPage({
                           Upgrade
                         </Link>
                         <Link
-                          href='/UserBackend/account-security'
+                          href='/account/security'
                           onClick={() => setIsAvatarMenuOpen(false)}
                           className='flex items-center gap-3 rounded-xl px-3 py-2.5 text-base text-slate-700'
                         >
@@ -160,7 +160,7 @@ export default function AccountLandingPage({
                           Settings
                         </Link>
                         <Link
-                          href='/help-center'
+                          href='/help'
                           onClick={() => setIsAvatarMenuOpen(false)}
                           className='flex items-center gap-3 rounded-xl px-3 py-2.5 text-base text-slate-700'
                         >
@@ -188,7 +188,7 @@ export default function AccountLandingPage({
                   ) : (
                     <div className='mt-2 space-y-1'>
                       <Link
-                        href='/login?next=/UserBackend'
+                        href='/login?next=/account'
                         onClick={() => setIsAvatarMenuOpen(false)}
                         className='flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 text-base font-medium text-slate-800'
                       >

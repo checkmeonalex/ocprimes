@@ -195,7 +195,7 @@ const createEmptyReviewData = () => ({
     totalReviews: 0,
     wouldRecommendPercent: 0,
     wouldRecommendCount: 0,
-    verifiedBy: 'OCPRIMES',
+    verifiedBy: 'Alxora',
   },
   breakdown: [
     { stars: 5, count: 0 },
@@ -698,7 +698,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
             totalReviews: Number(summary?.totalReviews) || 0,
             wouldRecommendPercent: Number(summary?.wouldRecommendPercent) || 0,
             wouldRecommendCount: Number(summary?.wouldRecommendCount) || 0,
-            verifiedBy: String(summary?.verifiedBy || 'OCPRIMES'),
+            verifiedBy: String(summary?.verifiedBy || 'Alxora'),
           },
           breakdown,
           reviews,

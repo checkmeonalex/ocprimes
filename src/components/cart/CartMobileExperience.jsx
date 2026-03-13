@@ -261,7 +261,7 @@ const CartMobileExperience = ({
             {items.map((item) => {
               const selected = selectedKeys.has(item.key)
               const sourceName = String(
-                item?.sourceName || item?.vendorName || item?.storeName || 'OCPRIMES',
+                item?.sourceName || item?.vendorName || item?.storeName || 'Alxora',
               )
               const slug = String(item?.slug || '').trim()
               const policyKey =

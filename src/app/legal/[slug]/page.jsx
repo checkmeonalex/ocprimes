@@ -11,11 +11,11 @@ export async function generateMetadata({ params }) {
   const page = getTrustPage('legal', slug)
 
   if (!page) {
-    return { title: 'Legal | OCPRIMES' }
+    return { title: 'Legal | Alxora' }
   }
 
   return {
-    title: `${page.title} | OCPRIMES`,
+    title: `${page.title} | Alxora`,
     description: page.description,
   }
 }

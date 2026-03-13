@@ -41,7 +41,7 @@ const CartItemRow = ({
   showSelection = false,
 }) => {
   const selectionSummary = getSelectionSummary(item)
-  const sourceName = String(item?.sourceName || item?.vendorName || item?.storeName || 'OCPRIMES')
+  const sourceName = String(item?.sourceName || item?.vendorName || item?.storeName || 'Alxora')
   const slug = String(item?.slug || '').trim()
   const policyKey =
     normalizeReturnPolicyKey(item?.returnPolicy) ||

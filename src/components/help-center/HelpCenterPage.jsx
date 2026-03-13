@@ -152,7 +152,7 @@ export default function HelpCenterPage() {
               <p className='mt-4 text-center text-base text-[#41524e]'>
                 Choose a help topic or{' '}
                 <Link
-                  href='/UserBackend/messages?help_center=1'
+                  href='/account/messages?help_center=1'
                   className='font-semibold underline underline-offset-4'
                 >
                   chat with us
@@ -290,7 +290,7 @@ export default function HelpCenterPage() {
                 </div>
 
                 <Link
-                  href='/UserBackend/messages?help_center=1'
+                  href='/account/messages?help_center=1'
                   className='inline-flex items-center justify-center gap-2 rounded-full bg-[rgb(253_253_253)] px-5 py-3 text-sm font-semibold text-[#1b1b1b] transition hover:bg-white'
                 >
                   <MessageCircleMore className='h-4 w-4' aria-hidden='true' />

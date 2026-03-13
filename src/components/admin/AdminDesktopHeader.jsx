@@ -7,22 +7,39 @@ import { getProfileIdentityImageUrl, getProfileIdentityInitials } from '@/lib/us
 
 const HEADER_META = [
   { match: '/backend/admin/dashboard', title: 'Dashboard', subtitle: 'Detailed information about your store' },
+  { match: '/admin/dashboard', title: 'Dashboard', subtitle: 'Detailed information about your store' },
   { match: '/backend/admin/products', title: 'Products', subtitle: 'Manage products, stock, and visibility' },
+  { match: '/admin/products', title: 'Products', subtitle: 'Manage products, stock, and visibility' },
   { match: '/backend/admin/notifications', title: 'Notifications', subtitle: 'Track account, catalog, and workflow alerts' },
+  { match: '/admin/notifications', title: 'Notifications', subtitle: 'Track account, catalog, and workflow alerts' },
   { match: '/backend/admin/store-front', title: 'Store front', subtitle: 'Manage storefront structure and publishing' },
+  { match: '/admin/store-front', title: 'Store front', subtitle: 'Manage storefront structure and publishing' },
   { match: '/backend/admin/orders', title: 'Orders', subtitle: 'Track sales and fulfillment status' },
+  { match: '/admin/orders', title: 'Orders', subtitle: 'Track sales and fulfillment status' },
   { match: '/backend/admin/messages', title: 'Messages', subtitle: 'Reply to buyers and manage conversations' },
+  { match: '/admin/messages', title: 'Messages', subtitle: 'Reply to buyers and manage conversations' },
   { match: '/backend/admin/reviews', title: 'Reviews', subtitle: 'Moderate and manage product reviews' },
+  { match: '/admin/reviews', title: 'Reviews', subtitle: 'Moderate and manage product reviews' },
   { match: '/backend/admin/customers', title: 'Customers', subtitle: 'Review customer activity and profiles' },
+  { match: '/admin/customers', title: 'Customers', subtitle: 'Review customer activity and profiles' },
   { match: '/backend/admin/categories', title: 'Categories', subtitle: 'Organize product collections' },
+  { match: '/admin/categories', title: 'Categories', subtitle: 'Organize product collections' },
   { match: '/backend/admin/brands', title: 'Brands', subtitle: 'Manage brand records and assignments' },
+  { match: '/admin/brands', title: 'Brands', subtitle: 'Manage brand records and assignments' },
   { match: '/backend/admin/tags', title: 'Tags', subtitle: 'Manage product labels and discovery tags' },
+  { match: '/admin/tags', title: 'Tags', subtitle: 'Manage product labels and discovery tags' },
   { match: '/backend/admin/attributes', title: 'Attributes', subtitle: 'Configure product attributes and terms' },
+  { match: '/admin/attributes', title: 'Attributes', subtitle: 'Configure product attributes and terms' },
   { match: '/backend/admin/library', title: 'Library', subtitle: 'Manage your uploaded media assets' },
+  { match: '/admin/library', title: 'Library', subtitle: 'Manage your uploaded media assets' },
   { match: '/backend/admin/size-guides', title: 'Size Guides', subtitle: 'Maintain sizing information and charts' },
+  { match: '/admin/size-guides', title: 'Size Guides', subtitle: 'Maintain sizing information and charts' },
   { match: '/backend/admin/logistics', title: 'Logistics', subtitle: 'Configure city delivery fees and ETA windows' },
+  { match: '/admin/logistics', title: 'Logistics', subtitle: 'Configure city delivery fees and ETA windows' },
   { match: '/backend/admin/pages', title: 'Pages', subtitle: 'Edit storefront pages and sections' },
+  { match: '/admin/pages', title: 'Pages', subtitle: 'Edit storefront pages and sections' },
   { match: '/backend/admin/settings', title: 'Settings', subtitle: 'Configure store and admin preferences' },
+  { match: '/admin/settings', title: 'Settings', subtitle: 'Configure store and admin preferences' },
   { match: '/backend/admin/admin/users', title: 'Admin Users', subtitle: 'Manage administrator access' },
   { match: '/backend/admin/admin/brands', title: 'Admin Brands', subtitle: 'Manage internal brand directory' },
 ];
@@ -33,7 +50,7 @@ function resolveHeaderMeta(pathname) {
   if (direct) return direct;
   const prefixed = HEADER_META.find((item) => pathname.startsWith(`${item.match}/`));
   if (prefixed) return prefixed;
-  if (pathname.startsWith('/backend/admin')) {
+  if (pathname.startsWith('/backend/admin') || pathname.startsWith('/admin')) {
     return { title: 'Dashboard', subtitle: 'Detailed information about your store' };
   }
   return { title: 'Admin', subtitle: 'Manage your workspace' };
@@ -108,7 +125,7 @@ export default function AdminDesktopHeader({ noMargin = false, noBleed = false }
           </button>
           <button
             type="button"
-            onClick={() => router.push('/backend/admin/notifications')}
+            onClick={() => router.push('/admin/notifications')}
             className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100"
             aria-label="Open notifications"
           >

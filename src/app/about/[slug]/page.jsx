@@ -11,11 +11,11 @@ export async function generateMetadata({ params }) {
   const page = getTrustPage('about', slug)
 
   if (!page) {
-    return { title: 'About Alxora | OCPRIMES' }
+    return { title: 'About Alxora | Alxora' }
   }
 
   return {
-    title: `${page.title} | OCPRIMES`,
+    title: `${page.title} | Alxora`,
     description: page.description,
   }
 }

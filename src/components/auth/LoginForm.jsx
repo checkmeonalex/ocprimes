@@ -78,7 +78,7 @@ export default function LoginForm({
           type='email'
           value={email}
           onChange={(event) => setEmail(event.target.value)}
-          placeholder='you@ocprimes.com'
+          placeholder='you@alxora.com'
           autoComplete='email'
           className={inputClassName}
           required
@@ -177,7 +177,7 @@ export default function LoginForm({
 
           <div className='flex items-center gap-4'>
             <div className='h-px flex-1 bg-slate-200' />
-            <span className='text-sm text-slate-500'>New seller on OcPrimes?</span>
+            <span className='text-sm text-slate-500'>New seller on Alxora?</span>
             <div className='h-px flex-1 bg-slate-200' />
           </div>
 
@@ -190,7 +190,7 @@ export default function LoginForm({
         </div>
       ) : (
         <div className='flex flex-wrap items-center justify-between gap-2 text-sm text-slate-500'>
-          <span>New to OcPrimes?</span>
+          <span>New to Alxora?</span>
           <Link href={signUpHref} className='font-semibold text-slate-700 hover:text-slate-900'>
             Create an account
           </Link>

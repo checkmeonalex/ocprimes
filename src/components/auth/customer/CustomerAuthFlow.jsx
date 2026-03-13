@@ -487,7 +487,7 @@ export default function CustomerAuthFlow() {
         </div>
 
         <p className='mt-6 text-center text-xs leading-5 text-slate-500'>
-          By continuing, you agree to OcPrimes&apos;
+          By continuing, you agree to Alxora&apos;
           <Link href='/privacy-policy' className='ml-1 font-medium text-slate-700 underline underline-offset-2'>
             Privacy Policy
           </Link>

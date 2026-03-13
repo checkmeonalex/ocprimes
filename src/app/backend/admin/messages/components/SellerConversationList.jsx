@@ -122,7 +122,7 @@ export default function SellerConversationList({
                     <span className="shrink-0 text-[11px] text-slate-400">{helpCenterLastMessageAtLabel}</span>
                   ) : null}
                 </span>
-                <span className="mt-0.5 block truncate text-[11px] font-medium uppercase tracking-wide text-slate-500">ocprimes</span>
+                <span className="mt-0.5 block truncate text-[11px] font-medium tracking-wide text-slate-500">Alxora</span>
                 <span className="mt-1 flex items-center gap-2">
                   <span className="block truncate text-xs text-slate-500">{helpCenterPreviewText}</span>
                   {helpCenterUnreadCount > 0 ? (

@@ -1,15 +1,36 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
 
 const HEARTBEAT_MS = 60 * 1000
+const PRESENCE_ENABLED_PREFIXES = [
+  '/account',
+  '/UserBackend',
+  '/admin',
+  '/backend/admin',
+  '/messages',
+  '/chat',
+]
+
+const shouldEnablePresenceForPath = (pathname = '') =>
+  PRESENCE_ENABLED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  )
 
 export default function UserPresenceHeartbeat() {
   const supabase = useMemo(() => createBrowserSupabaseClient(), [])
+  const pathname = usePathname()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const isPresenceEnabled = shouldEnablePresenceForPath(pathname || '')
 
   useEffect(() => {
+    if (!isPresenceEnabled) {
+      setIsAuthenticated(false)
+      return undefined
+    }
+
     let cancelled = false
 
     const syncAuth = async () => {
@@ -27,10 +48,10 @@ export default function UserPresenceHeartbeat() {
       cancelled = true
       listener.subscription.unsubscribe()
     }
-  }, [supabase])
+  }, [isPresenceEnabled, supabase])
 
   const sendHeartbeat = useCallback(async () => {
-    if (!isAuthenticated) return
+    if (!isAuthenticated || !isPresenceEnabled) return
     if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
 
     await fetch('/api/user/presence', {
@@ -39,10 +60,10 @@ export default function UserPresenceHeartbeat() {
       credentials: 'include',
       keepalive: true,
     }).catch(() => null)
-  }, [isAuthenticated])
+  }, [isAuthenticated, isPresenceEnabled])
 
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (!isAuthenticated || !isPresenceEnabled) return
 
     void sendHeartbeat()
 
@@ -61,7 +82,7 @@ export default function UserPresenceHeartbeat() {
       window.clearInterval(intervalId)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [isAuthenticated, sendHeartbeat])
+  }, [isAuthenticated, isPresenceEnabled, sendHeartbeat])
 
   return null
 }

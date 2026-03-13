@@ -72,12 +72,12 @@ const footerGroups = [
     links: [
       { label: 'Sign in', href: '/login' },
       { label: 'Create account', href: '/signup' },
-      { label: 'Orders', href: '/UserBackend/orders' },
-      { label: 'Messages', href: '/UserBackend/messages' },
+      { label: 'Orders', href: '/account/orders' },
+      { label: 'Messages', href: '/account/messages' },
     ],
   },
   {
-    title: 'ABOUT ALXORA',
+    title: 'About Alxora',
     links: [
       { label: 'About us', href: '/about/about-us' },
       { label: 'How Alxora works', href: '/about/how-alxora-works' },
@@ -89,11 +89,11 @@ const footerGroups = [
   {
     title: 'Support',
     links: [
-      { label: 'Help Center', href: '/help-center' },
-      { label: 'Contact support', href: '/UserBackend/messages?help_center=1' },
-      { label: 'Track your order', href: '/help-center/orders-delivery/track-your-order' },
-      { label: 'Delivery information', href: '/help-center/orders-delivery/delivery-timelines' },
-      { label: 'Returns & refunds', href: '/help-center/returns-refunds/how-to-return-an-item' },
+      { label: 'Help Center', href: '/help' },
+      { label: 'Contact support', href: '/account/messages?help_center=1' },
+      { label: 'Track your order', href: '/help/orders-delivery/track-your-order' },
+      { label: 'Delivery information', href: '/help/orders-delivery/delivery-timelines' },
+      { label: 'Returns & refunds', href: '/help/returns-refunds/how-to-return-an-item' },
     ],
   },
 ]
@@ -141,7 +141,7 @@ export default function Footer({ showBackToTop = true }) {
               labelClassName='text-xl font-semibold tracking-[0.08em] text-white'
             />
             <p className='mt-4 text-sm leading-7 text-white/68'>
-              OCPRIMES is a marketplace built for Nigerian pricing first, with shopping,
+              Alxora is a marketplace built for Nigerian pricing first, with shopping,
               sellers, and story discovery in one place.
             </p>
 
@@ -212,7 +212,7 @@ export default function Footer({ showBackToTop = true }) {
         <div className='flex flex-col gap-4 py-5 text-sm text-white/56 lg:flex-row lg:items-center lg:justify-between'>
           <div className='flex flex-col gap-3'>
             <div className='flex flex-wrap items-center gap-2'>
-              <span>&copy; {year} OCPRIMES.</span>
+              <span>&copy; {year} Alxora.</span>
               <span className='hidden sm:inline'>All rights reserved.</span>
             </div>
             <div className='flex flex-wrap items-center gap-4 text-white/74'>

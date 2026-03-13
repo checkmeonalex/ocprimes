@@ -27,14 +27,14 @@ export const buildVendorOrderReceivedTemplate = (input: VendorOrderTemplateInput
 
   return {
     title: `New order received ${orderNumber}`,
-    message: `You received a new order from OCPRIMES. Open to review product items and fulfill.`,
+    message: `You received a new order from Alxora. Open to review product items and fulfill.`,
     type: 'order_vendor_message',
     severity: 'info' as const,
     entityType: 'order',
     entityId: orderId || null,
     metadata: {
       template_key: 'vendor_order_received',
-      sender_name: 'OCPRIMES',
+      sender_name: 'Alxora',
       order_id: orderId,
       order_number: orderNumber,
       currency,
@@ -49,4 +49,3 @@ export const buildVendorOrderReceivedTemplate = (input: VendorOrderTemplateInput
     },
   }
 }
-

@@ -18,12 +18,7 @@ import { getCachedTopCategories } from '../lib/catalog/top-categories-server'
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'OCPRIMES',
-  icons: {
-    icon: '/icons/ocprimes-favicon.png',
-    shortcut: '/icons/ocprimes-favicon.png',
-    apple: '/icons/ocprimes-favicon.png',
-  },
+  title: 'Alxora',
 }
 
 const outfit = localFont({

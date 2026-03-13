@@ -11,6 +11,7 @@ const TITLE_BY_PATH = USER_MENU_ITEMS.reduce((acc, item) => {
   return acc
 }, {})
 TITLE_BY_PATH['/UserBackend/shop-access'] = 'Shop Access'
+TITLE_BY_PATH['/account/shop-access'] = 'Shop Access'
 
 const prettifyTitle = (title) => {
   if (title === 'Your profile') return 'Profile'
@@ -22,8 +23,8 @@ const prettifyTitle = (title) => {
 export default function UserBackendMobileHeader() {
   const pathname = usePathname()
   const { locale, t } = useUserI18n()
-  const isRootPage = pathname === '/UserBackend'
-  const isOrderDetailsPage = /^\/UserBackend\/orders\/[^/]+$/.test(String(pathname || ''))
+  const isRootPage = pathname === '/UserBackend' || pathname === '/account'
+  const isOrderDetailsPage = /^\/(UserBackend|account)\/orders\/[^/]+$/.test(String(pathname || ''))
   const rawTitle = isRootPage ? 'Account' : isOrderDetailsPage ? 'Order' : TITLE_BY_PATH[pathname] || 'Account'
   const title = prettifyTitle(rawTitle)
   const translatedTitle = (() => {
@@ -40,7 +41,7 @@ export default function UserBackendMobileHeader() {
     <header className='fixed inset-x-0 top-0 z-[1200] border-b border-slate-200 bg-white pt-[env(safe-area-inset-top)] lg:hidden'>
       <div className='mx-auto grid h-14 w-full max-w-3xl grid-cols-[2.5rem_1fr_2.5rem] items-center px-2'>
         <Link
-          href={isRootPage ? '/' : '/UserBackend'}
+          href={isRootPage ? '/' : '/account'}
           className='inline-flex h-10 w-10 items-center justify-center text-slate-600 transition hover:text-slate-900'
           aria-label={isRootPage ? 'Back to home' : 'Back to account'}
         >
@@ -61,7 +62,7 @@ export default function UserBackendMobileHeader() {
         </h1>
 
         <Link
-          href='/UserBackend/account-security'
+          href='/account/security'
           className='inline-flex h-10 w-10 items-center justify-center text-slate-600 transition hover:text-slate-900'
           aria-label='Notifications'
         >

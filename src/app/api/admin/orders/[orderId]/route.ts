@@ -407,7 +407,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
   const items = rawItems.map((entry) => ({
     id: String(entry.id),
     productId: String(entry.product_id || ''),
-    vendor: vendorByProductId.get(String(entry.product_id || '')) || 'OCPRIMES',
+    vendor: vendorByProductId.get(String(entry.product_id || '')) || 'Alxora',
     vendorUserId: vendorUserIdByProductId.get(String(entry.product_id || '')) || null,
     name: String(entry.name || 'Product'),
     image: entry.image ? String(entry.image) : null,
@@ -533,7 +533,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
       createdAt: String(orderRow.created_at || ''),
       createdAtLabel: formatDateTime(String(orderRow.created_at || '')),
       trackId: String(orderRow.paystack_reference || orderRow.id || ''),
-      seller: 'OCPRIMES',
+      seller: 'Alxora',
       customer: {
         name: customerName,
         email: isSellerScoped

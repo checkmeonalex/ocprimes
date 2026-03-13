@@ -329,7 +329,7 @@ function CheckoutPaymentPageContent() {
   const minLocalPhoneLength = 7
   const normalizedEmail = String(user?.email || '').trim()
   const paystackEmail =
-    normalizedEmail || (contactPhoneDigits ? `customer_${contactPhoneDigits}@checkout.ocprimes.com` : '')
+    normalizedEmail || (contactPhoneDigits ? `customer_${contactPhoneDigits}@checkout.alxora.com` : '')
   const phoneCountryOptions = useMemo(
     () =>
       ACCEPTED_COUNTRIES.map((country) => ({

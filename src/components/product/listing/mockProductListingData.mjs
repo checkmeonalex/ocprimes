@@ -73,7 +73,7 @@ const mockProductListingData = {
   products: [
     {
       id: 9182,
-      name: 'OCP Prime Running Sneaker',
+      name: 'Alxora Running Sneaker',
       category: 'Footwear',
       status: 'publish',
       statusBadge: { label: 'Active', tone: 'bg-emerald-50 text-emerald-700' },
@@ -86,7 +86,7 @@ const mockProductListingData = {
     },
     {
       id: 9183,
-      name: 'OCP Prime Crossbody Bag',
+      name: 'Alxora Crossbody Bag',
       category: 'Accessories',
       status: 'publish',
       statusBadge: { label: 'Active', tone: 'bg-emerald-50 text-emerald-700' },
@@ -99,7 +99,7 @@ const mockProductListingData = {
     },
     {
       id: 9184,
-      name: 'OCP Prime Utility Jacket',
+      name: 'Alxora Utility Jacket',
       category: 'Outerwear',
       status: 'draft',
       statusBadge: { label: 'Draft', tone: 'bg-slate-100 text-slate-600' },
@@ -112,7 +112,7 @@ const mockProductListingData = {
     },
     {
       id: 9185,
-      name: 'OCP Prime Studio Hoodie',
+      name: 'Alxora Studio Hoodie',
       category: 'Athleisure',
       status: 'publish',
       statusBadge: { label: 'Active', tone: 'bg-emerald-50 text-emerald-700' },
@@ -125,7 +125,7 @@ const mockProductListingData = {
     },
     {
       id: 9186,
-      name: 'OCP Prime Core Tee',
+      name: 'Alxora Core Tee',
       category: 'Basics',
       status: 'publish',
       statusBadge: { label: 'Active', tone: 'bg-emerald-50 text-emerald-700' },
@@ -151,7 +151,7 @@ const mockProductListingData = {
   promotedProducts: [
     {
       id: 122,
-      name: 'OCP Prime Essentials Set',
+      name: 'Alxora Essentials Set',
       category: 'Bundles',
       price: 190,
       currencySymbol: '$',
@@ -159,7 +159,7 @@ const mockProductListingData = {
     },
     {
       id: 123,
-      name: 'OCP Prime Travel Pack',
+      name: 'Alxora Travel Pack',
       category: 'Accessories',
       price: 86,
       currencySymbol: '$',
@@ -169,7 +169,7 @@ const mockProductListingData = {
   recentSoldProducts: [
     {
       id: 201,
-      name: 'OCP Prime Performance Leggings',
+      name: 'Alxora Performance Leggings',
       category: 'Athleisure',
       quantity: 2,
       total: 136,
@@ -178,7 +178,7 @@ const mockProductListingData = {
     },
     {
       id: 202,
-      name: 'OCP Prime Eco Tote',
+      name: 'Alxora Eco Tote',
       category: 'Accessories',
       quantity: 1,
       total: 32,
@@ -191,14 +191,14 @@ const mockProductListingData = {
       id: 1,
       authorName: 'Jordan K.',
       excerpt: 'Super lightweight and breathable.',
-      postTitle: 'OCP Prime Running Sneaker',
+      postTitle: 'Alxora Running Sneaker',
       authorAvatarUrl: '',
     },
     {
       id: 2,
       authorName: 'Maya S.',
       excerpt: 'Perfect fit and fast shipping.',
-      postTitle: 'OCP Prime Core Tee',
+      postTitle: 'Alxora Core Tee',
       authorAvatarUrl: '',
     },
   ],

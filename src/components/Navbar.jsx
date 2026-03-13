@@ -19,6 +19,7 @@ import PopularRightNowSection from '@/components/search/PopularRightNowSection'
 import { usePopularSearchItems } from '@/components/search/usePopularSearchItems'
 import { useSearchSuggestions } from '@/components/search/useSearchSuggestions'
 import { reportSearchQuery } from '@/components/search/reportSearchQuery'
+import { useAuthUser } from '@/lib/auth/useAuthUser'
 
 export default function Navbar({
   initialAuthUser = null,
@@ -28,6 +29,7 @@ export default function Navbar({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const { summary, isReady, isServerReady } = useCart()
+  const { user } = useAuthUser(initialAuthUser, Boolean(initialAuthUser))
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isSearchCategoryOpen, setIsSearchCategoryOpen] = useState(false)
@@ -419,6 +421,11 @@ export default function Navbar({
     let cancelled = false
 
     const loadRole = async () => {
+      if (!user) {
+        setHasVendorAccess(false)
+        return
+      }
+
       try {
         const response = await fetch('/api/auth/role', { cache: 'no-store' })
         if (!response.ok) {
@@ -452,7 +459,7 @@ export default function Navbar({
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [user])
 
   useEffect(() => {
     const handleScroll = () => {
@@ -559,7 +566,7 @@ export default function Navbar({
   const isCartRoute = pathname?.startsWith('/cart')
   const isCheckoutRoute = pathname?.startsWith('/checkout')
   const isCheckoutFlow = isCartRoute || isCheckoutRoute
-  const isUserDashboard = pathname?.startsWith('/UserBackend')
+  const isUserDashboard = pathname?.startsWith('/UserBackend') || pathname === '/account' || pathname?.startsWith('/account/')
   const hasAccountSearchQuery = accountSearchValue.trim().length > 0
   const accountSearchSuggestions = useMemo(
     () =>
@@ -581,7 +588,7 @@ export default function Navbar({
     let cancelled = false
 
     const loadUnreadNotifications = async () => {
-      if (!isUserDashboard) {
+      if (!isUserDashboard || !user) {
         setUnreadNotificationCount(0)
         return
       }
@@ -613,7 +620,7 @@ export default function Navbar({
     return () => {
       cancelled = true
     }
-  }, [isUserDashboard, pathname])
+  }, [isUserDashboard, pathname, user])
 
   const showDashboardPrimaryBar = lastScrollY < 20
   const checkoutCurrentStep = isCartRoute
@@ -850,7 +857,7 @@ export default function Navbar({
             <input
               type='text'
               value={searchValue}
-              placeholder='Search everything at ocprimes online and in store...'
+              placeholder='Search everything at Alxora online and in store...'
               onChange={(event) => setSearchValue(event.target.value)}
               onFocus={() => setIsSearchOpen(true)}
               onKeyDown={handleSearchKeyDown}
@@ -1065,7 +1072,7 @@ export default function Navbar({
             </svg>
           </HeaderAction>
 
-          <HeaderAction href='/UserBackend/orders' label='Support'>
+          <HeaderAction href='/account/orders' label='Support'>
             <svg
               className='h-6 w-6'
               viewBox='0 0 18 18'
@@ -1179,7 +1186,7 @@ export default function Navbar({
                 <Link
                   className='relative hidden h-9 w-9 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200 md:flex'
                   aria-label='Shop dashboard'
-                  href='/backend/admin/dashboard'
+                  href='/admin/dashboard'
                 >
                   <svg
                     className='h-5 w-5'
@@ -1204,7 +1211,7 @@ export default function Navbar({
               <Link
                 className='relative flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200'
                 aria-label='Notifications'
-                href='/UserBackend/notifications'
+                href='/account/notifications'
               >
                 <svg
                   className='h-[26px] w-[26px]'

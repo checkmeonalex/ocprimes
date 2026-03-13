@@ -317,7 +317,7 @@ export default function AwaitingPaymentPage() {
 
         <header className='mb-4 hidden flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#d9e4f3] bg-white/95 px-4 py-3 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur sm:flex sm:px-6'>
           <div>
-            <p className='text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500'>OCPRIMES Checkout</p>
+            <p className='text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500'>Alxora Checkout</p>
             <p className='text-sm text-slate-600'>Checkout Section • Awaiting Payment</p>
           </div>
           <div className='inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700'>

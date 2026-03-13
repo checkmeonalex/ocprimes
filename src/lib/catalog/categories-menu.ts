@@ -28,7 +28,7 @@ export interface CategoriesData {
 
 export const fetchCategoriesData = async (): Promise<CategoriesData> => {
   try {
-    const response = await fetch('/api/categories?limit=500', { cache: 'no-store' })
+    const response = await fetch('/api/categories?limit=500')
     const payload = await response.json().catch(() => null)
     if (!response.ok) {
       return { categories: [] }

@@ -15,12 +15,12 @@ export function generateMetadata({ params }) {
 
   if (!result) {
     return {
-      title: 'Help Center | OCPRIMES',
+      title: 'Help Center | Alxora',
     }
   }
 
   return {
-    title: `${result.article.title} | Help Center | OCPRIMES`,
+    title: `${result.article.title} | Help Center | Alxora`,
   }
 }
 

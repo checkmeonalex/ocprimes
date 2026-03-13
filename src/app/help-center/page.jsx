@@ -1,7 +1,7 @@
 import HelpCenterPage from '@/components/help-center/HelpCenterPage'
 
 export const metadata = {
-  title: 'Help Center | OCPRIMES',
+  title: 'Help Center | Alxora',
 }
 
 export default function HelpCenterRoute() {

@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
           price: discountPrice,
           originalPrice: basePrice,
           discountAmount,
-          sourceName: String(brand?.name || 'OCPRIMES').trim() || 'OCPRIMES',
+          sourceName: String(brand?.name || 'Alxora').trim() || 'Alxora',
           sourceSlug: brand?.slug ? String(brand.slug).trim() : null,
         }
       })

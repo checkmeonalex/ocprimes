@@ -37,7 +37,7 @@ export default async function UserBackendLayout({ children }) {
             <StickySidebar topOffset={120} collapsedTopOffset={56} collapseAfter={20}>
               <UserBackendNav
                 displayName={displayName}
-                email={user?.email || 'guest@ocprimes.com'}
+                email={user?.email || 'guest@alxora.com'}
                 avatarUrl={avatarUrl}
               />
             </StickySidebar>

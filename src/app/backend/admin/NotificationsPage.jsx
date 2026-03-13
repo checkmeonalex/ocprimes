@@ -324,7 +324,7 @@ export default function NotificationsPage() {
                   const isVendorOrderTemplate = templateKey === 'vendor_order_received';
                   const templateProducts = Array.isArray(metadata?.products) ? metadata.products : [];
                   const templateCurrency = String(metadata?.currency || 'NGN').trim().toUpperCase();
-                  const senderName = String(metadata?.sender_name || 'OCPRIMES').trim();
+                  const senderName = String(metadata?.sender_name || 'Alxora').trim();
                   const orderNumber = String(metadata?.order_number || '').trim();
                   const templateExpanded = Boolean(expandedTemplateById[String(item.id)]);
                   const canReviewCategoryRequest =

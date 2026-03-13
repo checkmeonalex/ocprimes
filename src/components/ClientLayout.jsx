@@ -11,7 +11,7 @@ import { useScreenSize } from '../hooks/useScreenSize'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
 
-const NEXT_NAVIGATION_EXEMPT_PREFIXES = ['/cart', '/wishlist', '/UserBackend/wishlist']
+const NEXT_NAVIGATION_EXEMPT_PREFIXES = ['/cart', '/wishlist', '/UserBackend/wishlist', '/account/wishlist']
 
 const isNextNavigationExemptPath = (pathname = '') =>
   NEXT_NAVIGATION_EXEMPT_PREFIXES.some(
@@ -37,8 +37,8 @@ export default function ClientLayout({
     pathname?.startsWith('/admin/signup') ||
     pathname?.startsWith('/vendor/login') ||
     pathname?.startsWith('/vendor/signup')
-  const isBackendAdmin = pathname?.startsWith('/backend/admin')
-  const isUserBackendRoute = pathname?.startsWith('/UserBackend')
+  const isBackendAdmin = pathname?.startsWith('/backend/admin') || pathname?.startsWith('/admin/')
+  const isUserBackendRoute = pathname?.startsWith('/UserBackend') || pathname === '/account' || pathname?.startsWith('/account/')
   const isCartRoute = pathname?.startsWith('/cart')
   const isCheckoutRoute = pathname?.startsWith('/checkout')
   const isPlayRoute = pathname?.startsWith('/play')

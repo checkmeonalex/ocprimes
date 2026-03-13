@@ -250,7 +250,7 @@ export default function HelpCenterArticlePage({ section, article, allSections })
             Home
           </Link>
           <span>/</span>
-          <Link href='/help-center' className='transition hover:text-[#17352b]'>
+          <Link href='/help' className='transition hover:text-[#17352b]'>
             Help Center
           </Link>
           <span>/</span>
@@ -311,7 +311,7 @@ export default function HelpCenterArticlePage({ section, article, allSections })
                             return (
                               <Link
                                 key={item.id}
-                                href={`/help-center/${entry.id}/${item.id}`}
+                                href={`/help/${entry.id}/${item.id}`}
                                 className={`block rounded-2xl px-4 py-3 text-sm leading-6 transition ${
                                   isActive
                                     ? 'bg-[#1b5be0] font-semibold text-white'
@@ -333,7 +333,7 @@ export default function HelpCenterArticlePage({ section, article, allSections })
 
           <main className='order-1 xl:order-none'>
             <Link
-              href='/help-center'
+              href='/help'
               className='inline-flex items-center gap-2 text-sm font-medium text-[#5f6658] transition hover:text-[#17352b]'
             >
               <ChevronLeft className='h-4 w-4' aria-hidden='true' />
@@ -436,7 +436,7 @@ export default function HelpCenterArticlePage({ section, article, allSections })
                 </div>
 
                 <Link
-                  href='/UserBackend/messages?help_center=1'
+                  href='/account/messages?help_center=1'
                   className='inline-flex items-center justify-center gap-2 rounded-full bg-[rgb(253_253_253)] px-5 py-3 text-sm font-semibold text-[#1b1b1b] transition hover:bg-white'
                 >
                   <MessageCircleMore className='h-4 w-4' aria-hidden='true' />

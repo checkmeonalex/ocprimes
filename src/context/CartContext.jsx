@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useAuthUser } from '@/lib/auth/useAuthUser'
 import { buildKey, normalizeItem } from '@/lib/cart/utils'
 import {
@@ -67,6 +68,8 @@ const getSavedStorageKey = (userId) =>
   userId ? `${SAVED_STORAGE_KEY}:${String(userId).trim()}` : SAVED_STORAGE_KEY
 
 export function CartProvider({ children }) {
+  const pathname = usePathname()
+  const normalizedPath = pathname || ''
   const [items, setItems] = useState([])
   const [savedItems, setSavedItems] = useState([])
   const [lastAddedItem, setLastAddedItem] = useState(null)
@@ -385,6 +388,16 @@ export function CartProvider({ children }) {
   }
 
   useEffect(() => {
+    const shouldLoadOrderProtection =
+      normalizedPath.startsWith('/cart') ||
+      normalizedPath.startsWith('/checkout') ||
+      normalizedPath.startsWith('/product/')
+
+    if (!shouldLoadOrderProtection) {
+      setOrderProtectionConfig(ORDER_PROTECTION_DEFAULTS)
+      return undefined
+    }
+
     let cancelled = false
 
     const loadOrderProtectionConfig = async () => {
@@ -405,7 +418,7 @@ export function CartProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [normalizedPath])
 
   useEffect(() => {
     if (isLoading) return

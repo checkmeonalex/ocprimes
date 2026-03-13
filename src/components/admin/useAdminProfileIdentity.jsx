@@ -17,6 +17,59 @@ const fallbackIdentity = {
   avatarUrl: '',
 }
 
+let cachedIdentity = null
+let inFlightIdentityRequest = null
+
+const loadAdminIdentity = async () => {
+  if (cachedIdentity) {
+    return cachedIdentity
+  }
+
+  if (inFlightIdentityRequest) {
+    return inFlightIdentityRequest
+  }
+
+  const request = (async () => {
+    const payload = await loadUserProfileBootstrap()
+    if (!payload) {
+      clearProfileIdentityCache()
+      cachedIdentity = null
+      return null
+    }
+
+    const nextIdentity = toProfileIdentity(payload)
+
+    try {
+      const storeFrontResponse = await fetch('/api/admin/store-front', {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'include',
+      })
+      if (storeFrontResponse.ok) {
+        const storeFrontPayload = await storeFrontResponse.json().catch(() => null)
+        const storeLogoUrl = String(storeFrontPayload?.item?.logo_url || '').trim()
+        if (storeLogoUrl) {
+          nextIdentity.storeLogoUrl = storeLogoUrl
+        }
+      }
+    } catch {
+      // no store logo available
+    }
+
+    writeProfileIdentityCache(nextIdentity)
+    cachedIdentity = nextIdentity
+    return nextIdentity
+  })()
+    .finally(() => {
+      if (inFlightIdentityRequest === request) {
+        inFlightIdentityRequest = null
+      }
+    })
+
+  inFlightIdentityRequest = request
+  return request
+}
+
 export default function useAdminProfileIdentity() {
   // Keep first render deterministic between server and client to avoid hydration mismatch.
   const [identity, setIdentity] = useState(fallbackIdentity)
@@ -32,44 +85,25 @@ export default function useAdminProfileIdentity() {
         storeLogoUrl: String(detail.storeLogoUrl || '').trim(),
         avatarUrl: String(detail.avatarUrl || '').trim(),
       })
+      cachedIdentity = {
+        displayName: String(detail.displayName || '').trim() || 'Admin User',
+        email: String(detail.email || '').trim(),
+        storeLogoUrl: String(detail.storeLogoUrl || '').trim(),
+        avatarUrl: String(detail.avatarUrl || '').trim(),
+      }
     }
     window.addEventListener(PROFILE_IDENTITY_CACHE_UPDATED_EVENT, handleCacheUpdate)
 
     const cached = readProfileIdentityCache()
     if (cached && !cancelled) {
+      cachedIdentity = cached
       setIdentity(cached)
     }
 
     const run = async () => {
       try {
-        const payload = await loadUserProfileBootstrap()
-        if (!payload) {
-          clearProfileIdentityCache()
-          return
-        }
-        if (cancelled) return
-
-        const nextIdentity = toProfileIdentity(payload)
-
-        try {
-          const storeFrontResponse = await fetch('/api/admin/store-front', {
-            method: 'GET',
-            cache: 'no-store',
-            credentials: 'include',
-          })
-          if (storeFrontResponse.ok) {
-            const storeFrontPayload = await storeFrontResponse.json().catch(() => null)
-            const storeLogoUrl = String(storeFrontPayload?.item?.logo_url || '').trim()
-            if (storeLogoUrl) {
-              nextIdentity.storeLogoUrl = storeLogoUrl
-            }
-          }
-        } catch {
-          // no store logo available
-        }
-
-        writeProfileIdentityCache(nextIdentity)
-        if (!cancelled) {
+        const nextIdentity = await loadAdminIdentity()
+        if (!cancelled && nextIdentity) {
           setIdentity(nextIdentity)
         }
       } catch {

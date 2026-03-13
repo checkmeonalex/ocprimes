@@ -2,7 +2,7 @@ import TrustPageLayout from '@/components/trust-pages/TrustPageLayout'
 import { getTrustPage } from '@/components/trust-pages/trustPageRegistry.mjs'
 
 export const metadata = {
-  title: 'Privacy Policy | OCPRIMES',
+  title: 'Privacy Policy | Alxora',
 }
 
 export default function PrivacyPolicyPage() {

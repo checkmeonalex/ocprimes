@@ -166,12 +166,12 @@ export const MOBILE_SIDEBAR_SECTIONS = [
     items: [
       {
         label: 'My Favourite',
-        href: '/UserBackend/wishlist',
+        href: '/account/wishlist',
         icon: Heart,
       },
       {
         label: 'Browsing History',
-        href: '/UserBackend/browsing-history',
+        href: '/account/history',
         icon: History,
       },
     ],
@@ -182,22 +182,22 @@ export const MOBILE_SIDEBAR_SECTIONS = [
     items: [
       {
         label: 'Notifications',
-        href: '/UserBackend/notifications',
+        href: '/account/notifications',
         icon: SiteBellIcon,
       },
       {
         label: 'Orders',
-        href: '/UserBackend/orders',
+        href: '/account/orders',
         icon: SiteOrdersIcon,
       },
       {
         label: 'Message',
-        href: '/UserBackend/messages',
+        href: '/account/messages',
         icon: SiteMessagesIcon,
       },
       {
         label: 'Followed Stores',
-        href: '/UserBackend/followed-stores',
+        href: '/account/following',
         icon: SiteFollowedStoresIcon,
       },
     ],
@@ -208,22 +208,22 @@ export const MOBILE_SIDEBAR_SECTIONS = [
     items: [
       {
         label: 'Account Center',
-        href: '/UserBackend',
+        href: '/account',
         icon: SiteAccountCenterIcon,
       },
       {
         label: 'Account and Security',
-        href: '/UserBackend/account-security',
+        href: '/account/security',
         icon: SiteSecurityIcon,
       },
       {
         label: 'Help Center',
-        href: '/help-center',
+        href: '/help',
         icon: SiteHelpCenterIcon,
       },
       {
         label: 'Quick help',
-        href: '/help-center',
+        href: '/help',
         icon: SiteQuickHelpIcon,
       },
     ],

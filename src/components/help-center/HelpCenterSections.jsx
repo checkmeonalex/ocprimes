@@ -15,7 +15,7 @@ const iconMap = {
 function HelpArticleCard({ sectionId, article }) {
   return (
     <Link
-      href={`/help-center/${sectionId}/${article.id}`}
+      href={`/help/${sectionId}/${article.id}`}
       className='block rounded-[22px] border border-[#d7e4f0] bg-white p-5 shadow-[0_14px_35px_rgba(56,84,122,0.05)] transition hover:-translate-y-0.5 hover:border-[#bfd4ea] hover:shadow-[0_18px_40px_rgba(56,84,122,0.09)]'
     >
       <div className='flex items-start justify-between gap-3'>

@@ -22,7 +22,7 @@ export default function HelpCenterSidebar({ sections }) {
                 {section.articles.map((article) => (
                   <li key={article.id}>
                     <Link
-                      href={`/help-center/${section.id}/${article.id}`}
+                      href={`/help/${section.id}/${article.id}`}
                       className='text-sm leading-6 text-[#5f6658] transition hover:text-[#1b4332]'
                     >
                       {article.title}

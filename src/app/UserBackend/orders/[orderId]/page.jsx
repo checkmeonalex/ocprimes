@@ -1647,7 +1647,7 @@ export default function OrderDetailsPage() {
                         </div>
                         <div className='min-w-0'>
                           <p className='line-clamp-1 text-[11px] font-semibold uppercase tracking-[0.05em] text-slate-500'>
-                            {item.vendor || 'OCPRIMES'}
+                            {item.vendor || 'Alxora'}
                           </p>
                           <p className='line-clamp-2 text-sm font-semibold text-slate-900'>{item.name}</p>
                           {item.variation ? <p className='text-xs text-slate-500'>{item.variation}</p> : null}

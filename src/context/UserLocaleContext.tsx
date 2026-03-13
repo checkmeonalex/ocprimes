@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { usePathname } from 'next/navigation'
 import {
   USER_LOCALE_EVENT,
   USER_LOCALE_STORAGE_KEY,
@@ -36,6 +37,7 @@ import {
 } from '@/lib/i18n/exchange-rates'
 import { translateMessage, type MessageKey } from '@/lib/i18n/messages'
 import { loadUserProfileBootstrap } from '@/lib/user/profile-bootstrap-client'
+import { useAuthUser } from '@/lib/auth/useAuthUser'
 
 type UserLocale = {
   country: string
@@ -93,9 +95,27 @@ const resolveLocale = (input: Partial<UserLocale>): UserLocale => {
 }
 
 export function UserLocaleProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname()
+  const { user, isLoading } = useAuthUser()
   const [locale, setLocaleState] = useState<UserLocale>(DEFAULT_LOCALE)
   const [unitPerUsd, setUnitPerUsd] =
     useState<Record<CurrencyCode, number>>(DEFAULT_UNIT_PER_USD)
+  const normalizedPath = String(pathname || '')
+  const shouldRefreshExchangeRates =
+    !normalizedPath.startsWith('/backend/admin') &&
+    !normalizedPath.startsWith('/admin') &&
+    !normalizedPath.startsWith('/account') &&
+    !normalizedPath.startsWith('/UserBackend')
+  const shouldSyncProfileLocale =
+    Boolean(user) &&
+    !isLoading &&
+    (
+      normalizedPath.startsWith('/cart') ||
+      normalizedPath.startsWith('/checkout') ||
+      normalizedPath.startsWith('/wishlist') ||
+      normalizedPath.startsWith('/account') ||
+      normalizedPath.startsWith('/UserBackend')
+    )
 
   const setLocale = useCallback(
     (
@@ -137,6 +157,10 @@ export function UserLocaleProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (!shouldRefreshExchangeRates) {
+      return undefined
+    }
+
     let isCancelled = false
 
     const loadExchangeRates = async () => {
@@ -167,7 +191,7 @@ export function UserLocaleProvider({ children }: { children: ReactNode }) {
     return () => {
       isCancelled = true
     }
-  }, [])
+  }, [shouldRefreshExchangeRates])
 
   useEffect(() => {
     const stored = parseStoredLocale(window.localStorage.getItem(USER_LOCALE_STORAGE_KEY))
@@ -205,12 +229,13 @@ export function UserLocaleProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (!shouldSyncProfileLocale) {
+      return undefined
+    }
+
     let isCancelled = false
 
     const syncFromProfile = async () => {
-      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/backend/admin')) {
-        return
-      }
       try {
         const payload = await loadUserProfileBootstrap()
         if (!payload) return
@@ -240,7 +265,7 @@ export function UserLocaleProvider({ children }: { children: ReactNode }) {
     return () => {
       isCancelled = true
     }
-  }, [])
+  }, [shouldSyncProfileLocale])
 
   const t = useCallback(
     (key: MessageKey, fallback?: string) => translateMessage(locale.language, key, fallback),

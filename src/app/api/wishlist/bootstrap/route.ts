@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
       product_original_price: null,
       product_image: rawImage,
       product_stock: 99,
-      product_vendor: 'OCPRIMES',
+      product_vendor: 'Alxora',
       product_vendor_slug: '',
     })
     itemsByListId.set(listId, bucket)
@@ -234,7 +234,7 @@ export async function GET(request: NextRequest) {
         product_original_price: hasDiscount ? basePrice : null,
         product_image: buildCardImage(imagesByProductId, entry.product_id, entry.product_image),
         product_stock: Number(product?.stock_quantity) || 0,
-        product_vendor: vendor?.name || 'OCPRIMES',
+        product_vendor: vendor?.name || 'Alxora',
         product_vendor_slug: vendor?.slug || '',
       }
     })

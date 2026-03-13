@@ -17,6 +17,7 @@ import {
   EMAIL_TWO_STEP_METHOD,
   SECURITY_QUESTIONS,
 } from '@/lib/auth/account-security'
+import AccountSecurityLoadingSkeleton from '@/components/user-backend/AccountSecurityLoadingSkeleton'
 
 const fieldClassName =
   'mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-[13px] text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10'
@@ -412,7 +413,7 @@ export default function AccountSecurityPage() {
   }
 
   if (isLoading) {
-    return <div className='min-h-[calc(100vh-220px)] bg-transparent' />
+    return <AccountSecurityLoadingSkeleton />
   }
 
   return (

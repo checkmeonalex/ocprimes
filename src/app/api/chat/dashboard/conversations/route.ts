@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
           ...conversation,
           isHelpCenter: isHelpCenterConversation,
           vendorName: isHelpCenterConversation
-            ? 'OCPRIMES'
+            ? 'Alxora'
             : String(conversation?.vendorName || '').trim() || 'Seller',
           isClosed: closure.isClosed,
           canView: closure.canView,

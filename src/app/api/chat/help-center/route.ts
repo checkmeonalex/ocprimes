@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       conversation: {
         ...result.data,
         vendorName:
-          vendorNameMap.get(String(result.data.vendorUserId || '').trim()) || 'OCPRIMES',
+          vendorNameMap.get(String(result.data.vendorUserId || '').trim()) || 'Alxora',
         isClosed: closure.isClosed,
         canView: closure.canView,
         canSend: closure.canSend,

@@ -191,7 +191,7 @@ export default function VendorSignupForm({
                 Sell with an existing account
               </h2>
               <p className='text-base leading-7 text-slate-700'>
-                If you already have an OcPrimes account, you can use the same email to activate your seller access.
+                If you already have an Alxora account, you can use the same email to activate your seller access.
               </p>
             </div>
           ) : null}
@@ -219,7 +219,7 @@ export default function VendorSignupForm({
           {isSellerClean ? (
             <div className='space-y-5 pt-1'>
               <p className='text-xs leading-5 text-slate-500'>
-                By continuing, you agree to OcPrimes&apos; seller terms and
+                By continuing, you agree to Alxora&apos; seller terms and
                 <span className='mx-1'>our</span>
                 <Link href='/privacy-policy' className='font-medium text-slate-700 underline underline-offset-2'>
                   Privacy Notice
@@ -246,7 +246,7 @@ export default function VendorSignupForm({
               <div className='grid gap-4 pt-1'>
                 <div className='flex items-center gap-4'>
                   <div className='h-px flex-1 bg-slate-200' />
-                  <span className='text-sm text-slate-500'>New to OcPrimes?</span>
+                  <span className='text-sm text-slate-500'>New to Alxora?</span>
                   <div className='h-px flex-1 bg-slate-200' />
                 </div>
                 <Link

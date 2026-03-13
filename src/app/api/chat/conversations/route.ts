@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
         return {
           ...toChatConversationPayload(row),
           vendorName: isHelpCenterConversation
-            ? 'OCPRIMES'
+            ? 'Alxora'
             : vendorNameMap.get(String(row?.vendor_user_id || '').trim()) || '',
           isHelpCenter: isHelpCenterConversation,
           isClosed: closure.isClosed,

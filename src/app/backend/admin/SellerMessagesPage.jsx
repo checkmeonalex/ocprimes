@@ -26,7 +26,7 @@ const FILTER_HANDLERS = {
 };
 const HELP_CENTER_VIRTUAL_CONVERSATION_ID = '__help_center__';
 const HELP_CENTER_BODY_PROMPT = 'Ask your question and we will help you';
-const ADMIN_EMAIL = 'ocprimes@gmail.com';
+const ADMIN_EMAIL = 'alxora@gmail.com';
 const MESSAGE_PAGE_SIZE = 10;
 
 const toEmailAlias = (email) => {
@@ -118,7 +118,7 @@ const mapMessage = (row, currentUserId, conversation) => {
   const customerFallback = toEmailAlias(senderEmail) || 'Customer';
   const senderLabel = isSeller
     ? isAdminMessage
-      ? 'OCPRIMES'
+      ? 'Alxora'
       : sellerName || senderEmail || 'Seller'
     : customerName || senderName || customerFallback;
 
@@ -411,7 +411,7 @@ export default function SellerMessagesPage() {
                               senderLabel:
                                 insertedMessage.sender === 'seller'
                                   ? isAdminMessage
-                                    ? 'OCPRIMES'
+                                    ? 'Alxora'
                                     : conversation.sellerName || 'Seller'
                                   : insertedMessage.senderLabel || conversation.customerName,
                             }
@@ -523,8 +523,8 @@ export default function SellerMessagesPage() {
       customerEmail: helpCenterTargetConversation?.customerEmail || '',
       vendorEmail: helpCenterTargetConversation?.vendorEmail || '',
       customerName: 'Help Center',
-      sellerName: 'OCPRIMES',
-      customerHandle: 'ocprimes',
+      sellerName: 'Alxora',
+      customerHandle: 'alxora',
       online: false,
       presenceLabel: 'Available',
       unreadCount: 0,
@@ -1031,7 +1031,7 @@ export default function SellerMessagesPage() {
     const optimisticId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const optimisticSenderLabel =
       currentRole === 'admin'
-        ? 'OCPRIMES'
+        ? 'Alxora'
         : String(destinationConversation?.sellerName || '').trim() || 'Seller';
     const optimisticMessage = {
       id: optimisticId,
@@ -1225,7 +1225,7 @@ export default function SellerMessagesPage() {
     }
     const optimisticSenderLabel =
       currentRole === 'admin'
-        ? 'OCPRIMES'
+        ? 'Alxora'
         : String(destinationConversation?.sellerName || '').trim() || 'Seller';
     const optimisticMessage = {
       id: optimisticId,

@@ -7,7 +7,7 @@ export default function AdminLoginPage() {
     <AuthShell
       eyebrow='Admin Access'
       title='Admin sign in'
-      subtitle='Use your approved admin credentials to access the OcPrimes console.'
+      subtitle='Use your approved admin credentials to access the Alxora console.'
     >
       <Suspense fallback={null}>
         <LoginForm endpoint='/api/auth/admin-login' adminOnly successRedirect='/backend/admin/dashboard' />
