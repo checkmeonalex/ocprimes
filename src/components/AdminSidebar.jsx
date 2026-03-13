@@ -406,29 +406,6 @@ const AdminSidebar = () => {
             </div>
           ))}
         </nav>
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-amber-50 p-3">
-          <div className="rounded-xl bg-white/80 px-3 py-3">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-[11px] font-semibold text-white">
-                {profileImageUrl ? (
-                  <img src={profileImageUrl} alt={profileIdentity.displayName || 'Profile'} className="h-full w-full object-cover" />
-                ) : (
-                  profileInitials
-                )}
-              </span>
-              <p className="truncate text-sm font-semibold text-slate-900">
-                {profileIdentity?.displayName || 'Admin User'}
-              </p>
-            </div>
-            <p className="mt-1 text-xs text-slate-500">Get access to all features on Escale Pro.</p>
-            <button
-              type="button"
-              className="mt-3 w-full rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-            >
-              Go Pro
-            </button>
-          </div>
-        </div>
         <div className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-500">
           <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M16 17l5-5-5-5M21 12H9M12 19H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6" />

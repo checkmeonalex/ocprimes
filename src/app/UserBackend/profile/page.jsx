@@ -1,7 +1,6 @@
 'use client'
 
 import CustomSelect from '@/components/common/CustomSelect'
-import AjaxPreloader from '@/components/common/AjaxPreloader'
 import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import { useAlerts } from '@/context/AlertContext'
@@ -84,10 +83,6 @@ const normalizeInterestsProfile = (value) => {
     audience: [],
     styles: [],
   }
-}
-
-function ProfilePageSkeleton() {
-  return <AjaxPreloader label='Loading your profile...' />
 }
 
 export default function ProfilePage() {
@@ -316,7 +311,7 @@ export default function ProfilePage() {
   const avatarSrc = avatarPreview || avatarUrl
 
   if (isLoading) {
-    return <ProfilePageSkeleton />
+    return <div className='min-h-[calc(100vh-220px)] bg-transparent' />
   }
 
   return (

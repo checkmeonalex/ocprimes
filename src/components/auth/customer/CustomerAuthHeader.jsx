@@ -5,9 +5,9 @@ export default function CustomerAuthHeader({ title, subtitle }) {
     <>
       <div className='flex justify-center'>
         <BrandLogo
-          variant='mark'
+          href='/'
+          variant='full'
           className='inline-flex items-center justify-center text-slate-950'
-          markClassName='h-10 w-10 shrink-0 text-[#f5d10b]'
         />
       </div>
 

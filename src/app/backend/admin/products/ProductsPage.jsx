@@ -18,6 +18,7 @@ import { useAlerts } from '@/context/AlertContext';
 
 const PRODUCT_PAGE_SIZE = 8;
 const METRIC_DAYS = 7;
+const PRODUCT_OVERVIEW_RANGE = '7d';
 
 const STATUS_TABS = [
   { label: 'All Products', value: 'all', status: 'any' },
@@ -184,11 +185,26 @@ function WooCommerceProductsPage() {
   const loadSummary = useCallback(async () => {
     setIsSummaryLoading(true);
     try {
-      setSummary({
-        total_products: products.length,
-        live_products: products.filter((product) => product.status === 'publish').length,
-        low_stock_threshold: 3,
+      const response = await fetch(`/api/admin/dashboard?range=${PRODUCT_OVERVIEW_RANGE}`, {
+        credentials: 'include',
+        cache: 'no-store',
       });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to load product summary.');
+      }
+      setSummary((prev) => ({
+        ...prev,
+        total_products:
+          payload?.overview?.totalProducts ??
+          prev?.total_products ??
+          products.length,
+        live_products:
+          payload?.overview?.liveProducts ??
+          prev?.live_products ??
+          products.filter((product) => product.status === 'publish').length,
+        low_stock_threshold: prev?.low_stock_threshold || 3,
+      }));
     } finally {
       setIsSummaryLoading(false);
     }
@@ -197,14 +213,38 @@ function WooCommerceProductsPage() {
   const loadMetrics = useCallback(async () => {
     setIsMetricsLoading(true);
     try {
-      setMetrics({
-        revenue: 0,
-        sold: 0,
-        revenueSeries: Array(METRIC_DAYS).fill(0),
-        soldSeries: Array(METRIC_DAYS).fill(0),
-        previousRevenue: 0,
-        previousSold: 0,
+      const response = await fetch(`/api/admin/dashboard?range=${PRODUCT_OVERVIEW_RANGE}`, {
+        credentials: 'include',
+        cache: 'no-store',
       });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to load product metrics.');
+      }
+      setMetrics({
+        revenue: Number(payload?.overview?.revenue || 0),
+        sold: Number(payload?.overview?.sold || 0),
+        revenueSeries: Array.isArray(payload?.charts?.revenue?.current)
+          ? payload.charts.revenue.current
+          : Array(METRIC_DAYS).fill(0),
+        soldSeries: Array.isArray(payload?.charts?.orders?.current)
+          ? payload.charts.orders.current
+          : Array(METRIC_DAYS).fill(0),
+        previousRevenue: Number(payload?.overview?.previousRevenue || 0),
+        previousSold: Number(payload?.overview?.previousSold || 0),
+      });
+      setSummary((prev) => ({
+        ...prev,
+        total_products:
+          payload?.overview?.totalProducts ??
+          prev?.total_products ??
+          products.length,
+        live_products:
+          payload?.overview?.liveProducts ??
+          prev?.live_products ??
+          products.filter((product) => product.status === 'publish').length,
+        low_stock_threshold: prev?.low_stock_threshold || 3,
+      }));
     } finally {
       setIsMetricsLoading(false);
     }
@@ -462,8 +502,7 @@ function WooCommerceProductsPage() {
   const siteLogo = hasHydrated ? siteInfo?.logoUrl || '' : '';
   const lowStockThreshold = summary?.low_stock_threshold || 3;
   const currencySymbol = useMemo(() => {
-    const fromProducts = products.find((product) => product?.currency_symbol)?.currency_symbol;
-    return fromProducts || '';
+    return '₦';
   }, [products]);
   const totalSeries = useMemo(() => {
     const total = Number(summary?.total_products);

@@ -1,6 +1,5 @@
 'use client'
 
-import AjaxPreloader from '@/components/common/AjaxPreloader'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -148,7 +147,7 @@ export default function CheckoutReviewPage() {
     : '30-day return policy'
 
   if (isLoading) {
-    return <AjaxPreloader label='Confirming your payment...' />
+    return <div className='min-h-screen bg-[#f3f4f6]' />
   }
 
   if (error || !order) {

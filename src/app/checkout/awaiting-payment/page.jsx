@@ -1,6 +1,5 @@
 'use client'
 
-import AjaxPreloader from '@/components/common/AjaxPreloader'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -250,7 +249,7 @@ export default function AwaitingPaymentPage() {
   const countdownLabel = formatCountdown(remainingSeconds)
 
   if (isLoading) {
-    return <AjaxPreloader label='Preparing your secure payment session...' />
+    return <div className='min-h-screen bg-white' />
   }
 
   return (

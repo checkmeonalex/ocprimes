@@ -10,37 +10,50 @@ export async function loadVendorProductIds(adminDb: any, userId: string) {
   const safeUserId = toSafeId(userId)
   if (!safeUserId) return []
 
-  const { data: brandRows, error: brandError } = await adminDb
-    .from('admin_brands')
-    .select('id')
-    .eq('created_by', safeUserId)
+  const [{ data: brandRows, error: brandError }, { data: ownProductRows, error: ownProductError }] =
+    await Promise.all([
+      adminDb
+        .from('admin_brands')
+        .select('id')
+        .eq('created_by', safeUserId),
+      adminDb
+        .from('products')
+        .select('id')
+        .eq('created_by', safeUserId),
+    ])
 
   if (brandError) {
     throw new Error('Unable to load vendor brand scope.')
+  }
+  if (ownProductError) {
+    throw new Error('Unable to load vendor product scope.')
   }
 
   const brandIds = (Array.isArray(brandRows) ? (brandRows as VendorBrandRow[]) : [])
     .map((row) => toSafeId(row?.id))
     .filter(Boolean)
 
-  if (brandIds.length === 0) return []
+  let linkedProductIds: string[] = []
+  if (brandIds.length > 0) {
+    const { data: linkRows, error: linkError } = await adminDb
+      .from('product_brand_links')
+      .select('product_id')
+      .in('brand_id', brandIds)
 
-  const { data: linkRows, error: linkError } = await adminDb
-    .from('product_brand_links')
-    .select('product_id')
-    .in('brand_id', brandIds)
+    if (linkError) {
+      throw new Error('Unable to load vendor product scope.')
+    }
 
-  if (linkError) {
-    throw new Error('Unable to load vendor product scope.')
+    linkedProductIds = (Array.isArray(linkRows) ? (linkRows as VendorProductRow[]) : [])
+      .map((row) => toSafeId(row?.product_id))
+      .filter(Boolean)
   }
 
-  return Array.from(
-    new Set(
-      (Array.isArray(linkRows) ? (linkRows as VendorProductRow[]) : [])
-        .map((row) => toSafeId(row?.product_id))
-        .filter(Boolean),
-    ),
-  )
+  const ownProductIds = (Array.isArray(ownProductRows) ? ownProductRows : [])
+    .map((row: { id?: string | null }) => toSafeId(row?.id))
+    .filter(Boolean)
+
+  return Array.from(new Set([...ownProductIds, ...linkedProductIds]))
 }
 
 export async function loadVendorOrderIds(adminDb: any, productIds: string[]) {
@@ -68,4 +81,3 @@ export async function loadVendorOrderIds(adminDb: any, productIds: string[]) {
     ),
   )
 }
-

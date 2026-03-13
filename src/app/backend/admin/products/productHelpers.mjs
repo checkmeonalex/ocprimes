@@ -44,7 +44,7 @@ export const formatPrice = (price, currencySymbol = '') => {
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits,
   });
-  const symbol = decodedSymbol || '$';
+  const symbol = decodedSymbol || '₦';
   const separator = normalizedSymbol === 'NGN' ? ' ' : '';
   return `${symbol}${separator}${formatted}`;
 };

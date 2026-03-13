@@ -1,6 +1,5 @@
 'use client'
 
-import AjaxPreloader from '@/components/common/AjaxPreloader'
 import CustomSelect from '@/components/common/CustomSelect'
 import LocationAutocompleteInput from '@/components/common/LocationAutocompleteInput'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -1099,8 +1098,6 @@ const getRandomAddressLabelSuggestion = (existingLabels = []) => {
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
-const AddressBookSkeleton = () => <AjaxPreloader label='Loading your addresses...' />
-
 export default function AddressesPage() {
   const [addressType, setAddressType] = useState('shipping')
   const [isLoading, setIsLoading] = useState(true)
@@ -1594,7 +1591,7 @@ export default function AddressesPage() {
   }
 
   if (isLoading) {
-    return <AddressBookSkeleton />
+    return <div className='min-h-[calc(100vh-220px)] bg-transparent' />
   }
 
   return (

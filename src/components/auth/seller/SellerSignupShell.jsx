@@ -14,9 +14,8 @@ export default function SellerSignupShell({ children }) {
           <div className='flex justify-center'>
             <BrandLogo
               href='/'
-              variant='mark'
+              variant='full'
               className='inline-flex items-center justify-center text-slate-950'
-              markClassName='h-10 w-10 shrink-0 text-[#f5d10b]'
             />
           </div>
           {children}

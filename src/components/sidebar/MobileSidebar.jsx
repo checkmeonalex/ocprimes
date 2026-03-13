@@ -227,7 +227,7 @@ export default function MobileSidebar({ isOpen, onClose, onOpenCategories }) {
               href='/'
               onClick={onClose}
               className='inline-flex items-center gap-2.5 text-slate-900'
-              markClassName='h-7 w-7 shrink-0 text-[#f5d10b]'
+              markClassName='h-12 w-12 shrink-0 text-[#f5d10b]'
               labelClassName='text-base font-black tracking-tight text-slate-900'
             />
           </div>

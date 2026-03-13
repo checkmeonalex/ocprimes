@@ -519,7 +519,7 @@ function MobileNavbar({
                 href={null}
                 variant='full'
                 className='inline-flex items-center gap-2 text-slate-900'
-                markClassName='h-7 w-7 shrink-0 text-[#f5d10b]'
+                markClassName='h-12 w-12 shrink-0 text-[#f5d10b]'
                 labelClassName='whitespace-nowrap text-lg font-bold tracking-tight text-slate-900 max-[374px]:text-[15px]'
               />
             </div>
@@ -565,7 +565,7 @@ function MobileNavbar({
                 href='/'
                 variant={useCompactHeaderLogo ? 'mark' : 'full'}
                 className='inline-flex min-w-0 items-center gap-2 text-slate-900'
-                markClassName='h-7 w-7 shrink-0 text-[#f5d10b]'
+                markClassName='h-12 w-12 shrink-0 text-[#f5d10b]'
                 labelClassName='whitespace-nowrap text-lg font-bold tracking-tight text-slate-900 max-[374px]:text-[15px]'
                 ariaLabel='OCPRIMES home'
               />

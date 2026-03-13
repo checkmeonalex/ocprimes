@@ -1,6 +1,5 @@
 'use client'
 
-import AjaxPreloader from '@/components/common/AjaxPreloader'
 import CustomSelect from '@/components/common/CustomSelect'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
@@ -413,7 +412,7 @@ export default function AccountSecurityPage() {
   }
 
   if (isLoading) {
-    return <AjaxPreloader label='Loading your security settings...' />
+    return <div className='min-h-[calc(100vh-220px)] bg-transparent' />
   }
 
   return (
