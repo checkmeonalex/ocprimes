@@ -15,7 +15,9 @@ export default function SellerSignupShell({ children }) {
             <BrandLogo
               href='/'
               variant='full'
-              className='inline-flex items-center justify-center text-slate-950'
+              className='inline-flex items-center justify-center gap-3 text-slate-950'
+              taglineClassName='text-[10px] font-medium uppercase tracking-[0.38em] text-slate-500'
+              showTagline
             />
           </div>
           {children}

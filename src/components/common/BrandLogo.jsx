@@ -2,6 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import fulllogo from '@/app/storage/fulllogo.png'
 import minilogo from '@/app/storage/minilogo.png'
+import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand'
 
 const joinClasses = (...values) => values.filter(Boolean).join(' ')
 
@@ -53,8 +54,11 @@ export default function BrandLogo({
   className = 'inline-flex items-center gap-3 text-gray-900',
   markClassName = 'h-12 w-12 shrink-0 text-[#f5d10b] sm:h-10 sm:w-10',
   labelClassName = 'text-xl font-semibold tracking-tight text-current',
-  label = 'Alxora',
-  ariaLabel = 'Alxora',
+  taglineClassName = 'text-[10px] font-medium uppercase tracking-[0.42em] text-current/70',
+  label = BRAND_NAME,
+  ariaLabel = BRAND_NAME,
+  showTagline = false,
+  tagline = BRAND_TAGLINE,
 }) {
   const content = (
     <>
@@ -64,7 +68,15 @@ export default function BrandLogo({
         <BrandLogoMark className={markClassName} />
       )}
       {variant !== 'full' && variant !== 'mark' ? (
-        <span className={labelClassName}>{label}</span>
+        <span className='flex min-w-0 flex-col'>
+          <span className={labelClassName}>{label}</span>
+          {showTagline ? <span className={taglineClassName}>{tagline}</span> : null}
+        </span>
+      ) : null}
+      {variant === 'full' && showTagline ? (
+        <span className='flex min-w-0 flex-col justify-center'>
+          <span className={taglineClassName}>{tagline}</span>
+        </span>
       ) : null}
     </>
   )

@@ -1,7 +1,12 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
-import { resolvePostAuthRedirect, resolveSafeNextPath } from '@/lib/auth/navigation'
+import {
+  resolveCustomerRedirect,
+  resolvePostAuthRedirect,
+  resolveRequestCustomerDeviceType,
+  resolveSafeNextPath,
+} from '@/lib/auth/navigation'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 
 const buildLoginRedirect = (request: NextRequest, nextValue?: string | null) => {
@@ -18,6 +23,7 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const nextValue = requestUrl.searchParams.get('next')
+  const deviceValue = requestUrl.searchParams.get('device')
 
   if (!code) {
     return NextResponse.redirect(buildLoginRedirect(request, nextValue))
@@ -40,7 +46,12 @@ export async function GET(request: NextRequest) {
   }
 
   const roleInfo = await getUserRoleInfoSafe(supabase, data.user.id, data.user.email || '')
-  const redirectPath = resolvePostAuthRedirect(roleInfo.role, nextValue)
+  const customerFallback = resolveCustomerRedirect(
+    deviceValue === 'desktop' || deviceValue === 'handheld'
+      ? deviceValue
+      : resolveRequestCustomerDeviceType(request.headers.get('user-agent')),
+  )
+  const redirectPath = resolvePostAuthRedirect(roleInfo.role, nextValue, customerFallback)
   const response = NextResponse.redirect(new URL(redirectPath, request.url))
   applyCookies(response)
   return response

@@ -3,7 +3,11 @@
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
-import { resolvePostAuthRedirect } from '@/lib/auth/navigation'
+import {
+  resolveClientCustomerDeviceType,
+  resolveCustomerRedirect,
+  resolvePostAuthRedirect,
+} from '@/lib/auth/navigation'
 
 export default function LoginForm({
   endpoint = '/api/auth/login',
@@ -53,7 +57,10 @@ export default function LoginForm({
       }
 
       const nextPath = searchParams.get('next')
-      const fallback = typeof successRedirect === 'string' ? successRedirect : '/UserBackend'
+      const fallback =
+        typeof successRedirect === 'string'
+          ? successRedirect
+          : resolveCustomerRedirect(resolveClientCustomerDeviceType())
       router.push(resolvePostAuthRedirect(role, nextPath, fallback))
     } catch {
       setError('Unable to sign in. Try again.')

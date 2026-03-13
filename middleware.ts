@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createMiddlewareSupabaseClient } from '@/lib/supabase/middleware'
 import { getUserRoleSafe } from '@/lib/auth/roles'
+import { resolveCustomerRedirect, resolveRequestCustomerDeviceType } from '@/lib/auth/navigation'
 
 const ADMIN_PREFIXES = ['/backend/admin', '/admin', '/api/admin']
 const ADMIN_PUBLIC_PATHS = ['/admin/login', '/admin/signup']
@@ -41,7 +42,11 @@ export async function middleware(request: NextRequest) {
     if (!error && data.user) {
       const role = await getUserRoleSafe(supabase, data.user.id, data.user.email || '')
       const destination =
-        role === 'admin' || role === 'vendor' ? '/admin/dashboard' : '/account'
+        role === 'admin' || role === 'vendor'
+          ? '/admin/dashboard'
+          : resolveCustomerRedirect(
+              resolveRequestCustomerDeviceType(request.headers.get('user-agent')),
+            )
       return NextResponse.redirect(new URL(destination, request.url))
     }
 

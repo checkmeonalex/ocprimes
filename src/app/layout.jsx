@@ -14,11 +14,27 @@ import { Suspense } from 'react'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { createServerSupabaseClient } from '../lib/supabase/server'
 import { getCachedTopCategories } from '../lib/catalog/top-categories-server'
+import { BRAND_NAME, BRAND_SEARCH_DESCRIPTION, BRAND_TAGLINE } from '../lib/brand'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'Alxora',
+  title: {
+    default: `${BRAND_NAME} | ${BRAND_TAGLINE}`,
+    template: `%s | ${BRAND_NAME} | ${BRAND_TAGLINE}`,
+  },
+  description: BRAND_SEARCH_DESCRIPTION,
+  applicationName: BRAND_NAME,
+  openGraph: {
+    title: BRAND_NAME,
+    description: `${BRAND_NAME} | ${BRAND_TAGLINE}`,
+    siteName: BRAND_NAME,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: BRAND_NAME,
+    description: `${BRAND_NAME} | ${BRAND_TAGLINE}`,
+  },
 }
 
 const outfit = localFont({

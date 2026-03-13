@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { resolvePostAuthRedirect, resolveSafeNextPath } from '@/lib/auth/navigation'
+import {
+  resolveClientCustomerDeviceType,
+  resolveCustomerRedirect,
+  resolvePostAuthRedirect,
+  resolveSafeNextPath,
+} from '@/lib/auth/navigation'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
 import CustomerAuthHeader from './CustomerAuthHeader'
 
@@ -115,6 +120,7 @@ export default function CustomerTwoStepVerificationPage() {
             resolvePostAuthRedirect(
               completePayload?.role || role || 'customer',
               safeNextPath,
+              resolveCustomerRedirect(resolveClientCustomerDeviceType()),
             ),
           )
           router.refresh()

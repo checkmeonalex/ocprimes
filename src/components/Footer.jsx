@@ -139,6 +139,8 @@ export default function Footer({ showBackToTop = true }) {
               className='inline-flex items-center gap-3 text-white'
               markClassName='h-9 w-9 shrink-0 text-[#f5d10b]'
               labelClassName='text-xl font-semibold tracking-[0.08em] text-white'
+              taglineClassName='mt-1 text-[10px] font-medium uppercase tracking-[0.38em] text-white/55'
+              showTagline
             />
             <p className='mt-4 text-sm leading-7 text-white/68'>
               Alxora is a marketplace built for Nigerian pricing first, with shopping,

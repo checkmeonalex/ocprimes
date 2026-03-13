@@ -4,7 +4,12 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
-import { resolvePostAuthRedirect, resolveSafeNextPath } from '@/lib/auth/navigation'
+import {
+  resolveClientCustomerDeviceType,
+  resolveCustomerRedirect,
+  resolvePostAuthRedirect,
+  resolveSafeNextPath,
+} from '@/lib/auth/navigation'
 import {
   getPasswordStrength,
   PASSWORD_REQUIREMENTS_MESSAGE,
@@ -164,7 +169,13 @@ export default function CustomerAuthFlow() {
         return
       }
 
-      router.push(resolvePostAuthRedirect(payload?.role, safeNextPath))
+      router.push(
+        resolvePostAuthRedirect(
+          payload?.role,
+          safeNextPath,
+          resolveCustomerRedirect(resolveClientCustomerDeviceType()),
+        ),
+      )
       router.refresh()
     } catch {
       setError('Unable to sign in. Try again.')
@@ -205,7 +216,13 @@ export default function CustomerAuthFlow() {
         return
       }
 
-      router.push(resolvePostAuthRedirect('customer', safeNextPath))
+      router.push(
+        resolvePostAuthRedirect(
+          'customer',
+          safeNextPath,
+          resolveCustomerRedirect(resolveClientCustomerDeviceType()),
+        ),
+      )
       router.refresh()
     } catch {
       setError('Unable to create account. Try again.')
@@ -223,7 +240,10 @@ export default function CustomerAuthFlow() {
     try {
       const supabase = createBrowserSupabaseClient()
       const callbackUrl = new URL('/auth/callback', window.location.origin)
-      callbackUrl.searchParams.set('next', safeNextPath || '/UserBackend')
+      if (safeNextPath) {
+        callbackUrl.searchParams.set('next', safeNextPath)
+      }
+      callbackUrl.searchParams.set('device', resolveClientCustomerDeviceType())
 
       const { error: googleError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
