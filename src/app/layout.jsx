@@ -2,6 +2,7 @@
 import ClientLayout from '../components/ClientLayout'
 import './globals.css'
 import localFont from 'next/font/local'
+import { Analytics } from '@vercel/analytics/next'
 import { SidebarProvider } from '../context/SidebarContext'
 import { CartProvider } from '../context/CartContext'
 import { AlertProvider } from '../context/AlertContext'
@@ -10,6 +11,7 @@ import { WishlistProvider } from '../context/WishlistContext'
 import WishlistSaveModal from '../components/wishlist/WishlistSaveModal'
 import { UserLocaleProvider } from '../context/UserLocaleContext'
 import { Suspense } from 'react'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import { createServerSupabaseClient } from '../lib/supabase/server'
 import { getCachedTopCategories } from '../lib/catalog/top-categories-server'
 
@@ -64,6 +66,8 @@ export default async function RootLayout({ children }) {
               </CartProvider>
             </SidebarProvider>
             <AlertStack />
+            <Analytics />
+            <SpeedInsights />
           </AlertProvider>
         </UserLocaleProvider>
       </body>
