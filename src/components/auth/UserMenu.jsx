@@ -141,6 +141,37 @@ const renderMenuItemIcon = (label) => {
       </svg>
     )
   }
+  if (label === 'Messages') {
+    return (
+      <svg {...iconProps}>
+        <path
+          d='M5.5 6.5h13A1.5 1.5 0 0 1 20 8v7a1.5 1.5 0 0 1-1.5 1.5H12l-4.5 3v-3H5.5A1.5 1.5 0 0 1 4 15V8a1.5 1.5 0 0 1 1.5-1.5Z'
+          stroke='currentColor'
+          strokeWidth='1.5'
+          strokeLinejoin='round'
+        />
+        <path
+          d='M8 10.5h8M8 13.5h5'
+          stroke='currentColor'
+          strokeWidth='1.5'
+          strokeLinecap='round'
+        />
+      </svg>
+    )
+  }
+  if (label === 'Browsing history') {
+    return (
+      <svg {...iconProps}>
+        <path
+          d='M12 7.25v5l3 1.75M20 12a8 8 0 1 1-2.34-5.66M20 4.75v3.5h-3.5'
+          stroke='currentColor'
+          strokeWidth='1.5'
+          strokeLinecap='round'
+          strokeLinejoin='round'
+        />
+      </svg>
+    )
+  }
   if (label === 'Account & security') {
     return <AccountSecurityIcon className={iconProps.className} aria-hidden='true' />
   }
@@ -163,8 +194,6 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
   const [localeError, setLocaleError] = useState('')
   const [localeSuccess, setLocaleSuccess] = useState('')
   const [profileDraft, setProfileDraft] = useState(null)
-  const [requestMessage, setRequestMessage] = useState('')
-  const [isRequesting, setIsRequesting] = useState(false)
   const menuRef = useRef(null)
 
   useEffect(() => {
@@ -186,25 +215,6 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
     setIsLocaleMenuOpen(false)
     router.refresh()
     router.push('/login')
-  }
-
-  const handleRequestAdmin = async () => {
-    if (isRequesting) return
-    setIsRequesting(true)
-    setRequestMessage('')
-    try {
-      const response = await fetch('/api/auth/request-admin', { method: 'POST' })
-      const payload = await response.json().catch(() => null)
-      if (!response.ok) {
-        setRequestMessage(payload?.error || 'Unable to submit request.')
-        return
-      }
-      setRequestMessage('Request submitted for admin approval.')
-    } catch {
-      setRequestMessage('Unable to submit request.')
-    } finally {
-      setIsRequesting(false)
-    }
   }
 
   const displayName = getDisplayName(user?.email)
@@ -539,7 +549,7 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
                 </div>
               ) : (
                 <div
-                  className='mt-1 max-h-[54vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent'
+                  className='mt-1 max-h-[54vh] overflow-y-auto pr-1 md:pr-2 [scrollbar-gutter:stable] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent md:[&::-webkit-scrollbar]:w-2 md:[&::-webkit-scrollbar-track]:bg-transparent md:[&::-webkit-scrollbar-thumb]:rounded-full md:[&::-webkit-scrollbar-thumb]:bg-gray-300 md:[&::-webkit-scrollbar-thumb]:border-[2px] md:[&::-webkit-scrollbar-thumb]:border-solid md:[&::-webkit-scrollbar-thumb]:border-white'
                   style={{ scrollbarWidth: 'thin' }}
                 >
                   <div className='space-y-1'>
@@ -557,18 +567,6 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
                       </Link>
                     ))}
                   </div>
-                  {requestMessage ? (
-                    <p className='px-2 text-xs text-gray-500'>{requestMessage}</p>
-                  ) : null}
-                  <button
-                    onClick={handleRequestAdmin}
-                    disabled={isRequesting}
-                    className='mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:border-gray-300 disabled:opacity-60'
-                  >
-                    {isRequesting
-                      ? t('auth.submitting', 'Submitting...')
-                      : t('auth.requestAdmin', 'Request admin access')}
-                  </button>
                   <button
                     onClick={handleLogout}
                     className='mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:border-gray-300'
