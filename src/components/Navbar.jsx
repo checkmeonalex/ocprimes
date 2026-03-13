@@ -796,8 +796,6 @@ export default function Navbar({
             className='inline-flex items-center gap-3 text-gray-900'
             markClassName='h-8 w-8 shrink-0 text-[#f5d10b]'
             labelClassName='text-xl font-semibold tracking-tight text-current'
-            taglineClassName='text-[10px] font-medium uppercase tracking-[0.34em] text-slate-500'
-            showTagline
           />
 
           <div
