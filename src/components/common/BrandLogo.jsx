@@ -27,7 +27,7 @@ export function BrandLogoMark({
 }
 
 export function BrandLogoFull({
-  className = 'h-auto w-[140px] sm:w-[168px]',
+  className = 'h-auto w-[112px] min-[360px]:w-[124px] sm:w-[168px]',
   ...props
 }) {
   return (

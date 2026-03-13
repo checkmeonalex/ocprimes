@@ -17,9 +17,6 @@ import { usePopularSearchItems } from '@/components/search/usePopularSearchItems
 import { useSearchSuggestions } from '@/components/search/useSearchSuggestions'
 import { reportSearchQuery } from '@/components/search/reportSearchQuery'
 
-const MOBILE_HEADER_SEARCH_MIN_RATIO = 0.4
-const MOBILE_HEADER_SEARCH_GAP = 16
-
 // Lazy load CategoriesMenu since it's not immediately visible
 const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
   loading: () => null, // No loading spinner needed
@@ -52,15 +49,9 @@ function MobileNavbar({
   )
   const [isSecondBarVisible, setIsSecondBarVisible] = useState(true)
   const [menuTopOffset, setMenuTopOffset] = useState(56)
-  const [useCompactHeaderLogo, setUseCompactHeaderLogo] = useState(false)
   const searchRef = useRef(null)
   const accountMenuRef = useRef(null)
   const navRef = useRef(null)
-  const mobileHeaderMenuButtonRef = useRef(null)
-  const mobileHeaderRowRef = useRef(null)
-  const mobileHeaderRightRef = useRef(null)
-  const mobileHeaderSearchRef = useRef(null)
-  const mobileHeaderFullLogoMeasureRef = useRef(null)
   const lastScrollYRef = useRef(0)
   const attemptedSearchImageTermsRef = useRef(new Set())
   const {
@@ -287,57 +278,6 @@ function MobileNavbar({
   }, [pathname, mobileCategories.length])
 
   useEffect(() => {
-    const rowEl = mobileHeaderRowRef.current
-    const searchEl = mobileHeaderSearchRef.current
-    const menuButtonEl = mobileHeaderMenuButtonRef.current
-    const rightEl = mobileHeaderRightRef.current
-    const fullLogoEl = mobileHeaderFullLogoMeasureRef.current
-    if (!rowEl || !searchEl || !menuButtonEl || !rightEl || !fullLogoEl || typeof window === 'undefined') {
-      return undefined
-    }
-
-    const updateLogoVariant = () => {
-      const rowWidth = Number(rowEl.getBoundingClientRect().width || 0)
-      if (rowWidth <= 0) {
-        setUseCompactHeaderLogo(false)
-        return
-      }
-
-      const searchIsVisible = window.getComputedStyle(searchEl).display !== 'none'
-      if (!searchIsVisible) {
-        setUseCompactHeaderLogo(false)
-        return
-      }
-
-      const menuButtonWidth = Number(menuButtonEl.getBoundingClientRect().width || 0)
-      const rightWidth = Number(rightEl.getBoundingClientRect().width || 0)
-      const fullLogoWidth = Number(fullLogoEl.getBoundingClientRect().width || 0)
-      const availableSearchWidth =
-        rowWidth - menuButtonWidth - fullLogoWidth - rightWidth - MOBILE_HEADER_SEARCH_GAP
-
-      setUseCompactHeaderLogo(availableSearchWidth / rowWidth < MOBILE_HEADER_SEARCH_MIN_RATIO)
-    }
-
-    updateLogoVariant()
-
-    const resizeObserver = new ResizeObserver(() => {
-      updateLogoVariant()
-    })
-
-    resizeObserver.observe(rowEl)
-    resizeObserver.observe(searchEl)
-    resizeObserver.observe(menuButtonEl)
-    resizeObserver.observe(rightEl)
-    resizeObserver.observe(fullLogoEl)
-    window.addEventListener('resize', updateLogoVariant)
-
-    return () => {
-      resizeObserver.disconnect()
-      window.removeEventListener('resize', updateLogoVariant)
-    }
-  }, [])
-
-  useEffect(() => {
     const rawY =
       window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0
     const currentY = Math.max(0, rawY)
@@ -513,24 +453,12 @@ function MobileNavbar({
       {/* Main Mobile Navbar */}
       <nav ref={navRef} className='fixed top-0 left-0 right-0 isolate bg-white shadow-sm border-b border-gray-200 z-[2147483000] lg:hidden'>
         <div className='px-4'>
-          <div className='pointer-events-none absolute left-4 top-0 -z-10 opacity-0'>
-            <div ref={mobileHeaderFullLogoMeasureRef}>
-              <BrandLogo
-                href={null}
-                variant='full'
-                className='inline-flex items-center gap-2 text-slate-900'
-                markClassName='h-12 w-12 shrink-0 text-[#f5d10b]'
-                labelClassName='whitespace-nowrap text-lg font-bold tracking-tight text-slate-900 max-[374px]:text-[15px]'
-              />
-            </div>
-          </div>
-          <div ref={mobileHeaderRowRef} className='flex items-center justify-between h-14'>
+          <div className='flex items-center justify-between gap-2 h-14'>
             {/* Updated hamburger button with active state */}
-            <div className='flex min-w-0 items-center space-x-2'>
+            <div className='flex min-w-0 flex-1 items-center space-x-1.5'>
               <button
-                ref={mobileHeaderMenuButtonRef}
                 onClick={toggleSidebar}
-                className={`p-2 rounded-lg transition-all duration-200 ${
+                className={`shrink-0 p-2 rounded-lg transition-all duration-200 ${
                   isOpen
                     ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
                     : 'text-gray-700 hover:bg-gray-100'
@@ -563,16 +491,16 @@ function MobileNavbar({
               {/* Logo/Brand */}
               <BrandLogo
                 href='/'
-                variant={useCompactHeaderLogo ? 'mark' : 'full'}
-                className='inline-flex min-w-0 items-center gap-2 text-slate-900'
+                variant='full'
+                className='inline-flex min-w-0 max-w-full items-center gap-2 text-slate-900'
                 markClassName='h-12 w-12 shrink-0 text-[#f5d10b]'
                 labelClassName='whitespace-nowrap text-lg font-bold tracking-tight text-slate-900 max-[374px]:text-[15px]'
                 ariaLabel='OCPRIMES home'
               />
             </div>
 
-            {/* Center section - Search bar trigger */}
-            <div ref={mobileHeaderSearchRef} className='mx-2 min-w-0 flex-1 max-[374px]:hidden'>
+            {/* Tablet search trigger */}
+            <div className='mx-2 hidden min-w-0 flex-1 md:flex'>
               <button
                 type='button'
                 onClick={handleSearchToggle}
@@ -602,12 +530,12 @@ function MobileNavbar({
             </div>
 
             {/* Right section - Account and Cart */}
-            <div ref={mobileHeaderRightRef} className='flex items-center space-x-1'>
-              {/* Search Button (extra-small screens) */}
+            <div className='flex shrink-0 items-center space-x-0.5 min-[360px]:space-x-1'>
+              {/* Search Button (phones) */}
               <button
                 type='button'
                 onClick={handleSearchToggle}
-                className='hidden p-1 text-gray-700 transition-colors hover:text-gray-900 max-[374px]:inline-flex'
+                className='inline-flex shrink-0 p-1 text-gray-700 transition-colors hover:text-gray-900 md:hidden'
                 aria-label='Open search'
               >
                 <svg
