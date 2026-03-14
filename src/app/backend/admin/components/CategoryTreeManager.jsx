@@ -176,6 +176,10 @@ function CategoryTreeManager() {
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [reviewingRequest, setReviewingRequest] = useState(null);
+  const [reviewDecision, setReviewDecision] = useState('approved');
+  const [reviewNote, setReviewNote] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [form, setForm] = useState({
     name: '',
     slug: '',
@@ -468,6 +472,72 @@ function CategoryTreeManager() {
       setSaveError(err?.message || 'Unable to rename category.');
     } finally {
       setRenamingId('');
+    }
+  };
+
+  const handleDeleteCategory = async (node) => {
+    if (!node?.id || removingId) return;
+    const confirmed = window.confirm(`Delete "${node.name}" permanently?`);
+    if (!confirmed) return;
+    setRemovingId(node.id);
+    setSaveError('');
+    try {
+      const response = await fetch(`/api/admin/categories/${node.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to delete category.');
+      }
+      await loadCategories({ skipDraft: true });
+    } catch (err) {
+      setSaveError(err?.message || 'Unable to delete category.');
+    } finally {
+      setRemovingId('');
+    }
+  };
+
+  const openReviewSheet = (request) => {
+    setReviewingRequest(request);
+    setReviewDecision('approved');
+    setReviewNote('');
+    setSaveError('');
+  };
+
+  const closeReviewSheet = () => {
+    if (isSubmittingReview) return;
+    setReviewingRequest(null);
+    setReviewDecision('approved');
+    setReviewNote('');
+  };
+
+  const submitReview = async (event) => {
+    event.preventDefault();
+    if (!reviewingRequest?.id || isSubmittingReview) return;
+    setIsSubmittingReview(true);
+    setSaveError('');
+    try {
+      const response = await fetch('/api/admin/categories/requests', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          requestId: reviewingRequest.id,
+          status: reviewDecision,
+          reviewNote: reviewNote.trim(),
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to review category request.');
+      }
+      closeReviewSheet();
+      await Promise.all([loadCategoryRequests(), loadCategories({ skipDraft: true })]);
+    } catch (err) {
+      setSaveError(err?.message || 'Unable to review category request.');
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
@@ -998,6 +1068,14 @@ function CategoryTreeManager() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                onClick={() => handleDeleteCategory(node)}
+                disabled={removingId === node.id}
+                className="rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 disabled:opacity-60"
+              >
+                {removingId === node.id ? 'Deleting...' : 'Delete'}
+              </button>
+              <button
+                type="button"
                 onClick={() => handleToggleActive(node)}
                 disabled={toggleLoadingId === node.id}
                 className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold ${
@@ -1153,8 +1231,11 @@ function CategoryTreeManager() {
             ) : null}
             {categoryRequests.map((request) => {
               const requesterBrand = String(request?.requester_brand_name || '').trim();
+              const requesterName = String(request?.requester_name || '').trim();
+              const requesterEmail = String(request?.requester_email || '').trim();
               const requesterId = String(request?.requester_user_id || '').trim();
-              const requesterLabel = requesterBrand || requesterId || 'Unknown requester';
+              const requesterLabel =
+                requesterBrand || requesterName || requesterEmail || requesterId || 'Unknown requester';
               const requestedAt = request?.requested_at
                 ? new Date(request.requested_at).toLocaleString()
                 : 'Unknown date';
@@ -1166,14 +1247,24 @@ function CategoryTreeManager() {
                   <div>
                     <p className="text-sm font-semibold text-slate-900">{request.name}</p>
                     <p className="mt-1 text-xs text-slate-500">/{request.slug} · Requested by {requesterLabel}</p>
+                    {requesterBrand && requesterBrand !== requesterLabel ? (
+                      <p className="mt-1 text-[11px] text-slate-400">Brand: {requesterBrand}</p>
+                    ) : null}
+                    {requesterName && requesterName !== requesterLabel ? (
+                      <p className="mt-1 text-[11px] text-slate-400">Name: {requesterName}</p>
+                    ) : null}
+                    {requesterEmail && requesterEmail !== requesterLabel ? (
+                      <p className="mt-1 text-[11px] text-slate-400">Email: {requesterEmail}</p>
+                    ) : null}
                     <p className="mt-1 text-[11px] text-slate-400">{requestedAt}</p>
                   </div>
-                  <Link
-                    href="/backend/admin/categories"
+                  <button
+                    type="button"
+                    onClick={() => openReviewSheet(request)}
                     className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600"
                   >
                     Review
-                  </Link>
+                  </button>
                 </div>
               );
             })}
@@ -1281,6 +1372,68 @@ function CategoryTreeManager() {
           </LoadingButton>
           {saveError ? <p className="text-xs text-rose-500">{saveError}</p> : null}
         </form>
+      </Sheet>
+      <Sheet
+        open={Boolean(reviewingRequest)}
+        title={reviewingRequest ? `Review request: ${reviewingRequest.name}` : 'Review request'}
+        onClose={closeReviewSheet}
+        forceBottom
+      >
+        {reviewingRequest ? (
+          <form onSubmit={submitReview} className="space-y-4">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              <p><span className="font-semibold text-slate-900">Slug:</span> /{reviewingRequest.slug}</p>
+              <p className="mt-2"><span className="font-semibold text-slate-900">Requester:</span> {String(reviewingRequest?.requester_brand_name || reviewingRequest?.requester_name || reviewingRequest?.requester_email || reviewingRequest?.requester_user_id || 'Unknown')}</p>
+              {reviewingRequest?.requester_email ? (
+                <p className="mt-1"><span className="font-semibold text-slate-900">Email:</span> {reviewingRequest.requester_email}</p>
+              ) : null}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setReviewDecision('approved')}
+                className={`flex-1 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                  reviewDecision === 'approved'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 bg-white text-slate-600'
+                }`}
+              >
+                Approve
+              </button>
+              <button
+                type="button"
+                onClick={() => setReviewDecision('rejected')}
+                className={`flex-1 rounded-2xl border px-4 py-3 text-sm font-semibold ${
+                  reviewDecision === 'rejected'
+                    ? 'border-rose-300 bg-rose-50 text-rose-700'
+                    : 'border-slate-200 bg-white text-slate-600'
+                }`}
+              >
+                Reject
+              </button>
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                Review note
+              </label>
+              <textarea
+                value={reviewNote}
+                onChange={(event) => setReviewNote(event.target.value)}
+                placeholder={reviewDecision === 'approved' ? 'Optional note for the requester' : 'Why are you rejecting this request?'}
+                className="mt-2 min-h-[120px] w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+              />
+            </div>
+            <LoadingButton
+              type="submit"
+              isLoading={isSubmittingReview}
+              className={`w-full rounded-full px-4 py-2 text-xs font-semibold text-white ${
+                reviewDecision === 'approved' ? 'bg-emerald-600' : 'bg-rose-600'
+              }`}
+            >
+              {reviewDecision === 'approved' ? 'Approve request' : 'Reject request'}
+            </LoadingButton>
+          </form>
+        ) : null}
       </Sheet>
       {touchDrag ? (
         <div

@@ -8,6 +8,7 @@ const STORY_PREVIEW_LOOP_SECONDS = 10
 const STORY_PREVIEW_LOOP_RESET_OFFSET = 0.2
 const STORY_URL_PARAM_KEY = 'play'
 const STORY_HISTORY_FLAG = '__ocpHomeStoryModal'
+const HOME_STORY_CONTROL_GOLD_GRADIENT_ID = 'home-story-control-gold'
 
 const StoriesCarousel = ({ stories = [] }) => {
   const windowWidth = useWindowWidth()
@@ -445,7 +446,7 @@ useEffect(() => {
       {/* Header with Navigation Buttons */}
       <div className={`mb-3 flex items-center justify-between ${isMobile ? 'px-1' : 'px-4 md:px-6 lg:px-8'}`}>
         <h2 className={`${isMobile ? 'text-xl' : 'text-xl sm:text-2xl'} font-semibold text-gray-900`}>
-          Stories
+          PLAY
         </h2>
 
         <div className={`items-center gap-3 ${isMobile ? 'hidden' : 'flex'}`}>
@@ -579,7 +580,7 @@ useEffect(() => {
                             event.stopPropagation()
                             handleToggleStoryPlayback(story.id)
                           }}
-                          className='absolute right-2 top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-900'
+                          className='absolute right-2 top-2 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-900 [filter:drop-shadow(0_1px_4px_rgba(225,208,131,0.45))]'
                           aria-label={isPlaying ? 'Pause story video' : 'Play story video'}
                           title={isPlaying ? 'Pause' : 'Play'}
                         >
@@ -587,34 +588,50 @@ useEffect(() => {
                             <svg viewBox='0 0 24 24' fill='none' aria-hidden='true' className='h-7 w-7'>
                               <path
                                 d='M8 9.5C8 9.03406 8 8.80109 8.07612 8.61732C8.17761 8.37229 8.37229 8.17761 8.61732 8.07612C8.80109 8 9.03406 8 9.5 8C9.96594 8 10.1989 8 10.3827 8.07612C10.6277 8.17761 10.8224 8.37229 10.9239 8.61732C11 8.80109 11 9.03406 11 9.5V14.5C11 14.9659 11 15.1989 10.9239 15.3827C10.8224 15.6277 10.6277 15.8224 10.3827 15.9239C10.1989 16 9.96594 16 9.5 16C9.03406 16 8.80109 16 8.61732 15.9239C8.37229 15.8224 8.17761 15.6277 8.07612 15.3827C8 15.1989 8 14.9659 8 14.5V9.5Z'
-                                stroke='#fb3232'
+                                stroke={`url(#${HOME_STORY_CONTROL_GOLD_GRADIENT_ID})`}
                                 strokeWidth='1.5'
                               />
                               <path
                                 d='M13 9.5C13 9.03406 13 8.80109 13.0761 8.61732C13.1776 8.37229 13.3723 8.17761 13.6173 8.07612C13.8011 8 14.0341 8 14.5 8C14.9659 8 15.1989 8 15.3827 8.07612C15.6277 8.17761 15.8224 8.37229 15.9239 8.61732C16 8.80109 16 9.03406 16 9.5V14.5C16 14.9659 16 15.1989 15.9239 15.3827C15.8224 15.6277 15.6277 15.8224 15.3827 15.9239C15.1989 16 14.9659 16 14.5 16C14.0341 16 13.8011 16 13.6173 15.9239C13.3723 15.8224 13.1776 15.6277 13.0761 15.3827C13 15.1989 13 14.9659 13 14.5V9.5Z'
-                                stroke='#fb3232'
+                                stroke={`url(#${HOME_STORY_CONTROL_GOLD_GRADIENT_ID})`}
                                 strokeWidth='1.5'
                               />
                               <path
                                 d='M7 3.33782C8.47087 2.48697 10.1786 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 10.1786 2.48697 8.47087 3.33782 7'
-                                stroke='#fb3232'
+                                stroke={`url(#${HOME_STORY_CONTROL_GOLD_GRADIENT_ID})`}
                                 strokeWidth='1.5'
                                 strokeLinecap='round'
                               />
+                              <defs>
+                                <linearGradient id={HOME_STORY_CONTROL_GOLD_GRADIENT_ID} x1='2' y1='2' x2='22' y2='22' gradientUnits='userSpaceOnUse'>
+                                  <stop stopColor='rgb(245 232 168)' />
+                                  <stop offset='0.45' stopColor='rgb(225 208 131)' />
+                                  <stop offset='0.7' stopColor='rgb(192 184 173)' />
+                                  <stop offset='1' stopColor='rgb(150 109 16)' />
+                                </linearGradient>
+                              </defs>
                             </svg>
                           ) : (
                             <svg viewBox='0 0 24 24' fill='none' aria-hidden='true' className='h-7 w-7'>
                               <path
                                 d='M13.8876 9.9348C14.9625 10.8117 15.5 11.2501 15.5 12C15.5 12.7499 14.9625 13.1883 13.8876 14.0652C13.5909 14.3073 13.2966 14.5352 13.0261 14.7251C12.7888 14.8917 12.5201 15.064 12.2419 15.2332C11.1695 15.8853 10.6333 16.2114 10.1524 15.8504C9.6715 15.4894 9.62779 14.7336 9.54038 13.2222C9.51566 12.7947 9.5 12.3757 9.5 12C9.5 11.6243 9.51566 11.2053 9.54038 10.7778C9.62779 9.26636 9.6715 8.51061 10.1524 8.1496C10.6333 7.78859 11.1695 8.11466 12.2419 8.76679C12.5201 8.93597 12.7888 9.10831 13.0261 9.27492C13.2966 9.46483 13.5909 9.69274 13.8876 9.9348Z'
-                                stroke='#fb3232'
+                                stroke={`url(#${HOME_STORY_CONTROL_GOLD_GRADIENT_ID})`}
                                 strokeWidth='1.5'
                               />
                               <path
                                 d='M7 3.33782C8.47087 2.48697 10.1786 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 10.1786 2.48697 8.47087 3.33782 7'
-                                stroke='#fb3232'
+                                stroke={`url(#${HOME_STORY_CONTROL_GOLD_GRADIENT_ID})`}
                                 strokeWidth='1.5'
                                 strokeLinecap='round'
                               />
+                              <defs>
+                                <linearGradient id={HOME_STORY_CONTROL_GOLD_GRADIENT_ID} x1='2' y1='2' x2='22' y2='22' gradientUnits='userSpaceOnUse'>
+                                  <stop stopColor='rgb(245 232 168)' />
+                                  <stop offset='0.45' stopColor='rgb(225 208 131)' />
+                                  <stop offset='0.7' stopColor='rgb(192 184 173)' />
+                                  <stop offset='1' stopColor='rgb(150 109 16)' />
+                                </linearGradient>
+                              </defs>
                             </svg>
                           )}
                         </button>

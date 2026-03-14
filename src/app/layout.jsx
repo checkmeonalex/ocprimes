@@ -10,7 +10,6 @@ import AlertStack from '../components/alerts/AlertStack'
 import { WishlistProvider } from '../context/WishlistContext'
 import WishlistSaveModal from '../components/wishlist/WishlistSaveModal'
 import { UserLocaleProvider } from '../context/UserLocaleContext'
-import { Suspense } from 'react'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { createServerSupabaseClient } from '../lib/supabase/server'
 import { getCachedTopCategories } from '../lib/catalog/top-categories-server'
@@ -69,14 +68,12 @@ export default async function RootLayout({ children }) {
             <SidebarProvider>
               <CartProvider>
                 <WishlistProvider>
-                  <Suspense fallback={<main className='min-h-screen'>{children}</main>}>
-                    <ClientLayout
-                      initialAuthUser={initialAuthUser}
-                      initialTopCategories={initialTopCategories}
-                    >
-                      {children}
-                    </ClientLayout>
-                  </Suspense>
+                  <ClientLayout
+                    initialAuthUser={initialAuthUser}
+                    initialTopCategories={initialTopCategories}
+                  >
+                    {children}
+                  </ClientLayout>
                   <WishlistSaveModal />
                 </WishlistProvider>
               </CartProvider>

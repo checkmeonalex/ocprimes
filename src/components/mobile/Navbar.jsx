@@ -70,6 +70,16 @@ function MobileNavbar({
   const placeholderChipImage =
     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="20" fill="%23e5e7eb"/></svg>'
 
+  const updateMenuTopOffset = useCallback(() => {
+    const navEl = navRef.current
+    if (!navEl) return
+    const measured = Number(navEl.getBoundingClientRect().height || 56)
+    setMenuTopOffset((prev) => {
+      const next = Math.max(56, Math.round(measured))
+      return prev === next ? prev : next
+    })
+  }, [])
+
   // Memoize callback to prevent recreating on every render
   const handleClickOutside = useCallback((event) => {
     if (searchRef.current && !searchRef.current.contains(event.target)) {
@@ -249,19 +259,12 @@ function MobileNavbar({
     if (!navEl) return undefined
 
     let frameId = null
-    const updateMenuOffset = () => {
-      const measured = Number(navEl.getBoundingClientRect().height || 56)
-      setMenuTopOffset((prev) => {
-        const next = Math.max(56, Math.round(measured))
-        return prev === next ? prev : next
-      })
-    }
     const scheduleUpdate = () => {
       if (frameId) cancelAnimationFrame(frameId)
-      frameId = requestAnimationFrame(updateMenuOffset)
+      frameId = requestAnimationFrame(updateMenuTopOffset)
     }
 
-    updateMenuOffset()
+    updateMenuTopOffset()
 
     const resizeObserver = new ResizeObserver(() => {
       scheduleUpdate()
@@ -280,6 +283,29 @@ function MobileNavbar({
       window.removeEventListener('resize', scheduleUpdate)
     }
   }, [pathname, mobileCategories.length])
+
+  useEffect(() => {
+    if (!isCategoriesOpen) return undefined
+
+    let frameOne = requestAnimationFrame(() => {
+      updateMenuTopOffset()
+    })
+    let frameTwo = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        updateMenuTopOffset()
+      })
+    })
+
+    const timeoutId = window.setTimeout(() => {
+      updateMenuTopOffset()
+    }, 180)
+
+    return () => {
+      cancelAnimationFrame(frameOne)
+      cancelAnimationFrame(frameTwo)
+      window.clearTimeout(timeoutId)
+    }
+  }, [isCategoriesOpen, isSecondBarVisible, updateMenuTopOffset])
 
   useEffect(() => {
     const rawY =

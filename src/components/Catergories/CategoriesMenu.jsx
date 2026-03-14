@@ -10,6 +10,9 @@ const CategoriesMenu = ({
   initialActiveCategoryId = null,
   mobileTopOffset = 56,
   applyMobileOffset = false,
+  panelRef = null,
+  onMenuMouseEnter = undefined,
+  onMenuMouseLeave = undefined,
 }) => {
   const [categoriesData, setCategoriesData] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -38,6 +41,27 @@ const CategoriesMenu = ({
       loadCategoriesData()
     }
   }, [isOpen, categoriesData])
+
+  useEffect(() => {
+    if (!isOpen || !applyMobileOffset) return undefined
+
+    const originalBodyOverflow = document.body.style.overflow
+    const originalHtmlOverflow = document.documentElement.style.overflow
+    const originalBodyOverscroll = document.body.style.overscrollBehavior
+    const originalHtmlOverscroll = document.documentElement.style.overscrollBehavior
+
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+    document.body.style.overscrollBehavior = 'none'
+    document.documentElement.style.overscrollBehavior = 'none'
+
+    return () => {
+      document.body.style.overflow = originalBodyOverflow
+      document.documentElement.style.overflow = originalHtmlOverflow
+      document.body.style.overscrollBehavior = originalBodyOverscroll
+      document.documentElement.style.overscrollBehavior = originalHtmlOverscroll
+    }
+  }, [applyMobileOffset, isOpen])
 
   useEffect(() => {
     if (!categoriesData?.categories?.length) return
@@ -88,7 +112,10 @@ const CategoriesMenu = ({
 
   return (
     <div
-      className="fixed inset-0 bg-white z-50 lg:static lg:w-[min(92vw,980px)] lg:rounded-b-2xl lg:border lg:border-slate-200 lg:shadow-xl"
+      ref={panelRef}
+      className="fixed inset-0 z-50 bg-white lg:static lg:w-[min(92vw,980px)] lg:overflow-hidden lg:rounded-b-2xl lg:border lg:border-slate-200 lg:shadow-xl"
+      onMouseEnter={onMenuMouseEnter}
+      onMouseLeave={onMenuMouseLeave}
       style={
         applyMobileOffset
           ? {
@@ -98,11 +125,11 @@ const CategoriesMenu = ({
           : undefined
       }
     >
-      <div className="relative h-full lg:h-auto overflow-y-auto">
-        <div className="lg:w-full">
-          <div className="flex flex-row">
+      <div className="relative h-full min-h-0 overflow-hidden lg:max-h-[min(78vh,720px)]">
+        <div className="h-full min-h-0 lg:w-full">
+          <div className="flex h-full min-h-0 flex-row lg:max-h-[min(78vh,720px)]">
             {/* Categories Sidebar */}
-           <div className="w-[32%] max-w-[32%] border-r bg-gray-50 border-gray-200 py-3 lg:max-w-[280px] lg:min-w-[240px] lg:py-4">
+           <div className="desktop-menu-scroll h-full min-h-0 w-[32%] max-w-[32%] overflow-y-auto overscroll-contain border-r border-gray-200 bg-gray-50 py-3 touch-pan-y lg:max-h-[min(78vh,720px)] lg:max-w-[280px] lg:min-w-[240px] lg:py-4">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -135,7 +162,7 @@ const CategoriesMenu = ({
             </div>
 
             {/* Subcategories Content */}
-            <div className="flex-1 py-3 lg:py-4 lg:max-w-[700px]">
+            <div className="desktop-menu-scroll h-full min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 pb-20 touch-pan-y lg:max-h-[min(78vh,720px)] lg:py-4 lg:pb-4 lg:max-w-[700px]">
               {activeCategory?.subcategories?.map((subcategory) => (
                 <div key={subcategory.id} className="px-1 lg:px-6">
                   <div className="flex items-center justify-between mb-3 lg:mb-4">
@@ -254,6 +281,37 @@ const CategoriesMenu = ({
       >
         Close
       </button>
+
+      <style jsx>{`
+        @media (min-width: 768px) {
+          .desktop-menu-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+          }
+
+          .desktop-menu-scroll::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+          }
+
+          .desktop-menu-scroll::-webkit-scrollbar-track {
+            background: transparent;
+          }
+
+          .desktop-menu-scroll::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.42);
+            border-radius: 999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+          }
+
+          .desktop-menu-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.55);
+            border: 2px solid transparent;
+            background-clip: padding-box;
+          }
+        }
+      `}</style>
     </div>
   )
 }

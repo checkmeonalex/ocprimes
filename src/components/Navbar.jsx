@@ -21,6 +21,9 @@ import { useSearchSuggestions } from '@/components/search/useSearchSuggestions'
 import { reportSearchQuery } from '@/components/search/reportSearchQuery'
 import { useAuthUser } from '@/lib/auth/useAuthUser'
 
+const hiddenHorizontalScrollbarClass =
+  '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
+
 export default function Navbar({
   initialAuthUser = null,
   initialTopCategories = [],
@@ -77,7 +80,7 @@ export default function Navbar({
   })
 
   const categoriesRef = useRef(null)
-  const menuRef = useRef(null)
+  const menuPanelRef = useRef(null)
   const categoriesHoverTimeoutRef = useRef(null)
   const searchContainerRef = useRef(null)
   const accountSearchRef = useRef(null)
@@ -99,7 +102,7 @@ export default function Navbar({
   const isWithinCategoriesArea = (node) => {
     if (!node) return false
     return Boolean(
-      categoriesRef.current?.contains(node) || menuRef.current?.contains(node),
+      categoriesRef.current?.contains(node) || menuPanelRef.current?.contains(node),
     )
   }
 
@@ -667,10 +670,10 @@ export default function Navbar({
     return (
       <Link
         href={href}
-        className='inline-flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100'
+        className='inline-flex items-center gap-1 rounded-md px-1.5 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 xl:gap-2 xl:px-2'
       >
         {children}
-        <span className='leading-tight'>{label}</span>
+        <span className='hidden leading-tight xl:inline'>{label}</span>
       </Link>
     )
   }
@@ -789,13 +792,13 @@ export default function Navbar({
             : 'max-h-16 opacity-100'
         }`}
       >
-        <div className='flex h-16 items-center gap-5'>
-        <div className='flex items-center gap-5'>
+        <div className='flex h-14 items-center gap-3 xl:h-16 xl:gap-5'>
+        <div className='flex shrink-0 items-center gap-2 xl:gap-5'>
           <BrandLogo
             href='/'
-            className='inline-flex items-center gap-3 text-gray-900'
+            className='inline-flex items-center gap-2 text-gray-900 xl:gap-3'
             markClassName='h-8 w-8 shrink-0 text-[#f5d10b]'
-            labelClassName='text-xl font-semibold tracking-tight text-current'
+            labelClassName='text-lg font-semibold tracking-tight text-current xl:text-xl'
           />
 
           <div
@@ -806,7 +809,7 @@ export default function Navbar({
           >
             <button
               type='button'
-              className='inline-flex h-9 items-center gap-1.5 rounded-md border border-gray-300 bg-gray-50 px-2.5 text-xs font-semibold text-gray-900 hover:bg-gray-100'
+              className='inline-flex h-9 items-center gap-1 rounded-md border border-gray-300 bg-gray-50 px-2 text-[11px] font-semibold text-gray-900 hover:bg-gray-100 xl:gap-1.5 xl:px-2.5 xl:text-xs'
               onClick={() => {
                 clearCategoriesHoverTimeout()
                 setIsHistoryOpen(false)
@@ -828,7 +831,8 @@ export default function Navbar({
                   d='M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z'
                 />
               </svg>
-              <span>All Categories</span>
+              <span className='hidden xl:inline'>All Categories</span>
+              <span className='xl:hidden'>Categories</span>
               <svg
                 className={`h-4 w-4 transition-transform ${isCategoriesOpen ? 'rotate-180' : ''}`}
                 fill='currentColor'
@@ -842,10 +846,10 @@ export default function Navbar({
         </div>
 
         <div className='relative min-w-0 flex-1' ref={searchContainerRef}>
-          <div className='flex h-11 w-full items-center overflow-hidden rounded-full border-2 border-gray-500 bg-white transition-all duration-150 focus-within:rounded-md focus-within:border-black'>
+          <div className='flex h-10 w-full items-center overflow-hidden rounded-full border-2 border-gray-500 bg-white transition-all duration-150 focus-within:rounded-md focus-within:border-black xl:h-11'>
             <button
               type='button'
-              className='inline-flex h-full shrink-0 items-center gap-2 border-r border-gray-200 bg-white px-4 text-sm font-medium text-gray-900'
+              className='inline-flex h-full shrink-0 items-center gap-1 border-r border-gray-200 bg-white px-2.5 text-xs font-medium text-gray-900 xl:gap-2 xl:px-4 xl:text-sm'
               onClick={() => setIsSearchCategoryOpen((prev) => !prev)}
             >
               <span>{selectedSearchCategory.name || 'All'}</span>
@@ -861,7 +865,7 @@ export default function Navbar({
               onChange={(event) => setSearchValue(event.target.value)}
               onFocus={() => setIsSearchOpen(true)}
               onKeyDown={handleSearchKeyDown}
-              className='h-full w-full bg-white px-4 text-sm text-gray-700 placeholder:text-gray-400 focus:outline-none'
+              className='h-full w-full bg-white px-3 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none xl:px-4 xl:text-sm'
             />
 
             {searchValue.trim() ? (
@@ -886,7 +890,7 @@ export default function Navbar({
 
             <button
               type='button'
-              className='mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-900 text-white hover:bg-black'
+              className='mr-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-white hover:bg-black xl:h-8 xl:w-8'
               aria-label='Search products'
               onClick={() => handleSearchSubmit(searchValue)}
             >
@@ -1054,7 +1058,7 @@ export default function Navbar({
           ) : null}
         </div>
 
-        <div className='flex items-center gap-1'>
+        <div className='flex shrink-0 items-center gap-0.5 xl:gap-1'>
           <HeaderAction href='/wishlist' label='Wishlist'>
             <svg
               className='h-6 w-6'
@@ -1090,11 +1094,11 @@ export default function Navbar({
             </svg>
           </HeaderAction>
 
-          <UserMenu initialAuthUser={initialAuthUser} />
+          <UserMenu variant='compactChip' initialAuthUser={initialAuthUser} />
 
           <Link
             href='/cart'
-            className='relative inline-flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100'
+            className='relative inline-flex items-center gap-1 rounded-md px-1.5 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 xl:gap-2 xl:px-2'
             aria-label='Cart'
           >
             <svg
@@ -1165,7 +1169,7 @@ export default function Navbar({
                 </text>
               )}
             </svg>
-            <span>Cart</span>
+            <span className='hidden xl:inline'>Cart</span>
           </Link>
         </div>
         </div>
@@ -1320,17 +1324,22 @@ export default function Navbar({
           </div>
         ) : (
           <div
-            className='mx-auto flex h-10 w-full max-w-[1400px] items-center gap-4 px-4 sm:px-6 lg:px-8'
+            className='mx-auto flex h-9 w-full max-w-[1400px] items-center gap-2 px-4 sm:px-6 lg:px-8 xl:h-10 xl:gap-4'
             onMouseLeave={handleCategoriesMouseLeave}
           >
-          <div className='flex shrink-0 items-center gap-2 text-xs text-gray-700'>
+          <div className='flex shrink-0 items-center gap-1.5 text-[11px] text-gray-700 xl:gap-2 xl:text-xs'>
             <span className='leading-tight'>
-              Your order is at your door in
-              <br />
-              <strong>2 hours with fast shipping.</strong>
+              <span className='hidden xl:inline'>
+                Your order is at your door in
+                <br />
+                <strong>2 hours with fast shipping.</strong>
+              </span>
+              <span className='xl:hidden'>
+                <strong>2hr delivery</strong>
+              </span>
             </span>
             <svg
-              className='h-6 w-6 text-gray-500'
+              className='h-5 w-5 text-gray-500 xl:h-6 xl:w-6'
               fill='currentColor'
               viewBox='0 0 24 24'
               aria-hidden='true'
@@ -1339,78 +1348,94 @@ export default function Navbar({
             </svg>
           </div>
 
-          <div className='h-6 w-px bg-gray-200' />
+          <div className='h-5 w-px bg-gray-200 xl:h-6' />
 
-          <div className='flex min-w-0 flex-1 items-center gap-6 overflow-x-auto whitespace-nowrap'>
-            {topCategories.map((category) => (
-              <Link
-                key={category.id}
-                href={
-                  category.slug
-                    ? `/products/${encodeURIComponent(category.slug)}`
-                    : '/products'
-                }
-                className='text-sm font-normal text-gray-900 hover:text-gray-600'
-                onMouseEnter={() => handleTopCategoryHover(category)}
-              >
-                {category.name}
-              </Link>
-            ))}
+          <div className='min-w-0 flex-1 overflow-hidden'>
+            <div className={`flex min-w-0 items-center gap-4 overflow-x-auto whitespace-nowrap pr-2 xl:gap-6 ${hiddenHorizontalScrollbarClass}`}>
+              {topCategories.map((category) => (
+                <Link
+                  key={category.id}
+                  href={
+                    category.slug
+                      ? `/products/${encodeURIComponent(category.slug)}`
+                      : '/products'
+                  }
+                  className='text-xs font-normal text-gray-900 hover:text-gray-600 xl:text-sm'
+                  onMouseEnter={() => handleTopCategoryHover(category)}
+                >
+                  {category.name}
+                </Link>
+              ))}
+            </div>
           </div>
 
-          <Link
-            href='/play'
-            className='inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-gray-900 hover:text-gray-600'
-          >
-            <svg
-              className='h-6 w-6'
-              viewBox='0 0 24 24'
-              fill='none'
-              xmlns='http://www.w3.org/2000/svg'
-              aria-hidden='true'
+          <div className='flex shrink-0 items-center gap-3 border-l border-gray-200 bg-white pl-3'>
+            <Link
+              href='/play'
+              className='inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-transparent transition-opacity hover:opacity-80'
+              style={{
+                backgroundImage: 'linear-gradient(135deg, rgb(225 208 131) 0%, rgb(192 184 173) 45%, rgb(150 109 16) 100%)',
+                WebkitBackgroundClip: 'text',
+                backgroundClip: 'text',
+              }}
             >
-              <path
-                d='M19.5617 7C19.7904 5.69523 18.7863 4.5 17.4617 4.5H6.53788C5.21323 4.5 4.20922 5.69523 4.43784 7'
-                stroke='#b80000'
-                strokeWidth='1.5'
-              />
-              <path
-                d='M17.4999 4.5C17.5283 4.24092 17.5425 4.11135 17.5427 4.00435C17.545 2.98072 16.7739 2.12064 15.7561 2.01142C15.6497 2 15.5194 2 15.2588 2H8.74099C8.48035 2 8.35002 2 8.24362 2.01142C7.22584 2.12064 6.45481 2.98072 6.45704 4.00434C6.45727 4.11135 6.47146 4.2409 6.49983 4.5'
-                stroke='#b80000'
-                strokeWidth='1.5'
-              />
-              <path
-                d='M21.1935 16.793C20.8437 19.2739 20.6689 20.5143 19.7717 21.2572C18.8745 22 17.5512 22 14.9046 22H9.09536C6.44881 22 5.12553 22 4.22834 21.2572C3.33115 20.5143 3.15626 19.2739 2.80648 16.793L2.38351 13.793C1.93748 10.6294 1.71447 9.04765 2.66232 8.02383C3.61017 7 5.29758 7 8.67239 7H15.3276C18.7024 7 20.3898 7 21.3377 8.02383C22.0865 8.83268 22.1045 9.98979 21.8592 12'
-                stroke='#b80000'
-                strokeWidth='1.5'
-                strokeLinecap='round'
-              />
-              <path
-                d='M14.5812 13.6159C15.1396 13.9621 15.1396 14.8582 14.5812 15.2044L11.2096 17.2945C10.6669 17.6309 10 17.1931 10 16.5003L10 12.32C10 11.6273 10.6669 11.1894 11.2096 11.5258L14.5812 13.6159Z'
-                stroke='#b80000'
-                strokeWidth='1.5'
-              />
-            </svg>
-            <span>PLAY</span>
-          </Link>
-
-          <div
-            ref={browsingHistoryRef}
-            className='relative'
-            onMouseEnter={handleHistoryMouseEnter}
-            onMouseLeave={handleHistoryMouseLeave}
-          >
-            <button
-              type='button'
-              className='inline-flex shrink-0 items-center text-sm font-semibold text-gray-900 hover:text-gray-600'
-              onClick={handleHistoryClick}
-              aria-label='Browsing history'
-            >
-              <svg className='h-6 w-6' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' aria-hidden='true'>
-                <path d='M12 8V12L14.5 14.5' stroke='#000000' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' />
-                <path d='M5.60423 5.60423L5.0739 5.0739V5.0739L5.60423 5.60423ZM4.33785 6.87061L3.58786 6.87438C3.58992 7.28564 3.92281 7.61853 4.33408 7.6206L4.33785 6.87061ZM6.87963 7.63339C7.29384 7.63547 7.63131 7.30138 7.63339 6.88717C7.63547 6.47296 7.30138 6.13549 6.88717 6.13341L6.87963 7.63339ZM5.07505 4.32129C5.07296 3.90708 4.7355 3.57298 4.32129 3.57506C3.90708 3.57715 3.57298 3.91462 3.57507 4.32882L5.07505 4.32129ZM3.75 12C3.75 11.5858 3.41421 11.25 3 11.25C2.58579 11.25 2.25 11.5858 2.25 12H3.75ZM16.8755 20.4452C17.2341 20.2378 17.3566 19.779 17.1492 19.4204C16.9418 19.0619 16.483 18.9393 16.1245 19.1468L16.8755 20.4452ZM19.1468 16.1245C18.9393 16.483 19.0619 16.9418 19.4204 17.1492C19.779 17.3566 20.2378 17.2341 20.4452 16.8755L19.1468 16.1245ZM5.14033 5.07126C4.84598 5.36269 4.84361 5.83756 5.13505 6.13191C5.42648 6.42626 5.90134 6.42862 6.19569 6.13719L5.14033 5.07126ZM18.8623 5.13786C15.0421 1.31766 8.86882 1.27898 5.0739 5.0739L6.13456 6.13456C9.33366 2.93545 14.5572 2.95404 17.8017 6.19852L18.8623 5.13786ZM5.0739 5.0739L3.80752 6.34028L4.86818 7.40094L6.13456 6.13456L5.0739 5.0739ZM4.33408 7.6206L6.87963 7.63339L6.88717 6.13341L4.34162 6.12062L4.33408 7.6206ZM5.08784 6.86684L5.07505 4.32129L3.57507 4.32882L3.58786 6.87438L5.08784 6.86684ZM12 3.75C16.5563 3.75 20.25 7.44365 20.25 12H21.75C21.75 6.61522 17.3848 2.25 12 2.25V3.75ZM12 20.25C7.44365 20.25 3.75 16.5563 3.75 12H2.25C2.25 17.3848 6.61522 21.75 12 21.75V20.25ZM16.1245 19.1468C14.9118 19.8483 13.5039 20.25 12 20.25V21.75C13.7747 21.75 15.4407 21.2752 16.8755 20.4452L16.1245 19.1468ZM20.25 12C20.25 13.5039 19.8483 14.9118 19.1468 16.1245L20.4452 16.8755C21.2752 15.4407 21.75 13.7747 21.75 12H20.25ZM6.19569 6.13719C7.68707 4.66059 9.73646 3.75 12 3.75V2.25C9.32542 2.25 6.90113 3.32791 5.14033 5.07126L6.19569 6.13719Z' fill='#000000' />
+              <svg
+                className='h-6 w-6'
+                viewBox='0 0 24 24'
+                fill='none'
+                xmlns='http://www.w3.org/2000/svg'
+                aria-hidden='true'
+              >
+                <path
+                  d='M19.5617 7C19.7904 5.69523 18.7863 4.5 17.4617 4.5H6.53788C5.21323 4.5 4.20922 5.69523 4.43784 7'
+                  stroke='url(#play-topbar-gold)'
+                  strokeWidth='1.5'
+                />
+                <path
+                  d='M17.4999 4.5C17.5283 4.24092 17.5425 4.11135 17.5427 4.00435C17.545 2.98072 16.7739 2.12064 15.7561 2.01142C15.6497 2 15.5194 2 15.2588 2H8.74099C8.48035 2 8.35002 2 8.24362 2.01142C7.22584 2.12064 6.45481 2.98072 6.45704 4.00434C6.45727 4.11135 6.47146 4.2409 6.49983 4.5'
+                  stroke='url(#play-topbar-gold)'
+                  strokeWidth='1.5'
+                />
+                <path
+                  d='M21.1935 16.793C20.8437 19.2739 20.6689 20.5143 19.7717 21.2572C18.8745 22 17.5512 22 14.9046 22H9.09536C6.44881 22 5.12553 22 4.22834 21.2572C3.33115 20.5143 3.15626 19.2739 2.80648 16.793L2.38351 13.793C1.93748 10.6294 1.71447 9.04765 2.66232 8.02383C3.61017 7 5.29758 7 8.67239 7H15.3276C18.7024 7 20.3898 7 21.3377 8.02383C22.0865 8.83268 22.1045 9.98979 21.8592 12'
+                  stroke='url(#play-topbar-gold)'
+                  strokeWidth='1.5'
+                  strokeLinecap='round'
+                />
+                <path
+                  d='M14.5812 13.6159C15.1396 13.9621 15.1396 14.8582 14.5812 15.2044L11.2096 17.2945C10.6669 17.6309 10 17.1931 10 16.5003L10 12.32C10 11.6273 10.6669 11.1894 11.2096 11.5258L14.5812 13.6159Z'
+                  stroke='url(#play-topbar-gold)'
+                  strokeWidth='1.5'
+                />
+                <defs>
+                  <linearGradient id='play-topbar-gold' x1='3' y1='2' x2='21' y2='22' gradientUnits='userSpaceOnUse'>
+                    <stop stopColor='rgb(225 208 131)' />
+                    <stop offset='0.45' stopColor='rgb(192 184 173)' />
+                    <stop offset='1' stopColor='rgb(150 109 16)' />
+                  </linearGradient>
+                </defs>
               </svg>
-            </button>
+              <span>PLAY</span>
+            </Link>
+
+            <div
+              ref={browsingHistoryRef}
+              className='relative'
+              onMouseEnter={handleHistoryMouseEnter}
+              onMouseLeave={handleHistoryMouseLeave}
+            >
+              <button
+                type='button'
+                className='inline-flex shrink-0 items-center text-xs font-semibold text-gray-900 hover:text-gray-600 xl:text-sm'
+                onClick={handleHistoryClick}
+                aria-label='Browsing history'
+              >
+                <svg className='h-6 w-6' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' aria-hidden='true'>
+                  <path d='M12 8V12L14.5 14.5' stroke='#000000' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' />
+                  <path d='M5.60423 5.60423L5.0739 5.0739V5.0739L5.60423 5.60423ZM4.33785 6.87061L3.58786 6.87438C3.58992 7.28564 3.92281 7.61853 4.33408 7.6206L4.33785 6.87061ZM6.87963 7.63339C7.29384 7.63547 7.63131 7.30138 7.63339 6.88717C7.63547 6.47296 7.30138 6.13549 6.88717 6.13341L6.87963 7.63339ZM5.07505 4.32129C5.07296 3.90708 4.7355 3.57298 4.32129 3.57506C3.90708 3.57715 3.57298 3.91462 3.57507 4.32882L5.07505 4.32129ZM3.75 12C3.75 11.5858 3.41421 11.25 3 11.25C2.58579 11.25 2.25 11.5858 2.25 12H3.75ZM16.8755 20.4452C17.2341 20.2378 17.3566 19.779 17.1492 19.4204C16.9418 19.0619 16.483 18.9393 16.1245 19.1468L16.8755 20.4452ZM19.1468 16.1245C18.9393 16.483 19.0619 16.9418 19.4204 17.1492C19.779 17.3566 20.2378 17.2341 20.4452 16.8755L19.1468 16.1245ZM5.14033 5.07126C4.84598 5.36269 4.84361 5.83756 5.13505 6.13191C5.42648 6.42626 5.90134 6.42862 6.19569 6.13719L5.14033 5.07126ZM18.8623 5.13786C15.0421 1.31766 8.86882 1.27898 5.0739 5.0739L6.13456 6.13456C9.33366 2.93545 14.5572 2.95404 17.8017 6.19852L18.8623 5.13786ZM5.0739 5.0739L3.80752 6.34028L4.86818 7.40094L6.13456 6.13456L5.0739 5.0739ZM4.33408 7.6206L6.87963 7.63339L6.88717 6.13341L4.34162 6.12062L4.33408 7.6206ZM5.08784 6.86684L5.07505 4.32129L3.57507 4.32882L3.58786 6.87438L5.08784 6.86684ZM12 3.75C16.5563 3.75 20.25 7.44365 20.25 12H21.75C21.75 6.61522 17.3848 2.25 12 2.25V3.75ZM12 20.25C7.44365 20.25 3.75 16.5563 3.75 12H2.25C2.25 17.3848 6.61522 21.75 12 21.75V20.25ZM16.1245 19.1468C14.9118 19.8483 13.5039 20.25 12 20.25V21.75C13.7747 21.75 15.4407 21.2752 16.8755 20.4452L16.1245 19.1468ZM20.25 12C20.25 13.5039 19.8483 14.9118 19.1468 16.1245L20.4452 16.8755C21.2752 15.4407 21.75 13.7747 21.75 12H20.25ZM6.19569 6.13719C7.68707 4.66059 9.73646 3.75 12 3.75V2.25C9.32542 2.25 6.90113 3.32791 5.14033 5.07126L6.19569 6.13719Z' fill='#000000' />
+                </svg>
+              </button>
+            </div>
           </div>
           </div>
         )}
@@ -1420,15 +1445,15 @@ export default function Navbar({
         className='pointer-events-none absolute inset-x-0 top-full z-40'
       >
         <div
-          ref={menuRef}
-          className='pointer-events-auto mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-8'
-          onMouseEnter={handleCategoriesMouseEnter}
-          onMouseLeave={handleCategoriesMouseLeave}
+          className='pointer-events-auto mx-auto w-full max-w-[1400px] px-4 pt-px sm:px-6 lg:px-8'
         >
           <CategoriesMenu
             isOpen={isCategoriesOpen}
             onClose={() => setIsCategoriesOpen(false)}
             initialActiveCategoryId={activeTopCategoryId}
+            panelRef={menuPanelRef}
+            onMenuMouseEnter={handleCategoriesMouseEnter}
+            onMenuMouseLeave={handleCategoriesMouseLeave}
           />
         </div>
       </div>

@@ -129,6 +129,7 @@ export async function GET(request: NextRequest) {
 
   let items = Array.isArray(data) ? data : []
   if (isAdmin && items.length) {
+    const adminDb = createAdminSupabaseClient()
     const requesterIds = Array.from(
       new Set(
         items
@@ -137,29 +138,67 @@ export async function GET(request: NextRequest) {
       ),
     )
     if (requesterIds.length) {
+      const requesterIdentityById = new Map<string, { email: string; name: string }>()
+      await Promise.all(
+        requesterIds.map(async (requesterId) => {
+          try {
+            const { data: userRow, error: userError } = await adminDb.auth.admin.getUserById(
+              requesterId,
+            )
+            if (userError) {
+              console.error('category requests requester lookup failed:', userError.message)
+              return
+            }
+            const authUser = userRow?.user
+            const metadata =
+              authUser?.user_metadata && typeof authUser.user_metadata === 'object'
+                ? authUser.user_metadata
+                : {}
+            const profile =
+              metadata?.profile && typeof metadata.profile === 'object' ? metadata.profile : {}
+            const fullName = String(
+              profile?.fullName ||
+                profile?.displayName ||
+                metadata?.full_name ||
+                `${profile?.firstName || ''} ${profile?.lastName || ''}`,
+            )
+              .trim()
+            requesterIdentityById.set(requesterId, {
+              email: String(authUser?.email || '').trim(),
+              name: fullName,
+            })
+          } catch (lookupError) {
+            console.error('category requests requester lookup failed:', lookupError)
+          }
+        }),
+      )
+
       const { data: brandRows, error: brandLookupError } = await db
         .from('admin_brands')
         .select('created_by, name, created_at')
         .in('created_by', requesterIds)
         .order('created_at', { ascending: true })
+      const brandByOwner = new Map<string, string>()
       if (brandLookupError) {
         console.error('category requests requester brand lookup failed:', brandLookupError.message)
       } else if (Array.isArray(brandRows)) {
-        const brandByOwner = new Map<string, string>()
         brandRows.forEach((row: any) => {
           const ownerId = String(row?.created_by || '').trim()
           const brandName = String(row?.name || '').trim()
           if (!ownerId || !brandName || brandByOwner.has(ownerId)) return
           brandByOwner.set(ownerId, brandName)
         })
-        items = items.map((item: any) => {
-          const requesterId = String(item?.requester_user_id || '').trim()
-          return {
-            ...item,
-            requester_brand_name: requesterId ? brandByOwner.get(requesterId) || '' : '',
-          }
-        })
       }
+      items = items.map((item: any) => {
+        const requesterId = String(item?.requester_user_id || '').trim()
+        const requesterIdentity = requesterId ? requesterIdentityById.get(requesterId) : null
+        return {
+          ...item,
+          requester_brand_name: requesterId ? brandByOwner.get(requesterId) || '' : '',
+          requester_email: requesterIdentity?.email || '',
+          requester_name: requesterIdentity?.name || '',
+        }
+      })
     }
   }
 
