@@ -45,6 +45,11 @@ const CategoriesMenu = ({
   }, [isOpen, categoriesData])
 
   useEffect(() => {
+    if (isOpen) return
+    setEmptyCategoryName('')
+  }, [isOpen])
+
+  useEffect(() => {
     if (!isOpen || !applyMobileOffset) return undefined
 
     const originalBodyOverflow = document.body.style.overflow
@@ -230,26 +235,13 @@ const CategoriesMenu = ({
                       )}
                       {subcategory.items.map((item) => {
                         const isEmptyCategory = item.hasProducts === false
-
-                        return (
-                          <Link
-                            key={item.id}
-                            href={buildCategoryHref(item)}
-                            onClick={(event) => {
-                              if (isEmptyCategory) {
-                                event.preventDefault()
-                                openEmptyCategoryModal(item.name)
-                                return
-                              }
-                              onClose?.()
-                            }}
-                            className="flex w-full max-w-[96px] flex-col items-center group cursor-pointer lg:max-w-[132px]"
-                          >
+                        const itemContent = (
+                          <>
                             <div className="relative mb-2">
                               <div
                                 className={`w-16 h-16 lg:w-28 lg:h-28 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden transition-shadow ${
                                   isEmptyCategory
-                                    ? 'grayscale brightness-[0.78] opacity-80'
+                                    ? 'grayscale brightness-[0.92]'
                                     : 'group-hover:shadow-md'
                                 }`}
                               >
@@ -271,12 +263,36 @@ const CategoriesMenu = ({
                             <span
                               className={`text-[11px] lg:text-sm text-center transition-colors ${
                                 isEmptyCategory
-                                  ? 'text-gray-500'
+                                  ? 'text-gray-600'
                                   : 'text-gray-700 group-hover:text-blue-600'
                               }`}
                             >
                               {item.name}
                             </span>
+                          </>
+                        )
+
+                        if (isEmptyCategory) {
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => openEmptyCategoryModal(item.name)}
+                              className="flex w-full max-w-[96px] flex-col items-center group cursor-pointer lg:max-w-[132px]"
+                            >
+                              {itemContent}
+                            </button>
+                          )
+                        }
+
+                        return (
+                          <Link
+                            key={item.id}
+                            href={buildCategoryHref(item)}
+                            onClick={onClose}
+                            className="flex w-full max-w-[96px] flex-col items-center group cursor-pointer lg:max-w-[132px]"
+                          >
+                            {itemContent}
                           </Link>
                         )
                       })}

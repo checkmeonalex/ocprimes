@@ -1246,22 +1246,12 @@ const ProductCatalogPage = ({
               <div className='flex items-start gap-4 min-w-full px-1'>
                 {childCategories.map((cat) => {
                   const isEmptyCategory = cat?.has_products === false
-                  return (
-                    <a
-                      key={cat.id}
-                      href={`/products/${encodeURIComponent(cat.slug || '')}`}
-                      onClick={(event) => {
-                        if (!isEmptyCategory) return
-                        event.preventDefault()
-                        openEmptyCategoryModal(cat.name)
-                      }}
-                      className='flex flex-col items-center gap-2 transition'
-                      style={{ minWidth: '100px' }}
-                    >
+                  const categoryChipContent = (
+                    <>
                       <div
-                        className={`h-16 w-16 overflow-hidden rounded-full bg-gray-50 ${
-                          isEmptyCategory ? 'grayscale brightness-[0.78] opacity-80' : ''
-                        }`}
+                      className={`h-16 w-16 overflow-hidden rounded-full bg-gray-50 ${
+                        isEmptyCategory ? 'grayscale brightness-[0.92]' : ''
+                      }`}
                       >
                         {cat.image_url ? (
                           <img
@@ -1282,7 +1272,32 @@ const ProductCatalogPage = ({
                       >
                         {cat.name}
                       </span>
-                    </a>
+                    </>
+                  )
+
+                  if (isEmptyCategory) {
+                    return (
+                      <button
+                        key={cat.id}
+                        type='button'
+                        onClick={() => openEmptyCategoryModal(cat.name)}
+                        className='flex flex-col items-center gap-2 transition'
+                        style={{ minWidth: '100px' }}
+                      >
+                        {categoryChipContent}
+                      </button>
+                    )
+                  }
+
+                  return (
+                    <Link
+                      key={cat.id}
+                      href={`/products/${encodeURIComponent(cat.slug || '')}`}
+                      className='flex flex-col items-center gap-2 transition'
+                      style={{ minWidth: '100px' }}
+                    >
+                      {categoryChipContent}
+                    </Link>
                   )
                 })}
               </div>
@@ -1295,22 +1310,12 @@ const ProductCatalogPage = ({
                   <div className='flex items-start gap-0 min-w-full'>
                     {childCategories.map((cat) => {
                       const isEmptyCategory = cat?.has_products === false
-                      return (
-                        <a
-                          key={cat.id}
-                          href={`/products/${encodeURIComponent(cat.slug || '')}`}
-                          onClick={(event) => {
-                            if (!isEmptyCategory) return
-                            event.preventDefault()
-                            openEmptyCategoryModal(cat.name)
-                          }}
-                          className='flex flex-col items-center gap-2 transition'
-                          style={{ minWidth: '100px' }}
-                        >
+                      const categoryChipContent = (
+                        <>
                           <div
-                            className={`h-20 w-20 overflow-hidden rounded-full bg-gray-50 ${
-                              isEmptyCategory ? 'grayscale brightness-[0.78] opacity-80' : ''
-                            }`}
+                      className={`h-20 w-20 overflow-hidden rounded-full bg-gray-50 ${
+                        isEmptyCategory ? 'grayscale brightness-[0.92]' : ''
+                      }`}
                           >
                             {cat.image_url ? (
                               <img
@@ -1331,7 +1336,32 @@ const ProductCatalogPage = ({
                           >
                             {cat.name}
                           </span>
-                        </a>
+                        </>
+                      )
+
+                      if (isEmptyCategory) {
+                        return (
+                          <button
+                            key={cat.id}
+                            type='button'
+                            onClick={() => openEmptyCategoryModal(cat.name)}
+                            className='flex flex-col items-center gap-2 transition'
+                            style={{ minWidth: '100px' }}
+                          >
+                            {categoryChipContent}
+                          </button>
+                        )
+                      }
+
+                      return (
+                        <Link
+                          key={cat.id}
+                          href={`/products/${encodeURIComponent(cat.slug || '')}`}
+                          className='flex flex-col items-center gap-2 transition'
+                          style={{ minWidth: '100px' }}
+                        >
+                          {categoryChipContent}
+                        </Link>
                       )
                     })}
                   </div>
@@ -1546,7 +1576,7 @@ const ProductCatalogPage = ({
                         isSelected
                           ? 'border-slate-900 bg-slate-900 text-white'
                           : isEmptyCategory
-                            ? 'border-slate-200 bg-slate-100 text-slate-700 grayscale brightness-[0.78] opacity-80'
+                          ? 'border-slate-200 bg-slate-100 text-slate-700 grayscale brightness-[0.92]'
                             : 'border-slate-200 bg-slate-100 text-slate-700 group-hover:border-slate-300'
                       }`}
                     >

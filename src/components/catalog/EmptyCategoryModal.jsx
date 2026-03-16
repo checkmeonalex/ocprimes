@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { createPortal } from 'react-dom'
 import { useAlerts } from '@/context/AlertContext'
 import { useAuthUser } from '@/lib/auth/useAuthUser'
 
@@ -21,11 +22,16 @@ export default function EmptyCategoryModal({
   const searchParams = useSearchParams()
   const { user } = useAuthUser()
   const { pushAlert } = useAlerts()
+  const [isMounted, setIsMounted] = useState(false)
 
   const cleanCategoryName = useMemo(
     () => String(categoryName || '').trim() || 'this category',
     [categoryName],
   )
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -46,7 +52,7 @@ export default function EmptyCategoryModal({
     }
   }, [isOpen, onClose])
 
-  if (!isOpen) return null
+  if (!isMounted || !isOpen) return null
 
   const handleNotifyClick = () => {
     if (!user) {
@@ -70,7 +76,7 @@ export default function EmptyCategoryModal({
     onClose?.()
   }
 
-  return (
+  const modalContent = (
     <div
       className='fixed inset-0 z-[2147483600] flex items-center justify-center bg-slate-950/55 px-4 backdrop-blur-[2px]'
       onClick={onClose}
@@ -107,17 +113,13 @@ export default function EmptyCategoryModal({
 
           <div className='text-center'>
             <p className='mb-2 text-[11px] font-semibold uppercase tracking-[0.34em] text-[#9a7a2d]'>
-              Inventory In Progress
+              New arrivals loading
             </p>
             <h2 id='empty-category-modal-title' className='text-[1.85rem] font-semibold tracking-tight text-slate-950'>
-              We&apos;re loading up {cleanCategoryName}.
+              We&apos;re getting {cleanCategoryName} ready.
             </h2>
             <p id='empty-category-modal-description' className='mt-3 text-sm leading-6 text-slate-600'>
-              This aisle is still being packed. We&apos;re getting the right inventory ready so the next time you open it,
-              it feels worth the click.
-            </p>
-            <p className='mt-2 text-sm leading-6 text-slate-500'>
-              Come back a little later, or tell us you want first dibs when it lands.
+              New items will appear here soon.
             </p>
           </div>
 
@@ -127,14 +129,14 @@ export default function EmptyCategoryModal({
               onClick={handleNotifyClick}
               className='inline-flex items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgb(225_208_131)_0%,rgb(192_184_173)_45%,rgb(150_109_16)_100%)] px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_14px_30px_rgba(150,109,16,0.2)] transition hover:brightness-[1.03]'
             >
-              Let me know when it&apos;s stocked
+              Notify me when available
             </button>
             <button
               type='button'
               onClick={handleSellerClick}
               className='inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-slate-50'
             >
-              Sell in this category
+              Launch your collection
             </button>
           </div>
 
@@ -204,4 +206,6 @@ export default function EmptyCategoryModal({
       </section>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
