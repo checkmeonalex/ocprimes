@@ -19,10 +19,16 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     .from('component_images')
     .select('id, r2_key')
     .eq('id', id)
-    .single()
+    .maybeSingle()
   if (fetchErr) {
     console.error('component media fetch failed:', fetchErr.message)
     return jsonError('Unable to load image.', 500)
+  }
+
+  if (!data) {
+    const response = jsonOk({ deleted: true, alreadyMissing: true })
+    applyCookies(response)
+    return response
   }
 
   if (data?.r2_key) {

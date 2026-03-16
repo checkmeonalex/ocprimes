@@ -42,6 +42,7 @@ export const mapCategoryTreeToMenu = (roots = []) =>
           name: child.name,
           slug: child.slug,
           image: child.image_url || '',
+          hasProducts: Boolean(child.has_products),
         })),
       },
     ],

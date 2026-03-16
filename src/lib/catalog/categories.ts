@@ -1,6 +1,8 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { unstable_noStore as noStore } from 'next/cache'
 
+const PRODUCT_CATEGORY_LINKS_TABLE = 'product_category_links'
+
 export const fetchCategoryWithChildren = async (slug: string) => {
   noStore()
   const supabase = await createServerSupabaseClient()
@@ -24,7 +26,35 @@ export const fetchCategoryWithChildren = async (slug: string) => {
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true })
 
-  return { parent, children: children || [] }
+  const childRows = Array.isArray(children) ? children : []
+  const childIds = childRows
+    .map((item) => String(item?.id || '').trim())
+    .filter(Boolean)
+  const categoriesWithProducts = new Set<string>()
+
+  if (childIds.length) {
+    const { data: productLinkRows, error: productLinksError } = await supabase
+      .from(PRODUCT_CATEGORY_LINKS_TABLE)
+      .select('category_id')
+      .in('category_id', childIds)
+
+    if (productLinksError) {
+      console.error('category children product links lookup failed:', productLinksError.message)
+    } else {
+      ;(productLinkRows || []).forEach((row: { category_id?: string | null }) => {
+        const categoryId = String(row?.category_id || '').trim()
+        if (categoryId) categoriesWithProducts.add(categoryId)
+      })
+    }
+  }
+
+  return {
+    parent,
+    children: childRows.map((item) => ({
+      ...item,
+      has_products: categoriesWithProducts.has(String(item?.id || '').trim()),
+    })),
+  }
 }
 
 type ProductCategoryRef = {

@@ -23,6 +23,13 @@ import { useAuthUser } from '@/lib/auth/useAuthUser'
 
 const hiddenHorizontalScrollbarClass =
   '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
+const searchPlaceholderFallbackItems = [
+  'Sneaker Drop',
+  'Women Dresses',
+  'Beauty Steals',
+  'Men Sneakers',
+  'New Arrivals',
+]
 
 export default function Navbar({
   initialAuthUser = null,
@@ -64,6 +71,7 @@ export default function Navbar({
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState('')
+  const [placeholderPopularIndex, setPlaceholderPopularIndex] = useState(0)
   const { formatMoney } = useUserI18n()
   const {
     suggestions: liveSearchSuggestions,
@@ -75,7 +83,7 @@ export default function Navbar({
     limit: 6,
   })
   const { items: popularSearchItems } = usePopularSearchItems({
-    enabled: isSearchOpen && !hasLiveSearchQuery,
+    enabled: !hasLiveSearchQuery,
     limit: 10,
   })
 
@@ -92,6 +100,23 @@ export default function Navbar({
     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="20" fill="%23e5e7eb"/></svg>'
   const CATEGORIES_OPEN_HOVER_DELAY_MS = 300
   const CATEGORIES_CLOSE_HOVER_DELAY_MS = 200
+  const animatedPlaceholderItems = useMemo(
+    () =>
+      popularSearchItems
+        .map((item) => String(item?.label || '').trim())
+        .filter(Boolean)
+        .slice(0, 8),
+    [popularSearchItems],
+  )
+  const rotatingSearchPlaceholderItems = useMemo(
+    () => [
+      'What are you looking for today?',
+      ...(animatedPlaceholderItems.length
+        ? animatedPlaceholderItems
+        : searchPlaceholderFallbackItems),
+    ],
+    [animatedPlaceholderItems],
+  )
 
   const clearCategoriesHoverTimeout = () => {
     if (!categoriesHoverTimeoutRef.current) return
@@ -139,6 +164,26 @@ export default function Navbar({
       // ignore storage errors
     }
   }, [])
+
+  useEffect(() => {
+    if (rotatingSearchPlaceholderItems.length <= 1) {
+      setPlaceholderPopularIndex(0)
+      return
+    }
+
+    const initialTimeoutId = window.setTimeout(() => {
+      setPlaceholderPopularIndex((current) => (current + 1) % rotatingSearchPlaceholderItems.length)
+    }, 2200)
+
+    const intervalId = window.setInterval(() => {
+      setPlaceholderPopularIndex((current) => (current + 1) % rotatingSearchPlaceholderItems.length)
+    }, 3800)
+
+    return () => {
+      window.clearTimeout(initialTimeoutId)
+      window.clearInterval(intervalId)
+    }
+  }, [rotatingSearchPlaceholderItems])
 
   const persistRecentSearches = (next) => {
     setRecentSearches(next)
@@ -283,6 +328,10 @@ export default function Navbar({
       </svg>
     )
   }
+
+  const activeAnimatedPlaceholder =
+    rotatingSearchPlaceholderItems[placeholderPopularIndex] || 'What are you looking for today?'
+  const showAnimatedSearchPlaceholder = !searchValue.trim() && !isSearchOpen
 
   const handleSearchKeyDown = (event) => {
     if (event.key === 'Enter') {
@@ -858,15 +907,30 @@ export default function Navbar({
               </svg>
             </button>
 
-            <input
-              type='text'
-              value={searchValue}
-              placeholder='Search everything at Alxora online and in store...'
-              onChange={(event) => setSearchValue(event.target.value)}
-              onFocus={() => setIsSearchOpen(true)}
-              onKeyDown={handleSearchKeyDown}
-              className='h-full w-full bg-white px-3 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none xl:px-4 xl:text-sm'
-            />
+            <div className='relative h-full w-full'>
+              {showAnimatedSearchPlaceholder ? (
+                <div className='pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center overflow-hidden px-3 text-xs xl:px-4 xl:text-sm'>
+                  <span
+                    key={activeAnimatedPlaceholder}
+                    className='inline-block max-w-full truncate text-slate-400'
+                    style={{ animation: 'searchPlaceholderSlide 320ms ease-out' }}
+                  >
+                    {activeAnimatedPlaceholder}
+                  </span>
+                </div>
+              ) : null}
+
+              <input
+                type='text'
+                value={searchValue}
+                placeholder=''
+                onChange={(event) => setSearchValue(event.target.value)}
+                onFocus={() => setIsSearchOpen(true)}
+                onKeyDown={handleSearchKeyDown}
+                className='relative z-[1] h-full w-full bg-transparent px-3 text-xs text-gray-700 focus:outline-none xl:px-4 xl:text-sm'
+                aria-label='Search products'
+              />
+            </div>
 
             {searchValue.trim() ? (
               <button
@@ -1659,6 +1723,19 @@ export default function Navbar({
           </div>
         </div>
       ) : null}
+
+      <style jsx>{`
+        @keyframes searchPlaceholderSlide {
+          0% {
+            opacity: 0;
+            transform: translateY(6px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </nav>
   )
 }

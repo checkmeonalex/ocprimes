@@ -28,6 +28,7 @@ const ProductFiltersMobile = ({
   onPriceChange,
   onClear,
   onClose,
+  formatPrice = (value) => `$${Math.round(Number(value) || 0).toLocaleString()}`,
 }) => {
   const [activeSection, setActiveSection] = useState('category')
 
@@ -114,15 +115,13 @@ const ProductFiltersMobile = ({
     const b = Math.round(min + span * 0.3)
     const c = Math.round(min + span * 0.5)
 
-    const formatLabel = (value) => `$${Number(value).toLocaleString()}`
-
     return [
-      { label: `${formatLabel(min)} - ${formatLabel(a)}`, range: { min, max: a } },
-      { label: `${formatLabel(a)} - ${formatLabel(b)}`, range: { min: a, max: b } },
-      { label: `${formatLabel(b)} - ${formatLabel(c)}`, range: { min: b, max: c } },
-      { label: `${formatLabel(c)} - ${formatLabel(max)}`, range: { min: c, max } },
+      { label: `${formatPrice(min)} - ${formatPrice(a)}`, range: { min, max: a } },
+      { label: `${formatPrice(a)} - ${formatPrice(b)}`, range: { min: a, max: b } },
+      { label: `${formatPrice(b)} - ${formatPrice(c)}`, range: { min: b, max: c } },
+      { label: `${formatPrice(c)} - ${formatPrice(max)}`, range: { min: c, max } },
     ]
-  }, [priceBounds.min, priceBounds.max])
+  }, [formatPrice, priceBounds.min, priceBounds.max])
 
   const isRangeSelected = (range) =>
     priceRange.min === range.min && priceRange.max === range.max
@@ -159,6 +158,7 @@ const ProductFiltersMobile = ({
           priceBounds={priceBounds}
           priceRange={priceRange}
           onPriceChange={onPriceChange}
+          formatPrice={formatPrice}
         />
       </div>
     )

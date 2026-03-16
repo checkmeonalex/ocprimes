@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { fetchCategoriesData } from '@/lib/catalog/categories-menu'
+import EmptyCategoryModal from '@/components/catalog/EmptyCategoryModal'
 
 const CategoriesMenu = ({
   isOpen,
@@ -17,6 +18,7 @@ const CategoriesMenu = ({
   const [categoriesData, setCategoriesData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [activeCategory, setActiveCategory] = useState(null)
+  const [emptyCategoryName, setEmptyCategoryName] = useState('')
   const fallbackImage = `data:image/svg+xml;base64,${btoa(`
     <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60">
       <rect width="60" height="60" fill="#f3f4f6"/>
@@ -108,6 +110,14 @@ const CategoriesMenu = ({
     }
   }
 
+  const openEmptyCategoryModal = (name) => {
+    setEmptyCategoryName(String(name || '').trim())
+  }
+
+  const closeEmptyCategoryModal = () => {
+    setEmptyCategoryName('')
+  }
+
   if (!isOpen) return null
 
   return (
@@ -189,17 +199,17 @@ const CategoriesMenu = ({
                     )}
                   </div>
 
-                  {/* Items Grid - Responsive: 3 columns on mobile, 5 on desktop */}
+                  {/* Step from 1 -> 2 -> 3 columns on narrow screens, then scale up on larger widths. */}
                   {subcategory.items && (
-                    <div className="grid gap-2 lg:gap-8 justify-start grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                    <div className="grid grid-cols-1 justify-items-center gap-x-1 gap-y-3 min-[280px]:grid-cols-2 min-[360px]:grid-cols-3 min-[500px]:grid-cols-4 lg:gap-x-4 lg:gap-y-8 xl:grid-cols-5">
                       {activeCategory?.slug && (
                         <Link
                           key={`${activeCategory.id}-view-all`}
                           href={buildCategoryHref(activeCategory)}
                           onClick={onClose}
-                          className="flex flex-col items-center gap-2 rounded-xl border border-gray-100 p-3 hover:border-gray-200 hover:shadow-sm transition"
+                          className="flex w-full max-w-[96px] flex-col items-center gap-2 rounded-xl border border-gray-100 p-2 hover:border-gray-200 hover:shadow-sm transition lg:max-w-[132px] lg:p-2.5"
                         >
-                          <div className="h-14 w-14 lg:h-20 lg:w-20 rounded-full border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-gray-500">
+                          <div className="h-16 w-16 lg:h-24 lg:w-24 rounded-full border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-gray-500">
                             <svg
                               className="h-6 w-6"
                               viewBox="0 0 24 24"
@@ -218,35 +228,58 @@ const CategoriesMenu = ({
                           </span>
                         </Link>
                       )}
-                      {subcategory.items.map((item) => (
-                        <Link
-                          key={item.id}
-                          href={buildCategoryHref(item)}
-                          onClick={onClose}
-                          className="flex flex-col items-center group cursor-pointer"
-                        >
-                          <div className="relative mb-2">
-                            <div className="w-14 h-14 lg:w-24 lg:h-24 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden group-hover:shadow-md transition-shadow">
-                              <img
-                                src={item.image || fallbackImage}
-                                alt={item.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.src = fallbackImage
-                                }}
-                              />
+                      {subcategory.items.map((item) => {
+                        const isEmptyCategory = item.hasProducts === false
+
+                        return (
+                          <Link
+                            key={item.id}
+                            href={buildCategoryHref(item)}
+                            onClick={(event) => {
+                              if (isEmptyCategory) {
+                                event.preventDefault()
+                                openEmptyCategoryModal(item.name)
+                                return
+                              }
+                              onClose?.()
+                            }}
+                            className="flex w-full max-w-[96px] flex-col items-center group cursor-pointer lg:max-w-[132px]"
+                          >
+                            <div className="relative mb-2">
+                              <div
+                                className={`w-16 h-16 lg:w-28 lg:h-28 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden transition-shadow ${
+                                  isEmptyCategory
+                                    ? 'grayscale brightness-[0.78] opacity-80'
+                                    : 'group-hover:shadow-md'
+                                }`}
+                              >
+                                <img
+                                  src={item.image || fallbackImage}
+                                  alt={item.name}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.target.src = fallbackImage
+                                  }}
+                                />
+                              </div>
+                              {item.badge && (
+                                <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
+                                  {item.badge}
+                                </span>
+                              )}
                             </div>
-                            {item.badge && (
-                              <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
-                                {item.badge}
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[11px] lg:text-sm text-center text-gray-700 group-hover:text-blue-600 transition-colors">
-                            {item.name}
-                          </span>
-                        </Link>
-                      ))}
+                            <span
+                              className={`text-[11px] lg:text-sm text-center transition-colors ${
+                                isEmptyCategory
+                                  ? 'text-gray-500'
+                                  : 'text-gray-700 group-hover:text-blue-600'
+                              }`}
+                            >
+                              {item.name}
+                            </span>
+                          </Link>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -281,6 +314,12 @@ const CategoriesMenu = ({
       >
         Close
       </button>
+
+      <EmptyCategoryModal
+        isOpen={Boolean(emptyCategoryName)}
+        categoryName={emptyCategoryName}
+        onClose={closeEmptyCategoryModal}
+      />
 
       <style jsx>{`
         @media (min-width: 768px) {

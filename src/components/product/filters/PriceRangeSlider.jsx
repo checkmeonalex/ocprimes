@@ -2,7 +2,14 @@
 import { useEffect, useState } from 'react'
 import Slider from 'rc-slider'
 
-const PriceRangeSlider = ({ priceBounds, priceRange, onPriceChange }) => {
+const defaultFormatPrice = (value) => `$${Math.round(Number(value) || 0).toLocaleString()}`
+
+const PriceRangeSlider = ({
+  priceBounds,
+  priceRange,
+  onPriceChange,
+  formatPrice = defaultFormatPrice,
+}) => {
   const [draftPriceRange, setDraftPriceRange] = useState(priceRange)
   const minGap = priceBounds.min === priceBounds.max ? 0 : 1
   const clampPrice = (value) =>
@@ -17,9 +24,6 @@ const PriceRangeSlider = ({ priceBounds, priceRange, onPriceChange }) => {
     const nextMax = clampPrice(Math.max(values[1], nextMin + minGap))
     return { min: nextMin, max: nextMax }
   }
-
-  const formatPrice = (value) =>
-    `$${Math.round(value).toLocaleString()}`
 
   return (
     <div className='space-y-3'>

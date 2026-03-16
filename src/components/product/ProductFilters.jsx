@@ -121,6 +121,8 @@ const ProductFilters = ({
   onDone,
   showClose = true,
   showFooter = true,
+  currencyCode = 'USD',
+  formatPrice = undefined,
 }) => {
   const [openSections, setOpenSections] = useState({
     categories: true,
@@ -240,7 +242,7 @@ const ProductFilters = ({
             }
             className='flex w-full items-center justify-between text-sm font-semibold text-gray-900'
           >
-            <span>Price Range (USD)</span>
+            <span>{`Price Range (${currencyCode})`}</span>
             <span className='text-gray-400'>
               <svg
                 className={`h-4 w-4 transition-transform ${
@@ -265,6 +267,7 @@ const ProductFilters = ({
                 priceBounds={priceBounds}
                 priceRange={priceRange}
                 onPriceChange={onPriceChange}
+                formatPrice={formatPrice}
               />
             </div>
           )}

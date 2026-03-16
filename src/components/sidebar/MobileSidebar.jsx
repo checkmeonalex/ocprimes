@@ -229,8 +229,6 @@ export default function MobileSidebar({ isOpen, onClose, onOpenCategories }) {
               className='inline-flex items-center gap-2.5 text-slate-900'
               markClassName='h-12 w-12 shrink-0 text-[#f5d10b]'
               labelClassName='text-base font-black tracking-tight text-slate-900'
-              taglineClassName='text-[9px] font-medium uppercase tracking-[0.28em] text-slate-500'
-              showTagline
             />
           </div>
           <Link

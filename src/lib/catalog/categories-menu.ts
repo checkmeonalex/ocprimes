@@ -4,6 +4,7 @@ interface CategoryItem {
   slug?: string
   image?: string
   badge?: string
+  hasProducts?: boolean
 }
 
 interface Subcategory {

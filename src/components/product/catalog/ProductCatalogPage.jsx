@@ -10,7 +10,9 @@ import BannerSlider from '@/components/layout/BannerSlider'
 import FeaturedStrip from '@/components/layout/FeaturedStrip'
 import HotspotProductSlider from '@/components/layout/HotspotProductSlider'
 import LogoGrid from '@/components/layout/LogoGrid'
+import EmptyCategoryModal from '@/components/catalog/EmptyCategoryModal'
 import { normalizeCategoryLayoutOrder } from '@/lib/layouts/category-layout'
+import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import {
   buildDynamicAttributeSections,
   extractDynamicAttributeRows,
@@ -102,6 +104,7 @@ const ProductCatalogPage = ({
   initialNextCursor = '',
   initialHasMore = false,
 }) => {
+  const { locale, formatMoney } = useUserI18n()
   const cart = useOptionalCart()
   const addItem = cart?.addItem || (() => {})
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -132,6 +135,7 @@ const ProductCatalogPage = ({
   const [vendorProductQuery, setVendorProductQuery] = useState('')
   const [debouncedVendorProductQuery, setDebouncedVendorProductQuery] = useState('')
   const [isSearchingStoreProducts, setIsSearchingStoreProducts] = useState(false)
+  const [emptyCategoryName, setEmptyCategoryName] = useState('')
   const [hasMoreFromServer, setHasMoreFromServer] = useState(
     typeof initialHasMore === 'boolean'
       ? initialHasMore
@@ -379,6 +383,7 @@ const ProductCatalogPage = ({
         name: match?.name || categoryName,
         imageUrl: match?.image_url || '',
         imageAlt: match?.image_alt || match?.name || categoryName,
+        hasProducts: match?.has_products !== false,
         value: match?.name || categoryName,
       }
     })
@@ -734,8 +739,20 @@ const ProductCatalogPage = ({
     setPriceRange(priceBounds)
   }
 
+  const openEmptyCategoryModal = useCallback((name) => {
+    setEmptyCategoryName(String(name || '').trim())
+  }, [])
+
+  const closeEmptyCategoryModal = useCallback(() => {
+    setEmptyCategoryName('')
+  }, [])
+
   const hasActivePrice =
     priceRange.min !== priceBounds.min || priceRange.max !== priceBounds.max
+  const formatCatalogPrice = useCallback(
+    (value) => formatMoney(Number(value) || 0),
+    [formatMoney],
+  )
   const activeChips = []
   selectedCategories.forEach((value) =>
     activeChips.push({ label: value, type: 'category', value })
@@ -756,7 +773,7 @@ const ProductCatalogPage = ({
   })
   if (hasActivePrice) {
     activeChips.push({
-      label: `Price: $${priceRange.min} – $${priceRange.max}`,
+      label: `Price: ${formatCatalogPrice(priceRange.min)} – ${formatCatalogPrice(priceRange.max)}`,
       type: 'price',
       value: 'price',
     })
@@ -1227,31 +1244,47 @@ const ProductCatalogPage = ({
             {/* Mobile: horizontal strip */}
             <div className='mb-4 overflow-x-auto lg:hidden'>
               <div className='flex items-start gap-4 min-w-full px-1'>
-                {childCategories.map((cat) => (
-                  <a
-                    key={cat.id}
-                    href={`/products/${encodeURIComponent(cat.slug || '')}`}
-                    className='flex flex-col items-center gap-2 transition'
-                    style={{ minWidth: '100px' }}
-                  >
-                    <div className='h-16 w-16 overflow-hidden rounded-full bg-gray-50'>
-                      {cat.image_url ? (
-                        <img
-                          src={cat.image_url}
-                          alt={cat.image_alt || cat.name}
-                          className='h-full w-full object-cover'
-                        />
-                      ) : (
-                        <div className='flex h-full w-full items-center justify-center text-[11px] text-gray-400'>
-                          Image
-                        </div>
-                      )}
-                    </div>
-                    <span className='text-xs font-semibold text-gray-800 text-center leading-tight'>
-                      {cat.name}
-                    </span>
-                  </a>
-                ))}
+                {childCategories.map((cat) => {
+                  const isEmptyCategory = cat?.has_products === false
+                  return (
+                    <a
+                      key={cat.id}
+                      href={`/products/${encodeURIComponent(cat.slug || '')}`}
+                      onClick={(event) => {
+                        if (!isEmptyCategory) return
+                        event.preventDefault()
+                        openEmptyCategoryModal(cat.name)
+                      }}
+                      className='flex flex-col items-center gap-2 transition'
+                      style={{ minWidth: '100px' }}
+                    >
+                      <div
+                        className={`h-16 w-16 overflow-hidden rounded-full bg-gray-50 ${
+                          isEmptyCategory ? 'grayscale brightness-[0.78] opacity-80' : ''
+                        }`}
+                      >
+                        {cat.image_url ? (
+                          <img
+                            src={cat.image_url}
+                            alt={cat.image_alt || cat.name}
+                            className='h-full w-full object-cover'
+                          />
+                        ) : (
+                          <div className='flex h-full w-full items-center justify-center text-[11px] text-gray-400'>
+                            Image
+                          </div>
+                        )}
+                      </div>
+                      <span
+                        className={`text-center text-xs font-semibold leading-tight ${
+                          isEmptyCategory ? 'text-gray-500' : 'text-gray-800'
+                        }`}
+                      >
+                        {cat.name}
+                      </span>
+                    </a>
+                  )
+                })}
               </div>
             </div>
 
@@ -1260,31 +1293,47 @@ const ProductCatalogPage = ({
               <div className='relative'>
                 <div className='overflow-x-auto pr-16' ref={desktopStripRef}>
                   <div className='flex items-start gap-0 min-w-full'>
-                    {childCategories.map((cat) => (
-                      <a
-                        key={cat.id}
-                        href={`/products/${encodeURIComponent(cat.slug || '')}`}
-                        className='flex flex-col items-center gap-2 transition'
-                        style={{ minWidth: '100px' }}
-                      >
-                        <div className='h-20 w-20 overflow-hidden rounded-full bg-gray-50'>
-                          {cat.image_url ? (
-                            <img
-                              src={cat.image_url}
-                              alt={cat.image_alt || cat.name}
-                              className='h-full w-full object-cover'
-                            />
-                          ) : (
-                            <div className='flex h-full w-full items-center justify-center text-[11px] text-gray-400'>
-                              Image
-                            </div>
-                          )}
-                        </div>
-                        <span className='text-xs font-semibold text-gray-800 text-center leading-tight break-words max-w-[100px]'>
-                          {cat.name}
-                        </span>
-                      </a>
-                    ))}
+                    {childCategories.map((cat) => {
+                      const isEmptyCategory = cat?.has_products === false
+                      return (
+                        <a
+                          key={cat.id}
+                          href={`/products/${encodeURIComponent(cat.slug || '')}`}
+                          onClick={(event) => {
+                            if (!isEmptyCategory) return
+                            event.preventDefault()
+                            openEmptyCategoryModal(cat.name)
+                          }}
+                          className='flex flex-col items-center gap-2 transition'
+                          style={{ minWidth: '100px' }}
+                        >
+                          <div
+                            className={`h-20 w-20 overflow-hidden rounded-full bg-gray-50 ${
+                              isEmptyCategory ? 'grayscale brightness-[0.78] opacity-80' : ''
+                            }`}
+                          >
+                            {cat.image_url ? (
+                              <img
+                                src={cat.image_url}
+                                alt={cat.image_alt || cat.name}
+                                className='h-full w-full object-cover'
+                              />
+                            ) : (
+                              <div className='flex h-full w-full items-center justify-center text-[11px] text-gray-400'>
+                                Image
+                              </div>
+                            )}
+                          </div>
+                          <span
+                            className={`max-w-[100px] break-words text-center text-xs font-semibold leading-tight ${
+                              isEmptyCategory ? 'text-gray-500' : 'text-gray-800'
+                            }`}
+                          >
+                            {cat.name}
+                          </span>
+                        </a>
+                      )
+                    })}
                   </div>
                 </div>
                 {canScrollRight && (
@@ -1471,6 +1520,7 @@ const ProductCatalogPage = ({
             <div className='grid grid-cols-3 gap-x-2 gap-y-4 min-[420px]:grid-cols-4 sm:grid-cols-4'>
               {vendorCategoryTiles.map((category, index) => {
                 const isSelected = selectedCategoryKeys.has(normalizeKey(category.value))
+                const isEmptyCategory = category.hasProducts === false
                 const hiddenClass = !showAllVendorCategories
                   ? index >= 16
                     ? 'hidden'
@@ -1482,14 +1532,22 @@ const ProductCatalogPage = ({
                   <button
                     key={category.id}
                     type='button'
-                    onClick={() => handleCategoryTileClick(category.value)}
+                    onClick={() => {
+                      if (isEmptyCategory) {
+                        openEmptyCategoryModal(category.name)
+                        return
+                      }
+                      handleCategoryTileClick(category.value)
+                    }}
                     className={`group flex flex-col items-center gap-2 ${hiddenClass}`}
                   >
                     <div
                       className={`flex h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24 items-center justify-center overflow-hidden rounded-full border transition ${
                         isSelected
                           ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-slate-100 text-slate-700 group-hover:border-slate-300'
+                          : isEmptyCategory
+                            ? 'border-slate-200 bg-slate-100 text-slate-700 grayscale brightness-[0.78] opacity-80'
+                            : 'border-slate-200 bg-slate-100 text-slate-700 group-hover:border-slate-300'
                       }`}
                     >
                       {category.imageUrl ? (
@@ -1502,7 +1560,11 @@ const ProductCatalogPage = ({
                         <span className='text-xs font-semibold'>•</span>
                       )}
                     </div>
-                    <span className='text-center text-[13px] font-semibold leading-tight text-slate-800 break-words'>
+                    <span
+                      className={`break-words text-center text-[13px] font-semibold leading-tight ${
+                        isEmptyCategory ? 'text-slate-500' : 'text-slate-800'
+                      }`}
+                    >
                       {category.name}
                     </span>
                   </button>
@@ -1660,6 +1722,8 @@ const ProductCatalogPage = ({
                 priceList={priceList}
                 priceBounds={priceBounds}
                 priceRange={priceRange}
+                currencyCode={locale.currency}
+                formatPrice={formatCatalogPrice}
                 selectedCategories={selectedCategories}
                 selectedVendors={selectedVendors}
               selectedColors={selectedColors}
@@ -1786,6 +1850,7 @@ const ProductCatalogPage = ({
                   sizes={sizes}
                   priceBounds={priceBounds}
                   priceRange={priceRange}
+                  formatPrice={formatCatalogPrice}
                   selectedCategories={selectedCategories}
                   selectedVendors={selectedVendors}
                   selectedColors={selectedColors}
@@ -1817,6 +1882,12 @@ const ProductCatalogPage = ({
           </div>
         </div>
       )}
+
+      <EmptyCategoryModal
+        isOpen={Boolean(emptyCategoryName)}
+        categoryName={emptyCategoryName}
+        onClose={closeEmptyCategoryModal}
+      />
     </div>
   )
 }
