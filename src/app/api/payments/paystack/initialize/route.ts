@@ -19,6 +19,10 @@ import {
   readWorldwideLogisticsSettings,
   resolveWorldwideFeeInNgn,
 } from '@/lib/logistics/worldwide'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
+import { notifyAllAdmins } from '@/lib/admin/notifications'
+import { sendAdminTeamAlertToAll } from '@/lib/email/send-admin-team-alert-to-all'
+import { mergeOrderLifecycleStatus } from '@/lib/orders/lifecycle-status'
 
 const STANDARD_SHIPPING_FEE = 5
 const EXPRESS_SHIPPING_FEE = 10
@@ -295,6 +299,7 @@ export async function POST(request: NextRequest) {
       : Number(logisticsRate?.price || 0),
     protectedItemKeys,
     protected_item_keys: protectedItemKeys,
+    ...mergeOrderLifecycleStatus(shippingAddress, 'awaiting_payment'),
   }
   const contactPhone = String(metadata.contact_phone || '').trim()
   const payerEmail = String(auth.user.email || metadata.contact_email || '').trim()
@@ -417,6 +422,47 @@ export async function POST(request: NextRequest) {
       },
       200,
     )
+    try {
+      const adminDb = createAdminSupabaseClient()
+      const orderNumber =
+        String(createdOrder.order_number || '').trim() ||
+        `#${String(createdOrder.id || '').replace(/-/g, '').toUpperCase()}`
+      await notifyAllAdmins(adminDb, {
+        title: `Order awaiting payment ${orderNumber}`,
+        message: 'A checkout order has been created and is waiting for customer payment.',
+        type: 'order_received',
+        severity: 'info',
+        entityType: 'order',
+        entityId: String(createdOrder.id),
+        metadata: {
+          order_id: String(createdOrder.id),
+          order_number: orderNumber,
+          action_url: `/backend/admin/orders/${String(createdOrder.id)}`,
+          payment_status: 'pending',
+          lifecycle_status: 'awaiting_payment',
+        },
+        createdBy: String(auth.user.id || ''),
+      })
+      await sendAdminTeamAlertToAll({
+        adminDb,
+        heading: `Order awaiting payment ${orderNumber}`,
+        subheading: 'A customer started checkout and the order is waiting for payment.',
+        previewText: `Awaiting payment ${orderNumber}`,
+        accentLabel: 'Payment status',
+        summaryRows: [
+          { label: 'Order number', value: orderNumber },
+          { label: 'Customer', value: payerEmail || 'Customer' },
+          { label: 'Status', value: 'Awaiting Payment' },
+        ],
+        bodyTitle: 'What happened',
+        bodyText:
+          'A new checkout order has been created. Wait for payment confirmation before processing the order.',
+        actionLabel: 'Open order',
+        actionPath: `/backend/admin/orders/${String(createdOrder.id)}`,
+      })
+    } catch (notificationError) {
+      console.error('admin awaiting payment alert failed:', notificationError)
+    }
     applyCookies(successResponse)
     return successResponse
   } catch {

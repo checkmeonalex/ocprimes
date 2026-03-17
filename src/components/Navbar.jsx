@@ -1143,7 +1143,7 @@ export default function Navbar({
             </svg>
           </HeaderAction>
 
-          <HeaderAction href='/account/orders' label='Support'>
+          <HeaderAction href='/help-center' label='Support'>
             <svg
               className='h-6 w-6'
               viewBox='0 0 18 18'

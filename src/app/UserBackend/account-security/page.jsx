@@ -34,6 +34,12 @@ const normalizePhoneValue = (value) => {
   return next.replace(/[^0-9]/g, '')
 }
 
+const parseAuthHashParams = (hashValue) => {
+  const rawHash = String(hashValue || '').trim().replace(/^#/, '')
+  if (!rawHash) return new URLSearchParams()
+  return new URLSearchParams(rawHash)
+}
+
 export default function AccountSecurityPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
@@ -126,12 +132,15 @@ export default function AccountSecurityPage() {
 
       const supabase = createBrowserSupabaseClient()
       const url = new URL(window.location.href)
+      const hashParams = parseAuthHashParams(url.hash)
       const isEmailChangeFlow = url.searchParams.get('email_change') === '1'
       const code = url.searchParams.get('code')
       const tokenHash = url.searchParams.get('token_hash')
-      const type = url.searchParams.get('type')
+      const type = url.searchParams.get('type') || hashParams.get('type')
+      const accessToken = hashParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token')
 
-      if (!isEmailChangeFlow || (!code && !tokenHash)) {
+      if (!isEmailChangeFlow || (!code && !tokenHash && !(accessToken && refreshToken))) {
         return
       }
 
@@ -146,7 +155,8 @@ export default function AccountSecurityPage() {
       cleanedUrl.searchParams.delete('token_hash')
       cleanedUrl.searchParams.delete('type')
       cleanedUrl.searchParams.delete('redirect_to')
-      window.history.replaceState({}, '', `${cleanedUrl.pathname}${cleanedUrl.search}${cleanedUrl.hash}`)
+      cleanedUrl.hash = ''
+      window.history.replaceState({}, '', `${cleanedUrl.pathname}${cleanedUrl.search}`)
 
       setIsSaving(true)
       setError('')
@@ -160,6 +170,14 @@ export default function AccountSecurityPage() {
             token_hash: tokenHash,
             type: type || 'magiclink',
           })
+        } else if (accessToken && refreshToken) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          })
+          if (sessionError) {
+            throw sessionError
+          }
         }
 
         const response = await fetch('/api/user/email-change/complete', {
@@ -178,14 +196,14 @@ export default function AccountSecurityPage() {
         setNewEmail('')
         setSuccess(
           payload?.message ||
-            'Email change started. Confirm the new email from your inbox to finish updating it.',
+            'Current email verified. Check your new email to finish updating it.',
         )
         pushAlert({
           type: 'success',
           title: 'Account Security',
           message:
             payload?.message ||
-            'Email change started. Confirm the new email from your inbox to finish updating it.',
+            'Current email verified. Check your new email to finish updating it.',
         })
       } catch (err) {
         if (!isMounted) return

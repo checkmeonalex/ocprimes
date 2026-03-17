@@ -1,9 +1,12 @@
 // components/CategoriesMenu.jsx
 'use client'
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { fetchCategoriesData } from '@/lib/catalog/categories-menu'
 import EmptyCategoryModal from '@/components/catalog/EmptyCategoryModal'
+
+const createCategoryRevealMap = (categoryId = null) =>
+  categoryId ? { [categoryId]: true } : {}
 
 const CategoriesMenu = ({
   isOpen,
@@ -20,6 +23,13 @@ const CategoriesMenu = ({
   const [loading, setLoading] = useState(false)
   const [activeCategory, setActiveCategory] = useState(null)
   const [emptyCategory, setEmptyCategory] = useState(null)
+  const [revealedCategoryMap, setRevealedCategoryMap] = useState(() =>
+    createCategoryRevealMap(initialActiveCategoryId)
+  )
+  const desktopSidebarRef = useRef(null)
+  const contentScrollRef = useRef(null)
+  const categorySectionRefs = useRef(new Map())
+  const categoryButtonRefs = useRef(new Map())
   const fallbackImage = `data:image/svg+xml;base64,${btoa(`
     <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60">
       <rect width="60" height="60" fill="#f3f4f6"/>
@@ -112,6 +122,7 @@ const CategoriesMenu = ({
   useEffect(() => {
     if (isOpen) return
     setEmptyCategory(null)
+    setRevealedCategoryMap(createCategoryRevealMap(initialActiveCategoryId))
   }, [isOpen])
 
   useEffect(() => {
@@ -150,6 +161,77 @@ const CategoriesMenu = ({
     }
   }, [categoriesData, initialActiveCategoryId])
 
+  useEffect(() => {
+    setRevealedCategoryMap(createCategoryRevealMap(initialActiveCategoryId))
+  }, [initialActiveCategoryId])
+
+  useEffect(() => {
+    const categories = categoriesData?.categories || []
+    if (!categories.length) return
+    if (activeCategory) return
+    setActiveCategory(categories[0])
+  }, [activeCategory, categoriesData])
+
+  useEffect(() => {
+    if (!isOpen) return undefined
+    const scroller = contentScrollRef.current
+    const categories = categoriesData?.categories || []
+    if (!scroller || categories.length === 0) return undefined
+
+    const updateActiveCategoryFromScroll = () => {
+      const scrollerTop = scroller.getBoundingClientRect().top
+      let nextActive = categories[0]
+      let bestOffset = Number.POSITIVE_INFINITY
+
+      for (const category of categories) {
+        const node = categorySectionRefs.current.get(category.id)
+        if (!node) continue
+        const offset = node.getBoundingClientRect().top - scrollerTop
+        const normalizedOffset = offset <= 96 ? Math.abs(offset) : offset + 1000
+
+        if (normalizedOffset < bestOffset) {
+          bestOffset = normalizedOffset
+          nextActive = category
+        }
+      }
+
+      setActiveCategory((current) =>
+        current?.id === nextActive.id ? current : nextActive
+      )
+    }
+
+    updateActiveCategoryFromScroll()
+    scroller.addEventListener('scroll', updateActiveCategoryFromScroll, {
+      passive: true,
+    })
+
+    return () => {
+      scroller.removeEventListener('scroll', updateActiveCategoryFromScroll)
+    }
+  }, [categoriesData, isOpen])
+
+  useEffect(() => {
+    if (!activeCategory?.id) return
+    const node = categoryButtonRefs.current.get(activeCategory.id)
+    if (!node || typeof node.scrollIntoView !== 'function') return
+    node.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [activeCategory])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const targetCategoryId =
+      initialActiveCategoryId || categoriesData?.categories?.[0]?.id || null
+    if (!targetCategoryId) return
+
+    const frame = window.requestAnimationFrame(() => {
+      const node = categorySectionRefs.current.get(targetCategoryId)
+      if (!node || typeof node.scrollIntoView !== 'function') return
+      node.scrollIntoView({ block: 'start', behavior: 'auto' })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [categoriesData, initialActiveCategoryId, isOpen])
+
   const loadCategoriesData = async () => {
     setLoading(true)
     try {
@@ -170,15 +252,58 @@ const CategoriesMenu = ({
     }
   }
 
+  const registerCategorySection = (categoryId) => (node) => {
+    if (node) {
+      categorySectionRefs.current.set(categoryId, node)
+      return
+    }
+    categorySectionRefs.current.delete(categoryId)
+  }
+
+  const registerCategoryButton = (categoryId) => (node) => {
+    if (node) {
+      categoryButtonRefs.current.set(categoryId, node)
+      return
+    }
+    categoryButtonRefs.current.delete(categoryId)
+  }
+
+  const scrollToCategorySection = (category, behavior = 'smooth') => {
+    if (!category?.id) return
+    const scroller = contentScrollRef.current
+    const node = categorySectionRefs.current.get(category.id)
+    if (!node || !scroller) return
+
+    const nextTop = Math.max(0, node.offsetTop - 12)
+    if (typeof scroller.scrollTo === 'function') {
+      scroller.scrollTo({ top: nextTop, behavior })
+      return
+    }
+
+    scroller.scrollTop = nextTop
+  }
+
+  const revealCategory = (categoryId) => {
+    if (!categoryId) return
+    setRevealedCategoryMap((current) => ({
+      ...current,
+      [categoryId]: true,
+    }))
+  }
+
   const handleCategoryHover = (category) => {
     if (category.subcategories && category.subcategories.length > 0) {
       setActiveCategory(category)
+      revealCategory(category.id)
+      scrollToCategorySection(category, 'auto')
     }
   }
 
   const handleCategoryClick = (category) => {
     if (category.subcategories && category.subcategories.length > 0) {
-      setActiveCategory(activeCategory?.id === category.id ? null : category)
+      setActiveCategory(category)
+      revealCategory(category.id)
+      scrollToCategorySection(category, 'smooth')
     } else if (category.slug) {
       window.location.href = `/products/${encodeURIComponent(category.slug)}`
     }
@@ -220,7 +345,7 @@ const CategoriesMenu = ({
         <div className="h-full min-h-0 lg:w-full">
           <div className="flex h-full min-h-0 flex-row lg:max-h-[min(78vh,720px)]">
             {/* Categories Sidebar */}
-           <div className="desktop-menu-scroll h-full min-h-0 w-[32%] max-w-[32%] overflow-y-auto overscroll-contain border-r border-gray-200 bg-gray-50 py-3 touch-pan-y lg:max-h-[min(78vh,720px)] lg:max-w-[280px] lg:min-w-[240px] lg:py-4">
+           <div ref={desktopSidebarRef} className="desktop-menu-scroll h-full min-h-0 w-[32%] max-w-[32%] overflow-y-auto overscroll-contain border-r border-gray-200 bg-gray-50 py-3 touch-pan-y lg:max-h-[min(78vh,720px)] lg:max-w-[280px] lg:min-w-[240px] lg:py-4">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -230,6 +355,7 @@ const CategoriesMenu = ({
                   {categoriesData?.categories.map((category) => (
                     <button
                       key={category.id}
+                      ref={registerCategoryButton(category.id)}
                       className={`w-full flex items-center justify-between px-4 py-3 text-left text-sm hover:bg-gray-100 transition-colors duration-150 ${
                         activeCategory?.id === category.id ? 'bg-gray-100 text-blue-600' : 'text-gray-700'
                       }`}
@@ -253,87 +379,130 @@ const CategoriesMenu = ({
             </div>
 
             {/* Subcategories Content */}
-            <div className="desktop-menu-scroll h-full min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 pb-20 touch-pan-y lg:max-h-[min(78vh,720px)] lg:py-4 lg:pb-4 lg:max-w-[700px]">
-              {activeCategory?.subcategories?.map((subcategory) => (
-                <div key={subcategory.id} className="px-1 lg:px-6">
-                  <div className="flex items-center justify-between mb-3 lg:mb-4">
-                    <h3 className="text-sm font-semibold text-gray-900 flex items-center lg:text-lg">
-                      {subcategory.name}
-                      {subcategory.hasArrow && (
-                        <svg
-                          className="h-4 w-4 ml-2 text-gray-400"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M9 18l6-6-6-6v12z" />
-                        </svg>
-                      )}
-                    </h3>
-                    {(subcategory?.slug || subcategory?.name || activeCategory?.slug) && (
-                      <Link
-                        href={buildCategoryHref(subcategory?.slug || subcategory?.name ? subcategory : activeCategory)}
-                        onClick={onClose}
-                        className="text-xs font-semibold text-blue-600 hover:underline"
-                      >
-                        View all
-                      </Link>
-                    )}
-                  </div>
+            <div ref={contentScrollRef} className="desktop-menu-scroll h-full min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 pb-20 touch-pan-y lg:max-h-[min(78vh,720px)] lg:py-4 lg:pb-4 lg:max-w-[700px]">
+              {categoriesData?.categories?.map((category) => (
+                (() => {
+                  const categoryAvailableItemCount = Array.isArray(category.subcategories)
+                    ? category.subcategories.reduce((count, subcategory) => {
+                        const items = Array.isArray(subcategory?.items) ? subcategory.items : []
+                        return count + items.filter((item) => item.hasProducts !== false).length
+                      }, 0)
+                    : 0
 
-                  {/* Step from 1 -> 2 -> 3 columns on narrow screens, then scale up on larger widths. */}
-                  {subcategory.items && (() => {
-                    const availableItems = subcategory.items.filter((item) => item.hasProducts !== false)
-                    const comingSoonItems = subcategory.items.filter((item) => item.hasProducts === false)
+                  return (
+                    <section
+                      key={category.id}
+                      ref={registerCategorySection(category.id)}
+                      data-category-section={category.id}
+                      className="space-y-5 px-1 pb-6 lg:px-6 lg:pb-8"
+                    >
+                  {category.subcategories?.map((subcategory, subcategoryIndex) => {
+                    const availableItems = Array.isArray(subcategory.items)
+                      ? subcategory.items.filter((item) => item.hasProducts !== false)
+                      : []
+                    const comingSoonItems = Array.isArray(subcategory.items)
+                      ? subcategory.items.filter((item) => item.hasProducts === false)
+                      : []
+                    const isCategoryRevealed = Boolean(revealedCategoryMap[category.id])
+                    const visibleItems = availableItems
+                    const visibleComingSoonItems = isCategoryRevealed ? comingSoonItems : []
+                    const shouldShowViewAll =
+                      Boolean(category?.slug) &&
+                      categoryAvailableItemCount > 0 &&
+                      subcategoryIndex === 0
+                    const shouldHideSubcategory =
+                      !isCategoryRevealed && availableItems.length === 0 && !shouldShowViewAll
+
+                    if (shouldHideSubcategory) {
+                      return null
+                    }
 
                     return (
-                      <div className="space-y-5">
-                        <div className="grid grid-cols-1 justify-items-center gap-x-1 gap-y-3 min-[280px]:grid-cols-2 min-[360px]:grid-cols-3 min-[500px]:grid-cols-4 lg:gap-x-4 lg:gap-y-8 xl:grid-cols-5">
-                          {activeCategory?.slug && (
-                            <Link
-                              key={`${activeCategory.id}-view-all`}
-                              href={buildCategoryHref(activeCategory)}
-                              onClick={onClose}
-                              className="flex w-full max-w-[96px] flex-col items-center gap-2 rounded-xl border border-gray-100 p-2 hover:border-gray-200 hover:shadow-sm transition lg:max-w-[132px] lg:p-2.5"
+                    <div
+                      key={subcategory.id}
+                      className={subcategoryIndex > 0 ? 'border-t border-slate-100 pt-5' : ''}
+                    >
+                      <div className="mb-3 flex items-center justify-between lg:mb-4">
+                        <h3 className="flex items-center text-sm font-semibold text-gray-900 lg:text-lg">
+                          {subcategory.name}
+                          {subcategory.hasArrow && (
+                            <svg
+                              className="ml-2 h-4 w-4 text-gray-400"
+                              fill="currentColor"
+                              viewBox="0 0 24 24"
                             >
-                              <div className="h-16 w-16 lg:h-24 lg:w-24 rounded-full border border-dashed border-gray-300 bg-gray-50 flex items-center justify-center text-gray-500">
-                                <svg
-                                  className="h-6 w-6"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                >
-                                  <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                                  <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                                  <rect x="3" y="14" width="7" height="7" rx="1.5" />
-                                  <rect x="14" y="14" width="7" height="7" rx="1.5" />
-                                </svg>
-                              </div>
-                              <span className="text-[11px] lg:text-sm text-center font-semibold text-gray-800">
-                                View All
-                              </span>
-                            </Link>
+                              <path d="M9 18l6-6-6-6v12z" />
+                            </svg>
                           )}
-                          {availableItems.map(renderCategoryItem)}
-                        </div>
-
-                        {comingSoonItems.length > 0 ? (
-                          <div className="space-y-3 border-t border-slate-200/80 pt-4">
-                            <div className="flex items-center gap-3">
-                              <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                                Coming soon
-                              </span>
-                              <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent" />
-                            </div>
-                            <div className="grid grid-cols-1 justify-items-center gap-x-1 gap-y-3 min-[280px]:grid-cols-2 min-[360px]:grid-cols-3 min-[500px]:grid-cols-4 lg:gap-x-4 lg:gap-y-8 xl:grid-cols-5">
-                              {comingSoonItems.map(renderCategoryItem)}
-                            </div>
-                          </div>
-                        ) : null}
+                        </h3>
+                        {(subcategory?.slug || subcategory?.name || category?.slug) && (
+                          <Link
+                            href={buildCategoryHref(
+                              subcategory?.slug || subcategory?.name ? subcategory : category
+                            )}
+                            onClick={onClose}
+                            className="text-xs font-semibold text-blue-600 hover:underline"
+                          >
+                            View all
+                          </Link>
+                        )}
                       </div>
+
+                      {Array.isArray(visibleItems) && (() => {
+                        return (
+                          <div className="space-y-5">
+                            <div className="grid grid-cols-1 justify-items-center gap-x-1 gap-y-3 min-[280px]:grid-cols-2 min-[360px]:grid-cols-3 min-[500px]:grid-cols-4 lg:gap-x-4 lg:gap-y-8 xl:grid-cols-5">
+                              {shouldShowViewAll && (
+                                <Link
+                                  key={`${category.id}-view-all`}
+                                  href={buildCategoryHref(category)}
+                                  onClick={onClose}
+                                  className="flex w-full max-w-[96px] flex-col items-center gap-2 rounded-xl border border-gray-100 p-2 transition hover:border-gray-200 hover:shadow-sm lg:max-w-[132px] lg:p-2.5"
+                                >
+                                  <div className="flex h-16 w-16 items-center justify-center rounded-full border border-dashed border-gray-300 bg-gray-50 text-gray-500 lg:h-24 lg:w-24">
+                                    <svg
+                                      className="h-6 w-6"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                    >
+                                      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+                                      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+                                      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+                                      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+                                    </svg>
+                                  </div>
+                                  <span className="text-center text-[11px] font-semibold text-gray-800 lg:text-sm">
+                                    View All
+                                  </span>
+                                </Link>
+                              )}
+                              {visibleItems.map(renderCategoryItem)}
+                            </div>
+
+                            {visibleComingSoonItems.length > 0 ? (
+                              <div className="space-y-3 border-t border-slate-200/80 pt-4">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                                    Coming soon
+                                  </span>
+                                  <div className="h-px flex-1 bg-gradient-to-r from-slate-200 to-transparent" />
+                                </div>
+                                <div className="grid grid-cols-1 justify-items-center gap-x-1 gap-y-3 min-[280px]:grid-cols-2 min-[360px]:grid-cols-3 min-[500px]:grid-cols-4 lg:gap-x-4 lg:gap-y-8 xl:grid-cols-5">
+                                  {visibleComingSoonItems.map(renderCategoryItem)}
+                                </div>
+                              </div>
+                            ) : null}
+                          </div>
+                        )
+                      })()}
+                    </div>
                     )
-                  })()}
-                </div>
+                  })}
+                    </section>
+                  )
+                })()
               ))}
 
               {!loading && !activeCategory && (

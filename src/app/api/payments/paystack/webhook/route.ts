@@ -4,6 +4,9 @@ import { jsonError, jsonOk } from '@/lib/http/response'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { fetchCartSnapshot, getCartForUser } from '@/lib/cart/cart-server'
 import { filterItemsByCheckoutSelection, parseCheckoutSelectionParam } from '@/lib/cart/checkout-selection'
+import { notifyAllAdmins } from '@/lib/admin/notifications'
+import { sendAdminTeamAlertToAll } from '@/lib/email/send-admin-team-alert-to-all'
+import { mergeOrderLifecycleStatus } from '@/lib/orders/lifecycle-status'
 
 type PaystackWebhookPayload = {
   event?: string
@@ -102,7 +105,7 @@ export async function POST(request: NextRequest) {
 
   const orderQuery = await adminDb
     .from('checkout_orders')
-    .select('id, user_id, payment_status, total_amount, currency, checkout_selection')
+    .select('id, user_id, order_number, payment_status, total_amount, currency, checkout_selection, shipping_address')
     .eq('paystack_reference', reference)
     .maybeSingle()
 
@@ -141,6 +144,7 @@ export async function POST(request: NextRequest) {
         .from('checkout_orders')
         .update({
           payment_status: 'paid',
+          shipping_address: mergeOrderLifecycleStatus(orderQuery.data.shipping_address, 'pending'),
           updated_at: new Date().toISOString(),
         })
         .eq('id', orderQuery.data.id)
@@ -150,6 +154,45 @@ export async function POST(request: NextRequest) {
         toString(orderQuery.data.user_id),
         toString(orderQuery.data.checkout_selection),
       )
+
+      try {
+        const orderNumber =
+          toString(orderQuery.data.order_number) ||
+          `#${toString(orderQuery.data.id).replace(/-/g, '').toUpperCase()}`
+        await notifyAllAdmins(adminDb, {
+          title: `New order received ${orderNumber}`,
+          message: 'A customer payment was confirmed and the order is ready for admin review.',
+          type: 'order_received',
+          severity: 'info',
+          entityType: 'order',
+          entityId: toString(orderQuery.data.id),
+          metadata: {
+            order_id: toString(orderQuery.data.id),
+            order_number: orderNumber,
+            action_url: `/backend/admin/orders/${toString(orderQuery.data.id)}`,
+            payment_status: 'paid',
+            lifecycle_status: 'pending',
+          },
+          createdBy: toString(orderQuery.data.user_id),
+        })
+        await sendAdminTeamAlertToAll({
+          adminDb,
+          heading: `New order received ${orderNumber}`,
+          subheading: 'A customer has completed payment and the order is ready for admin review.',
+          previewText: `New order received ${orderNumber}`,
+          accentLabel: 'Order details',
+          summaryRows: [
+            { label: 'Order number', value: orderNumber },
+            { label: 'Status', value: 'Pending' },
+          ],
+          bodyTitle: 'What happened',
+          bodyText: 'Payment has been confirmed. Review the order and move it through fulfillment manually.',
+          actionLabel: 'Open order',
+          actionPath: `/backend/admin/orders/${toString(orderQuery.data.id)}`,
+        })
+      } catch (notificationError) {
+        console.error('admin paid order alert failed:', notificationError)
+      }
     }
 
     return jsonOk({ received: true })

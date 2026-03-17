@@ -67,7 +67,7 @@ const toStatusKey = (
   if (isPendingExpired(paymentStatus, createdAt)) return 'failed'
 
   const normalized = String(paymentStatus || '').toLowerCase()
-  if (normalized === 'paid') return 'delivered'
+  if (normalized === 'paid') return 'pending'
   if (normalized === 'refunded') return 'refunded'
   if (normalized === 'failed') return 'failed'
   if (normalized === 'cancelled') return 'cancelled'

@@ -1,6 +1,18 @@
 import BrowseCategoriesClient from './BrowseCategoriesClient'
 import { getCachedHomeBrowseCards } from '@/lib/home/browse-cards'
 
+const interleaveBrowseCards = (primary = [], secondary = []) => {
+  const mixed = []
+  const maxLength = Math.max(primary.length, secondary.length)
+
+  for (let index = 0; index < maxLength; index += 1) {
+    if (primary[index]) mixed.push(primary[index])
+    if (secondary[index]) mixed.push(secondary[index])
+  }
+
+  return mixed
+}
+
 const mapBrowseCardsToTabs = (items = []) => {
   const normalized = Array.isArray(items)
     ? items
@@ -18,7 +30,7 @@ const mapBrowseCardsToTabs = (items = []) => {
   const all = normalized.filter((item) => item.segment === 'all')
   const men = normalized.filter((item) => item.segment === 'men')
   const women = normalized.filter((item) => item.segment === 'women')
-  const resolvedAll = all.length ? all : [...men, ...women]
+  const resolvedAll = all.length ? all : interleaveBrowseCards(men, women)
 
   return {
     ALL: resolvedAll,

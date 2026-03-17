@@ -7,6 +7,7 @@ import { notifyAllAdmins } from '@/lib/admin/notifications'
 import { fetchCartSnapshot, getCartForUser } from '@/lib/cart/cart-server'
 import { sendAdminTeamAlertToAll } from '@/lib/email/send-admin-team-alert-to-all'
 import { filterItemsByCheckoutSelection, parseCheckoutSelectionParam } from '@/lib/cart/checkout-selection'
+import { mergeOrderLifecycleStatus } from '@/lib/orders/lifecycle-status'
 
 const verifyPayloadSchema = z.object({
   reference: z.string().trim().min(1, 'Payment reference is required.'),
@@ -271,6 +272,7 @@ export async function POST(request: NextRequest) {
             .from('checkout_orders')
             .update({
               payment_status: 'paid',
+              shipping_address: mergeOrderLifecycleStatus(orderRow.shipping_address, 'pending'),
               updated_at: new Date().toISOString(),
             })
             .eq('id', orderRow.id)
