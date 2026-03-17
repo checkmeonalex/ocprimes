@@ -1,24 +1,30 @@
+import { generateMagicLinkEmailLink } from '@/lib/auth/supabase-email-links'
+import { sendSigninLinkEmail } from '@/lib/email/send-auth-action-emails'
+
+const safeText = (value: unknown) => String(value || '').trim()
+
 export async function sendEmailOtpCode(
-  supabase: any,
   email: string,
   options: {
     redirectTo?: string
+    customerName?: string
   } = {},
 ) {
-  const normalizedEmail = String(email || '').trim().toLowerCase()
+  const normalizedEmail = safeText(email).toLowerCase()
   if (!normalizedEmail) {
     throw new Error('Email address is required.')
   }
 
-  const { error } = await supabase.auth.signInWithOtp({
+  const generated = await generateMagicLinkEmailLink({
     email: normalizedEmail,
-    options: {
-      shouldCreateUser: false,
-      emailRedirectTo: options.redirectTo,
-    },
+    redirectTo: safeText(options.redirectTo),
   })
 
-  if (error) {
-    throw new Error(error.message || 'Unable to send verification code.')
-  }
+  await sendSigninLinkEmail({
+    to: normalizedEmail,
+    customerName: safeText(options.customerName),
+    signinUrl: generated.actionLink,
+  })
+
+  return generated
 }

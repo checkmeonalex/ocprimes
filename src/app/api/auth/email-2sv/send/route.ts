@@ -20,8 +20,10 @@ export async function POST(request: NextRequest) {
     if (typeof body?.next === 'string' && body.next) {
       redirectUrl.searchParams.set('next', body.next)
     }
-    await sendEmailOtpCode(supabase, data.user.email, {
+    const metadata = (data.user.user_metadata || {}) as Record<string, unknown>
+    await sendEmailOtpCode(data.user.email, {
       redirectTo: redirectUrl.toString(),
+      customerName: String(metadata.full_name || metadata.name || metadata.first_name || '').trim(),
     })
   } catch (sendError: any) {
     return jsonError(sendError?.message || 'Unable to send verification link.', 400)

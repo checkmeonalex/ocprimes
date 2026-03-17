@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
+import { notifyAllAdmins } from '@/lib/admin/notifications'
 import { chatMessageCreateSchema, chatMessagesQuerySchema } from '@/lib/chat/schema'
 import {
   getConversationForUser,
@@ -21,6 +22,7 @@ import {
   reopenConversation,
 } from '@/lib/chat/conversation-closure'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
+import { sendAdminTeamAlertToAll } from '@/lib/email/send-admin-team-alert-to-all'
 
 export async function GET(
   request: NextRequest,
@@ -232,6 +234,43 @@ export async function POST(
       })
     } catch (notificationError) {
       console.error('chat message vendor notification failed:', notificationError)
+    }
+
+    try {
+      const supportConversation = await isSupportConversationRecord(resolvedConversation)
+      if (supportConversation) {
+        const adminDb = createAdminSupabaseClient()
+        await notifyAllAdmins(adminDb, {
+          title: 'New customer support message',
+          message: 'A customer sent a new message to Help Center.',
+          type: 'chat_message_received',
+          severity: 'info',
+          entityType: 'chat_conversation',
+          entityId: String(conversationId || ''),
+          metadata: {
+            conversation_id: String(conversationId || ''),
+            action_url: `/backend/admin/messages?conversation=${encodeURIComponent(String(conversationId || ''))}`,
+          },
+          createdBy: String(auth.user.id || ''),
+        })
+        await sendAdminTeamAlertToAll({
+          adminDb,
+          heading: 'New customer support message',
+          subheading: 'A customer sent a new message to Help Center.',
+          previewText: parsed.data.body,
+          accentLabel: 'Message details',
+          summaryRows: [
+            { label: 'Customer', value: String(auth.user.email || '').trim() || 'Customer' },
+            { label: 'Conversation', value: String(conversationId || '') },
+          ],
+          bodyTitle: 'Message preview',
+          bodyText: parsed.data.body,
+          actionLabel: 'Open messages',
+          actionPath: `/backend/admin/messages?conversation=${encodeURIComponent(String(conversationId || ''))}`,
+        })
+      }
+    } catch (adminAlertError) {
+      console.error('admin support message alert failed:', adminAlertError)
     }
 
     const vendorNameMap = await loadVendorDisplayNameMap([

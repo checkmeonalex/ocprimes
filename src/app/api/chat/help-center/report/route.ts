@@ -1,10 +1,13 @@
 import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
+import { notifyAllAdmins } from '@/lib/admin/notifications'
 import { chatHelpCenterReportSchema } from '@/lib/chat/schema'
 import { findOrCreateDashboardHelpCenterConversation } from '@/lib/chat/dashboard'
 import { insertConversationMessage } from '@/lib/chat/chat-server'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
+import { sendAdminTeamAlertToAll } from '@/lib/email/send-admin-team-alert-to-all'
 
 const REPORT_REASON_LABELS: Record<string, string> = {
   fraudulent_activity: 'Fraudulent activity',
@@ -89,6 +92,42 @@ export async function POST(request: NextRequest) {
     )
     if (insertResult.error || !insertResult.data?.id) {
       return jsonError('Unable to send report.', 500)
+    }
+
+    const adminDb = createAdminSupabaseClient()
+    await notifyAllAdmins(adminDb, {
+      title: `New support report: ${reasonLabel}`,
+      message: `A customer submitted a report through Help Center.`,
+      type: 'support_report',
+      severity: 'warning',
+      entityType: 'chat_conversation',
+      entityId: String(helpCenterResult.data.id || '').trim(),
+      metadata: {
+        reason: reason,
+        reason_label: reasonLabel,
+        source_conversation_id: sourceConversationId,
+        action_url: `/backend/admin/messages?conversation=${encodeURIComponent(String(helpCenterResult.data.id || '').trim())}`,
+      },
+      createdBy: String(auth.user.id || ''),
+    })
+    try {
+      await sendAdminTeamAlertToAll({
+        adminDb,
+        heading: `New support report: ${reasonLabel}`,
+        subheading: 'A customer sent a report to Help Center and may need review.',
+        previewText: `Support report: ${reasonLabel}`,
+        accentLabel: 'Report details',
+        summaryRows: [
+          { label: 'Reason', value: reasonLabel },
+          { label: 'Seller', value: sellerName || 'Not provided' },
+        ],
+        bodyTitle: 'What happened',
+        bodyText: otherDetails || 'A customer submitted a new report through Help Center.',
+        actionLabel: 'Open report',
+        actionPath: `/backend/admin/messages?conversation=${encodeURIComponent(String(helpCenterResult.data.id || '').trim())}`,
+      })
+    } catch (emailError) {
+      console.error('admin support report email failed:', emailError)
     }
 
     const response = jsonOk({

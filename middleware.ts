@@ -33,6 +33,10 @@ export async function middleware(request: NextRequest) {
   const isAuthPublicPath = AUTH_PUBLIC_PATHS.includes(pathname)
   const isApiRequest = pathname.startsWith('/api/admin')
   const isUserBackend = USER_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  const isAdminPage =
+    !isApiRequest &&
+    ADMIN_PREFIXES.some((prefix) => pathname.startsWith(prefix)) &&
+    !ADMIN_PUBLIC_PATHS.includes(pathname)
 
   if (isAuthPublicPath) {
     const response = NextResponse.next()
@@ -69,7 +73,7 @@ export async function middleware(request: NextRequest) {
     if (isApiRequest) {
       return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
     }
-    const authUrl = new URL(isUserBackend ? '/signup' : '/login', request.url)
+    const authUrl = new URL(isAdminPage ? '/admin/login' : isUserBackend ? '/signup' : '/login', request.url)
     const nextPath = `${pathname}${request.nextUrl.search || ''}`
     authUrl.searchParams.set('next', nextPath)
     return NextResponse.redirect(authUrl)
@@ -100,8 +104,9 @@ export async function middleware(request: NextRequest) {
     if (isApiRequest) {
       return NextResponse.json({ error: 'Forbidden.' }, { status: 403 })
     }
-    const loginUrl = new URL('/login', request.url)
+    const loginUrl = new URL(isAdminPage ? '/admin/login' : '/login', request.url)
     loginUrl.searchParams.set('error', 'forbidden')
+    loginUrl.searchParams.set('next', `${pathname}${request.nextUrl.search || ''}`)
     return NextResponse.redirect(loginUrl)
   }
 

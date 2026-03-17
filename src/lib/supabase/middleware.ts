@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import type { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseConfig } from './config'
+import { attachSupabaseAuthRecovery } from './auth-recovery'
 
 export function createMiddlewareSupabaseClient(
   request: NextRequest,
@@ -8,7 +9,7 @@ export function createMiddlewareSupabaseClient(
 ) {
   const { url, anonKey } = getSupabaseConfig()
 
-  return createServerClient(url, anonKey, {
+  const supabase = createServerClient(url, anonKey, {
     cookies: {
       get(name) {
         return request.cookies.get(name)?.value
@@ -21,4 +22,13 @@ export function createMiddlewareSupabaseClient(
       },
     },
   })
+
+  attachSupabaseAuthRecovery(supabase, {
+    listCookieNames: () => request.cookies.getAll().map((cookie) => cookie.name),
+    clearCookie: (name, value, options) => {
+      response.cookies.set({ name, value, ...options })
+    },
+  })
+
+  return supabase
 }

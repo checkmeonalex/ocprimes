@@ -3,6 +3,7 @@ import { jsonError, jsonOk } from '@/lib/http/response'
 import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { createNotifications } from '@/lib/admin/notifications'
+import type { EmailOrderBreakdown } from '@/lib/email/order-breakdown'
 import { sendOrderStatusEmail } from '@/lib/email/send-order-status-email'
 import { loadVendorOrderIds, loadVendorProductIds } from '@/lib/orders/vendor-scope'
 
@@ -108,6 +109,27 @@ const resolvePaymentText = (paymentStatus: string) => {
   if (status === 'refunded') return 'Payment refunded'
   return 'Payment'
 }
+
+const buildEmailOrderBreakdown = (
+  order: {
+    currency?: string | null
+    shipping_fee?: number | string | null
+    total_amount?: number | string | null
+  },
+  items: Array<{ name?: string | null; image?: string | null; quantity?: number | string | null; line_total?: number | string | null }>,
+): EmailOrderBreakdown => ({
+  currency: String(order.currency || 'NGN').toUpperCase() || 'NGN',
+  shippingFee: Number(order.shipping_fee || 0),
+  discountAmount: 0,
+  totalAmount: Number(order.total_amount || 0),
+  paymentMethodLabel: 'Paid online',
+  items: items.map((item) => ({
+    name: String(item?.name || 'Product'),
+    image: item?.image ? String(item.image) : null,
+    quantity: Math.max(1, Number(item?.quantity || 1)),
+    lineTotal: Number(item?.line_total || 0),
+  })),
+})
 
 const toOrderNumberLabel = (orderId: string, orderNumber: string) => {
   const cleanOrderNumber = String(orderNumber || '').trim()
@@ -408,7 +430,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: existingOrder, error: existingError } = await adminDb
     .from('checkout_orders')
-    .select('id, user_id, order_number, payment_status, shipping_address, created_at')
+    .select('id, user_id, order_number, payment_status, shipping_address, created_at, currency, shipping_fee, total_amount')
     .eq('id', orderId)
     .maybeSingle()
 
@@ -489,12 +511,19 @@ export async function PATCH(request: NextRequest) {
       const customerUser = await adminDb.auth.admin.getUserById(recipientUserId)
       const customerEmail = String(customerUser?.data?.user?.email || '').trim()
       if (customerEmail) {
+        const { data: orderItems } = await adminDb
+          .from('checkout_order_items')
+          .select('name, image, quantity, line_total')
+          .eq('order_id', String(existingOrder.id))
+          .order('created_at', { ascending: true })
+
         await sendOrderStatusEmail({
           to: customerEmail,
           customerName: resolveCustomerName(nextShippingAddress),
           orderId: String(existingOrder.id),
           orderNumberLabel,
           status: nextStatus,
+          breakdown: buildEmailOrderBreakdown(existingOrder, Array.isArray(orderItems) ? orderItems : []),
         })
       }
     } catch (emailError) {

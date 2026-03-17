@@ -112,7 +112,7 @@ export const notifyCustomerOnVendorChatMessage = async ({
   const vendorName = safeText(conversation?.vendorName)
   const senderLabel =
     senderRole === 'admin'
-      ? senderAlias || 'Alxora Support'
+      ? 'Support'
       : senderUserIdSafe === vendorUserId
       ? vendorName || senderAlias || 'Seller'
       : senderAlias || 'Support'

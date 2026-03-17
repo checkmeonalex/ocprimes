@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import type { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseConfig } from './config'
+import { attachSupabaseAuthRecovery } from './auth-recovery'
 
 import type { CookieOptions } from '@supabase/ssr'
 
@@ -25,6 +26,13 @@ export function createRouteHandlerSupabaseClient(request: NextRequest) {
       remove(name, options) {
         cookieChanges.push({ name, value: '', options })
       },
+    },
+  })
+
+  attachSupabaseAuthRecovery(supabase, {
+    listCookieNames: () => request.cookies.getAll().map((cookie) => cookie.name),
+    clearCookie: (name, value, options) => {
+      cookieChanges.push({ name, value, options })
     },
   })
 

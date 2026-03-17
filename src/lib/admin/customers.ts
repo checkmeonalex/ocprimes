@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { createNotifications } from '@/lib/admin/notifications'
+import { generateRecoveryEmailLink } from '@/lib/auth/supabase-email-links'
+import { sendPasswordResetEmail } from '@/lib/email/send-auth-action-emails'
+import { getEmailConfig } from '@/lib/email/config'
+import { buildAbsoluteUrl } from '@/lib/email/utils'
 
 const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -731,9 +735,19 @@ export async function sendAdminCustomerPasswordReset(customerId: string, actorUs
   const email = String(userRes.user?.email || '').trim()
   if (!email) return { error: 'Customer email is missing.', status: 400 as const }
 
-  const { error: resetError } = await db.auth.resetPasswordForEmail(email)
-  if (resetError) {
-    console.error('admin customer reset email failed:', resetError.message)
+  try {
+    const { appBaseUrl } = getEmailConfig()
+    const generated = await generateRecoveryEmailLink({
+      email,
+      redirectTo: buildAbsoluteUrl(appBaseUrl, '/reset-password'),
+    })
+    await sendPasswordResetEmail({
+      to: email,
+      customerName: resolveDisplayName(userRes.user),
+      resetUrl: generated.actionLink,
+    })
+  } catch (resetError: any) {
+    console.error('admin customer reset email failed:', resetError?.message || resetError)
     return { error: 'Unable to send reset link.', status: 500 as const }
   }
 

@@ -4,6 +4,11 @@ import { jsonError, jsonOk } from '@/lib/http/response'
 import { requireAdmin } from '@/lib/auth/require-admin'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { provisionVendorAccess } from '@/lib/auth/vendor-access'
+import { generateRecoveryEmailLink } from '@/lib/auth/supabase-email-links'
+import {
+  sendVendorApprovalEmail,
+  sendVendorRejectionEmail,
+} from '@/lib/email/send-auth-action-emails'
 
 const updateSchema = z.object({
   requestId: z.string().uuid(),
@@ -15,15 +20,30 @@ const resendSchema = z.object({
   requestId: z.string().uuid(),
 })
 
-async function sendVendorPasswordSetupEmail(request: NextRequest, email: string) {
-  const adminClient = createAdminSupabaseClient()
+async function sendVendorPasswordSetupEmail(
+  request: NextRequest,
+  {
+    email,
+    fullName,
+    brandName,
+  }: {
+    email: string
+    fullName?: string | null
+    brandName?: string | null
+  },
+) {
   const redirectTo = new URL('/vendor/set-password', request.url).toString()
-  const { error } = await adminClient.auth.resetPasswordForEmail(email, {
+  const generated = await generateRecoveryEmailLink({
+    email,
     redirectTo,
   })
-  if (error) {
-    throw new Error(error.message || 'Unable to send vendor setup email.')
-  }
+
+  await sendVendorApprovalEmail({
+    to: email,
+    fullName: String(fullName || '').trim(),
+    brandName: String(brandName || '').trim(),
+    setupUrl: generated.actionLink,
+  })
 }
 
 async function generateVendorPasswordSetupLink(request: NextRequest, email: string) {
@@ -97,7 +117,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: existing, error: fetchError } = await supabase
     .from('vendor_requests')
-    .select('id,user_id,email,brand_name,brand_slug,status')
+    .select('id,user_id,email,full_name,brand_name,brand_slug,status')
     .eq('id', requestId)
     .maybeSingle()
 
@@ -129,7 +149,11 @@ export async function PATCH(request: NextRequest) {
     try {
       const adminClient = createAdminSupabaseClient()
       await provisionVendorAccess(adminClient, existing.user_id, existing.brand_name, existing.brand_slug)
-      await sendVendorPasswordSetupEmail(request, existing.email)
+      await sendVendorPasswordSetupEmail(request, {
+        email: existing.email,
+        fullName: existing.full_name,
+        brandName: existing.brand_name,
+      })
     } catch (error: any) {
       if (isRateLimitError(error)) {
         try {
@@ -157,6 +181,17 @@ export async function PATCH(request: NextRequest) {
         .eq('id', requestId)
       return jsonError(error?.message || 'Unable to approve vendor request.', 500)
     }
+  } else {
+    try {
+      await sendVendorRejectionEmail({
+        to: existing.email,
+        fullName: existing.full_name,
+        brandName: existing.brand_name,
+        reviewNote,
+      })
+    } catch (error: any) {
+      console.error('Vendor rejection email failed:', error?.message || error)
+    }
   }
 
   const response = jsonOk({ success: true })
@@ -180,7 +215,7 @@ export async function POST(request: NextRequest) {
   const { requestId } = parsed.data
   const { data: existing, error: fetchError } = await supabase
     .from('vendor_requests')
-    .select('id,email,status')
+    .select('id,email,full_name,brand_name,status')
     .eq('id', requestId)
     .maybeSingle()
 
@@ -192,7 +227,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await sendVendorPasswordSetupEmail(request, existing.email)
+    await sendVendorPasswordSetupEmail(request, {
+      email: existing.email,
+      fullName: existing.full_name,
+      brandName: existing.brand_name,
+    })
   } catch (error: any) {
     if (isRateLimitError(error)) {
       try {

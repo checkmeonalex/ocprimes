@@ -21,16 +21,22 @@ export const sendAdminMessageEmail = async ({
   productName,
 }: SendAdminMessageEmailInput) => {
   const config = getEmailConfig()
+  const normalizedSenderLabel = (() => {
+    const safeLabel = safeText(senderLabel).toLowerCase()
+    if (!safeLabel) return 'Support'
+    if (safeLabel.includes('support')) return 'Support'
+    return 'Support'
+  })()
   const previewText =
     truncateText(stripHtml(previewBody), 180) || 'Open Alxora to read the latest message.'
   const messagesUrl = buildAbsoluteUrl(
     config.appBaseUrl,
-    `/UserBackend/messages?conversation=${encodeURIComponent(conversationId)}`,
+    `/account/messages?conversation=${encodeURIComponent(conversationId)}`,
   )
 
   const email = renderAdminMessageAlertEmail({
     customerName: safeText(customerName) || 'there',
-    senderLabel: safeText(senderLabel) || 'Alxora support',
+    senderLabel: normalizedSenderLabel,
     previewText,
     messagesUrl,
     productName: safeText(productName),

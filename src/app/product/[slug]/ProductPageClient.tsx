@@ -1435,8 +1435,12 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
         : 'Select an option'
   const isWishlisted = isRecentlySaved(product?.id)
   const shouldShowMobileFloatingCart =
-    isMobile && showFloatingCart && !showFloatingDock && !isMobileGalleryVisible
-  const shouldRenderFloatingDock = !isMobile || !isMobileGalleryVisible
+    isMobile &&
+    showFloatingCart &&
+    !showFloatingDock &&
+    !isMobileGalleryVisible &&
+    !showSellerChat
+  const shouldRenderFloatingDock = (!isMobile || !isMobileGalleryVisible) && !showSellerChat
 
   const handleQuantitySelectChange = (nextQuantity: number) => {
     const parsed = Number(nextQuantity)

@@ -4,6 +4,7 @@ import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { isReturnPolicyDisabled, normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { createNotifications, notifyAllAdmins } from '@/lib/admin/notifications'
+import type { EmailOrderBreakdown } from '@/lib/email/order-breakdown'
 import { sendOrderStatusEmail } from '@/lib/email/send-order-status-email'
 import { reconcilePendingCheckoutOrderPayment } from '@/lib/payments/reconcile-pending-checkout'
 
@@ -137,6 +138,28 @@ const toPaymentMethodLabel = (methodId: string, channel: string) => {
   if (ch === 'ussd') return 'USSD'
   return 'Online Wallet'
 }
+
+const buildEmailOrderBreakdown = (
+  order: {
+    currency?: string | null
+    shipping_fee?: number | string | null
+    total_amount?: number | string | null
+    payment_status?: string | null
+  },
+  items: Array<{ name?: string | null; image?: string | null; quantity?: number | string | null; line_total?: number | string | null }>,
+): EmailOrderBreakdown => ({
+  currency: String(order.currency || 'NGN').toUpperCase() || 'NGN',
+  shippingFee: Number(order.shipping_fee || 0),
+  discountAmount: 0,
+  totalAmount: Number(order.total_amount || 0),
+  paymentMethodLabel: String(order.payment_status || '').toLowerCase() === 'paid' ? 'Paid online' : '',
+  items: items.map((item) => ({
+    name: String(item?.name || 'Product'),
+    image: item?.image ? String(item.image) : null,
+    quantity: Math.max(1, Number(item?.quantity || 1)),
+    lineTotal: Number(item?.line_total || 0),
+  })),
+})
 
 const toTimestamp = (value: unknown) => {
   const raw = String(value || '').trim()
@@ -460,7 +483,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
   const adminDb = createAdminSupabaseClient()
   const { data: orderRow, error: orderError } = await adminDb
     .from('checkout_orders')
-    .select('id, user_id, order_number, payment_status, shipping_address, created_at')
+    .select('id, user_id, order_number, payment_status, shipping_address, created_at, currency, shipping_fee, total_amount')
     .eq('id', safeOrderId)
     .eq('user_id', auth.user.id)
     .maybeSingle()
@@ -555,12 +578,19 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
   try {
     const customerEmail = String(auth.user.email || '').trim()
     if (customerEmail) {
+      const { data: orderItems } = await adminDb
+        .from('checkout_order_items')
+        .select('name, image, quantity, line_total')
+        .eq('order_id', String(orderRow.id || ''))
+        .order('created_at', { ascending: true })
+
       await sendOrderStatusEmail({
         to: customerEmail,
         customerName: resolveCustomerName(shippingAddress),
         orderId: String(orderRow.id || ''),
         orderNumberLabel,
         status: 'cancelled',
+        breakdown: buildEmailOrderBreakdown(orderRow, Array.isArray(orderItems) ? orderItems : []),
       })
     }
   } catch (emailError) {

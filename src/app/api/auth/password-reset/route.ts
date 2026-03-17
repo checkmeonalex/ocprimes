@@ -1,7 +1,9 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { jsonOk, jsonError } from '@/lib/http/response'
-import { createAdminSupabaseClient } from '@/lib/supabase/admin'
+import { findAuthUserByEmail } from '@/lib/auth/find-user-by-email'
+import { generateRecoveryEmailLink } from '@/lib/auth/supabase-email-links'
+import { sendPasswordResetEmail } from '@/lib/email/send-auth-action-emails'
 
 const schema = z.object({
   email: z.string().trim().email().max(255),
@@ -18,11 +20,22 @@ export async function POST(request: NextRequest) {
   const redirectTo = new URL('/reset-password', request.url).toString()
 
   try {
-    const adminClient = createAdminSupabaseClient()
-    const { error } = await adminClient.auth.resetPasswordForEmail(email, { redirectTo })
-    if (error) {
-      console.error('Password reset link request failed:', error.message)
-      return jsonError('Unable to send reset link right now. Please try again.', 503)
+    const matchedUser = await findAuthUserByEmail(email).catch(() => null)
+    if (matchedUser?.email) {
+      const generated = await generateRecoveryEmailLink({
+        email,
+        redirectTo,
+      })
+      const metadata = (matchedUser.user_metadata || {}) as Record<string, unknown>
+      const customerName = String(
+        metadata.full_name || metadata.name || metadata.first_name || '',
+      ).trim()
+
+      await sendPasswordResetEmail({
+        to: email,
+        customerName,
+        resetUrl: generated.actionLink,
+      })
     }
   } catch (error: any) {
     console.error('Password reset route error:', error?.message || error)

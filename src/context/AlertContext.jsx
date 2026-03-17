@@ -179,17 +179,32 @@ export function AlertProvider({ children }) {
     }
 
     const isProtectedCustomerPath = (pathname) =>
-      pathname.startsWith('/UserBackend') || pathname.startsWith('/wishlist')
+      pathname.startsWith('/UserBackend') ||
+      pathname.startsWith('/account') ||
+      pathname.startsWith('/wishlist')
 
-    const redirectForUnauthorized = () => {
+    const isProtectedAdminPath = (pathname) =>
+      pathname.startsWith('/backend/admin') || pathname.startsWith('/admin')
+
+    const redirectForUnauthorized = (requestPath) => {
       if (typeof window === 'undefined') return true
       const currentPath = `${window.location.pathname}${window.location.search || ''}`
-      if (!isProtectedCustomerPath(window.location.pathname)) {
+      const pathname = String(window.location.pathname || '')
+      const isRoleLookup = requestPath === '/api/auth/role' || requestPath.startsWith('/api/auth/role?')
+      const isCustomerPath = isProtectedCustomerPath(pathname)
+      const isAdminPath = isProtectedAdminPath(pathname)
+
+      if (!isRoleLookup && !isCustomerPath && !isAdminPath) {
         return false
       }
       const nextValue = encodeURIComponent(currentPath)
-      const authDestination = `/signup?next=${nextValue}`
+      const authDestination = isAdminPath
+        ? `/admin/login?next=${nextValue}`
+        : `/login?next=${nextValue}`
       if (window.location.pathname.startsWith('/login') || window.location.pathname.startsWith('/signup')) {
+        return true
+      }
+      if (window.location.pathname.startsWith('/admin/login') || window.location.pathname.startsWith('/admin/signup')) {
         return true
       }
       window.location.assign(authDestination)
@@ -210,7 +225,7 @@ export function AlertProvider({ children }) {
       try {
         const response = await originalFetch(input, init)
         if (isApiCall && response.status === 401) {
-          const redirected = redirectForUnauthorized()
+          const redirected = redirectForUnauthorized(requestPath)
           if (!redirected) {
             return response
           }

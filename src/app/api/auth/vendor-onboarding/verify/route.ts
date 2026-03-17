@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   const { error } = await supabase.auth.verifyOtp({
     email: email.trim().toLowerCase(),
     token: code.trim(),
-    type: 'email',
+    type: 'magiclink',
   })
 
   if (error) {

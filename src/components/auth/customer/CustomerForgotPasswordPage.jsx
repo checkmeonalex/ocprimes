@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
-import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
 import CustomerAuthHeader from './CustomerAuthHeader'
 
 const inputClassName =
@@ -48,15 +47,8 @@ export default function CustomerForgotPasswordPage() {
       const payload = await response.json().catch(() => null)
 
       if (!response.ok) {
-        const supabase = createBrowserSupabaseClient()
-        const redirectTo = `${window.location.origin}/reset-password`
-        const { error: fallbackError } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo,
-        })
-        if (fallbackError) {
-          setError(payload?.error || fallbackError.message || 'Unable to send reset link.')
-          return
-        }
+        setError(payload?.error || 'Unable to send reset link.')
+        return
       }
 
       setNotice(

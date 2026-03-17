@@ -3,7 +3,9 @@ import { z } from 'zod'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
+import { notifyAllAdmins } from '@/lib/admin/notifications'
 import { fetchCartSnapshot, getCartForUser } from '@/lib/cart/cart-server'
+import { sendAdminTeamAlertToAll } from '@/lib/email/send-admin-team-alert-to-all'
 import { filterItemsByCheckoutSelection, parseCheckoutSelectionParam } from '@/lib/cart/checkout-selection'
 
 const verifyPayloadSchema = z.object({
@@ -283,6 +285,40 @@ export async function POST(request: NextRequest) {
               String(auth.user.id || ''),
               String(orderRow.checkout_selection || ''),
             )
+            const orderNumber = String(orderRow.order_number || '').trim() || toOrderNumber(orderRow.id)
+            await notifyAllAdmins(adminDb, {
+              title: `New order received ${orderNumber}`,
+              message: `A new paid order has been placed on Alxora.`,
+              type: 'order_received',
+              severity: 'info',
+              entityType: 'order',
+              entityId: String(orderRow.id),
+              metadata: {
+                order_id: String(orderRow.id),
+                order_number: orderNumber,
+                action_url: `/backend/admin/orders/${String(orderRow.id)}`,
+              },
+              createdBy: String(auth.user.id || ''),
+            })
+            try {
+              await sendAdminTeamAlertToAll({
+                adminDb,
+                heading: `New order received ${orderNumber}`,
+                subheading: 'A customer has completed payment and the order is ready for admin review.',
+                previewText: `New order received ${orderNumber}`,
+                accentLabel: 'Order details',
+                summaryRows: [
+                  { label: 'Order number', value: orderNumber },
+                  { label: 'Customer', value: String(auth.user.email || '').trim() || 'Customer' },
+                ],
+                bodyTitle: 'What happened',
+                bodyText: 'A new order has been paid successfully. Open the order to review the items and next steps.',
+                actionLabel: 'Open order',
+                actionPath: `/backend/admin/orders/${String(orderRow.id)}`,
+              })
+            } catch (emailError) {
+              console.error('admin order alert email failed:', emailError)
+            }
           }
         }
       } catch {
