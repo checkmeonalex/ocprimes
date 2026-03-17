@@ -1,4 +1,5 @@
 import { createNotifications } from '@/lib/admin/notifications'
+import { sendAdminMessageEmail } from '@/lib/email/send-admin-message-email'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 
 const safeText = (value: unknown) => String(value || '').trim()
@@ -75,9 +76,13 @@ export const notifyVendorOnCustomerChatMessage = async ({
 export const notifyCustomerOnVendorChatMessage = async ({
   conversation,
   senderUserId,
+  senderRole,
+  messageBody,
 }: {
   conversation: any
   senderUserId: string
+  senderRole: 'admin' | 'vendor'
+  messageBody: string
 }) => {
   const customerUserId = safeText(conversation?.customer_user_id || conversation?.customerUserId)
   const vendorUserId = safeText(conversation?.vendor_user_id || conversation?.vendorUserId)
@@ -106,7 +111,9 @@ export const notifyCustomerOnVendorChatMessage = async ({
   const senderAlias = senderEmail ? senderEmail.split('@')[0] : ''
   const vendorName = safeText(conversation?.vendorName)
   const senderLabel =
-    senderUserIdSafe === vendorUserId
+    senderRole === 'admin'
+      ? senderAlias || 'Alxora Support'
+      : senderUserIdSafe === vendorUserId
       ? vendorName || senderAlias || 'Seller'
       : senderAlias || 'Support'
 
@@ -129,4 +136,24 @@ export const notifyCustomerOnVendorChatMessage = async ({
       created_by: senderUserIdSafe,
     },
   ])
+
+  if (senderRole !== 'admin') return
+
+  const customerUser = await adminDb.auth.admin.getUserById(customerUserId)
+  const customerEmail = safeText(customerUser?.data?.user?.email)
+  if (!customerEmail) return
+
+  const customerMeta = (customerUser?.data?.user?.user_metadata || {}) as Record<string, unknown>
+  const customerName = safeText(
+    customerMeta.full_name || customerMeta.name || customerMeta.first_name,
+  )
+
+  await sendAdminMessageEmail({
+    to: customerEmail,
+    customerName,
+    senderLabel,
+    conversationId,
+    previewBody: messageBody,
+    productName,
+  })
 }

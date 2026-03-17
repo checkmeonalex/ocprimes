@@ -188,21 +188,21 @@ export default function VendorSignupForm({
           {isSellerClean ? (
             <div className='space-y-3'>
               <h2 className='text-[1.75rem] font-semibold tracking-tight text-slate-950'>
-                Sell with an existing account
+                Sign in to start selling
               </h2>
               <p className='text-base leading-7 text-slate-700'>
-                If you already have an Alxora account, you can use the same email to activate your seller access.
+                Use your existing Alxora account to unlock seller access.
               </p>
             </div>
           ) : null}
 
           <label className='space-y-2 text-sm font-semibold text-slate-700'>
-            {isSellerClean ? 'Enter mobile number or email' : 'Email address'}
+            {isSellerClean ? 'Email or mobile number' : 'Email address'}
             <input
               type='email'
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder={isSellerClean ? 'Enter your email' : 'you@brand.com'}
+              placeholder={isSellerClean ? 'Enter email or phone' : 'you@brand.com'}
               autoComplete='email'
               className={inputClassName}
               required
@@ -219,8 +219,7 @@ export default function VendorSignupForm({
           {isSellerClean ? (
             <div className='space-y-5 pt-1'>
               <p className='text-xs leading-5 text-slate-500'>
-                By continuing, you agree to Alxora&apos; seller terms and
-                <span className='mx-1'>our</span>
+                By continuing, you agree to Alxora&apos;s seller terms and{' '}
                 <Link href='/privacy-policy' className='font-medium text-slate-700 underline underline-offset-2'>
                   Privacy Notice
                 </Link>

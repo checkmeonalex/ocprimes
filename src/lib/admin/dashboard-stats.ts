@@ -2,6 +2,7 @@ import { convertCurrencyAmount } from '@/lib/i18n/exchange-rates'
 import { readExchangeRatesPayload } from '@/lib/i18n/exchange-rate-service'
 import { resolveDashboardRange } from '@/lib/admin/dashboard-range'
 import { loadVendorOrderIds, loadVendorProductIds } from '@/lib/orders/vendor-scope'
+import { loadCategoryInterestDashboardStats } from '@/lib/admin/category-interest-stats'
 
 const PAID_STATUS = 'paid'
 const DASHBOARD_CURRENCY = 'NGN'
@@ -436,6 +437,15 @@ export async function loadDashboardStats(adminDb: any, actor: DashboardActor, ra
     percent: maxSoldQuantity > 0 ? Math.max(8, Math.round((entry.quantity / maxSoldQuantity) * 100)) : 0,
   }))
 
+  const categoryInterest = isSellerScoped
+    ? null
+    : await loadCategoryInterestDashboardStats(adminDb, {
+        currentStart: currentWindowStart,
+        currentEnd: currentWindowEnd,
+        previousStart: previousWindowStart,
+        previousEnd: previousWindowEnd,
+      })
+
   return {
     range: {
       key: resolvedRange.key,
@@ -504,5 +514,6 @@ export async function loadDashboardStats(adminDb: any, actor: DashboardActor, ra
     },
     topProducts,
     topSoldItems,
+    categoryInterest,
   }
 }

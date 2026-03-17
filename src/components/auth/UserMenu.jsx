@@ -549,8 +549,7 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
                 </div>
               ) : (
                 <div
-                  className='mt-1 max-h-[54vh] overflow-y-auto pr-1 md:pr-2 [scrollbar-gutter:stable] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent md:[&::-webkit-scrollbar]:w-2 md:[&::-webkit-scrollbar-track]:bg-transparent md:[&::-webkit-scrollbar-thumb]:rounded-full md:[&::-webkit-scrollbar-thumb]:bg-gray-300 md:[&::-webkit-scrollbar-thumb]:border-[2px] md:[&::-webkit-scrollbar-thumb]:border-solid md:[&::-webkit-scrollbar-thumb]:border-white'
-                  style={{ scrollbarWidth: 'thin' }}
+                  className='mt-1 max-h-[54vh] overflow-y-auto pr-1.5 md:pr-2 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.42)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/55 [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-clip-padding hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/55'
                 >
                   <div className='space-y-1'>
                     {USER_MENU_ITEMS.map((item) => (

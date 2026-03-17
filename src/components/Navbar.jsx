@@ -41,6 +41,7 @@ export default function Navbar({
   const { summary, isReady, isServerReady } = useCart()
   const { user } = useAuthUser(initialAuthUser, Boolean(initialAuthUser))
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
+  const [isCategoryMenuModalOpen, setIsCategoryMenuModalOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isSearchCategoryOpen, setIsSearchCategoryOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
@@ -434,6 +435,7 @@ export default function Navbar({
 
   useEffect(() => {
     const handleClickOutside = (event) => {
+      if (isCategoryMenuModalOpen) return
       if (!isWithinCategoriesArea(event.target)) {
         clearCategoriesHoverTimeout()
         setIsCategoriesOpen(false)
@@ -445,7 +447,7 @@ export default function Navbar({
       document.removeEventListener('mousedown', handleClickOutside)
       clearCategoriesHoverTimeout()
     }
-  }, [])
+  }, [isCategoryMenuModalOpen])
 
   useEffect(() => {
     let cancelled = false
@@ -551,6 +553,7 @@ export default function Navbar({
   }
 
   const handleCategoriesMouseLeave = (event) => {
+    if (isCategoryMenuModalOpen) return
     const nextTarget = event?.relatedTarget
     if (isWithinCategoriesArea(nextTarget)) return
     clearCategoriesHoverTimeout()
@@ -1518,6 +1521,7 @@ export default function Navbar({
             panelRef={menuPanelRef}
             onMenuMouseEnter={handleCategoriesMouseEnter}
             onMenuMouseLeave={handleCategoriesMouseLeave}
+            onEmptyCategoryModalChange={setIsCategoryMenuModalOpen}
           />
         </div>
       </div>

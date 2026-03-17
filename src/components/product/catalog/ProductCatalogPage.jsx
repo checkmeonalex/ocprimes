@@ -135,7 +135,7 @@ const ProductCatalogPage = ({
   const [vendorProductQuery, setVendorProductQuery] = useState('')
   const [debouncedVendorProductQuery, setDebouncedVendorProductQuery] = useState('')
   const [isSearchingStoreProducts, setIsSearchingStoreProducts] = useState(false)
-  const [emptyCategoryName, setEmptyCategoryName] = useState('')
+  const [emptyCategory, setEmptyCategory] = useState(null)
   const [hasMoreFromServer, setHasMoreFromServer] = useState(
     typeof initialHasMore === 'boolean'
       ? initialHasMore
@@ -739,12 +739,19 @@ const ProductCatalogPage = ({
     setPriceRange(priceBounds)
   }
 
-  const openEmptyCategoryModal = useCallback((name) => {
-    setEmptyCategoryName(String(name || '').trim())
+  const openEmptyCategoryModal = useCallback((category) => {
+    if (!category?.id) return
+    setEmptyCategory({
+      id: String(category.id),
+      name: String(category.name || '').trim(),
+      slug: String(category.slug || '').trim(),
+      imageUrl: String(category.imageUrl || category.image_url || '').trim(),
+      imageAlt: String(category.imageAlt || category.image_alt || category.name || '').trim(),
+    })
   }, [])
 
   const closeEmptyCategoryModal = useCallback(() => {
-    setEmptyCategoryName('')
+    setEmptyCategory(null)
   }, [])
 
   const hasActivePrice =
@@ -1280,7 +1287,7 @@ const ProductCatalogPage = ({
                       <button
                         key={cat.id}
                         type='button'
-                        onClick={() => openEmptyCategoryModal(cat.name)}
+                        onClick={() => openEmptyCategoryModal(cat)}
                         className='flex flex-col items-center gap-2 transition'
                         style={{ minWidth: '100px' }}
                       >
@@ -1344,7 +1351,7 @@ const ProductCatalogPage = ({
                           <button
                             key={cat.id}
                             type='button'
-                            onClick={() => openEmptyCategoryModal(cat.name)}
+                            onClick={() => openEmptyCategoryModal(cat)}
                             className='flex flex-col items-center gap-2 transition'
                             style={{ minWidth: '100px' }}
                           >
@@ -1564,7 +1571,7 @@ const ProductCatalogPage = ({
                     type='button'
                     onClick={() => {
                       if (isEmptyCategory) {
-                        openEmptyCategoryModal(category.name)
+                        openEmptyCategoryModal(category)
                         return
                       }
                       handleCategoryTileClick(category.value)
@@ -1914,8 +1921,8 @@ const ProductCatalogPage = ({
       )}
 
       <EmptyCategoryModal
-        isOpen={Boolean(emptyCategoryName)}
-        categoryName={emptyCategoryName}
+        isOpen={Boolean(emptyCategory)}
+        category={emptyCategory}
         onClose={closeEmptyCategoryModal}
       />
     </div>

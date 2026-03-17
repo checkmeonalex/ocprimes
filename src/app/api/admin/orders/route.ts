@@ -3,6 +3,7 @@ import { jsonError, jsonOk } from '@/lib/http/response'
 import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { createNotifications } from '@/lib/admin/notifications'
+import { sendOrderStatusEmail } from '@/lib/email/send-order-status-email'
 import { loadVendorOrderIds, loadVendorProductIds } from '@/lib/orders/vendor-scope'
 
 const DEFAULT_PER_PAGE = 10
@@ -483,6 +484,22 @@ export async function PATCH(request: NextRequest) {
         created_by: actor.user?.id || null,
       },
     ])
+
+    try {
+      const customerUser = await adminDb.auth.admin.getUserById(recipientUserId)
+      const customerEmail = String(customerUser?.data?.user?.email || '').trim()
+      if (customerEmail) {
+        await sendOrderStatusEmail({
+          to: customerEmail,
+          customerName: resolveCustomerName(nextShippingAddress),
+          orderId: String(existingOrder.id),
+          orderNumberLabel,
+          status: nextStatus,
+        })
+      }
+    } catch (emailError) {
+      console.error('order status email failed:', emailError)
+    }
   }
 
   const response = jsonOk({

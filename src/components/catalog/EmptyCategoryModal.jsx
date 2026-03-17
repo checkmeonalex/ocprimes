@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createPortal } from 'react-dom'
-import { useAlerts } from '@/context/AlertContext'
 import { useAuthUser } from '@/lib/auth/useAuthUser'
 
 const buildNextPath = (pathname, searchParams) => {
@@ -14,19 +13,31 @@ const buildNextPath = (pathname, searchParams) => {
 
 export default function EmptyCategoryModal({
   isOpen,
-  categoryName = '',
+  category = null,
   onClose,
 }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { user } = useAuthUser()
-  const { pushAlert } = useAlerts()
+  const { user, isLoading: isAuthLoading } = useAuthUser()
   const [isMounted, setIsMounted] = useState(false)
+  const [notifyState, setNotifyState] = useState('idle')
+  const [notifyError, setNotifyError] = useState('')
+
+  const cleanCategoryId = useMemo(() => String(category?.id || '').trim(), [category?.id])
+  const cleanCategorySlug = useMemo(() => String(category?.slug || '').trim(), [category?.slug])
+  const cleanCategoryImageUrl = useMemo(
+    () => String(category?.imageUrl || '').trim(),
+    [category?.imageUrl],
+  )
+  const cleanCategoryImageAlt = useMemo(
+    () => String(category?.imageAlt || category?.name || '').trim() || 'Category image',
+    [category?.imageAlt, category?.name],
+  )
 
   const cleanCategoryName = useMemo(
-    () => String(categoryName || '').trim() || 'this category',
-    [categoryName],
+    () => String(category?.name || '').trim() || 'this category',
+    [category?.name],
   )
 
   useEffect(() => {
@@ -52,23 +63,77 @@ export default function EmptyCategoryModal({
     }
   }, [isOpen, onClose])
 
-  if (!isMounted || !isOpen) return null
-
-  const handleNotifyClick = () => {
-    if (!user) {
-      const next = encodeURIComponent(buildNextPath(pathname, searchParams))
-      router.push(`/signup?next=${next}`)
-      onClose?.()
+  useEffect(() => {
+    if (!isOpen) {
+      setNotifyState('idle')
+      setNotifyError('')
       return
     }
 
-    pushAlert({
-      type: 'info',
-      title: 'Category alerts are almost here',
-      message: `We are still setting up availability alerts for ${cleanCategoryName}. Check back again soon.`,
-      timeoutMs: 5000,
-    })
-    onClose?.()
+    setNotifyState('idle')
+    setNotifyError('')
+  }, [cleanCategoryId, isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    if (!isAuthLoading && !user && notifyState === 'checking-auth') {
+      setNotifyState('guest')
+      setNotifyError('Sign in to get notified when this category is available.')
+    }
+  }, [isAuthLoading, isOpen, notifyState, user])
+
+  if (!isMounted || !isOpen) return null
+
+  const handleNotifyClick = async () => {
+    if (isAuthLoading) {
+      setNotifyState('checking-auth')
+      setNotifyError('')
+      return
+    }
+
+    if (!user) {
+      setNotifyState('guest')
+      setNotifyError('Sign in to get notified when this category is available.')
+      return
+    }
+
+    if (!cleanCategoryId || notifyState === 'submitting' || notifyState === 'success') {
+      return
+    }
+
+    setNotifyState('submitting')
+    setNotifyError('')
+
+    try {
+      const response = await fetch('/api/categories', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'notify_category_interest',
+          categoryId: cleanCategoryId,
+          categoryName: cleanCategoryName,
+          categorySlug: cleanCategorySlug || null,
+        }),
+      })
+
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to save this notification request.')
+      }
+
+      setNotifyState('success')
+    } catch (error) {
+      setNotifyState('idle')
+      setNotifyError(error?.message || 'Unable to save this notification request.')
+    }
+  }
+
+  const handleSigninClick = () => {
+    const next = encodeURIComponent(buildNextPath(pathname, searchParams))
+    router.push(`/signup?next=${next}`)
   }
 
   const handleSellerClick = () => {
@@ -101,7 +166,7 @@ export default function EmptyCategoryModal({
             ✕
           </button>
 
-          <div className='relative mx-auto mb-5 flex h-36 w-36 items-center justify-center'>
+          <div className='relative mx-auto mb-4 flex h-32 w-32 items-center justify-center'>
             <div className='absolute inset-x-4 bottom-5 h-16 rounded-[18px] border border-[#b9922b] bg-[linear-gradient(180deg,#f0d783_0%,#b6841e_100%)] shadow-[0_16px_28px_rgba(150,109,16,0.24)]' />
             <div className='absolute inset-x-7 bottom-10 h-10 rounded-[14px] border border-[#f6e8b4]/70 bg-[linear-gradient(180deg,rgba(255,248,225,0.7)_0%,rgba(255,255,255,0.08)_100%)]' />
             <div className='empty-category-item absolute left-9 top-3 h-9 w-9 rounded-xl bg-[linear-gradient(135deg,#f6e6aa_0%,#c59526_100%)] shadow-[0_10px_18px_rgba(150,109,16,0.18)]' />
@@ -115,9 +180,25 @@ export default function EmptyCategoryModal({
             <p className='mb-2 text-[11px] font-semibold uppercase tracking-[0.34em] text-[#9a7a2d]'>
               New arrivals loading
             </p>
-            <h2 id='empty-category-modal-title' className='text-[1.85rem] font-semibold tracking-tight text-slate-950'>
-              We&apos;re getting {cleanCategoryName} ready.
+            <h2 id='empty-category-modal-title' className='mx-auto max-w-[15ch] text-[1.45rem] font-semibold tracking-tight text-slate-950 sm:text-[1.6rem]'>
+              Getting {cleanCategoryName} ready
             </h2>
+            <div className='mt-4 flex flex-col items-center'>
+              <div className='relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-[#ead9a1] bg-[linear-gradient(180deg,#fff7de_0%,#efe1b4_100%)] p-1.5 shadow-[0_14px_26px_rgba(150,109,16,0.16)]'>
+                {cleanCategoryImageUrl ? (
+                  <img
+                    src={cleanCategoryImageUrl}
+                    alt={cleanCategoryImageAlt}
+                    className='h-full w-full rounded-full object-cover'
+                  />
+                ) : (
+                  <div className='flex h-full w-full items-center justify-center rounded-full bg-white text-[11px] font-semibold text-slate-400'>
+                    Image
+                  </div>
+                )}
+              </div>
+              <p className='mt-2 text-sm font-semibold text-slate-700'>{cleanCategoryName}</p>
+            </div>
             <p id='empty-category-modal-description' className='mt-3 text-sm leading-6 text-slate-600'>
               New items will appear here soon.
             </p>
@@ -127,10 +208,52 @@ export default function EmptyCategoryModal({
             <button
               type='button'
               onClick={handleNotifyClick}
-              className='inline-flex items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgb(225_208_131)_0%,rgb(192_184_173)_45%,rgb(150_109_16)_100%)] px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_14px_30px_rgba(150,109,16,0.2)] transition hover:brightness-[1.03]'
+              disabled={
+                !cleanCategoryId ||
+                notifyState === 'checking-auth' ||
+                notifyState === 'submitting' ||
+                notifyState === 'success'
+              }
+              className={`inline-flex items-center justify-center rounded-2xl px-4 py-3 text-sm font-semibold shadow-[0_14px_30px_rgba(150,109,16,0.2)] transition ${
+                notifyState === 'success'
+                  ? 'bg-[linear-gradient(135deg,#e6f7ec_0%,#bce9c9_48%,#7dd39a_100%)] text-emerald-950'
+                  : 'bg-[linear-gradient(135deg,rgb(225_208_131)_0%,rgb(192_184_173)_45%,rgb(150_109_16)_100%)] text-slate-950 hover:brightness-[1.03]'
+              } ${notifyState === 'submitting' || notifyState === 'checking-auth' ? 'cursor-wait opacity-90' : ''} ${
+                !cleanCategoryId ? 'cursor-not-allowed opacity-60' : ''
+              }`}
             >
-              Notify me when available
+              {notifyState === 'success' ? (
+                <span className='empty-category-notify-success inline-flex items-center gap-2'>
+                  <span className='inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/80 text-emerald-700'>
+                    <svg viewBox='0 0 20 20' fill='none' className='h-3.5 w-3.5' stroke='currentColor' strokeWidth='2.4'>
+                      <path d='M4.5 10.5 8 14l7.5-8' strokeLinecap='round' strokeLinejoin='round' />
+                    </svg>
+                  </span>
+                  You&apos;ll be notified
+                </span>
+              ) : notifyState === 'checking-auth' ? (
+                <span className='inline-flex items-center gap-2'>
+                  <span className='h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent' />
+                  Checking your account
+                </span>
+              ) : notifyState === 'submitting' ? (
+                <span className='inline-flex items-center gap-2'>
+                  <span className='h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent' />
+                  Saving your spot
+                </span>
+              ) : (
+                'Notify me when available'
+              )}
             </button>
+            {notifyState === 'guest' ? (
+              <button
+                type='button'
+                onClick={handleSigninClick}
+                className='inline-flex items-center justify-center rounded-2xl border border-[#d7c27d] bg-[#fff8e4] px-4 py-3 text-sm font-semibold text-[#8e6713] transition hover:bg-[#fff3cc]'
+              >
+                Sign in to get alerts
+              </button>
+            ) : null}
             <button
               type='button'
               onClick={handleSellerClick}
@@ -139,6 +262,10 @@ export default function EmptyCategoryModal({
               Launch your collection
             </button>
           </div>
+
+          {notifyError ? (
+            <p className='mt-3 text-center text-xs font-medium text-rose-600'>{notifyError}</p>
+          ) : null}
 
           <div className='mt-4 flex items-center justify-center'>
             <button
@@ -172,6 +299,10 @@ export default function EmptyCategoryModal({
             animation-delay: 0.55s;
           }
 
+          .empty-category-notify-success {
+            animation: empty-category-success-pop 420ms ease-out;
+          }
+
           @keyframes empty-category-drop {
             0%,
             100% {
@@ -200,6 +331,17 @@ export default function EmptyCategoryModal({
             45% {
               transform: scale(1);
               opacity: 0.95;
+            }
+          }
+
+          @keyframes empty-category-success-pop {
+            0% {
+              transform: scale(0.86);
+              opacity: 0;
+            }
+            100% {
+              transform: scale(1);
+              opacity: 1;
             }
           }
         `}</style>

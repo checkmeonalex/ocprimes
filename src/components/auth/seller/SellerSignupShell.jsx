@@ -1,4 +1,4 @@
-import BrandLogo from '@/components/common/BrandLogo'
+import { BrandLogoFull } from '@/components/common/BrandLogo'
 import AuthBackButton from '@/components/auth/AuthBackButton'
 
 export default function SellerSignupShell({ children }) {
@@ -12,13 +12,12 @@ export default function SellerSignupShell({ children }) {
       <div className='mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center'>
         <section className='w-full max-w-[27rem]'>
           <div className='flex justify-center'>
-            <BrandLogo
-              href='/'
-              variant='full'
-              className='inline-flex items-center justify-center gap-3 text-slate-950'
-              taglineClassName='text-[10px] font-medium uppercase tracking-[0.38em] text-slate-500'
-              showTagline
-            />
+            <a href='/' className='inline-flex flex-col items-center justify-center gap-2 text-slate-950'>
+              <BrandLogoFull />
+              <span className='text-center text-[10px] font-medium uppercase leading-[1.45] tracking-[0.32em] text-slate-500'>
+                Build your brand. Sell on Alxora.
+              </span>
+            </a>
           </div>
           {children}
         </section>

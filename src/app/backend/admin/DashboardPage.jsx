@@ -59,6 +59,16 @@ function DashboardStatCard({ label, value, note, isMoney = false }) {
   );
 }
 
+function CompactInsightCard({ label, value, note }) {
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">{label}</p>
+      <p className="mt-3 text-2xl font-semibold leading-none text-slate-900">{formatDashboardCount(value)}</p>
+      <p className="mt-2 text-xs leading-5 text-slate-500">{note}</p>
+    </article>
+  );
+}
+
 function EmptyState({ title, copy }) {
   return (
     <div className="flex h-[280px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-6 text-center">
@@ -133,6 +143,10 @@ function DashboardPage() {
   const ordersPrevious = Array.isArray(dashboard?.charts?.orders?.previous) ? dashboard.charts.orders.previous : [];
   const activeWindowLabel = dashboard?.range?.windowLabel || 'Past 30 days';
   const comparisonLabel = dashboard?.range?.comparisonLabel || 'previous period';
+  const categoryInterest = dashboard?.categoryInterest || null;
+  const topInterestedCategories = Array.isArray(categoryInterest?.topCategories)
+    ? categoryInterest.topCategories
+    : [];
 
   return (
     <div className="min-h-screen overflow-x-clip bg-white text-slate-900">
@@ -361,6 +375,104 @@ function DashboardPage() {
                 )}
               </article>
             </section>
+
+            {categoryInterest ? (
+              <section className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                <article className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-base font-semibold text-slate-900">Category demand signals</p>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Shoppers asking to be notified when empty categories go live.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+                      {activeWindowLabel}
+                    </span>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <CompactInsightCard
+                      label="Interested shoppers"
+                      value={categoryInterest.totalInterested}
+                      note="Unique signed-in shoppers across all empty categories."
+                    />
+                    <CompactInsightCard
+                      label="New this window"
+                      value={categoryInterest.newInterested}
+                      note={`${formatDashboardCount(categoryInterest.previousInterested)} in ${comparisonLabel.toLowerCase()}.`}
+                    />
+                    <CompactInsightCard
+                      label="Categories tracked"
+                      value={categoryInterest.categoriesTracked}
+                      note="Empty categories currently collecting demand signals."
+                    />
+                  </div>
+                </article>
+
+                <article className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="mb-4 flex items-center justify-between">
+                    <p className="text-base font-semibold text-slate-900">Most requested categories</p>
+                    <span className="text-xs font-medium text-slate-400">Unique shoppers</span>
+                  </div>
+
+                  {isLoading ? (
+                    <div className="space-y-4">
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <div key={`interest-skeleton-${index}`} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Skeleton className="h-3 w-32" />
+                            <Skeleton className="h-3 w-12" />
+                          </div>
+                          <Skeleton className="h-2 w-full rounded-full" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : topInterestedCategories.length > 0 ? (
+                    <div className="space-y-3">
+                      {topInterestedCategories.map((item) => {
+                        const percent =
+                          topInterestedCategories[0]?.totalInterested > 0
+                            ? Math.max(
+                                10,
+                                Math.round((Number(item.totalInterested || 0) / Number(topInterestedCategories[0]?.totalInterested || 1)) * 100),
+                              )
+                            : 0;
+
+                        return (
+                          <div key={item.categoryId || item.categorySlug || item.categoryName}>
+                            <div className="mb-1 flex items-center justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-slate-800">{item.categoryName}</p>
+                                <p className="text-xs text-slate-500">
+                                  {item.newInterested > 0
+                                    ? `${formatDashboardCount(item.newInterested)} new in this window`
+                                    : 'No new signups in this window'}
+                                </p>
+                              </div>
+                              <span className="shrink-0 text-sm font-semibold text-slate-700">
+                                {formatDashboardCount(item.totalInterested)}
+                              </span>
+                            </div>
+                            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                              <div
+                                className="h-2 rounded-full bg-[linear-gradient(135deg,rgb(225_208_131)_0%,rgb(192_184_173)_45%,rgb(150_109_16)_100%)]"
+                                style={{ width: `${Math.max(0, Math.min(100, percent))}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <EmptyState
+                      title="No demand signals yet"
+                      copy="When shoppers tap notify on empty categories, the strongest category demand will show here."
+                    />
+                  )}
+                </article>
+              </section>
+            ) : null}
           </div>
         </main>
       </div>

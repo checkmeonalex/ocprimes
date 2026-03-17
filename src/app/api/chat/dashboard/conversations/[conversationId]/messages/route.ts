@@ -220,6 +220,8 @@ export async function POST(
       await notifyCustomerOnVendorChatMessage({
         conversation: resolvedConversation,
         senderUserId: user.id,
+        senderRole: isAdmin ? 'admin' : 'vendor',
+        messageBody: parsed.data.body,
       })
     } catch (notificationError) {
       console.error('chat message customer notification failed:', notificationError)

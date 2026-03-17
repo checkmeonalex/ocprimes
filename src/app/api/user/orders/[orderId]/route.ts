@@ -4,6 +4,7 @@ import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { isReturnPolicyDisabled, normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { createNotifications, notifyAllAdmins } from '@/lib/admin/notifications'
+import { sendOrderStatusEmail } from '@/lib/email/send-order-status-email'
 import { reconcilePendingCheckoutOrderPayment } from '@/lib/payments/reconcile-pending-checkout'
 
 const PAYMENT_WINDOW_MINUTES = 10
@@ -110,6 +111,16 @@ const formatAddress = (address: Record<string, unknown>) => {
     String(address?.country || '').trim(),
   ].filter(Boolean)
   return parts.join(', ')
+}
+
+const resolveCustomerName = (shippingAddress: Record<string, unknown>) => {
+  const fullName = String(shippingAddress?.fullName || shippingAddress?.full_name || '').trim()
+  if (fullName) return fullName
+  const directName = String(shippingAddress?.name || shippingAddress?.recipientName || '').trim()
+  if (directName) return directName
+  const firstName = String(shippingAddress?.firstName || shippingAddress?.first_name || '').trim()
+  const lastName = String(shippingAddress?.lastName || shippingAddress?.last_name || '').trim()
+  return `${firstName} ${lastName}`.trim() || 'Customer'
 }
 
 const toPaymentMethodLabel = (methodId: string, channel: string) => {
@@ -540,6 +551,21 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ o
     },
     createdBy: String(auth.user.id || '') || null,
   })
+
+  try {
+    const customerEmail = String(auth.user.email || '').trim()
+    if (customerEmail) {
+      await sendOrderStatusEmail({
+        to: customerEmail,
+        customerName: resolveCustomerName(shippingAddress),
+        orderId: String(orderRow.id || ''),
+        orderNumberLabel,
+        status: 'cancelled',
+      })
+    }
+  } catch (emailError) {
+    console.error('order cancellation email failed:', emailError)
+  }
 
   const response = jsonOk({
     orderId: String(orderRow.id || ''),
