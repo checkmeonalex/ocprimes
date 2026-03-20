@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import useAdminProfileIdentity from '@/components/admin/useAdminProfileIdentity'
 import { getProfileIdentityImageUrl, getProfileIdentityInitials } from '@/lib/user/profile-identity-cache'
 
@@ -56,6 +56,7 @@ const resolveTitleFromPath = (pathname) => {
 
 export default function AdminMobileHeader() {
   const pathname = usePathname()
+  const router = useRouter()
   const profileIdentity = useAdminProfileIdentity()
   const profileInitials = getProfileIdentityInitials(profileIdentity?.displayName)
   const profileImageUrl = getProfileIdentityImageUrl(profileIdentity)
@@ -82,6 +83,7 @@ export default function AdminMobileHeader() {
         <div className='flex items-center gap-2'>
           <button
             type='button'
+            onClick={() => router.push('/admin/notifications')}
             className='relative flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-600 ring-1 ring-slate-200'
             aria-label='Notifications'
           >

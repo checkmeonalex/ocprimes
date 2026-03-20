@@ -10,7 +10,6 @@ import BannerSlider from '@/components/layout/BannerSlider'
 import FeaturedStrip from '@/components/layout/FeaturedStrip'
 import HotspotProductSlider from '@/components/layout/HotspotProductSlider'
 import LogoGrid from '@/components/layout/LogoGrid'
-import EmptyCategoryModal from '@/components/catalog/EmptyCategoryModal'
 import { normalizeCategoryLayoutOrder } from '@/lib/layouts/category-layout'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import {
@@ -135,7 +134,6 @@ const ProductCatalogPage = ({
   const [vendorProductQuery, setVendorProductQuery] = useState('')
   const [debouncedVendorProductQuery, setDebouncedVendorProductQuery] = useState('')
   const [isSearchingStoreProducts, setIsSearchingStoreProducts] = useState(false)
-  const [emptyCategory, setEmptyCategory] = useState(null)
   const [hasMoreFromServer, setHasMoreFromServer] = useState(
     typeof initialHasMore === 'boolean'
       ? initialHasMore
@@ -739,21 +737,6 @@ const ProductCatalogPage = ({
     setPriceRange(priceBounds)
   }
 
-  const openEmptyCategoryModal = useCallback((category) => {
-    if (!category?.id) return
-    setEmptyCategory({
-      id: String(category.id),
-      name: String(category.name || '').trim(),
-      slug: String(category.slug || '').trim(),
-      imageUrl: String(category.imageUrl || category.image_url || '').trim(),
-      imageAlt: String(category.imageAlt || category.image_alt || category.name || '').trim(),
-    })
-  }, [])
-
-  const closeEmptyCategoryModal = useCallback(() => {
-    setEmptyCategory(null)
-  }, [])
-
   const hasActivePrice =
     priceRange.min !== priceBounds.min || priceRange.max !== priceBounds.max
   const formatCatalogPrice = useCallback(
@@ -1252,14 +1235,14 @@ const ProductCatalogPage = ({
             <div className='mb-4 overflow-x-auto lg:hidden'>
               <div className='flex items-start gap-4 min-w-full px-1'>
                 {childCategories.map((cat) => {
-                  const isEmptyCategory = cat?.has_products === false
-                  const categoryChipContent = (
-                    <>
-                      <div
-                      className={`h-16 w-16 overflow-hidden rounded-full bg-gray-50 ${
-                        isEmptyCategory ? 'grayscale brightness-[0.92]' : ''
-                      }`}
-                      >
+                  return (
+                    <Link
+                      key={cat.id}
+                      href={`/products/${encodeURIComponent(cat.slug || '')}`}
+                      className='flex flex-col items-center gap-2 transition'
+                      style={{ minWidth: '100px' }}
+                    >
+                      <div className='h-16 w-16 overflow-hidden rounded-full bg-gray-50'>
                         {cat.image_url ? (
                           <img
                             src={cat.image_url}
@@ -1272,38 +1255,9 @@ const ProductCatalogPage = ({
                           </div>
                         )}
                       </div>
-                      <span
-                        className={`text-center text-xs font-semibold leading-tight ${
-                          isEmptyCategory ? 'text-gray-500' : 'text-gray-800'
-                        }`}
-                      >
+                      <span className='text-center text-xs font-semibold leading-tight text-gray-800'>
                         {cat.name}
                       </span>
-                    </>
-                  )
-
-                  if (isEmptyCategory) {
-                    return (
-                      <button
-                        key={cat.id}
-                        type='button'
-                        onClick={() => openEmptyCategoryModal(cat)}
-                        className='flex flex-col items-center gap-2 transition'
-                        style={{ minWidth: '100px' }}
-                      >
-                        {categoryChipContent}
-                      </button>
-                    )
-                  }
-
-                  return (
-                    <Link
-                      key={cat.id}
-                      href={`/products/${encodeURIComponent(cat.slug || '')}`}
-                      className='flex flex-col items-center gap-2 transition'
-                      style={{ minWidth: '100px' }}
-                    >
-                      {categoryChipContent}
                     </Link>
                   )
                 })}
@@ -1316,14 +1270,14 @@ const ProductCatalogPage = ({
                 <div className='overflow-x-auto pr-16' ref={desktopStripRef}>
                   <div className='flex items-start gap-0 min-w-full'>
                     {childCategories.map((cat) => {
-                      const isEmptyCategory = cat?.has_products === false
-                      const categoryChipContent = (
-                        <>
-                          <div
-                      className={`h-20 w-20 overflow-hidden rounded-full bg-gray-50 ${
-                        isEmptyCategory ? 'grayscale brightness-[0.92]' : ''
-                      }`}
-                          >
+                      return (
+                        <Link
+                          key={cat.id}
+                          href={`/products/${encodeURIComponent(cat.slug || '')}`}
+                          className='flex flex-col items-center gap-2 transition'
+                          style={{ minWidth: '100px' }}
+                        >
+                          <div className='h-20 w-20 overflow-hidden rounded-full bg-gray-50'>
                             {cat.image_url ? (
                               <img
                                 src={cat.image_url}
@@ -1336,38 +1290,9 @@ const ProductCatalogPage = ({
                               </div>
                             )}
                           </div>
-                          <span
-                            className={`max-w-[100px] break-words text-center text-xs font-semibold leading-tight ${
-                              isEmptyCategory ? 'text-gray-500' : 'text-gray-800'
-                            }`}
-                          >
+                          <span className='max-w-[100px] break-words text-center text-xs font-semibold leading-tight text-gray-800'>
                             {cat.name}
                           </span>
-                        </>
-                      )
-
-                      if (isEmptyCategory) {
-                        return (
-                          <button
-                            key={cat.id}
-                            type='button'
-                            onClick={() => openEmptyCategoryModal(cat)}
-                            className='flex flex-col items-center gap-2 transition'
-                            style={{ minWidth: '100px' }}
-                          >
-                            {categoryChipContent}
-                          </button>
-                        )
-                      }
-
-                      return (
-                        <Link
-                          key={cat.id}
-                          href={`/products/${encodeURIComponent(cat.slug || '')}`}
-                          className='flex flex-col items-center gap-2 transition'
-                          style={{ minWidth: '100px' }}
-                        >
-                          {categoryChipContent}
                         </Link>
                       )
                     })}
@@ -1557,7 +1482,6 @@ const ProductCatalogPage = ({
             <div className='grid grid-cols-3 gap-x-2 gap-y-4 min-[420px]:grid-cols-4 sm:grid-cols-4'>
               {vendorCategoryTiles.map((category, index) => {
                 const isSelected = selectedCategoryKeys.has(normalizeKey(category.value))
-                const isEmptyCategory = category.hasProducts === false
                 const hiddenClass = !showAllVendorCategories
                   ? index >= 16
                     ? 'hidden'
@@ -1569,22 +1493,14 @@ const ProductCatalogPage = ({
                   <button
                     key={category.id}
                     type='button'
-                    onClick={() => {
-                      if (isEmptyCategory) {
-                        openEmptyCategoryModal(category)
-                        return
-                      }
-                      handleCategoryTileClick(category.value)
-                    }}
+                    onClick={() => handleCategoryTileClick(category.value)}
                     className={`group flex flex-col items-center gap-2 ${hiddenClass}`}
                   >
                     <div
                       className={`flex h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24 items-center justify-center overflow-hidden rounded-full border transition ${
                         isSelected
                           ? 'border-slate-900 bg-slate-900 text-white'
-                          : isEmptyCategory
-                          ? 'border-slate-200 bg-slate-100 text-slate-700 grayscale brightness-[0.92]'
-                            : 'border-slate-200 bg-slate-100 text-slate-700 group-hover:border-slate-300'
+                          : 'border-slate-200 bg-slate-100 text-slate-700 group-hover:border-slate-300'
                       }`}
                     >
                       {category.imageUrl ? (
@@ -1597,11 +1513,7 @@ const ProductCatalogPage = ({
                         <span className='text-xs font-semibold'>•</span>
                       )}
                     </div>
-                    <span
-                      className={`break-words text-center text-[13px] font-semibold leading-tight ${
-                        isEmptyCategory ? 'text-slate-500' : 'text-slate-800'
-                      }`}
-                    >
+                    <span className='break-words text-center text-[13px] font-semibold leading-tight text-slate-800'>
                       {category.name}
                     </span>
                   </button>
@@ -1919,12 +1831,6 @@ const ProductCatalogPage = ({
           </div>
         </div>
       )}
-
-      <EmptyCategoryModal
-        isOpen={Boolean(emptyCategory)}
-        category={emptyCategory}
-        onClose={closeEmptyCategoryModal}
-      />
     </div>
   )
 }

@@ -26,9 +26,40 @@ const mobileMenuItems = [
   { label: 'Reviews', href: '/backend/admin/reviews', icon: 'reviews' },
   { label: 'Store front', href: '/backend/admin/store-front', icon: 'storefront' },
   { label: 'Attributes', href: '/backend/admin/attributes', icon: 'attributes' },
-  { label: 'Tags', href: '/backend/admin/tags', icon: 'tags' },
-  { label: 'Library', href: '/backend/admin/library', icon: 'library' },
-  { label: 'Shortcut', href: '/backend/admin/shortcut', icon: 'settings' },
+]
+
+const mobileMenuSections = [
+  {
+    id: 'catalog',
+    title: 'Catalog',
+    items: [
+      { label: 'Pages', href: '/admin/pages' },
+      { label: 'Categories', href: '/admin/categories' },
+      { label: 'Brands', href: '/admin/brands' },
+      { label: 'Tags', href: '/admin/tags' },
+      { label: 'Library', href: '/admin/library' },
+      { label: 'Size Guides', href: '/admin/size-guides' },
+    ],
+  },
+  {
+    id: 'operations',
+    title: 'Operations',
+    items: [
+      { label: 'Customers', href: '/admin/customers' },
+      { label: 'Logistics', href: '/admin/logistics' },
+      { label: 'Settings', href: '/admin/settings' },
+      { label: 'Extra', href: '/admin/extra' },
+      { label: 'Shortcut', href: '/admin/shortcut' },
+    ],
+  },
+  {
+    id: 'vendors',
+    title: 'Vendor Admin',
+    items: [
+      { label: 'Vendor Users', href: '/backend/admin/admin/users' },
+      { label: 'Vendor Brands', href: '/backend/admin/admin/brands' },
+    ],
+  },
 ]
 
 const mobileSupportItems = [
@@ -85,6 +116,7 @@ export default function SettingsPage() {
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
   const [isProfileQuickMenuOpen, setIsProfileQuickMenuOpen] = useState(false)
   const [mobileSection, setMobileSection] = useState('menu')
+  const [expandedMobileMenuSections, setExpandedMobileMenuSections] = useState({})
 
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -431,6 +463,13 @@ export default function SettingsPage() {
     setMobileSection(sectionId)
   }
 
+  const toggleMobileMenuSection = (sectionId) => {
+    setExpandedMobileMenuSections((current) => ({
+      ...current,
+      [sectionId]: !current[sectionId],
+    }))
+  }
+
   return (
     <div className='min-h-screen bg-[#f6f7f9] text-slate-900'>
       <div className='flex min-h-screen'>
@@ -512,6 +551,57 @@ export default function SettingsPage() {
                       )
                     })}
                   </div>
+
+                  {mobileMenuSections.map((section) => {
+                    const isExpanded = Boolean(expandedMobileMenuSections[section.id])
+                    const visibleItems = isExpanded ? section.items : section.items.slice(0, 3)
+                    const hasMoreItems = section.items.length > 3
+
+                    return (
+                      <div key={section.id} className='overflow-hidden rounded-2xl bg-white'>
+                        <div className='flex items-center justify-between border-b border-slate-100 px-4 py-3'>
+                          <span className='text-xs font-semibold uppercase tracking-[0.18em] text-slate-400'>
+                            {section.title}
+                          </span>
+                          {hasMoreItems ? (
+                            <button
+                              type='button'
+                              onClick={() => toggleMobileMenuSection(section.id)}
+                              className='inline-flex items-center gap-1 text-xs font-semibold text-slate-500'
+                            >
+                              <span>{isExpanded ? 'Show less' : 'Show all'}</span>
+                              <svg
+                                viewBox='0 0 24 24'
+                                className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                fill='none'
+                                stroke='currentColor'
+                                strokeWidth='1.8'
+                              >
+                                <path d='m6 9 6 6 6-6' />
+                              </svg>
+                            </button>
+                          ) : null}
+                        </div>
+                        {visibleItems.map((item) => {
+                          const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
+                          return (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              className={`flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 ${
+                                isActive ? 'bg-slate-50 text-slate-900' : 'text-slate-700'
+                              }`}
+                            >
+                              <span className='font-medium'>{item.label}</span>
+                              <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                                <path d='m9 6 6 6-6 6' />
+                              </svg>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
 
                   <div className='overflow-hidden rounded-2xl bg-white'>
                     {mobileSupportItems.map((item) => (
