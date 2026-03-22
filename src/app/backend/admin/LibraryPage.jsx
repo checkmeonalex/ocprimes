@@ -500,6 +500,14 @@ function WooCommerceLibraryPage({
             <ImageEditorModal
               media={activeMedia}
               onClose={() => setActiveMedia(null)}
+              onSaved={(savedItem) => {
+                if (!savedItem?.url) return;
+                setMediaItems((prev) => {
+                  const next = prev.filter((entry) => entry.id !== savedItem.id);
+                  return [savedItem, ...next];
+                });
+                setActiveMedia(null);
+              }}
             />
           </div>
         </main>

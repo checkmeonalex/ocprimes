@@ -22,6 +22,53 @@ const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
   loading: () => null, // No loading spinner needed
 })
 
+const PROFILE_BADGE_COLORS = [
+  '#0f766e',
+  '#0369a1',
+  '#b45309',
+  '#7c3aed',
+  '#be123c',
+  '#1d4ed8',
+  '#166534',
+  '#9a3412',
+]
+
+const getMobileProfileDisplayName = (user) => {
+  const metadataName = String(
+    user?.user_metadata?.full_name ||
+      user?.user_metadata?.name ||
+      user?.user_metadata?.user_name ||
+      '',
+  ).trim()
+  if (metadataName) return metadataName
+
+  const email = String(user?.email || '').trim()
+  if (!email) return 'Guest'
+  const [localPart] = email.split('@')
+  return localPart || email
+}
+
+const getMobileProfileInitials = (value) => {
+  const normalized = String(value || '').trim()
+  if (!normalized) return 'GU'
+  const words = normalized.split(/\s+/).filter(Boolean)
+  if (words.length >= 2) {
+    return `${words[0][0] || ''}${words[1][0] || ''}`.toUpperCase()
+  }
+  const lettersOnly = normalized.replace(/[^a-zA-Z0-9]/g, '')
+  return lettersOnly.slice(0, 2).toUpperCase() || 'GU'
+}
+
+const getMobileProfileBadgeColor = (seed) => {
+  const normalized = String(seed || '').trim().toLowerCase()
+  if (!normalized) return PROFILE_BADGE_COLORS[0]
+  let hash = 0
+  for (let index = 0; index < normalized.length; index += 1) {
+    hash = (hash * 31 + normalized.charCodeAt(index)) >>> 0
+  }
+  return PROFILE_BADGE_COLORS[hash % PROFILE_BADGE_COLORS.length]
+}
+
 function MobileNavbar({
   initialAuthUser = null,
   initialTopCategories = [],
@@ -477,6 +524,12 @@ function MobileNavbar({
   const cartCount = summary?.itemCount ?? 0
   const showCartLoadingSpinner = (!isReady || !isServerReady) && cartCount <= 0
   const showLiveSuggestionPanel = isSearchOpen && hasLiveSearchQuery
+  const mobileProfileDisplayName = getMobileProfileDisplayName(user)
+  const mobileProfileInitial = getMobileProfileInitials(mobileProfileDisplayName)
+  const mobileProfileBadgeColor = getMobileProfileBadgeColor(mobileProfileDisplayName)
+  const mobileAvatarUrl = String(
+    user?.user_metadata?.avatar_url || user?.user_metadata?.picture || '',
+  ).trim()
 
   return (
     <>
@@ -589,29 +642,53 @@ function MobileNavbar({
                 <button
                   type='button'
                   onClick={() => setIsAccountMenuOpen((prev) => !prev)}
-                  className='p-2 text-gray-700 hover:text-gray-900 transition-colors'
+                  className='p-1.5 text-gray-700 hover:text-gray-900 transition-colors'
                   aria-label='Account'
                   aria-haspopup='menu'
                   aria-expanded={isAccountMenuOpen}
                 >
-                  <svg
-                    className='h-6 w-6'
-                    fill='none'
-                    stroke='currentColor'
-                    viewBox='0 0 24 24'
-                    strokeWidth={2}
-                    aria-hidden='true'
-                  >
-                    <path
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                      d='M20 21a8 8 0 1 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z'
-                    />
-                  </svg>
+                  {user ? (
+                    <span className='inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-200 align-middle shadow-sm ring-1 ring-slate-200'>
+                      {mobileAvatarUrl ? (
+                        <img
+                          src={mobileAvatarUrl}
+                          alt={mobileProfileDisplayName}
+                          className='h-full w-full object-cover'
+                        />
+                      ) : (
+                        <span
+                          className='inline-flex h-full w-full items-center justify-center text-sm font-semibold uppercase text-white'
+                          style={{ backgroundColor: mobileProfileBadgeColor }}
+                          aria-hidden='true'
+                        >
+                          {mobileProfileInitial}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <svg
+                      className='h-7 w-7'
+                      fill='none'
+                      stroke='currentColor'
+                      viewBox='0 0 24 24'
+                      strokeWidth={2}
+                      aria-hidden='true'
+                    >
+                      <path
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                        d='M20 21a8 8 0 1 0-16 0M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z'
+                      />
+                    </svg>
+                  )}
                 </button>
 
                 {isAccountMenuOpen ? (
-                  <div className='absolute right-0 top-[calc(100%+0.6rem)] z-[2147483001] w-56 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg'>
+                  <div className='absolute right-0 top-[calc(100%+0.85rem)] z-[2147483001] w-56 rounded-2xl border border-gray-200 bg-white p-2 shadow-lg'>
+                    <div
+                      className='absolute -top-2 right-4 h-4 w-4 rotate-45 border-l border-t border-gray-200 bg-white'
+                      aria-hidden='true'
+                    />
                     {user ? (
                       <>
                         <Link

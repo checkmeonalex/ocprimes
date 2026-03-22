@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 const ENHANCE_PRESETS = [
   { key: 'enhance', label: 'Enhance', boost: 0.18 },
@@ -23,7 +23,9 @@ export const useImageEnhancer = (defaultPreset = DEFAULT_PRESET) => {
     };
   }, [activePreset.boost]);
 
-  const resetEnhancer = () => setPresetKey(defaultPreset);
+  const resetEnhancer = useCallback(() => {
+    setPresetKey(defaultPreset);
+  }, [defaultPreset]);
 
   return {
     presets: ENHANCE_PRESETS,

@@ -992,7 +992,7 @@ export default function Navbar({
                 ) : null}
               </button>
               <div className='my-1 h-px bg-gray-100' />
-              <div className='max-h-72 overflow-y-auto'>
+              <div className='search-category-scrollbar max-h-72 overflow-y-auto overscroll-contain pr-1'>
                 {topCategories.map((category) => {
                   const isActive = selectedSearchCategory.slug === category.slug
                   return (

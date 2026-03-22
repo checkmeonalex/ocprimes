@@ -14,6 +14,10 @@ function BannerSlider({
   links = [],
   title = 'Banner',
   autoMs = 5000,
+  transitionMode = 'none',
+  fadeDurationMs = 700,
+  fadeScaleActive = 1,
+  fadeScaleInactive = 1.03,
   heightClass = 'h-[220px]',
   className = '',
   enforceAspect = true,
@@ -44,6 +48,7 @@ function BannerSlider({
   const [index, setIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
   const timerRef = useRef(null)
+  const isFadeMode = transitionMode === 'fade'
 
   const shapeClass = enforceAspect ? 'aspect-[16/9]' : heightClass
 
@@ -76,6 +81,34 @@ function BannerSlider({
     })
   }
 
+  const renderSlide = (slideIndex) => {
+    const content = (
+      <picture className='block h-full w-full'>
+        {mobileSlides[slideIndex] ? (
+          <source media='(max-width: 767px)' srcSet={mobileSlides[slideIndex]} />
+        ) : null}
+        <img
+          src={slides[slideIndex]}
+          alt={`${title} - slide ${slideIndex + 1}`}
+          className='h-full w-full object-cover'
+        />
+      </picture>
+    )
+
+    if (!slideLinks[slideIndex]) return content
+
+    return (
+      <a
+        href={slideLinks[slideIndex]}
+        className='block h-full w-full'
+        aria-label={`${title} - slide ${slideIndex + 1} link`}
+        tabIndex={slideIndex === index ? 0 : -1}
+      >
+        {content}
+      </a>
+    )
+  }
+
   const Arrow = ({ dir, className = 'h-5 w-5', strokeWidth = 2 }) => (
     <svg
       xmlns='http://www.w3.org/2000/svg'
@@ -94,35 +127,28 @@ function BannerSlider({
   return (
     <div className={`relative w-full overflow-hidden ${shapeClass} ${className}`}>
       <div className='absolute inset-0'>
-        {slideLinks[index] ? (
-          <a
-            href={slideLinks[index]}
-            className='block h-full w-full'
-            aria-label={`${title} - slide ${index + 1} link`}
-          >
-            <picture className='block h-full w-full'>
-              {mobileSlides[index] ? (
-                <source media='(max-width: 767px)' srcSet={mobileSlides[index]} />
-              ) : null}
-              <img
-                src={slides[index]}
-                alt={`${title} - slide ${index + 1}`}
-                className='h-full w-full object-cover'
-              />
-            </picture>
-          </a>
-        ) : (
-          <picture className='block h-full w-full'>
-            {mobileSlides[index] ? (
-              <source media='(max-width: 767px)' srcSet={mobileSlides[index]} />
-            ) : null}
-            <img
-              src={slides[index]}
-              alt={`${title} - slide ${index + 1}`}
-              className='h-full w-full object-cover'
-            />
-          </picture>
-        )}
+        {isFadeMode
+          ? slides.map((_slide, slideIndex) => {
+              const isActive = slideIndex === index
+              return (
+                <div
+                  key={`banner-slide-${slideIndex}`}
+                  className={`absolute inset-0 transition-[opacity,transform] ease-out ${
+                    isActive ? 'opacity-100' : 'opacity-0'
+                  } ${isActive ? 'pointer-events-auto' : 'pointer-events-none'}`}
+                  style={{
+                    transitionDuration: `${fadeDurationMs}ms`,
+                    transform: `scale(${isActive ? fadeScaleActive : fadeScaleInactive})`,
+                    transformOrigin: 'center center',
+                    willChange: 'opacity, transform',
+                  }}
+                  aria-hidden={!isActive}
+                >
+                  {renderSlide(slideIndex)}
+                </div>
+              )
+            })
+          : renderSlide(index)}
       </div>
 
       {showControls && slides.length > 1 && (

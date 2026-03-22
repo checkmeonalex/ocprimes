@@ -195,6 +195,25 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
   const [localeSuccess, setLocaleSuccess] = useState('')
   const [profileDraft, setProfileDraft] = useState(null)
   const menuRef = useRef(null)
+  const canUseHoverRef = useRef(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined
+
+    const mediaQuery = window.matchMedia('(hover: hover) and (pointer: fine)')
+    const syncCanUseHover = () => {
+      canUseHoverRef.current = mediaQuery.matches
+    }
+
+    syncCanUseHover()
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncCanUseHover)
+      return () => mediaQuery.removeEventListener('change', syncCanUseHover)
+    }
+
+    mediaQuery.addListener(syncCanUseHover)
+    return () => mediaQuery.removeListener(syncCanUseHover)
+  }, [])
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -315,10 +334,27 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
     }
   }
 
+  const closeMenus = () => {
+    setIsOpen(false)
+    setIsLocaleMenuOpen(false)
+  }
+
+  const handlePointerEnter = () => {
+    if (!isSignedIn || !isCompactChip || !canUseHoverRef.current) return
+    setIsOpen(true)
+  }
+
+  const handlePointerLeave = () => {
+    if (!isSignedIn || !isCompactChip || !canUseHoverRef.current) return
+    closeMenus()
+  }
+
   return (
     <div
       className='relative'
       ref={menuRef}
+      onMouseEnter={handlePointerEnter}
+      onMouseLeave={handlePointerLeave}
     >
       <button
         type='button'
@@ -428,9 +464,13 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
 
       {isOpen && (
         <div
-          className='absolute right-0 top-full z-50 mt-2 w-72 rounded-lg border border-gray-200 bg-white p-3 shadow-lg'
+          className='absolute right-0 top-full z-50 mt-3 w-72 rounded-lg border border-gray-200 bg-white p-3 shadow-lg'
           role='menu'
         >
+          <div
+            className='absolute -top-2 right-6 h-4 w-4 rotate-45 border-l border-t border-gray-200 bg-white'
+            aria-hidden='true'
+          />
           {user ? (
             <>
               <div className='-mx-3 flex items-center justify-between gap-3 border-b border-gray-100 bg-white px-5 py-2'>

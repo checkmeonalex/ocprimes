@@ -15,6 +15,10 @@ export default function HomeHeroSlider({
         mobileImages={mobileImages}
         links={links}
         autoMs={autoMs}
+        transitionMode='fade'
+        fadeDurationMs={1500}
+        fadeScaleActive={1}
+        fadeScaleInactive={1.04}
         enforceAspect={false}
         heightClass='h-full'
         className='h-full'
