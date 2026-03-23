@@ -143,8 +143,7 @@ export default function Footer({ showBackToTop = true }) {
               showTagline
             />
             <p className='mt-4 text-sm leading-7 text-white/68'>
-              Alxora is a marketplace built for Nigerian pricing first, with shopping,
-              sellers, and story discovery in one place.
+              Find everyday essentials and more, all in one place.
             </p>
 
             <div className='mt-6 rounded-xl border border-white/12 bg-transparent p-4 text-white'>

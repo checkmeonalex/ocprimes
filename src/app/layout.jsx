@@ -14,25 +14,50 @@ import { SpeedInsights } from '@vercel/speed-insights/next'
 import { createServerSupabaseClient } from '../lib/supabase/server'
 import { getCachedTopCategories } from '../lib/catalog/top-categories-server'
 import { BRAND_NAME, BRAND_SEARCH_DESCRIPTION, BRAND_TAGLINE } from '../lib/brand'
+import { SITE_URL } from '../lib/seo'
 
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: `${BRAND_NAME} | ${BRAND_TAGLINE}`,
-    template: `%s | ${BRAND_NAME} | ${BRAND_TAGLINE}`,
+    template: `%s | ${BRAND_NAME}`,
   },
   description: BRAND_SEARCH_DESCRIPTION,
   applicationName: BRAND_NAME,
+  alternates: {
+    canonical: '/',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+      'max-video-preview': -1,
+    },
+  },
+  icons: {
+    icon: [
+      { url: '/icon.png', type: 'image/png' },
+      { url: '/apple-icon.png', type: 'image/png', sizes: '180x180' },
+    ],
+    apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
   openGraph: {
-    title: BRAND_NAME,
-    description: `${BRAND_NAME} | ${BRAND_TAGLINE}`,
+    type: 'website',
+    url: SITE_URL,
+    title: `${BRAND_NAME} | ${BRAND_TAGLINE}`,
+    description: BRAND_SEARCH_DESCRIPTION,
     siteName: BRAND_NAME,
   },
   twitter: {
     card: 'summary_large_image',
-    title: BRAND_NAME,
-    description: `${BRAND_NAME} | ${BRAND_TAGLINE}`,
+    title: `${BRAND_NAME} | ${BRAND_TAGLINE}`,
+    description: BRAND_SEARCH_DESCRIPTION,
   },
 }
 
