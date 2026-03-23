@@ -87,6 +87,8 @@ function WooCommerceLibraryPage({
   const [uploadPreviews, setUploadPreviews] = useState([]);
   const [uploadStatus, setUploadStatus] = useState('');
   const [activeMenuId, setActiveMenuId] = useState('');
+  const [selectedMediaIds, setSelectedMediaIds] = useState(new Set());
+  const [isDeletingSelection, setIsDeletingSelection] = useState(false);
   const loadMoreRef = useRef(null);
 
   useEffect(() => {
@@ -112,6 +114,15 @@ function WooCommerceLibraryPage({
       uploadPreviews.forEach((url) => URL.revokeObjectURL(url));
     };
   }, [uploadPreviews]);
+
+  useEffect(() => {
+    setSelectedMediaIds((current) => {
+      if (!current.size) return current;
+      const next = new Set(mediaItems.map((item) => item.id));
+      const filtered = new Set([...current].filter((id) => next.has(id)));
+      return filtered.size === current.size ? current : filtered;
+    });
+  }, [mediaItems]);
 
   const handleUploadFiles = useCallback(
     async (files) => {
@@ -180,29 +191,70 @@ function WooCommerceLibraryPage({
     [uploadEndpoint],
   );
 
-  const handleDelete = useCallback(async (item) => {
-    if (!item?.id) return;
+  const deleteMediaById = useCallback(
+    async (mediaId) => {
+      const response = await fetch(`${deleteEndpointBase}/${mediaId}`, { method: 'DELETE' });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to delete image.');
+      }
+      setMediaItems((prev) => prev.filter((entry) => entry.id !== mediaId));
+      setSelectedMediaIds((prev) => {
+        if (!prev.has(mediaId)) return prev;
+        const next = new Set(prev);
+        next.delete(mediaId);
+        return next;
+      });
+      setActiveMedia((prev) => (prev?.id === mediaId ? null : prev));
+    },
+    [deleteEndpointBase],
+  );
+
+  const handleDelete = useCallback(
+    async (item) => {
+      if (!item?.id || isDeletingSelection) return;
+      const confirmed = await confirmAlert({
+        type: 'warning',
+        title: 'Delete image?',
+        message: 'Delete this image? This cannot be undone.',
+        confirmLabel: 'Allow',
+        cancelLabel: 'Deny',
+      });
+      if (!confirmed) return;
+      setError('');
+      try {
+        await deleteMediaById(item.id);
+        setActiveMenuId('');
+      } catch (err) {
+        setError(err?.message || 'Unable to delete image.');
+      }
+    },
+    [confirmAlert, deleteMediaById, isDeletingSelection],
+  );
+
+  const handleDeleteSelected = useCallback(async () => {
+    if (!selectedMediaIds.size || isDeletingSelection) return;
     const confirmed = await confirmAlert({
       type: 'warning',
-      title: 'Delete image?',
-      message: 'Delete this image? This cannot be undone.',
+      title: 'Delete selected images?',
+      message: `Delete ${selectedMediaIds.size} selected image${selectedMediaIds.size === 1 ? '' : 's'}? This cannot be undone.`,
       confirmLabel: 'Allow',
       cancelLabel: 'Deny',
     });
     if (!confirmed) return;
     setError('');
+    setIsDeletingSelection(true);
+    setActiveMenuId('');
     try {
-      const response = await fetch(`${deleteEndpointBase}/${item.id}`, { method: 'DELETE' });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Unable to delete image.');
+      for (const mediaId of selectedMediaIds) {
+        await deleteMediaById(mediaId);
       }
-      setMediaItems((prev) => prev.filter((entry) => entry.id !== item.id));
-      setActiveMenuId('');
     } catch (err) {
-      setError(err?.message || 'Unable to delete image.');
+      setError(err?.message || 'Unable to delete selected images.');
+    } finally {
+      setIsDeletingSelection(false);
     }
-  }, [confirmAlert]);
+  }, [confirmAlert, deleteMediaById, isDeletingSelection, selectedMediaIds]);
 
   const loadMedia = useCallback(
     async (requestedPage, replace = false) => {
@@ -260,6 +312,10 @@ function WooCommerceLibraryPage({
   const gridClass = GRID_CLASS_MAP[columns] || GRID_CLASS_MAP[4];
   const compactView = columns >= 7;
   const gridGapClass = compactView ? 'gap-2' : columns >= 5 ? 'gap-3' : 'gap-4';
+  const visibleMediaIds = useMemo(() => mediaItems.map((item) => item.id).filter(Boolean), [mediaItems]);
+  const selectedMediaCount = selectedMediaIds.size;
+  const allVisibleSelected =
+    visibleMediaIds.length > 0 && visibleMediaIds.every((id) => selectedMediaIds.has(id));
   const skeletonCount = useMemo(() => {
     if (columns >= 7) return columns * 2;
     if (columns >= 5) return columns * 2;
@@ -353,6 +409,42 @@ function WooCommerceLibraryPage({
               </div>
             </div>
 
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2 text-slate-500">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelectedMediaIds((prev) =>
+                      allVisibleSelected ? new Set() : new Set(visibleMediaIds),
+                    )
+                  }
+                  disabled={!visibleMediaIds.length || isDeletingSelection}
+                  className="rounded-full border border-slate-200 px-3 py-1.5 font-semibold text-slate-600 disabled:opacity-50"
+                >
+                  {allVisibleSelected ? 'Clear visible' : 'Select visible'}
+                </button>
+                <span>{selectedMediaCount} selected</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedMediaIds(new Set())}
+                  disabled={!selectedMediaCount || isDeletingSelection}
+                  className="rounded-full border border-slate-200 px-3 py-1.5 font-semibold text-slate-500 disabled:opacity-50"
+                >
+                  Clear selection
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteSelected}
+                  disabled={!selectedMediaCount || isDeletingSelection}
+                  className="rounded-full bg-rose-600 px-3 py-1.5 font-semibold text-white disabled:opacity-50"
+                >
+                  {isDeletingSelection ? 'Deleting...' : 'Delete selected'}
+                </button>
+              </div>
+            </div>
+
             <div className={`mt-6 grid ${gridGapClass} ${gridClass}`}>
               {!mediaItems.length && isLoading &&
                 Array.from({ length: skeletonCount }).map((_, index) => (
@@ -365,6 +457,24 @@ function WooCommerceLibraryPage({
                     compactView ? 'rounded-2xl' : 'rounded-3xl'
                   }`}
                 >
+                  <label className="absolute left-3 top-3 z-[1] inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/95 shadow-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedMediaIds.has(item.id)}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setSelectedMediaIds((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.add(item.id);
+                          else next.delete(item.id);
+                          return next;
+                        });
+                      }}
+                      onClick={(event) => event.stopPropagation()}
+                      className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                      aria-label={`Select ${item.title || 'image'}`}
+                    />
+                  </label>
                   <button
                     type="button"
                     onClick={() => setActiveMedia(item)}

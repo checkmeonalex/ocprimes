@@ -1,6 +1,6 @@
 'use client';
 import CustomSelect from '@/components/common/CustomSelect'
-import { useEffect, useState, useRef, use } from 'react';
+import { useEffect, useState, useRef, use, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AdminSidebar from '@/components/AdminSidebar';
@@ -73,9 +73,7 @@ function CategoryDetailPage({ params }) {
   const [layoutOrder, setLayoutOrder] = useState(CATEGORY_LAYOUT_KEYS);
   const [draggingLayoutKey, setDraggingLayoutKey] = useState('');
   const [layoutDragOverKey, setLayoutDragOverKey] = useState('');
-  const [uploading, setUploading] = useState(false);
   const [removing, setRemoving] = useState(false);
-  const fileInputRef = useRef(null);
   const [bannerSliderDesktop, setBannerSliderDesktop] = useState([]);
   const [bannerSliderMobile, setBannerSliderMobile] = useState([]);
   const [activeSliderDevice, setActiveSliderDevice] = useState('desktop');
@@ -123,6 +121,21 @@ function CategoryDetailPage({ params }) {
     hotspotLayouts.find((layout) => layout.id === activeLayoutId) ||
     hotspotLayouts[0] ||
     null;
+  const selectedLibraryImages = useMemo(() => {
+    if (libraryContext.type === 'category-image' && item?.image_url) {
+      return [
+        {
+          id: item.image_key || item.image_url,
+          url: item.image_url,
+          r2_key: item.image_key || '',
+          title: item.image_alt || item.name || 'Category image',
+          alt_text: item.image_alt || item.name || 'Category image',
+        },
+      ];
+    }
+
+    return [];
+  }, [item?.image_alt, item?.image_key, item?.image_url, item?.name, libraryContext.type]);
 
   useEffect(() => {
     if (!categoryId) return;
@@ -472,48 +485,6 @@ function CategoryDetailPage({ params }) {
     reorderLayout(fromIndex, toIndex);
   };
 
-  const handleUpload = async (file) => {
-    if (!file || !item?.id) return;
-    setUploading(true);
-    setError('');
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('category_id', item.id);
-      const uploadResp = await fetch('/api/admin/categories/image/upload', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
-      const uploadPayload = await uploadResp.json().catch(() => null);
-      if (!uploadResp.ok) {
-        throw new Error(uploadPayload?.error || 'Unable to upload image.');
-      }
-      const { url, key } = uploadPayload;
-      const patchResp = await fetch('/api/admin/categories', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          id: item.id,
-          image_url: url,
-          image_key: key,
-          image_alt: form.name || item.name,
-        }),
-      });
-      const patchPayload = await patchResp.json().catch(() => null);
-      if (!patchResp.ok) {
-        throw new Error(patchPayload?.error || 'Unable to save image.');
-      }
-      const updated = patchPayload?.item || { ...item, image_url: url, image_key: key };
-      setItem(updated);
-    } catch (err) {
-      setError(err?.message || 'Unable to upload image.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const handleLibraryApply = async ({ gallery, videos }) => {
     if (!item?.id) {
       setShowLibrary(false);
@@ -605,6 +576,39 @@ function CategoryDetailPage({ params }) {
     }
     const url = first.url;
     const key = first.r2_key || first.key || null;
+
+    if (libraryContext.type === 'category-image') {
+      setUploadingSlot('category-image');
+      try {
+        const patchResp = await fetch('/api/admin/categories', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            id: item.id,
+            image_url: url,
+            image_key: key,
+            image_alt: first.alt_text || first.title || form.name || item.name,
+          }),
+        });
+        const patchPayload = await patchResp.json().catch(() => null);
+        if (!patchResp.ok) {
+          throw new Error(patchPayload?.error || 'Unable to save image.');
+        }
+        const updated = patchPayload?.item || {
+          ...(item || {}),
+          image_url: url,
+          image_key: key,
+          image_alt: first.alt_text || first.title || form.name || item.name,
+        };
+        setItem(updated);
+      } catch (err) {
+        setError(err?.message || 'Unable to save image.');
+      }
+      setShowLibrary(false);
+      setUploadingSlot('');
+      return;
+    }
 
     if (String(libraryContext.type || '').startsWith('browse-')) {
       const segment = String(libraryContext.type).replace('browse-', '');
@@ -1431,10 +1435,10 @@ function CategoryDetailPage({ params }) {
                         No image
                       </div>
                     )}
-                    {(uploading || removing) && (
+                    {(uploadingSlot === 'category-image' || removing) && (
                       <div className="absolute inset-0 flex items-center justify-center gap-2 bg-slate-900/70 text-white text-[11px] font-semibold">
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/70 border-t-transparent" />
-                        {uploading ? 'Uploading...' : 'Removing...'}
+                        {uploadingSlot === 'category-image' ? 'Saving...' : 'Removing...'}
                       </div>
                     )}
                   </div>
@@ -1442,33 +1446,29 @@ function CategoryDetailPage({ params }) {
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => {
+                          setLibraryContext({ type: 'category-image', index: 0, device: 'desktop' });
+                          setShowLibrary(true);
+                        }}
                         className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
-                        disabled={uploading || removing}
+                        disabled={uploadingSlot === 'category-image' || removing}
                       >
-                        Upload image
+                        {item.image_url ? 'Change image' : 'Choose from library'}
                       </button>
                       {item.image_url && (
                         <button
                           type="button"
                           onClick={handleRemoveImage}
                           className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-60"
-                          disabled={uploading || removing}
+                          disabled={uploadingSlot === 'category-image' || removing}
                         >
                           Remove
                         </button>
                       )}
                     </div>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleUpload(file);
-                      }}
-                    />
+                    <p className="text-xs text-slate-500">
+                      Pick an image from the component library or upload a new one there first.
+                    </p>
                   </div>
                 </div>
 
@@ -2638,6 +2638,7 @@ function CategoryDetailPage({ params }) {
           isOpen={showLibrary}
           onClose={() => setShowLibrary(false)}
           onApply={handleLibraryApply}
+          selectedImages={selectedLibraryImages}
           selectedIds={
             libraryContext.type === 'logo-grid'
               ? (logoGrid.items || []).map((item) => item.id)
@@ -2647,6 +2648,8 @@ function CategoryDetailPage({ params }) {
                 ? (browseCards[String(libraryContext.type).replace('browse-', '')] || []).map(
                     (item) => item.id,
                   )
+              : libraryContext.type === 'category-image' && item?.image_key
+                ? [item.image_key]
               : []
           }
           maxSelection={
@@ -2656,13 +2659,19 @@ function CategoryDetailPage({ params }) {
                 ? 1
               : String(libraryContext.type || '').startsWith('browse-')
                 ? 24
+              : libraryContext.type === 'category-image'
+                ? 1
                 : 7
           }
           listEndpoint="/api/admin/component-media"
           uploadEndpoint="/api/admin/component-media/upload"
           deleteEndpointBase="/api/admin/component-media"
           enableVideoTab={libraryContext.type === 'stories'}
-          title="Component Image Library"
+          title={
+            libraryContext.type === 'category-image'
+              ? 'Category Image Library'
+              : 'Component Image Library'
+          }
         />
       )}
       {showHotspotPicker && (

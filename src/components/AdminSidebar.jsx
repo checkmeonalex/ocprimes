@@ -344,7 +344,7 @@ const AdminSidebar = () => {
             </div>
           </div>
         </Link>
-        <nav className="mt-5 flex flex-1 flex-col gap-1 overflow-y-auto pr-1">
+        <nav className="admin-sidebar-scrollbar mt-5 flex flex-1 flex-col gap-1 overflow-y-auto pr-1">
           {desktopNavItems.map((item) => (
             <div key={item.href}>
               {item.subItems ? (

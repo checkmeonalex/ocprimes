@@ -22,6 +22,16 @@ const buildOptionList = (nodes, depth = 0, acc = []) => {
   return acc;
 };
 
+const flattenTreeIds = (nodes, acc = []) => {
+  nodes.forEach((node) => {
+    acc.push(node.id);
+    if (node.children.length) {
+      flattenTreeIds(node.children, acc);
+    }
+  });
+  return acc;
+};
+
 const isDescendant = (items, parentId, childId) => {
   const parentMap = new Map(items.map((item) => [item.id, item.parent_id]));
   let cursor = parentMap.get(childId);
@@ -172,6 +182,8 @@ function CategoryTreeManager() {
   const [editingId, setEditingId] = useState('');
   const [editingName, setEditingName] = useState('');
   const [renamingId, setRenamingId] = useState('');
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState(new Set());
+  const [isDeletingSelection, setIsDeletingSelection] = useState(false);
   const [openRoots, setOpenRoots] = useState(new Set());
   const [search, setSearch] = useState('');
   const [query, setQuery] = useState('');
@@ -192,6 +204,24 @@ function CategoryTreeManager() {
   const tree = useMemo(() => buildCategoryTree(items), [items]);
   const filteredTree = useMemo(() => filterTree(tree, query), [tree, query]);
   const parentOptions = useMemo(() => buildOptionList(tree), [tree]);
+  const visibleCategoryIds = useMemo(() => flattenTreeIds(filteredTree), [filteredTree]);
+  const categoryDepthMap = useMemo(() => {
+    const parentMap = new Map(items.map((item) => [item.id, item.parent_id]));
+    const depthMap = new Map();
+    items.forEach((item) => {
+      let depth = 0;
+      let cursor = parentMap.get(item.id);
+      while (cursor) {
+        depth += 1;
+        cursor = parentMap.get(cursor);
+      }
+      depthMap.set(item.id, depth);
+    });
+    return depthMap;
+  }, [items]);
+  const selectedCategoryCount = selectedCategoryIds.size;
+  const allVisibleCategoriesSelected =
+    visibleCategoryIds.length > 0 && visibleCategoryIds.every((id) => selectedCategoryIds.has(id));
 
   const loadCategories = useCallback(async ({ skipDraft = false } = {}) => {
     setIsLoading(true);
@@ -281,6 +311,15 @@ function CategoryTreeManager() {
   useEffect(() => {
     loadCategoryRequests();
   }, [loadCategoryRequests]);
+
+  useEffect(() => {
+    setSelectedCategoryIds((current) => {
+      if (!current.size) return current;
+      const validIds = new Set(items.map((item) => item.id));
+      const next = new Set([...current].filter((id) => validIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [items]);
 
   const updateItem = useCallback((id, updates) => {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
@@ -475,21 +514,31 @@ function CategoryTreeManager() {
     }
   };
 
+  const deleteCategoryById = useCallback(async (categoryId) => {
+    const response = await fetch(`/api/admin/categories/${categoryId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.error || 'Unable to delete category.');
+    }
+  }, []);
+
   const handleDeleteCategory = async (node) => {
-    if (!node?.id || removingId) return;
+    if (!node?.id || removingId || isDeletingSelection) return;
     const confirmed = window.confirm(`Delete "${node.name}" permanently?`);
     if (!confirmed) return;
     setRemovingId(node.id);
     setSaveError('');
     try {
-      const response = await fetch(`/api/admin/categories/${node.id}`, {
-        method: 'DELETE',
-        credentials: 'include',
+      await deleteCategoryById(node.id);
+      setSelectedCategoryIds((prev) => {
+        if (!prev.has(node.id)) return prev;
+        const next = new Set(prev);
+        next.delete(node.id);
+        return next;
       });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Unable to delete category.');
-      }
       await loadCategories({ skipDraft: true });
     } catch (err) {
       setSaveError(err?.message || 'Unable to delete category.');
@@ -497,6 +546,34 @@ function CategoryTreeManager() {
       setRemovingId('');
     }
   };
+
+  const handleDeleteSelectedCategories = useCallback(async () => {
+    if (!selectedCategoryIds.size || isDeletingSelection) return;
+    const confirmed = window.confirm(
+      `Delete ${selectedCategoryIds.size} selected categor${selectedCategoryIds.size === 1 ? 'y' : 'ies'} permanently?`,
+    );
+    if (!confirmed) return;
+
+    const orderedIds = [...selectedCategoryIds].sort(
+      (left, right) => (categoryDepthMap.get(right) || 0) - (categoryDepthMap.get(left) || 0),
+    );
+
+    setSaveError('');
+    setIsDeletingSelection(true);
+    try {
+      for (const categoryId of orderedIds) {
+        setRemovingId(categoryId);
+        await deleteCategoryById(categoryId);
+      }
+      setSelectedCategoryIds(new Set());
+      await loadCategories({ skipDraft: true });
+    } catch (err) {
+      setSaveError(err?.message || 'Unable to delete selected categories.');
+    } finally {
+      setRemovingId('');
+      setIsDeletingSelection(false);
+    }
+  }, [categoryDepthMap, deleteCategoryById, isDeletingSelection, loadCategories, selectedCategoryIds]);
 
   const openReviewSheet = (request) => {
     setReviewingRequest(request);
@@ -878,6 +955,23 @@ function CategoryTreeManager() {
             className="flex items-center justify-between gap-3"
           >
             <div className="flex items-center gap-3">
+              <label className="inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white">
+                <input
+                  type="checkbox"
+                  checked={selectedCategoryIds.has(node.id)}
+                  onChange={(event) => {
+                    const checked = event.target.checked;
+                    setSelectedCategoryIds((prev) => {
+                      const next = new Set(prev);
+                      if (checked) next.add(node.id);
+                      else next.delete(node.id);
+                      return next;
+                    });
+                  }}
+                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                  aria-label={`Select ${node.name}`}
+                />
+              </label>
               <button
                 type="button"
                 draggable
@@ -1069,7 +1163,7 @@ function CategoryTreeManager() {
               <button
                 type="button"
                 onClick={() => handleDeleteCategory(node)}
-                disabled={removingId === node.id}
+                disabled={removingId === node.id || isDeletingSelection}
                 className="rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 disabled:opacity-60"
               >
                 {removingId === node.id ? 'Deleting...' : 'Delete'}
@@ -1297,6 +1391,42 @@ function CategoryTreeManager() {
             >
               Save structure
             </LoadingButton>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-slate-500">
+            <button
+              type="button"
+              onClick={() =>
+                setSelectedCategoryIds((prev) =>
+                  allVisibleCategoriesSelected ? new Set() : new Set(visibleCategoryIds),
+                )
+              }
+              disabled={!visibleCategoryIds.length || isDeletingSelection}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-600 disabled:opacity-50"
+            >
+              {allVisibleCategoriesSelected ? 'Clear visible' : 'Select visible'}
+            </button>
+            <span>{selectedCategoryCount} selected</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedCategoryIds(new Set())}
+              disabled={!selectedCategoryCount || isDeletingSelection}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-500 disabled:opacity-50"
+            >
+              Clear selection
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteSelectedCategories}
+              disabled={!selectedCategoryCount || isDeletingSelection}
+              className="rounded-full bg-rose-600 px-3 py-1.5 font-semibold text-white disabled:opacity-50"
+            >
+              {isDeletingSelection ? 'Deleting...' : 'Delete selected'}
+            </button>
           </div>
         </div>
 

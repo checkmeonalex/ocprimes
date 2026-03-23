@@ -1,6 +1,7 @@
 'use client'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import ProductImagePlaceholder from '../../product/ProductDetails/ProductImagePlaceholder'
 
 const normalizeMediaItems = (media, images = []) => {
   const seen = new Set()
@@ -400,6 +401,7 @@ export default function MobileGallery({
   const [isClient, setIsClient] = useState(false)
   const [playingVideoUrl, setPlayingVideoUrl] = useState('')
   const [lightboxCurrentIndex, setLightboxCurrentIndex] = useState(0)
+  const [loadedImageMap, setLoadedImageMap] = useState({})
   const lastSyncedUrlRef = useRef('')
   const mainViewportRef = useRef(null)
   const sliderTrackRef = useRef(null)
@@ -550,6 +552,19 @@ export default function MobileGallery({
     if (currentIndex < 0) return
     setActiveIndex((prev) => (prev === currentIndex ? prev : currentIndex))
   }, [currentImage, mediaCount, mediaItems])
+
+  useEffect(() => {
+    setLoadedImageMap((prev) => {
+      const next = {}
+      mediaItems.forEach((item) => {
+        if (!item?.url) return
+        if (item.type === 'video' || prev[item.url]) {
+          next[item.url] = true
+        }
+      })
+      return next
+    })
+  }, [mediaItems])
 
   useEffect(() => {
     hasUserInteractedRef.current = false
@@ -731,13 +746,30 @@ export default function MobileGallery({
                       </button>
                     )
                   ) : (
-                    <img
-                      src={item.url}
-                      alt={productName}
-                      className='h-full w-full object-cover'
-                      loading={index === activeIndex ? 'eager' : 'lazy'}
-                      decoding='async'
-                    />
+                    <>
+                      {!loadedImageMap[item.url] ? <ProductImagePlaceholder /> : null}
+                      <img
+                        src={item.url}
+                        alt={productName}
+                        className={`h-full w-full object-cover transition-opacity duration-300 ${
+                          loadedImageMap[item.url] ? 'opacity-100' : 'opacity-0'
+                        }`}
+                        loading={index === activeIndex ? 'eager' : 'lazy'}
+                        decoding='async'
+                        onLoad={() =>
+                          setLoadedImageMap((prev) => ({
+                            ...prev,
+                            [item.url]: true,
+                          }))
+                        }
+                        onError={() =>
+                          setLoadedImageMap((prev) => ({
+                            ...prev,
+                            [item.url]: true,
+                          }))
+                        }
+                      />
+                    </>
                   )}
                 </div>
               ))}

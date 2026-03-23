@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import MobileGallery from '../../mobile/ProductDetails/MobileGallery'
+import ProductImagePlaceholder from './ProductImagePlaceholder'
 
 const normalizeMediaItems = (media, images = []) => {
   const seen = new Set()
@@ -67,6 +68,7 @@ export default function Gallery({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const [lightboxFilter, setLightboxFilter] = useState('all')
   const [playingVideoUrl, setPlayingVideoUrl] = useState('')
+  const [isMainImageLoaded, setIsMainImageLoaded] = useState(false)
   const isActiveVideoPlaying =
     String(activeMedia?.type || '') === 'video' &&
     String(playingVideoUrl || '').trim() === String(activeMedia?.url || '').trim()
@@ -165,6 +167,10 @@ export default function Gallery({
       setPlayingVideoUrl('')
     }
   }, [activeMedia])
+
+  useEffect(() => {
+    setIsMainImageLoaded(activeMedia?.type === 'video')
+  }, [activeMedia?.type, activeMedia?.url])
 
   const filteredLightboxIndexes = useMemo(() => {
     const allIndexes = mediaItems.map((_, index) => index)
@@ -272,6 +278,7 @@ export default function Gallery({
     lastAspectImageRef.current = srcKey
     lastAspectRef.current = nextAspect
     setMainAspect(nextAspect)
+    setIsMainImageLoaded(true)
   }, [])
 
   const isTabletView = !forceMobileView && viewportWidth >= 768 && viewportWidth < 1024
@@ -560,20 +567,26 @@ export default function Gallery({
                   </button>
                 )
               ) : (
-                <img
-                  src={activeMedia?.url}
-                  alt={productName}
-                  onLoad={handleMainImageLoad}
-                  className='w-full h-full object-contain transition-transform duration-300'
-                  style={
-                    isZooming
-                      ? {
-                          transform: 'scale(2)',
-                          transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
-                        }
-                      : { transform: 'scale(1)' }
-                  }
-                />
+                <>
+                  {!isMainImageLoaded ? <ProductImagePlaceholder /> : null}
+                  <img
+                    src={activeMedia?.url}
+                    alt={productName}
+                    onLoad={handleMainImageLoad}
+                    onError={() => setIsMainImageLoaded(true)}
+                    className={`h-full w-full object-contain transition-[transform,opacity] duration-300 ${
+                      isMainImageLoaded ? 'opacity-100' : 'opacity-0'
+                    }`}
+                    style={
+                      isZooming
+                        ? {
+                            transform: 'scale(2)',
+                            transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                          }
+                        : { transform: 'scale(1)' }
+                    }
+                  />
+                </>
               )}
               {badgeText ? (
                 <div
