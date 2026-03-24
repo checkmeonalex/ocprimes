@@ -29,6 +29,10 @@ const baseProductSchema = z.object({
   description: z.preprocess(normalizeBlank, z.string().max(4000).optional()),
   price: z.coerce.number().min(0),
   discount_price: z.coerce.number().min(0).optional(),
+  deal_expires_at: z.preprocess(
+    normalizeNullableBlank,
+    z.string().datetime({ offset: true }).nullable().optional(),
+  ),
   sku: z.preprocess(normalizeBlank, z.string().max(120).optional()),
   stock_quantity: z.coerce.number().int().min(0),
   status: z.enum(['publish', 'draft', 'archived']).optional(),

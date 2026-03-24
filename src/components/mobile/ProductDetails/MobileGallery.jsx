@@ -2,6 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import ProductImagePlaceholder from '../../product/ProductDetails/ProductImagePlaceholder'
+import ProductDeferredImage from '../../product/ProductDeferredImage'
 
 const normalizeMediaItems = (media, images = []) => {
   const seen = new Set()
@@ -401,7 +402,6 @@ export default function MobileGallery({
   const [isClient, setIsClient] = useState(false)
   const [playingVideoUrl, setPlayingVideoUrl] = useState('')
   const [lightboxCurrentIndex, setLightboxCurrentIndex] = useState(0)
-  const [loadedImageMap, setLoadedImageMap] = useState({})
   const lastSyncedUrlRef = useRef('')
   const mainViewportRef = useRef(null)
   const sliderTrackRef = useRef(null)
@@ -554,19 +554,6 @@ export default function MobileGallery({
   }, [currentImage, mediaCount, mediaItems])
 
   useEffect(() => {
-    setLoadedImageMap((prev) => {
-      const next = {}
-      mediaItems.forEach((item) => {
-        if (!item?.url) return
-        if (item.type === 'video' || prev[item.url]) {
-          next[item.url] = true
-        }
-      })
-      return next
-    })
-  }, [mediaItems])
-
-  useEffect(() => {
     hasUserInteractedRef.current = false
     clearSwipeHintTimer()
     clearSwipeHintAnimation()
@@ -655,7 +642,17 @@ export default function MobileGallery({
     clearSwipeHintAnimation()
   }, [clearSwipeHintAnimation, clearSwipeHintTimer])
 
-  if (!mediaCount) return null
+  if (!mediaCount) {
+    return (
+      <div className='w-full'>
+        <div className='relative w-full overflow-hidden rounded-none bg-transparent'>
+          <div className='relative w-full' style={{ aspectRatio: '4 / 5' }}>
+            <ProductImagePlaceholder />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -746,30 +743,15 @@ export default function MobileGallery({
                       </button>
                     )
                   ) : (
-                    <>
-                      {!loadedImageMap[item.url] ? <ProductImagePlaceholder /> : null}
-                      <img
-                        src={item.url}
-                        alt={productName}
-                        className={`h-full w-full object-cover transition-opacity duration-300 ${
-                          loadedImageMap[item.url] ? 'opacity-100' : 'opacity-0'
-                        }`}
-                        loading={index === activeIndex ? 'eager' : 'lazy'}
-                        decoding='async'
-                        onLoad={() =>
-                          setLoadedImageMap((prev) => ({
-                            ...prev,
-                            [item.url]: true,
-                          }))
-                        }
-                        onError={() =>
-                          setLoadedImageMap((prev) => ({
-                            ...prev,
-                            [item.url]: true,
-                          }))
-                        }
-                      />
-                    </>
+                    <ProductDeferredImage
+                      src={item.url}
+                      alt={productName}
+                      eager={index === activeIndex}
+                      isLoadEnabled={index === activeIndex}
+                      imgClassName='h-full w-full object-cover transition-opacity duration-300'
+                      placeholderClassName='absolute inset-0'
+                      observerClassName='absolute inset-0'
+                    />
                   )}
                 </div>
               ))}

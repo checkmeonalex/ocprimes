@@ -1,3 +1,5 @@
+import { dateTimeLocalInputToIso } from '../editor/dealExpiry.mjs';
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -90,11 +92,20 @@ export const buildProductPayload = (form, options = {}) => {
     payload.product_type = form.product_type;
   }
   const basePrice = form.regular_price || form.price;
+  const rawSalePrice = String(form.sale_price ?? '').trim();
   if (basePrice !== undefined && basePrice !== '') {
     payload.price = Number(basePrice);
   }
-  if (form.sale_price !== undefined && form.sale_price !== '') {
-    payload.discount_price = Number(form.sale_price);
+  if (form.sale_price !== undefined) {
+    payload.discount_price = rawSalePrice !== '' ? Number(rawSalePrice) : (mode === 'update' ? null : undefined);
+  }
+  if (typeof form.deal_expires_at === 'string') {
+    if (!rawSalePrice) {
+      payload.deal_expires_at = mode === 'update' ? null : undefined;
+    } else {
+      const normalized = dateTimeLocalInputToIso(form.deal_expires_at);
+      payload.deal_expires_at = normalized || (mode === 'update' ? null : undefined);
+    }
   }
   const categoryIds =
     normalizeUuidArray(form.category_ids) ?? normalizeUuidArray(form.categories);

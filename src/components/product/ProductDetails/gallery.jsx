@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import MobileGallery from '../../mobile/ProductDetails/MobileGallery'
-import ProductImagePlaceholder from './ProductImagePlaceholder'
+import ProductDeferredImage from '../ProductDeferredImage'
 
 const normalizeMediaItems = (media, images = []) => {
   const seen = new Set()
@@ -58,17 +58,11 @@ export default function Gallery({
     if (typeof window === 'undefined') return 900
     return window.innerHeight
   })
-  const [isMobileView, setIsMobileView] = useState(() => {
-    if (forceMobileView) return true
-    if (typeof window === 'undefined') return false
-    return window.innerWidth < 768
-  })
   const [isZooming, setIsZooming] = useState(false)
   const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 })
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
   const [lightboxFilter, setLightboxFilter] = useState('all')
   const [playingVideoUrl, setPlayingVideoUrl] = useState('')
-  const [isMainImageLoaded, setIsMainImageLoaded] = useState(false)
   const isActiveVideoPlaying =
     String(activeMedia?.type || '') === 'video' &&
     String(playingVideoUrl || '').trim() === String(activeMedia?.url || '').trim()
@@ -96,21 +90,16 @@ export default function Gallery({
   const lightboxSuppressClickRef = useRef(false)
 
   useEffect(() => {
-    if (forceMobileView) {
-      setIsMobileView(true)
-      return undefined
-    }
     const checkDeviceWidth = () => {
       const nextWidth = Number(window.innerWidth || 0)
       const nextHeight = Number(window.innerHeight || 0)
       setViewportWidth(nextWidth)
       if (nextHeight > 0) setViewportHeight(nextHeight)
-      setIsMobileView(nextWidth < 768)
     }
     checkDeviceWidth()
     window.addEventListener('resize', checkDeviceWidth)
     return () => window.removeEventListener('resize', checkDeviceWidth)
-  }, [forceMobileView])
+  }, [])
 
   const handleMouseMove = (e) => {
     const { left, top, width, height } = e.currentTarget.getBoundingClientRect()
@@ -167,10 +156,6 @@ export default function Gallery({
       setPlayingVideoUrl('')
     }
   }, [activeMedia])
-
-  useEffect(() => {
-    setIsMainImageLoaded(activeMedia?.type === 'video')
-  }, [activeMedia?.type, activeMedia?.url])
 
   const filteredLightboxIndexes = useMemo(() => {
     const allIndexes = mediaItems.map((_, index) => index)
@@ -261,8 +246,7 @@ export default function Gallery({
     setLightboxZoomPosition({ x: 50, y: 50 })
   }, [lightboxCurrentIndex])
 
-  const handleMainImageLoad = useCallback((event) => {
-    const imageEl = event.currentTarget
+  const handleMainImageReady = useCallback((imageEl) => {
     if (!imageEl) return
     const width = Number(imageEl.naturalWidth || 0)
     const height = Number(imageEl.naturalHeight || 0)
@@ -278,7 +262,6 @@ export default function Gallery({
     lastAspectImageRef.current = srcKey
     lastAspectRef.current = nextAspect
     setMainAspect(nextAspect)
-    setIsMainImageLoaded(true)
   }, [])
 
   const isTabletView = !forceMobileView && viewportWidth >= 768 && viewportWidth < 1024
@@ -346,7 +329,7 @@ export default function Gallery({
   )
 
   useEffect(() => {
-    if (isMobileView) return undefined
+    if (forceMobileView) return undefined
     const element = mainMediaContainerRef.current
     if (!element || typeof ResizeObserver === 'undefined') return undefined
 
@@ -359,13 +342,13 @@ export default function Gallery({
     const observer = new ResizeObserver(updateHeight)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [activeMedia?.url, isMobileView, mainAspect])
+  }, [activeMedia?.url, forceMobileView, mainAspect])
 
   if (!mediaItems.length) return null
 
   return (
     <>
-      {forceMobileView || isMobileView ? (
+      {forceMobileView ? (
         <MobileGallery
           images={images}
           media={mediaItems}
@@ -567,26 +550,23 @@ export default function Gallery({
                   </button>
                 )
               ) : (
-                <>
-                  {!isMainImageLoaded ? <ProductImagePlaceholder /> : null}
-                  <img
-                    src={activeMedia?.url}
-                    alt={productName}
-                    onLoad={handleMainImageLoad}
-                    onError={() => setIsMainImageLoaded(true)}
-                    className={`h-full w-full object-contain transition-[transform,opacity] duration-300 ${
-                      isMainImageLoaded ? 'opacity-100' : 'opacity-0'
-                    }`}
-                    style={
-                      isZooming
-                        ? {
-                            transform: 'scale(2)',
-                            transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
-                          }
-                        : { transform: 'scale(1)' }
-                    }
-                  />
-                </>
+                <ProductDeferredImage
+                  src={activeMedia?.url}
+                  alt={productName}
+                  eager
+                  imgClassName='h-full w-full object-contain transition-[transform,opacity] duration-300'
+                  placeholderClassName='absolute inset-0'
+                  observerClassName='absolute inset-0'
+                  imgStyle={
+                    isZooming
+                      ? {
+                          transform: 'scale(2)',
+                          transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                        }
+                      : { transform: 'scale(1)' }
+                  }
+                  onReady={handleMainImageReady}
+                />
               )}
               {badgeText ? (
                 <div

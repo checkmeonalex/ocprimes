@@ -2,9 +2,7 @@
 import React, { useMemo, useState } from 'react'
 import { Heart } from 'lucide-react'
 import StarRating from './StarRating'
-import Image from 'next/image'
 import ColorOptions from './ColorOptions' // Import new component
-import ProductCardSkeleton from '../ProductCardSkeleton'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { buildSwatchImages, deriveOptionsFromVariations } from './variationUtils.mjs'
@@ -17,6 +15,9 @@ import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { buildVendorHref } from '@/lib/catalog/vendor'
 import { useScreenSize } from '@/hooks/useScreenSize'
 import ProductCardLoadingState from './ProductCardLoadingState'
+import ProductDealCountdown from './ProductDealCountdown'
+import OutOfStockNotifyModal from './OutOfStockNotifyModal'
+import ProductDeferredImage from './ProductDeferredImage'
 
 const ProductCard = ({
   product,
@@ -33,10 +34,13 @@ const ProductCard = ({
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [previewImage, setPreviewImage] = useState('')
   const [isVariantModalOpen, setIsVariantModalOpen] = useState(false)
+  const [showOutOfStockModal, setShowOutOfStockModal] = useState(false)
+  const [shouldWrapQuantityRow, setShouldWrapQuantityRow] = useState(false)
   const router = useRouter()
   const { isMobile } = useScreenSize()
   const openInNewTab = !isMobile
   const cart = useOptionalCart()
+  const actionRowRef = React.useRef(null)
   const items = cart?.items || []
   const updateQuantity = cart?.updateQuantity || (() => {})
   const { openSaveModal, isRecentlySaved } = useWishlist()
@@ -58,13 +62,6 @@ const ProductCard = ({
       setSelectedColor(availableColors[0])
     }
   }, [availableColors, selectedColor])
-
-  // Handle image load once
-  const handleImageLoad = () => {
-    if (!imageLoaded) {
-      setImageLoaded(true)
-    }
-  }
 
   const handleAddToCart = (e) => {
     e.preventDefault()
@@ -122,13 +119,26 @@ const ProductCard = ({
         Math.round(((originalPriceValue - priceValue) / originalPriceValue) * 100)
       )
     : null
+  const dealExpiresAt = String(product?.dealExpiresAt || product?.deal_expires_at || '').trim()
+  const stockCount = Math.max(0, Number(product?.stock) || 0)
+  const isOutOfStock = stockCount <= 0
+
+  React.useEffect(() => {
+    const node = actionRowRef.current
+    if (!node || typeof ResizeObserver === 'undefined') return undefined
+
+    const updateLayout = () => {
+      const width = Number(node.getBoundingClientRect?.().width || 0)
+      setShouldWrapQuantityRow(width > 0 && width < 154)
+    }
+
+    updateLayout()
+    const observer = new ResizeObserver(() => updateLayout())
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [quantity, isOutOfStock, discountPercentage])
 
   const hasRating = Number(product?.rating) > 0
-
-  // Determine aspect ratio class based on image type
-  const imageContainerClass = product.isPortrait
-    ? 'aspect-[3/4]' // Portrait aspect ratio (3:4)
-    : 'aspect-square' // Square aspect ratio (1:1)
 
   const handleMouseEnter = () => {
     if (product.gallery && product.gallery.length > 1) {
@@ -167,6 +177,17 @@ const ProductCard = ({
     router.push(buildVendorHref(product.vendor, product.vendorSlug))
   }
 
+  const handleOutOfStockClick = (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setShowOutOfStockModal(true)
+  }
+
+  const productImageSrc =
+    currentImageIndex === -1
+      ? previewImage
+      : product.gallery?.[currentImageIndex] || product.image
+
   if (!product) {
     return <ProductCardLoadingState className={className} />
   }
@@ -184,11 +205,6 @@ const ProductCard = ({
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-        {!imageLoaded && (
-          <div className='absolute inset-0 z-10 pointer-events-none'>
-            <ProductCardSkeleton />
-          </div>
-        )}
         {/* Image Container */}
         <div
           className={`relative ${
@@ -196,27 +212,28 @@ const ProductCard = ({
           } bg-gray-50 overflow-hidden`}
         >
           <div className='relative w-full h-full'>
-            {!imageLoaded && (
-              <div className='absolute inset-0'>
-                <ProductCardSkeleton type='image' />
-              </div>
-            )}
-            <Image
-              src={
-                currentImageIndex === -1
-                  ? previewImage
-                  : product.gallery?.[currentImageIndex] || product.image
-              }
+            <ProductDeferredImage
+              src={productImageSrc}
               alt={product.name}
-              fill
-              sizes='(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw'
-              className={`object-cover transition-all duration-300 ${
-                imageLoaded
-                  ? 'opacity-100 group-hover:scale-105'
-                  : 'opacity-0'
+              eager={false}
+              isLoadEnabled
+              rootMargin='280px 0px'
+              sizes='(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw'
+              imgClassName={`absolute inset-0 h-full w-full object-cover transition-[transform,opacity] duration-300 ${
+                imageLoaded ? 'group-hover:scale-105' : ''
               }`}
-              onLoad={handleImageLoad}
-              onError={() => setImageLoaded(true)}
+              placeholderClassName='absolute inset-0'
+              observerClassName='absolute inset-0'
+              onReady={() => {
+                if (!imageLoaded) {
+                  setImageLoaded(true)
+                }
+              }}
+              onError={() => {
+                if (!imageLoaded) {
+                  setImageLoaded(true)
+                }
+              }}
             />
           </div>
 
@@ -279,8 +296,8 @@ const ProductCard = ({
               {/* Color Options - Bottom Right of Image - Adjusted for portrait */}
               {availableColors.length > 0 && (
                 <div
-                  className={`absolute z-20 ${
-                    product.isPortrait ? 'bottom-4 right-3' : 'bottom-3 right-3'
+                  className={`absolute right-3 z-20 ${
+                    product.isPortrait ? 'bottom-3' : 'bottom-3'
                   }`}
                 >
                   <ColorOptions
@@ -332,7 +349,7 @@ const ProductCard = ({
                 </div>
               </div>
 
-              <h3 className='text-sm font-semibold text-gray-900 line-clamp-2 leading-tight'>
+              <h3 className='text-sm font-normal text-gray-900 line-clamp-2 leading-tight'>
                 {product.name}
               </h3>
             </div>
@@ -351,9 +368,13 @@ const ProductCard = ({
             ) : null}
 
             {/* Almost Sold Out Badge */}
-            {product.stock <= 3 && (
+            {stockCount <= 3 && (
               <div className='mb-0.5'>
-                <span className='text-orange-600 text-xs font-semibold flex items-center gap-1'>
+                <span
+                  className={`flex items-center gap-1 text-xs font-semibold ${
+                    isOutOfStock ? 'text-red-600' : 'text-orange-600'
+                  }`}
+                >
                   <svg
                     width='12'
                     height='12'
@@ -364,7 +385,7 @@ const ProductCard = ({
                   >
                     <path d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' />
                   </svg>
-                  Only {product.stock} left in stock
+                  {isOutOfStock ? 'Out of stock' : `Only ${stockCount} left in stock`}
                 </span>
               </div>
             )}
@@ -384,13 +405,30 @@ const ProductCard = ({
                 </div>
               </div>
 
+              <ProductDealCountdown
+                variant='card'
+                expiresAt={dealExpiresAt}
+                currentPrice={priceValue}
+                originalPrice={originalPriceValue}
+                stock={stockCount}
+              />
+
               <div
-                className={`flex items-center gap-2 pt-0.5 ${
-                  hasDiscount ? 'justify-between' : 'justify-end'
+                ref={actionRowRef}
+                className={`flex gap-2 pt-0.5 ${
+                  quantity > 0 && !isOutOfStock && shouldWrapQuantityRow
+                    ? 'flex-wrap items-start'
+                    : 'items-center'
                 }`}
               >
                 {discountPercentage ? (
-                  <span className='text-xs text-green-600 font-semibold'>
+                  <span
+                    className={`min-w-0 font-semibold leading-tight text-green-600 sm:text-xs ${
+                      quantity > 0 && !isOutOfStock && shouldWrapQuantityRow
+                        ? 'w-full text-[10px]'
+                        : 'flex-1 whitespace-nowrap text-[10px]'
+                    }`}
+                  >
                     Save {formatMoney(originalPriceValue - priceValue)}
                   </span>
                 ) : null}
@@ -429,29 +467,54 @@ const ProductCard = ({
                       </>
                     )}
                   </button>
+                ) : isOutOfStock ? (
+                  <button
+                    type='button'
+                    onClick={handleOutOfStockClick}
+                    aria-label='This product is out of stock'
+                    className='h-8 w-8 shrink-0 rounded-lg border-2 border-gray-200 bg-gray-100 text-gray-400
+                     flex items-center justify-center transition-all duration-200 sm:h-9 sm:w-9'
+                  >
+                    <svg
+                      width='20'
+                      height='20'
+                      viewBox='-3.2 -3.2 38.40 38.40'
+                      fill='currentColor'
+                      className='sm:h-[22px] sm:w-[22px]'
+                    >
+                      <circle cx='10' cy='28' r='2'></circle>
+                      <circle cx='24' cy='28' r='2'></circle>
+                      <path d='M4.9806,2.8039A1,1,0,0,0,4,2H0V4H3.18L7.0194,23.1961A1,1,0,0,0,8,24H26V22H8.82l-.8-4H26a1,1,0,0,0,.9762-.783L29.2445,7H27.1971l-1.9989,9H7.62Z'></path>
+                      <polygon points='18 6 18 2 16 2 16 6 12 6 12 8 16 8 16 12 18 12 18 8 22 8 22 6 18 6'></polygon>
+                      <path d='M7 7L25 25' fill='none' stroke='currentColor' strokeWidth='2.1' strokeLinecap='round' />
+                    </svg>
+                  </button>
                 ) : quantity > 0 ? (
-                  <QuantityControl
-                    quantity={quantity}
-                    onIncrement={handleIncrement}
-                    onDecrement={handleDecrement}
-                    size='sm'
-                    isLoading={Boolean(cartEntry?.isSyncing)}
-                    appearance='solid'
-                    stylePreset='card'
-                  />
+                  <div className={shouldWrapQuantityRow ? 'w-full' : 'shrink-0'}>
+                    <QuantityControl
+                      quantity={quantity}
+                      onIncrement={handleIncrement}
+                      onDecrement={handleDecrement}
+                      size='sm'
+                      fullWidth={shouldWrapQuantityRow}
+                      isLoading={Boolean(cartEntry?.isSyncing)}
+                      appearance='solid'
+                      stylePreset='card'
+                    />
+                  </div>
                 ) : (
                   <button
                     onClick={handleAddToCart}
-                    className='w-9 h-9 rounded-lg border-2 border-gray-300 bg-white text-gray-600
+                    className='h-8 w-8 shrink-0 rounded-lg border-2 border-gray-300 bg-white text-gray-600
                      flex items-center justify-center hover:border-gray-400 hover:bg-gray-50
-                     transition-all duration-200 group/btn'
+                     transition-all duration-200 group/btn sm:h-9 sm:w-9'
                   >
                     <svg
-                      width='22'
-                      height='22'
+                      width='20'
+                      height='20'
                       viewBox='-3.2 -3.2 38.40 38.40'
                       fill='currentColor'
-                      className='group-hover/btn:scale-110 transition-transform duration-200'
+                      className='transition-transform duration-200 group-hover/btn:scale-110 sm:h-[22px] sm:w-[22px]'
                     >
                       <circle cx='10' cy='28' r='2'></circle>
                       <circle cx='24' cy='28' r='2'></circle>
@@ -480,6 +543,12 @@ const ProductCard = ({
           }, quantityFromModal)
           setIsVariantModalOpen(false)
         }}
+      />
+      <OutOfStockNotifyModal
+        open={showOutOfStockModal}
+        onClose={() => setShowOutOfStockModal(false)}
+        productName={product?.name}
+        productImage={previewImage || product.gallery?.[currentImageIndex] || product.image || ''}
       />
     </>
   )

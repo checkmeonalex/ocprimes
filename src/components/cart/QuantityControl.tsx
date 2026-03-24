@@ -106,7 +106,7 @@ const QuantityControl = ({
   if (isCardPreset) {
     return (
       <div
-        className={`inline-flex items-center rounded-md border border-gray-300 bg-white shadow-sm ${
+        className={`grid grid-cols-[1fr_auto_1fr] items-center rounded-md border border-gray-300 bg-white shadow-sm ${
           fullWidth ? 'w-full' : ''
         }`}
       >
@@ -114,9 +114,19 @@ const QuantityControl = ({
           type='button'
           aria-label='Decrease quantity'
           onClick={onDecrement}
-          className='flex h-6 w-6 items-center justify-center text-sm font-semibold text-gray-700 transition hover:bg-gray-100'
+          className='flex h-6 min-w-0 items-center justify-center text-sm font-semibold text-gray-700 transition hover:bg-gray-100'
         >
-          −
+          <svg
+            viewBox='0 0 16 16'
+            aria-hidden='true'
+            className='h-3.5 w-3.5'
+            fill='none'
+            stroke='currentColor'
+            strokeWidth='1.8'
+            strokeLinecap='round'
+          >
+            <path d='M4 8H12' />
+          </svg>
         </button>
         <span className='flex h-6 min-w-8 items-center justify-center border-x border-gray-300 px-2 text-xs font-semibold text-gray-900'>
           {shouldShowSpinner ? (
@@ -131,9 +141,20 @@ const QuantityControl = ({
           type='button'
           aria-label='Increase quantity'
           onClick={onIncrement}
-          className='flex h-6 w-6 items-center justify-center text-sm font-semibold text-gray-700 transition hover:bg-gray-100'
+          className='flex h-6 min-w-0 items-center justify-center text-sm font-semibold text-gray-700 transition hover:bg-gray-100'
         >
-          +
+          <svg
+            viewBox='0 0 16 16'
+            aria-hidden='true'
+            className='h-3.5 w-3.5'
+            fill='none'
+            stroke='currentColor'
+            strokeWidth='1.8'
+            strokeLinecap='round'
+          >
+            <path d='M4 8H12' />
+            <path d='M8 4V12' />
+          </svg>
         </button>
       </div>
     )

@@ -1,12 +1,11 @@
-export const fetchProductCategories = async ({ page = 1, perPage = 50, search = '' } = {}) => {
+export const fetchProductCategories = async ({ limit = 500, search = '' } = {}) => {
   const params = new URLSearchParams({
-    page: String(page),
-    per_page: String(perPage),
+    limit: String(limit),
   });
   if (search) {
     params.set('search', search);
   }
-  const response = await fetch(`/api/admin/categories?${params.toString()}`, {
+  const response = await fetch(`/api/admin/categories/tree?${params.toString()}`, {
     credentials: 'include',
   });
   const payload = await response.json().catch(() => null);

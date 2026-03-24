@@ -20,6 +20,8 @@ import CartQuantitySelect from '../../../components/cart/CartQuantitySelect'
 import ProductFloatingDock from '../../../components/product/ProductFloatingDock'
 import SellerChatPopup from '../../../components/product/SellerChatPopup'
 import ShippingTabDetails from '../../../components/product/ShippingTabDetails'
+import ProductDealCountdown from '../../../components/product/ProductDealCountdown'
+import ProductImagePlaceholder from '../../../components/product/ProductDetails/ProductImagePlaceholder'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { getCurrencyMeta } from '@/lib/i18n/locale-config'
 import {
@@ -359,6 +361,7 @@ const mapApiProduct = (item: any) => {
     shortDescription: item.short_description || '',
     fullDescription: item.description || '',
     sku: item.sku || '',
+    dealExpiresAt: String(item.deal_expires_at || item.dealExpiresAt || '').trim(),
     conditionCheck: String(item.condition_check || ''),
     packagingStyle: String(item.packaging_style || 'in_wrap_nylon'),
     returnPolicy: String(item.return_policy || 'not_returnable'),
@@ -1331,10 +1334,15 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   const activePrice = selectedVariation?.price ?? product.price
   const activeOriginalPrice =
     selectedVariation?.originalPrice ?? product.originalPrice
+  const dealExpiresAt = String(product.dealExpiresAt || '').trim()
   const savingsAmount =
     activeOriginalPrice && activeOriginalPrice > activePrice
       ? activeOriginalPrice - activePrice
       : 0
+  const shouldShowDealCountdown =
+    Boolean(dealExpiresAt) &&
+    Number(activePrice || 0) === Number(product.price || 0) &&
+    Number(activeOriginalPrice || 0) === Number(product.originalPrice || 0)
   const activeImage = currentImage || selectedVariation?.image || product.video || product.image
   const conditionKey = String(product.conditionCheck || '').trim().toLowerCase()
   const conditionMeta =
@@ -1530,8 +1538,8 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
             </div>
           ) : null}
 
-          {isMobile ? (
-            <div ref={mobileGallerySectionRef} className='w-full md:hidden'>
+          <div ref={mobileGallerySectionRef} className='w-full md:hidden'>
+            {isMobile ? (
               <Gallery
                 images={product.gallery}
                 media={product.galleryMedia}
@@ -1550,8 +1558,16 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                 badgeVariant={isNewProduct ? 'new' : 'discount'}
                 mainImageRef={galleryMainRef}
               />
-            </div>
-          ) : null}
+            ) : (
+              <div className='w-full'>
+                <div className='relative w-full overflow-hidden rounded-none bg-transparent'>
+                  <div className='relative w-full' style={{ aspectRatio: '4 / 5' }}>
+                    <ProductImagePlaceholder />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className='main-container px-2 sm:px-4 lg:px-6 py-0 md:overflow-x-visible'>
             <div className='hidden md:block pb-3 pt-2 sm:pb-4 sm:pt-0'>
@@ -1674,6 +1690,15 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                       </div>
                     )}
                   </div>
+
+                  {shouldShowDealCountdown ? (
+                    <ProductDealCountdown
+                      expiresAt={dealExpiresAt}
+                      currentPrice={activePrice}
+                      originalPrice={activeOriginalPrice}
+                      stock={stockCount}
+                    />
+                  ) : null}
 
                   <button
                     type='button'

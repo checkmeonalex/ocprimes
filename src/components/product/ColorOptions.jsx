@@ -12,7 +12,7 @@ const ColorOptions = ({
   onClearPreview,
 }) => {
   return (
-    <div className='absolute bottom-3 right-3 flex flex-col gap-1 z-20 bg-white/20 backdrop-blur-sm p-1 rounded-lg shadow-sm'>
+    <div className='flex flex-col gap-1 rounded-lg bg-white/35 p-1 shadow-sm backdrop-blur-sm'>
       {colors.slice(0, 3).map((color) => (
         <button
           key={color}

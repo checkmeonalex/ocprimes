@@ -1592,7 +1592,7 @@ const ProductCatalogPage = ({
                 <ProductGrid
                   products={storefrontShowcaseProducts}
                   onAddToCart={handleAddToCart}
-                  className='grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-2 md:grid-cols-3 md:gap-3 xl:grid-cols-4 xl:gap-3'
+                  masonry
                 />
               </div>
             ) : null}
@@ -1747,7 +1747,7 @@ const ProductCatalogPage = ({
                 <ProductGrid
                   products={sortedProducts}
                   onAddToCart={handleAddToCart}
-                  className='grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-2 md:grid-cols-3 md:gap-3 xl:grid-cols-4 xl:gap-3'
+                  masonry
                 />
                 {hasMoreFromServer && (
                   <div
