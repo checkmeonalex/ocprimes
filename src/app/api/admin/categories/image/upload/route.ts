@@ -4,11 +4,11 @@ import { requireAdmin } from '@/lib/auth/require-admin'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import {
-  ALLOWED_IMAGE_TYPES,
   MAX_UPLOAD_BYTES,
   buildObjectKey,
   uploadToR2,
 } from '@/lib/storage/r2'
+import { ALLOWED_ADMIN_IMAGE_TYPES } from '@/lib/storage/admin-media'
 
 const formSchema = z.object({
   category_id: z.string().uuid().optional(),
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   if (!(file instanceof File)) {
     return jsonError('Missing file.', 400)
   }
-  if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+  if (!ALLOWED_ADMIN_IMAGE_TYPES.has(file.type)) {
     return jsonError('Unsupported file type.', 415)
   }
   if (file.size > MAX_UPLOAD_BYTES) {

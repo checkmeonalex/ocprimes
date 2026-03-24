@@ -42,6 +42,7 @@ export default function ProductDeferredImage({
   const normalizedSrc = useMemo(() => String(src || '').trim(), [src])
   const observerRef = useRef(null)
   const imageRef = useRef(null)
+  const fallbackTimeoutRef = useRef(null)
   const [shouldLoad, setShouldLoad] = useState(() => {
     if (!normalizedSrc) return false
     return eager || !loadWhenVisible || hasActivatedImageSource(normalizedSrc)
@@ -133,6 +134,34 @@ export default function ProductDeferredImage({
     const timeoutId = window.setTimeout(() => setShowPlaceholder(false), 220)
     return () => window.clearTimeout(timeoutId)
   }, [isReady, showPlaceholder])
+
+  useEffect(() => {
+    if (fallbackTimeoutRef.current) {
+      window.clearTimeout(fallbackTimeoutRef.current)
+      fallbackTimeoutRef.current = null
+    }
+
+    if (!shouldLoad || !showPlaceholder || isReady) return undefined
+
+    fallbackTimeoutRef.current = window.setTimeout(() => {
+      setIsReady(true)
+      setShowPlaceholder(false)
+    }, 3000)
+
+    return () => {
+      if (fallbackTimeoutRef.current) {
+        window.clearTimeout(fallbackTimeoutRef.current)
+        fallbackTimeoutRef.current = null
+      }
+    }
+  }, [isReady, shouldLoad, showPlaceholder])
+
+  useEffect(() => () => {
+    if (fallbackTimeoutRef.current) {
+      window.clearTimeout(fallbackTimeoutRef.current)
+      fallbackTimeoutRef.current = null
+    }
+  }, [])
 
   const handleImageLoad = useCallback(
     (event) => {

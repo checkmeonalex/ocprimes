@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import ProductImagePlaceholder from '../../product/ProductDetails/ProductImagePlaceholder'
-import ProductDeferredImage from '../../product/ProductDeferredImage'
+import MobileGalleryImage from './MobileGalleryImage'
 
 const normalizeMediaItems = (media, images = []) => {
   const seen = new Set()
@@ -714,15 +714,13 @@ export default function MobileGallery({
                           event.stopPropagation()
                           startVideoPlayer(item.url)
                         }}
-                        className='relative h-full w-full bg-slate-100'
+                        className='relative h-full w-full overflow-hidden bg-slate-100'
                         aria-label='Play video'
                       >
-                        <video
-                          src={item.url}
-                          poster={item.poster || undefined}
-                          muted
-                          preload='metadata'
-                          className='h-full w-full object-cover opacity-90'
+                        <MobileGalleryImage
+                          src={item.poster || item.url}
+                          alt={`${productName} video preview`}
+                          isActive={index === activeIndex}
                         />
                         <span className='absolute inset-0 flex items-center justify-center bg-black/25'>
                           <svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' className='h-24 w-24'>
@@ -743,14 +741,10 @@ export default function MobileGallery({
                       </button>
                     )
                   ) : (
-                    <ProductDeferredImage
+                    <MobileGalleryImage
                       src={item.url}
                       alt={productName}
-                      eager={index === activeIndex}
-                      isLoadEnabled={index === activeIndex}
-                      imgClassName='h-full w-full object-cover transition-opacity duration-300'
-                      placeholderClassName='absolute inset-0'
-                      observerClassName='absolute inset-0'
+                      isActive={index === activeIndex}
                     />
                   )}
                 </div>

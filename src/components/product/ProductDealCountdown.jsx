@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   formatDealCountdownLabel,
+  getDealExpiryTimestamp,
   getDealStockState,
+  hasActiveDealPricing,
   isActiveTimedDeal,
 } from '@/lib/products/deals.mjs'
 
@@ -69,30 +71,49 @@ export default function ProductDealCountdown({
   variant = 'page',
   className = '',
 }) {
-  const [nowMs, setNowMs] = useState(() => Date.now())
+  const [hasMounted, setHasMounted] = useState(false)
+  const [nowMs, setNowMs] = useState(null)
+
+  const hasValidExpiry = useMemo(
+    () => getDealExpiryTimestamp(expiresAt) !== null,
+    [expiresAt],
+  )
+  const hasActivePricing = useMemo(
+    () => hasActiveDealPricing({ currentPrice, originalPrice }),
+    [currentPrice, originalPrice],
+  )
 
   const isActive = useMemo(
     () =>
+      !hasMounted
+        ? hasActivePricing && hasValidExpiry
+        :
       isActiveTimedDeal({
         expiresAt,
         currentPrice,
         originalPrice,
         nowMs,
       }),
-    [currentPrice, expiresAt, nowMs, originalPrice],
+    [currentPrice, expiresAt, hasActivePricing, hasMounted, hasValidExpiry, nowMs, originalPrice],
   )
 
   useEffect(() => {
+    setHasMounted(true)
+    setNowMs(Date.now())
+  }, [])
+
+  useEffect(() => {
+    if (!hasMounted) return undefined
     if (!isActive) return undefined
     const timer = window.setInterval(() => {
       setNowMs(Date.now())
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [isActive])
+  }, [hasMounted, isActive])
 
   const countdownLabel = useMemo(
-    () => formatDealCountdownLabel(expiresAt, nowMs),
-    [expiresAt, nowMs],
+    () => (hasMounted && nowMs ? formatDealCountdownLabel(expiresAt, nowMs) : '--:--:--'),
+    [expiresAt, hasMounted, nowMs],
   )
   const stockState = useMemo(() => getDealStockState(stock), [stock])
   const toneStyles = STOCK_TONE_STYLES[stockState.tone] || STOCK_TONE_STYLES.active
