@@ -159,7 +159,7 @@ export default function ProductDealCountdown({
 
   return (
     <section
-      className={`overflow-hidden rounded-2xl border border-[#ffd2a8] bg-white shadow-[0_12px_30px_rgba(249,115,22,0.08)] ${className}`.trim()}
+      className={`overflow-hidden border border-[#ffd2a8] bg-white shadow-[0_12px_30px_rgba(249,115,22,0.08)] ${className}`.trim()}
     >
       <div className='flex items-center justify-between gap-3 bg-[linear-gradient(90deg,#111111_0%,#1f1f1f_100%)] px-4 py-2 text-white'>
         <div className='flex min-w-0 items-center gap-2'>
@@ -186,7 +186,9 @@ export default function ProductDealCountdown({
         <div className='space-y-1.5'>
           <ProgressBar progress={stockState.progress} tone={stockState.tone} />
           <div className='flex items-center justify-between gap-2 text-[11px]'>
-            <span className={toneStyles.text}>{stockState.helper}</span>
+            <span className={toneStyles.text}>
+              Buy at ₦{Number(currentPrice || 0).toLocaleString()}
+            </span>
             {Number(stock) > 0 ? (
               <span className='text-slate-500'>{Number(stock)} items remaining</span>
             ) : null}
