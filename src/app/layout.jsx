@@ -15,6 +15,7 @@ import { createServerSupabaseClient } from '../lib/supabase/server'
 import { getCachedTopCategories } from '../lib/catalog/top-categories-server'
 import { BRAND_NAME, BRAND_SEARCH_DESCRIPTION, BRAND_TAGLINE } from '../lib/brand'
 import { SITE_URL } from '../lib/seo'
+import PwaRegistration from '../components/pwa/PwaRegistration'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,8 +27,12 @@ export const metadata = {
   },
   description: BRAND_SEARCH_DESCRIPTION,
   applicationName: BRAND_NAME,
+  manifest: '/manifest.webmanifest',
   alternates: {
     canonical: '/',
+  },
+  formatDetection: {
+    telephone: false,
   },
   robots: {
     index: true,
@@ -47,6 +52,11 @@ export const metadata = {
     ],
     apple: [{ url: '/apple-icon.png', sizes: '180x180', type: 'image/png' }],
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: BRAND_NAME,
+  },
   openGraph: {
     type: 'website',
     url: SITE_URL,
@@ -59,6 +69,13 @@ export const metadata = {
     title: `${BRAND_NAME} | ${BRAND_TAGLINE}`,
     description: BRAND_SEARCH_DESCRIPTION,
   },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#2f2019',
 }
 
 const outfit = localFont({
@@ -88,6 +105,7 @@ export default async function RootLayout({ children }) {
   return (
     <html lang='en'>
       <body className={outfit.variable}>
+        <PwaRegistration />
         <UserLocaleProvider>
           <AlertProvider>
             <SidebarProvider>
