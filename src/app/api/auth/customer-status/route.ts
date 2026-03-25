@@ -4,8 +4,17 @@ import { jsonError, jsonOk } from '@/lib/http/response'
 import { findAuthUserByEmail } from '@/lib/auth/find-user-by-email'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'auth-customer-status',
+    max: 12,
+    windowMs: 60_000,
+    message: 'Too many account lookups. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const body = await request.json().catch(() => null)
   const parsed = authEmailLookupSchema.safeParse(body)
 

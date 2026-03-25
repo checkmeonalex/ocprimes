@@ -3,8 +3,17 @@ import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { emailCodeSchema } from '@/lib/auth/validation'
 import { setEmailTwoStepVerifiedCookie } from '@/lib/auth/two-step-cookies'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'auth-email-2sv-verify',
+    max: 8,
+    windowMs: 60_000,
+    message: 'Too many verification attempts. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const body = await request.json().catch(() => null)
   const parsed = emailCodeSchema.safeParse(body)
 

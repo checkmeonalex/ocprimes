@@ -1,4 +1,15 @@
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL ?? 'http://127.0.0.1:8000';
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_BG_REMOVAL_API_URL ||
+  process.env.REACT_APP_API_BASE_URL ||
+  ''
+).replace(/\/$/, '');
+
+const buildBgRemovalUrl = () => {
+  if (!API_BASE_URL) {
+    throw new Error('Background removal API is not configured.');
+  }
+  return `${API_BASE_URL}/remove-bg`;
+};
 
 export const removeBackgroundFromBlob = async ({ blob, filename = 'image.png' }) => {
   if (!blob) {
@@ -12,7 +23,7 @@ export const removeBackgroundFromBlob = async ({ blob, filename = 'image.png' })
   const body = new FormData();
   body.append('file', file);
 
-  const response = await fetch(`${API_BASE_URL}/remove-bg`, {
+  const response = await fetch(buildBgRemovalUrl(), {
     method: 'POST',
     body,
   });

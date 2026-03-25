@@ -16,6 +16,7 @@ import {
   buildObjectKey,
   uploadToR2,
 } from '@/lib/storage/r2'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 const RETURN_REASON_LABELS: Record<string, string> = {
   defective_item: 'Defective item',
@@ -29,6 +30,14 @@ const RETURN_REASON_LABELS: Record<string, string> = {
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = enforceRateLimit(request, {
+      key: 'chat-help-center-return-request',
+      max: 4,
+      windowMs: 60_000,
+      message: 'Too many return requests. Please wait a minute and try again.',
+    })
+    if (limited) return limited
+
     const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
     const { data: auth, error: authError } = await supabase.auth.getUser()
 

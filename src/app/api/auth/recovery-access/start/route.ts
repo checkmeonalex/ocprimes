@@ -2,10 +2,19 @@ import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { recoveryAccessStartSchema } from '@/lib/auth/validation'
 import { findAuthUserByEmail } from '@/lib/auth/find-user-by-email'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 const INVALID_RECOVERY_MESSAGE = 'Recovery details are incorrect.'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'auth-recovery-start',
+    max: 5,
+    windowMs: 60_000,
+    message: 'Too many recovery attempts. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const body = await request.json().catch(() => null)
   const parsed = recoveryAccessStartSchema.safeParse(body)
 

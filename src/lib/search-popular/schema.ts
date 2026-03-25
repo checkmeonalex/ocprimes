@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { sanitizePlainText } from '@/lib/security/input'
 
 const MAX_URL_LENGTH = 2048
 
@@ -24,7 +25,7 @@ export const popularSearchItemIdParamsSchema = z.object({
 })
 
 export const popularSearchItemInputSchema = z.object({
-  text: z.string().trim().min(1).max(80),
+  text: z.preprocess(sanitizePlainText, z.string().min(1).max(80)),
   imageUrl: urlLikeSchema,
   targetUrl: urlLikeSchema,
   sortOrder: z.coerce.number().int().min(0).max(9999).default(0),
@@ -33,7 +34,7 @@ export const popularSearchItemInputSchema = z.object({
 
 export const popularSearchItemRecordSchema = z.object({
   id: z.string().uuid(),
-  text: z.string().trim().min(1).max(80),
+  text: z.preprocess(sanitizePlainText, z.string().min(1).max(80)),
   image_url: urlLikeSchema,
   target_url: urlLikeSchema,
   sort_order: z.number().int().min(0).max(9999),

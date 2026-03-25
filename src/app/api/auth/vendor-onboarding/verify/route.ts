@@ -2,8 +2,17 @@ import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { vendorOnboardingVerifySchema } from '@/lib/auth/validation'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'vendor-onboarding-verify',
+    max: 8,
+    windowMs: 60_000,
+    message: 'Too many verification attempts. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const body = await request.json().catch(() => null)
   const parsed = vendorOnboardingVerifySchema.safeParse(body)
 

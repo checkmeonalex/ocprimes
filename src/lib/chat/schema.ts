@@ -1,11 +1,12 @@
 import { z } from 'zod'
+import { sanitizeMultilineText, sanitizePlainText } from '@/lib/security/input'
 
 export const chatConversationInitSchema = z.object({
   productId: z.string().uuid(),
 })
 
 export const chatMessageCreateSchema = z.object({
-  body: z.string().trim().min(1).max(2000),
+  body: z.preprocess(sanitizeMultilineText, z.string().min(1).max(2000)),
 })
 
 export const chatMessagesQuerySchema = z.object({
@@ -24,8 +25,8 @@ export const chatHelpCenterReportSchema = z.object({
     'scam',
     'other',
   ]),
-  otherDetails: z.string().trim().max(600).optional().default(''),
-  reportedSellerName: z.string().trim().min(1).max(120),
+  otherDetails: z.preprocess(sanitizeMultilineText, z.string().max(600)).optional().default(''),
+  reportedSellerName: z.preprocess(sanitizePlainText, z.string().min(1).max(120)),
   productId: z.string().uuid().optional(),
   sourceConversationId: z.string().uuid().optional(),
 })
@@ -33,9 +34,9 @@ export const chatHelpCenterReportSchema = z.object({
 export const chatHelpCenterReturnRequestSchema = z.object({
   orderId: z.string().uuid(),
   itemIds: z.array(z.string().uuid()).min(1).max(30),
-  orderNumber: z.string().trim().max(120).optional().default(''),
-  trackId: z.string().trim().max(120).optional().default(''),
-  orderStatus: z.string().trim().max(80).optional().default(''),
+  orderNumber: z.preprocess(sanitizePlainText, z.string().max(120)).optional().default(''),
+  trackId: z.preprocess(sanitizePlainText, z.string().max(120)).optional().default(''),
+  orderStatus: z.preprocess(sanitizePlainText, z.string().max(80)).optional().default(''),
   itemReports: z.array(
     z.object({
       itemId: z.string().uuid(),
@@ -50,7 +51,7 @@ export const chatHelpCenterReturnRequestSchema = z.object({
           'other',
         ]),
       ).optional().default([]),
-      customReason: z.string().trim().max(600).optional().default(''),
+      customReason: z.preprocess(sanitizeMultilineText, z.string().max(600)).optional().default(''),
     }),
   ).min(1).max(30),
 })

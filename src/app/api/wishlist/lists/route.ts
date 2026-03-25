@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { sanitizeMultilineText, sanitizePlainText } from '@/lib/security/input'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 const normalizeVisibility = (value?: string) => {
   const allowed = new Set(['private', 'invite', 'public', 'unlisted'])
@@ -76,6 +78,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'wishlist-list-create',
+    max: 8,
+    windowMs: 60_000,
+    message: 'Too many wishlist actions. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
   const { data, error } = await supabase.auth.getUser()
   if (error || !data.user) {
@@ -89,7 +99,7 @@ export async function POST(request: NextRequest) {
     return jsonError('Invalid JSON payload.', 400)
   }
 
-  const name = (payload.name || '').trim()
+  const name = sanitizePlainText(payload.name)
   if (!name) {
     return jsonError('List name is required.', 400)
   }
@@ -97,7 +107,7 @@ export async function POST(request: NextRequest) {
   const visibility = normalizeVisibility(payload.visibility)
   const shareToken = visibility === 'public' || visibility === 'unlisted' ? crypto.randomUUID() : null
   const description =
-    payload.description !== undefined ? String(payload.description).trim() : null
+    payload.description !== undefined ? sanitizeMultilineText(payload.description) : null
   const wordCount = description
     ? description
         .trim()

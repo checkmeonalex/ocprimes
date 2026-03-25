@@ -1,8 +1,9 @@
 import { z } from 'zod'
+import { sanitizeMultilineText } from '@/lib/security/input'
 
 const normalizeBlank = (value: unknown) => {
   if (typeof value !== 'string') return value
-  const trimmed = value.trim()
+  const trimmed = sanitizeMultilineText(value)
   return trimmed === '' ? null : trimmed
 }
 

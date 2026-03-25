@@ -3,9 +3,13 @@ import {
   EMAIL_TWO_STEP_METHOD,
   SMS_TWO_STEP_METHOD,
 } from '@/lib/auth/account-security'
+import {
+  sanitizeEmailInput,
+  sanitizePlainText,
+} from '@/lib/security/input'
 
 const trimmed = (value: unknown) =>
-  typeof value === 'string' ? value.trim() : value
+  typeof value === 'string' ? sanitizePlainText(value) : value
 
 const normalizeInterestList = (value: unknown) => {
   if (Array.isArray(value)) {
@@ -78,7 +82,7 @@ export const userProfileSchema = z.object({
   contactInfo: z
     .object({
       phone: z.preprocess(trimmed, z.string().max(30).optional().or(z.literal(''))),
-      email: z.preprocess(trimmed, z.string().email().optional().or(z.literal(''))),
+      email: z.preprocess(sanitizeEmailInput, z.string().email().optional().or(z.literal(''))),
       whatsapp: z.preprocess(trimmed, z.string().max(30).optional().or(z.literal(''))),
     })
     .optional(),
@@ -156,7 +160,7 @@ export const userProfileSchema = z.object({
     .optional(),
   security: z
     .object({
-      recoveryEmail: z.preprocess(trimmed, z.string().email().optional().or(z.literal(''))),
+      recoveryEmail: z.preprocess(sanitizeEmailInput, z.string().email().optional().or(z.literal(''))),
       question: z.preprocess(trimmed, z.string().max(120).optional().or(z.literal(''))),
       answer: z.preprocess(trimmed, z.string().max(200).optional().or(z.literal(''))),
       phoneNumber: z.preprocess(trimmed, z.string().max(30).optional().or(z.literal(''))),

@@ -2,11 +2,13 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { sanitizeMultilineText, sanitizePlainText } from '@/lib/security/input'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 const claimSchema = z.object({
-  orderId: z.string().trim().min(1).max(120),
-  orderItemKey: z.string().trim().max(180).optional(),
-  reason: z.string().trim().min(1).max(600),
+  orderId: z.preprocess(sanitizePlainText, z.string().min(1).max(120)),
+  orderItemKey: z.preprocess(sanitizePlainText, z.string().max(180)).optional(),
+  reason: z.preprocess(sanitizeMultilineText, z.string().min(1).max(600)),
   evidenceUrls: z.array(z.string().trim().url().max(1000)).max(10).default([]),
 })
 
@@ -34,6 +36,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'order-protection-claim-create',
+    max: 4,
+    windowMs: 60_000,
+    message: 'Too many claim attempts. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
   const { data: auth, error: authError } = await supabase.auth.getUser()
 

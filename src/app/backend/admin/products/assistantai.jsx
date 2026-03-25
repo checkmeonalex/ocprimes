@@ -3,7 +3,18 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { readStoredSiteInfo } from '@/utils/connector.mjs';
 import { MODELS, findModelByProviderModel, getModelValue, PROVIDERS } from '@/app/agentic/settings/personalized/modelCatalog.mjs';
 
-const CHAT_API_URL = process.env.REACT_APP_CHAT_API_URL || 'http://localhost:4000';
+const CHAT_API_URL = (
+  process.env.NEXT_PUBLIC_CHAT_API_URL ||
+  process.env.REACT_APP_CHAT_API_URL ||
+  ''
+).replace(/\/$/, '');
+
+const buildChatApiUrl = (path = '') => {
+  if (!CHAT_API_URL) {
+    throw new Error('Assistant API URL is not configured.');
+  }
+  return `${CHAT_API_URL}${path}`;
+};
 
 const ASSISTANT_AI_SYSTEM_INSTRUCTIONS = [
   'You are the product editor assistant.',
@@ -323,7 +334,7 @@ function AssistantAI({
       return;
     }
     setIsModelLoading(true);
-    fetch(`${CHAT_API_URL}/me`, {
+    fetch(buildChatApiUrl('/me'), {
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
@@ -376,7 +387,7 @@ function AssistantAI({
       return;
     }
     setHistoryLoading(true);
-    fetch(`${CHAT_API_URL}/sessions?context=woocommerce`, {
+    fetch(buildChatApiUrl('/sessions?context=woocommerce'), {
       headers: {
         Authorization: `Bearer ${authToken}`,
       },
@@ -417,7 +428,7 @@ function AssistantAI({
     }
     setHistoryLoading(true);
     try {
-      const response = await fetch(`${CHAT_API_URL}/sessions/${sessionId}/messages?context=woocommerce`, {
+      const response = await fetch(buildChatApiUrl(`/sessions/${sessionId}/messages?context=woocommerce`), {
         headers: {
           Authorization: `Bearer ${authToken}`,
         },
@@ -449,7 +460,7 @@ function AssistantAI({
     const authToken = localStorage.getItem('agentic_auth_token');
     if (!authToken) return;
     try {
-      await fetch(`${CHAT_API_URL}/settings/provider`, {
+      await fetch(buildChatApiUrl('/settings/provider'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -469,7 +480,7 @@ function AssistantAI({
       setModelMenuOpen(false);
       if (!authToken) return;
       try {
-        await fetch(`${CHAT_API_URL}/settings/provider`, {
+        await fetch(buildChatApiUrl('/settings/provider'), {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -489,7 +500,7 @@ function AssistantAI({
     if (!authToken) return;
     try {
       const modelValue = getModelValue(nextModel);
-      await fetch(`${CHAT_API_URL}/settings/provider`, {
+      await fetch(buildChatApiUrl('/settings/provider'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -1320,7 +1331,7 @@ function AssistantAI({
       ]);
     } else if (messageForServer) {
       setIsSending(true);
-      fetch(`${CHAT_API_URL}/chat`, {
+      fetch(buildChatApiUrl('/chat'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

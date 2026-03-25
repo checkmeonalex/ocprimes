@@ -13,13 +13,15 @@ import {
 } from '@/lib/storage/r2'
 import { evaluateReviewContentForModeration } from '@/lib/moderation/reviews'
 import { createNotifications, notifyAllAdmins } from '@/lib/admin/notifications'
+import { sanitizeMultilineText } from '@/lib/security/input'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 const querySchema = z.object({
   per_page: z.coerce.number().int().min(1).max(120).default(40),
 })
 const createReviewSchema = z.object({
   rating: z.coerce.number().int().min(1).max(5),
-  content: z.string().trim().max(1200),
+  content: z.preprocess(sanitizeMultilineText, z.string().max(1200)),
 })
 
 const MISSING_TABLE_CODE = '42P01'
@@ -527,6 +529,14 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ slug: string }> },
 ) {
+  const limited = enforceRateLimit(request, {
+    key: 'product-review-create',
+    max: 6,
+    windowMs: 60_000,
+    message: 'Too many review submissions. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const slug = await readSlug(context)
   if (!slug) return jsonError('Invalid product slug.', 400)
 

@@ -1,8 +1,18 @@
 import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
+import { sanitizeEmailInput, sanitizePlainText } from '@/lib/security/input'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'wishlist-invite-create',
+    max: 10,
+    windowMs: 60_000,
+    message: 'Too many wishlist invites. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
   const { data, error } = await supabase.auth.getUser()
   if (error || !data.user) {
@@ -16,8 +26,8 @@ export async function POST(request: NextRequest) {
     return jsonError('Invalid JSON payload.', 400)
   }
 
-  const wishlistId = payload.wishlistId
-  const email = (payload.email || '').trim().toLowerCase()
+  const wishlistId = sanitizePlainText(payload.wishlistId)
+  const email = sanitizeEmailInput(payload.email)
   if (!wishlistId || !email) {
     return jsonError('Wishlist and email are required.', 400)
   }

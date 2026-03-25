@@ -9,9 +9,18 @@ import {
   isWeakPassword,
   PASSWORD_REQUIREMENTS_MESSAGE,
 } from '@/lib/auth/password-strength'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = enforceRateLimit(request, {
+      key: 'auth-signup',
+      max: 6,
+      windowMs: 60_000,
+      message: 'Too many signup attempts. Please wait a minute and try again.',
+    })
+    if (limited) return limited
+
     const body = await request.json().catch(() => null)
     const parsed = signupSchema.safeParse(body)
 

@@ -8,6 +8,7 @@ import { findOrCreateDashboardHelpCenterConversation } from '@/lib/chat/dashboar
 import { insertConversationMessage } from '@/lib/chat/chat-server'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 import { sendAdminTeamAlertToAll } from '@/lib/email/send-admin-team-alert-to-all'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 const REPORT_REASON_LABELS: Record<string, string> = {
   fraudulent_activity: 'Fraudulent activity',
@@ -22,6 +23,14 @@ const REPORT_REASON_LABELS: Record<string, string> = {
 
 export async function POST(request: NextRequest) {
   try {
+    const limited = enforceRateLimit(request, {
+      key: 'chat-help-center-report',
+      max: 5,
+      windowMs: 60_000,
+      message: 'Too many reports. Please wait a minute and try again.',
+    })
+    if (limited) return limited
+
     const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
     const { data: auth, error: authError } = await supabase.auth.getUser()
 

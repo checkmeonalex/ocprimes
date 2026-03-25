@@ -6,8 +6,17 @@ import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { isSuperAdminEmail } from '@/lib/auth/superAdmin'
 import { findAuthUserByEmail } from '@/lib/auth/find-user-by-email'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'auth-admin-signup',
+    max: 4,
+    windowMs: 60_000,
+    message: 'Too many signup attempts. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const body = await request.json().catch(() => null)
   const parsed = signupSchema.safeParse(body)
 

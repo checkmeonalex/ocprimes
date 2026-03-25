@@ -7,8 +7,17 @@ import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 import { ACCEPTED_COUNTRY_SET } from '@/lib/user/accepted-countries'
 import { buildSlug } from '@/lib/admin/taxonomy'
 import { provisionVendorAccess } from '@/lib/auth/vendor-access'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'vendor-onboarding-submit',
+    max: 4,
+    windowMs: 60_000,
+    message: 'Too many vendor submissions. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const body = await request.json().catch(() => null)
   const parsed = vendorOnboardingSubmitSchema.safeParse(body)
   if (!parsed.success) {

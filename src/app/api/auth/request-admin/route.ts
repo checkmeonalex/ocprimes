@@ -2,8 +2,17 @@ import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'auth-request-admin',
+    max: 3,
+    windowMs: 60_000,
+    message: 'Too many admin access requests. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
   const { data, error } = await supabase.auth.getUser()
 

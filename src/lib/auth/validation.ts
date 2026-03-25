@@ -4,8 +4,12 @@ import {
   EMAIL_TWO_STEP_METHOD,
   SMS_TWO_STEP_METHOD,
 } from '@/lib/auth/account-security'
+import {
+  sanitizeEmailInput,
+  sanitizePlainText,
+} from '@/lib/security/input'
 
-const emailSchema = z.string().email().max(255)
+const emailSchema = z.preprocess(sanitizeEmailInput, z.string().email().max(255))
 const passwordSchema = z.string().min(8).max(128)
 export const PASSWORD_MISMATCH_MESSAGE = 'The passwords you entered do not match.'
 
@@ -24,7 +28,7 @@ export const signupSchema = loginSchema
   })
 
 export const vendorSignupSchema = signupSchema.extend({
-  brandName: z.string().trim().min(2).max(120),
+  brandName: z.preprocess(sanitizePlainText, z.string().min(2).max(120)),
 })
 
 export const vendorOnboardingEmailSchema = z.object({
@@ -37,22 +41,22 @@ export const authEmailLookupSchema = z.object({
 
 export const vendorOnboardingVerifySchema = z.object({
   email: emailSchema,
-  code: z.string().trim().min(4).max(12),
+  code: z.preprocess(sanitizePlainText, z.string().min(4).max(12)),
 })
 
 export const vendorOnboardingBrandSchema = z.object({
-  brandName: z.string().trim().min(2).max(120),
+  brandName: z.preprocess(sanitizePlainText, z.string().min(2).max(120)),
 })
 
 export const vendorOnboardingSubmitSchema = z.object({
-  phone: z.string().trim().min(7).max(20),
-  fullName: z.string().trim().min(2).max(120),
-  brandName: z.string().trim().min(2).max(120),
+  phone: z.preprocess(sanitizePlainText, z.string().min(7).max(20)),
+  fullName: z.preprocess(sanitizePlainText, z.string().min(2).max(120)),
+  brandName: z.preprocess(sanitizePlainText, z.string().min(2).max(120)),
   shippingCountry: z.enum(ACCEPTED_COUNTRIES),
 })
 
 export const emailCodeSchema = z.object({
-  code: z.string().trim().min(4).max(12),
+  code: z.preprocess(sanitizePlainText, z.string().min(4).max(12)),
 })
 
 export const recoveryAccessStartSchema = z.object({
@@ -61,8 +65,8 @@ export const recoveryAccessStartSchema = z.object({
 })
 
 export const recoveryAccessCompleteSchema = recoveryAccessStartSchema.extend({
-  question: z.string().trim().min(1).max(120),
-  answer: z.string().trim().min(1).max(200),
+  question: z.preprocess(sanitizePlainText, z.string().min(1).max(120)),
+  answer: z.preprocess(sanitizePlainText, z.string().min(1).max(200)),
 })
 
 export const emailChangeRequestSchema = z.object({
@@ -71,7 +75,7 @@ export const emailChangeRequestSchema = z.object({
 
 export const securitySettingsSchema = z.object({
   recoveryEmail: emailSchema.optional().or(z.literal('')),
-  phoneNumber: z.string().trim().max(30).optional().or(z.literal('')),
+  phoneNumber: z.preprocess(sanitizePlainText, z.string().max(30)).optional().or(z.literal('')),
   twoStepMethod: z
     .enum([EMAIL_TWO_STEP_METHOD, SMS_TWO_STEP_METHOD, 'none', 'auth_app'])
     .optional()

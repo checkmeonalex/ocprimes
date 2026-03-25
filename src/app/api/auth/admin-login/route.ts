@@ -4,8 +4,17 @@ import { loginSchema } from '@/lib/auth/validation'
 import { jsonError } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'auth-admin-login',
+    max: 8,
+    windowMs: 60_000,
+    message: 'Too many admin login attempts. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const body = await request.json().catch(() => null)
   const parsed = loginSchema.safeParse(body)
 
@@ -30,7 +39,6 @@ export async function POST(request: NextRequest) {
   }
 
   const roleInfo = await getUserRoleInfoSafe(supabase, userId, data.user?.email || '')
-  console.error('Admin login role check:', { userId, role: roleInfo.role, roles: roleInfo.roles })
   if (!roleInfo.isAdmin) {
     await supabase.auth.signOut()
     return jsonError('Admin access not approved.', 403)

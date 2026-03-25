@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { sanitizeMultilineText, sanitizePlainText } from '@/lib/security/input'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 const normalizeVisibility = (value?: string) => {
   const allowed = new Set(['private', 'invite', 'public', 'unlisted'])
@@ -44,6 +46,14 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
 }
 
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  const limited = enforceRateLimit(request, {
+    key: 'wishlist-list-update',
+    max: 12,
+    windowMs: 60_000,
+    message: 'Too many wishlist updates. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
   const { data, error } = await supabase.auth.getUser()
   if (error || !data.user) {
@@ -61,7 +71,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   const updates: { name?: string; description?: string | null; visibility?: string; share_token?: string | null } = {}
 
   if (payload.name !== undefined) {
-    const name = payload.name.trim()
+    const name = sanitizePlainText(payload.name)
     if (!name) {
       return jsonError('List name is required.', 400)
     }
@@ -74,7 +84,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   }
 
   if (payload.description !== undefined) {
-    const description = String(payload.description).trim()
+    const description = sanitizeMultilineText(payload.description)
     const wordCount = description
       ? description
           .trim()

@@ -6,8 +6,17 @@ import {
   generateMagicLinkEmailLink,
 } from '@/lib/auth/supabase-email-links'
 import { sendVendorVerificationEmail } from '@/lib/email/send-auth-action-emails'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'vendor-onboarding-email',
+    max: 5,
+    windowMs: 60_000,
+    message: 'Too many verification requests. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const body = await request.json().catch(() => null)
   const parsed = vendorOnboardingEmailSchema.safeParse(body)
 

@@ -1,14 +1,17 @@
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  sanitizeOptionalPlainText,
+  sanitizePlainText,
+} from '@/lib/security/input'
 
 export const PICKUP_LOCATIONS_TABLE = 'admin_pickup_locations'
 
 const toTrimmedString = (value: unknown) =>
-  typeof value === 'string' ? value.trim() : ''
+  sanitizePlainText(value)
 
 const toOptionalTrimmedString = (value: unknown) => {
-  const next = toTrimmedString(value)
-  return next.length > 0 ? next : undefined
+  return sanitizeOptionalPlainText(value)
 }
 
 const requiredText = (label: string, max: number) =>

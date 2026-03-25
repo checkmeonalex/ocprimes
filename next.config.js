@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  poweredByHeader: false,
   async redirects() {
     return [
       { source: '/UserBackend', destination: '/account', permanent: true },
@@ -79,6 +80,31 @@ const nextConfig = {
       { source: '/help/:sectionId/:articleId', destination: '/help-center/:sectionId/:articleId' },
     ]
   },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+        ],
+      },
+    ]
+  },
   images: {
     remotePatterns: [
       {
@@ -88,12 +114,7 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'pub-b2870c497b454b119731b14f509756fa.r2.dev',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'b9b7d0b879bd0904893b949b1a0101e7.r2.cloudflarestorage.com',
+        hostname: 'media.alxora.com',
         pathname: '/**',
       },
     ],

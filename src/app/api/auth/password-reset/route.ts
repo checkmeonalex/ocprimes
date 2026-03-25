@@ -4,12 +4,22 @@ import { jsonOk, jsonError } from '@/lib/http/response'
 import { findAuthUserByEmail } from '@/lib/auth/find-user-by-email'
 import { generateRecoveryEmailLink } from '@/lib/auth/supabase-email-links'
 import { sendPasswordResetEmail } from '@/lib/email/send-auth-action-emails'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
+import { sanitizeEmailInput } from '@/lib/security/input'
 
 const schema = z.object({
-  email: z.string().trim().email().max(255),
+  email: z.preprocess(sanitizeEmailInput, z.string().email().max(255)),
 })
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'auth-password-reset',
+    max: 5,
+    windowMs: 60_000,
+    message: 'Too many reset attempts. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const body = await request.json().catch(() => null)
   const parsed = schema.safeParse(body)
   if (!parsed.success) {

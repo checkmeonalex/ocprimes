@@ -4,10 +4,19 @@ import { recoveryAccessCompleteSchema } from '@/lib/auth/validation'
 import { findAuthUserByEmail } from '@/lib/auth/find-user-by-email'
 import { verifySecurityAnswer } from '@/lib/auth/security-answer'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 const INVALID_RECOVERY_MESSAGE = 'Recovery details are incorrect.'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'auth-recovery-complete',
+    max: 5,
+    windowMs: 60_000,
+    message: 'Too many recovery attempts. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const body = await request.json().catch(() => null)
   const parsed = recoveryAccessCompleteSchema.safeParse(body)
 

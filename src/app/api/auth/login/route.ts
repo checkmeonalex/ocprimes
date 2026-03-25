@@ -4,8 +4,17 @@ import { loginSchema } from '@/lib/auth/validation'
 import { jsonError } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
+import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request: NextRequest) {
+  const limited = enforceRateLimit(request, {
+    key: 'auth-login',
+    max: 10,
+    windowMs: 60_000,
+    message: 'Too many login attempts. Please wait a minute and try again.',
+  })
+  if (limited) return limited
+
   const body = await request.json().catch(() => null)
   const parsed = loginSchema.safeParse(body)
 

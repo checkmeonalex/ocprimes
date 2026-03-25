@@ -1,5 +1,9 @@
 import { z } from 'zod'
 import { CATEGORY_LAYOUT_KEYS } from '@/lib/layouts/category-layout'
+import {
+  sanitizeMultilineText,
+  sanitizePlainText,
+} from '@/lib/security/input'
 
 const sliderLinkSchema = z
   .string()
@@ -15,7 +19,7 @@ const sliderLinkSchema = z
 
 const normalizeBlank = (value: unknown) => {
   if (typeof value !== 'string') return value
-  const trimmed = value.trim()
+  const trimmed = sanitizePlainText(value)
   return trimmed === '' ? undefined : trimmed
 }
 
@@ -45,7 +49,12 @@ export const updateCategorySchema = z.object({
   name: z.preprocess(normalizeBlank, z.string().min(2).max(120).optional()),
   slug: z.preprocess(normalizeBlank, z.string().max(120).optional()),
   description: z.preprocess(
-    (value) => (value === '' ? null : value),
+    (value) => {
+      if (value === '') return null
+      if (typeof value !== 'string') return value
+      const sanitized = sanitizeMultilineText(value)
+      return sanitized === '' ? null : sanitized
+    },
     z.string().max(500).nullable().optional(),
   ),
   parent_id: z.preprocess(
