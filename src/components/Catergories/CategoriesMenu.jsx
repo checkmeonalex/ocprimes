@@ -72,6 +72,12 @@ const CategoriesMenu = ({
     )
   }
 
+  const visibleCategories = categoriesData?.categories || []
+  const hasSingleVisibleCategory = visibleCategories.length === 1
+  const categoriesToRender = hasSingleVisibleCategory
+    ? visibleCategories.slice(0, 1)
+    : visibleCategories
+
   useEffect(() => {
     if (isOpen && !categoriesData) {
       loadCategoriesData()
@@ -121,7 +127,7 @@ const CategoriesMenu = ({
     if (!isOpen) return undefined
     const scroller = contentScrollRef.current
     const categories = categoriesData?.categories || []
-    if (!scroller || categories.length === 0) return undefined
+    if (!scroller || categories.length <= 1) return undefined
 
     const updateActiveCategoryFromScroll = () => {
       const scrollerTop = scroller.getBoundingClientRect().top
@@ -156,11 +162,12 @@ const CategoriesMenu = ({
   }, [categoriesData, isOpen])
 
   useEffect(() => {
+    if (hasSingleVisibleCategory) return
     if (!activeCategory?.id) return
     const node = categoryButtonRefs.current.get(activeCategory.id)
     if (!node || typeof node.scrollIntoView !== 'function') return
     node.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-  }, [activeCategory])
+  }, [activeCategory, hasSingleVisibleCategory])
 
   useEffect(() => {
     if (!isOpen) return
@@ -265,47 +272,53 @@ const CategoriesMenu = ({
         <div className="h-full min-h-0 lg:w-full">
           <div className="flex h-full min-h-0 flex-row lg:max-h-[min(78vh,720px)]">
             {/* Categories Sidebar */}
-           <div ref={desktopSidebarRef} className="desktop-menu-scroll h-full min-h-0 w-[32%] max-w-[32%] overflow-y-auto overscroll-contain border-r border-gray-200 bg-gray-50 py-3 touch-pan-y lg:max-h-[min(78vh,720px)] lg:max-w-[280px] lg:min-w-[240px] lg:py-4">
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {categoriesData?.categories.map((category) => (
-                    <button
-                      key={category.id}
-                      ref={registerCategoryButton(category.id)}
-                      className={`w-full flex items-center justify-between px-4 py-3 text-left text-sm hover:bg-gray-100 transition-colors duration-150 ${
-                        activeCategory?.id === category.id ? 'bg-gray-100 text-blue-600' : 'text-gray-700'
-                      }`}
-                      onMouseEnter={() => handleCategoryHover(category)}
-                      onClick={() => handleCategoryClick(category)}
-                    >
-                      <span className="font-medium">{category.name}</span>
-                      {category.hasArrow && (
-                        <svg
-                          className="h-4 w-4 text-gray-400"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M9 18l6-6-6-6v12z" />
-                        </svg>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {!hasSingleVisibleCategory ? (
+              <div ref={desktopSidebarRef} className="desktop-menu-scroll h-full min-h-0 w-[32%] max-w-[32%] overflow-y-auto overscroll-contain border-r border-gray-200 bg-gray-50 py-3 touch-pan-y lg:max-h-[min(78vh,720px)] lg:max-w-[280px] lg:min-w-[240px] lg:py-4">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {visibleCategories.map((category) => (
+                      <button
+                        key={category.id}
+                        ref={registerCategoryButton(category.id)}
+                        className={`w-full flex items-center justify-between px-4 py-3 text-left text-sm hover:bg-gray-100 transition-colors duration-150 ${
+                          activeCategory?.id === category.id ? 'bg-gray-100 text-blue-600' : 'text-gray-700'
+                        }`}
+                        onMouseEnter={() => handleCategoryHover(category)}
+                        onClick={() => handleCategoryClick(category)}
+                      >
+                        <span className="font-medium">{category.name}</span>
+                        {category.hasArrow && (
+                          <svg
+                            className="h-4 w-4 text-gray-400"
+                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M9 18l6-6-6-6v12z" />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
 
             {/* Subcategories Content */}
-            <div ref={contentScrollRef} className="desktop-menu-scroll h-full min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 pb-20 touch-pan-y lg:max-h-[min(78vh,720px)] lg:py-4 lg:pb-4 lg:max-w-[700px]">
-              {categoriesData?.categories?.map((category) => (
+            <div ref={contentScrollRef} className={`desktop-menu-scroll h-full min-h-0 overflow-y-auto overscroll-contain py-3 pb-20 touch-pan-y lg:max-h-[min(78vh,720px)] lg:py-4 lg:pb-4 ${
+              hasSingleVisibleCategory ? 'w-full flex-1' : 'flex-1 lg:max-w-[700px]'
+            }`}>
+              {categoriesToRender.map((category) => (
                 <section
                   key={category.id}
                   ref={registerCategorySection(category.id)}
                   data-category-section={category.id}
-                  className="space-y-5 px-1 pb-6 lg:px-6 lg:pb-8"
+                  className={`space-y-5 pb-6 lg:pb-8 ${
+                    hasSingleVisibleCategory ? 'px-4 lg:px-6' : 'px-1 lg:px-6'
+                  }`}
                 >
                   {category.subcategories?.map((subcategory, subcategoryIndex) => {
                     const items = Array.isArray(subcategory.items) ? subcategory.items : []
@@ -377,7 +390,7 @@ const CategoriesMenu = ({
                 </section>
               ))}
 
-              {!loading && !activeCategory && (
+              {!loading && !activeCategory && !hasSingleVisibleCategory && (
                 <div className="px-2 lg:px-6 py-8 text-center text-gray-500">
                   <svg
                     className="mx-auto h-12 w-12 text-gray-400 mb-4"

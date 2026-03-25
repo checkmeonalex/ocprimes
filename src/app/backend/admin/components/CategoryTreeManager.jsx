@@ -325,6 +325,14 @@ function CategoryTreeManager() {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...updates } : item)));
   }, []);
 
+  const updateItems = useCallback((ids, updates) => {
+    const targetIds = new Set((Array.isArray(ids) ? ids : []).filter(Boolean));
+    if (!targetIds.size) return;
+    setItems((prev) =>
+      prev.map((item) => (targetIds.has(item.id) ? { ...item, ...updates } : item)),
+    );
+  }, []);
+
   const handleCreate = async (event) => {
     event.preventDefault();
     if (!form.name.trim() || isSaving) return;
@@ -380,9 +388,13 @@ function CategoryTreeManager() {
       if (!response.ok) {
         throw new Error(payload?.error || 'Unable to update category.');
       }
+      const cascadedIds = Array.isArray(payload?.cascaded_ids) ? payload.cascaded_ids : [];
+      if (cascadedIds.length > 0) {
+        updateItems(cascadedIds, { is_active: nextActive });
+      }
       if (payload?.item) {
         updateItem(node.id, payload.item);
-      } else {
+      } else if (!cascadedIds.length) {
         updateItem(node.id, { is_active: nextActive });
       }
     } catch (err) {

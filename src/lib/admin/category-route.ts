@@ -18,6 +18,42 @@ const TABLE = 'admin_categories'
 const buildMissingTableMessage = () =>
   'categories table not found. Run migration 010_admin_taxonomies.sql.'
 
+const readCategorySubtreeIds = async (db, rootId) => {
+  const { data, error } = await db
+    .from(TABLE)
+    .select('id, parent_id')
+
+  if (error) {
+    throw error
+  }
+
+  const childrenByParent = new Map<string, string[]>()
+  ;(Array.isArray(data) ? data : []).forEach((row) => {
+    const parentId = String(row?.parent_id || '').trim()
+    if (!parentId) return
+    const childId = String(row?.id || '').trim()
+    if (!childId) return
+    const list = childrenByParent.get(parentId) || []
+    list.push(childId)
+    childrenByParent.set(parentId, list)
+  })
+
+  const seen = new Set<string>()
+  const queue: string[] = [String(rootId || '').trim()].filter(Boolean)
+
+  while (queue.length > 0) {
+    const currentId = queue.shift()
+    if (!currentId || seen.has(currentId)) continue
+    seen.add(currentId)
+    const childIds = childrenByParent.get(currentId) || []
+    childIds.forEach((childId) => {
+      if (!seen.has(childId)) queue.push(childId)
+    })
+  }
+
+  return [...seen]
+}
+
 export async function listCategories(request: NextRequest) {
   const { applyCookies, canManageCatalog } = await requireDashboardUser(request)
 
@@ -386,24 +422,77 @@ export async function updateCategory(request: NextRequest) {
     return jsonError('No updates provided.', 400)
   }
 
+  const cascadeVisibility =
+    parsed.data.is_active !== undefined ? Boolean(parsed.data.is_active) : undefined
+  let cascadedIds: string[] = []
+
+  if (cascadeVisibility !== undefined) {
+    try {
+      cascadedIds = await readCategorySubtreeIds(db, parsed.data.id)
+    } catch (error) {
+      const errorCode = (error as { code?: string })?.code
+      console.error(
+        'category subtree lookup failed:',
+        error instanceof Error ? error.message : String(error),
+      )
+      if (errorCode === '42P01') {
+        return jsonError(buildMissingTableMessage(), 500)
+      }
+      return jsonError('Unable to update category.', 500)
+    }
+
+    if (cascadedIds.length > 0) {
+      const { error: cascadeError } = await db
+        .from(TABLE)
+        .update({ is_active: cascadeVisibility })
+        .in('id', cascadedIds)
+
+      if (cascadeError) {
+        const errorCode = (cascadeError as { code?: string })?.code
+        console.error('category visibility cascade failed:', cascadeError.message)
+        if (errorCode === '42P01') {
+          return jsonError(buildMissingTableMessage(), 500)
+        }
+        return jsonError('Unable to update category.', 500)
+      }
+    }
+
+    delete updates.is_active
+  }
+
+  if (Object.keys(updates).length > 0) {
+    const { error } = await db
+      .from(TABLE)
+      .update(updates)
+      .eq('id', parsed.data.id)
+
+    if (error) {
+      const errorCode = (error as { code?: string })?.code
+      console.error('category update failed:', error.message)
+      if (errorCode === '23505') {
+        return jsonError('Slug already exists.', 409)
+      }
+      if (errorCode === '23503') {
+        return jsonError('Parent category not found.', 400)
+      }
+      if (errorCode === '42P01') {
+        return jsonError(buildMissingTableMessage(), 500)
+      }
+      return jsonError('Unable to update category.', 500)
+    }
+  }
+
   const { data, error } = await db
     .from(TABLE)
-    .update(updates)
-    .eq('id', parsed.data.id)
     .select(
       'id, name, slug, description, parent_id, sort_order, image_url, image_alt, image_key, banner_image_url, banner_image_key, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, banner_title, banner_subtitle, banner_cta_text, banner_cta_link, featured_strip_image_url, featured_strip_image_key, featured_strip_tag_id, featured_strip_category_id, hotspot_title_main, featured_strip_title_main, browse_categories_title, home_catalog_title, home_catalog_description, home_catalog_filter_mode, home_catalog_category_id, home_catalog_tag_id, home_catalog_limit, layout_order, is_active, created_at, created_by',
     )
+    .eq('id', parsed.data.id)
     .maybeSingle()
 
   if (error) {
     const errorCode = (error as { code?: string })?.code
-    console.error('category update failed:', error.message)
-    if (errorCode === '23505') {
-      return jsonError('Slug already exists.', 409)
-    }
-    if (errorCode === '23503') {
-      return jsonError('Parent category not found.', 400)
-    }
+    console.error('category refetch failed:', error.message)
     if (errorCode === '42P01') {
       return jsonError(buildMissingTableMessage(), 500)
     }
@@ -413,7 +502,10 @@ export async function updateCategory(request: NextRequest) {
     return jsonError('Category not found.', 404)
   }
 
-  const response = jsonOk({ item: data })
+  const response = jsonOk({
+    item: data,
+    cascaded_ids: cascadedIds,
+  })
   applyCookies(response)
   return response
 }

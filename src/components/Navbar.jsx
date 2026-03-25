@@ -118,6 +118,44 @@ export default function Navbar({
     ],
     [animatedPlaceholderItems],
   )
+  const topBarCategoryItems = useMemo(() => {
+    if (!Array.isArray(topCategories) || topCategories.length === 0) return []
+
+    if (topCategories.length !== 1) {
+      return topCategories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        slug: category.slug || '',
+        hoverCategory: category,
+      }))
+    }
+
+    const onlyCategory = topCategories[0]
+    const firstSubcategoryGroup = Array.isArray(onlyCategory?.subcategories)
+      ? onlyCategory.subcategories[0]
+      : null
+    const childItems = Array.isArray(firstSubcategoryGroup?.items)
+      ? firstSubcategoryGroup.items
+      : []
+
+    if (!childItems.length) {
+      return [
+        {
+          id: onlyCategory.id,
+          name: onlyCategory.name,
+          slug: onlyCategory.slug || '',
+          hoverCategory: onlyCategory,
+        },
+      ]
+    }
+
+    return childItems.map((child) => ({
+      id: child.id,
+      name: child.name,
+      slug: child.slug || '',
+      hoverCategory: onlyCategory,
+    }))
+  }, [topCategories])
 
   const clearCategoriesHoverTimeout = () => {
     if (!categoriesHoverTimeoutRef.current) return
@@ -1419,7 +1457,7 @@ export default function Navbar({
 
           <div className='min-w-0 flex-1 overflow-hidden'>
             <div className={`flex min-w-0 items-center gap-4 overflow-x-auto whitespace-nowrap pr-2 xl:gap-6 ${hiddenHorizontalScrollbarClass}`}>
-              {topCategories.map((category) => (
+              {topBarCategoryItems.map((category) => (
                 <Link
                   key={category.id}
                   href={
@@ -1428,7 +1466,7 @@ export default function Navbar({
                       : '/products'
                   }
                   className='text-xs font-normal text-gray-900 hover:text-gray-600 xl:text-sm'
-                  onMouseEnter={() => handleTopCategoryHover(category)}
+                  onMouseEnter={() => handleTopCategoryHover(category.hoverCategory)}
                 >
                   {category.name}
                 </Link>

@@ -3,7 +3,11 @@ import { z } from 'zod'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
-import { buildCategoryTree, mapCategoryTreeToMenu } from '@/lib/categories/tree.mjs'
+import {
+  buildCategoryTree,
+  filterCategoryRowsWithVisibleAncestors,
+  mapCategoryTreeToMenu,
+} from '@/lib/categories/tree.mjs'
 import {
   CATEGORY_AVAILABILITY_INTERESTS_TABLE,
   categoryInterestMutationSchema,
@@ -64,12 +68,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const tree = buildCategoryTree(
+  const visibleRows = filterCategoryRowsWithVisibleAncestors(
     categoryRows.map((item) => ({
       ...item,
       has_products: categoriesWithProducts.has(String(item?.id || '').trim()),
     })),
   )
+
+  const tree = buildCategoryTree(visibleRows)
   const categories = mapCategoryTreeToMenu(tree)
 
   const response = jsonOk({ categories })

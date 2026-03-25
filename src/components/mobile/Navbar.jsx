@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState, useRef, useEffect, useCallback, memo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react'
 import { useSidebar } from '../../context/SidebarContext'
 import dynamic from 'next/dynamic'
 import BrandLogo from '@/components/common/BrandLogo'
@@ -116,6 +116,41 @@ function MobileNavbar({
   })
   const placeholderChipImage =
     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="20" fill="%23e5e7eb"/></svg>'
+  const mobileTopBarCategories = useMemo(() => {
+    if (!Array.isArray(mobileCategories) || mobileCategories.length === 0) return []
+
+    if (mobileCategories.length !== 1) {
+      return mobileCategories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        rootId: category.id,
+      }))
+    }
+
+    const onlyCategory = mobileCategories[0]
+    const firstSubcategoryGroup = Array.isArray(onlyCategory?.subcategories)
+      ? onlyCategory.subcategories[0]
+      : null
+    const childItems = Array.isArray(firstSubcategoryGroup?.items)
+      ? firstSubcategoryGroup.items
+      : []
+
+    if (!childItems.length) {
+      return [
+        {
+          id: onlyCategory.id,
+          name: onlyCategory.name,
+          rootId: onlyCategory.id,
+        },
+      ]
+    }
+
+    return childItems.map((child) => ({
+      id: child.id,
+      name: child.name,
+      rootId: onlyCategory.id,
+    }))
+  }, [mobileCategories])
 
   const updateMenuTopOffset = useCallback(() => {
     const navEl = navRef.current
@@ -929,11 +964,11 @@ function MobileNavbar({
                         ></path>
                       </svg>
                     </button>
-                    {mobileCategories.map((item) => (
+                    {mobileTopBarCategories.map((item) => (
                       <button
                         key={item.id}
                         type='button'
-                        onClick={() => handleCategoryListClick(item.id)}
+                        onClick={() => handleCategoryListClick(item.rootId)}
                         className='text-sm text-gray-600 hover:text-gray-900 pb-2 whitespace-nowrap'
                       >
                         {item.name}

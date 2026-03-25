@@ -26,6 +26,37 @@ export const buildCategoryTree = (items = []) => {
   return roots
 }
 
+export const filterCategoryRowsWithVisibleAncestors = (items = []) => {
+  const nodes = new Map(
+    items.map((item) => [String(item?.id || '').trim(), item]),
+  )
+  const visibleCache = new Map()
+
+  const hasVisibleChain = (item) => {
+    const id = String(item?.id || '').trim()
+    if (!id) return false
+    if (visibleCache.has(id)) return visibleCache.get(id)
+
+    const parentId = String(item?.parent_id || '').trim()
+    if (!parentId) {
+      visibleCache.set(id, true)
+      return true
+    }
+
+    const parent = nodes.get(parentId)
+    if (!parent) {
+      visibleCache.set(id, false)
+      return false
+    }
+
+    const visible = hasVisibleChain(parent)
+    visibleCache.set(id, visible)
+    return visible
+  }
+
+  return items.filter((item) => hasVisibleChain(item))
+}
+
 export const mapCategoryTreeToMenu = (roots = []) =>
   roots.map((root) => ({
     id: root.id,
