@@ -11,7 +11,7 @@ export default function AdminSignupPage() {
       <SignupForm
         endpoint='/api/auth/admin-signup'
         successMessage='Request submitted. Check your inbox to confirm your email, then wait for approval.'
-        signInHref='/admin/login'
+        signInHref='/login'
         signInLabel='Admin sign in'
         signInText='Already have admin access?'
       />

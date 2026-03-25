@@ -198,9 +198,7 @@ export function AlertProvider({ children }) {
         return false
       }
       const nextValue = encodeURIComponent(currentPath)
-      const authDestination = isAdminPath
-        ? `/admin/login?next=${nextValue}`
-        : `/login?next=${nextValue}`
+      const authDestination = `/login?next=${nextValue}`
       if (window.location.pathname.startsWith('/login') || window.location.pathname.startsWith('/signup')) {
         return true
       }
