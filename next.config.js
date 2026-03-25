@@ -114,6 +114,11 @@ const nextConfig = {
       },
       {
         protocol: 'https',
+        hostname: 'pub-b2870c497b454b119731b14f509756fa.r2.dev',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'media.alxora.com',
         pathname: '/**',
       },
