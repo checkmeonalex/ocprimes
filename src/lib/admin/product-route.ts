@@ -375,6 +375,64 @@ const syncPendingCategoryRequestLinks = async (
   }
 }
 
+const validateReferencedIds = async (
+  supabase,
+  table: string,
+  ids: string[] = [],
+  label: string,
+) => {
+  const dedupedIds = Array.from(
+    new Set(
+      (Array.isArray(ids) ? ids : [])
+        .map((value) => String(value || '').trim())
+        .filter(Boolean),
+    ),
+  )
+
+  if (!dedupedIds.length) {
+    return { ids: [] as string[], error: null as string | null }
+  }
+
+  const { data, error } = await supabase.from(table).select('id').in('id', dedupedIds)
+  if (error) {
+    console.error(`${label} validation failed:`, error.message)
+    return { ids: [] as string[], error: `Unable to validate ${label}.` }
+  }
+
+  const validIds = new Set(
+    (Array.isArray(data) ? data : [])
+      .map((row: any) => String(row?.id || '').trim())
+      .filter(Boolean),
+  )
+  const missingIds = dedupedIds.filter((id) => !validIds.has(id))
+  if (missingIds.length) {
+    return {
+      ids: [] as string[],
+      error: `One or more selected ${label} no longer exist. Refresh and try again.`,
+    }
+  }
+
+  return { ids: dedupedIds, error: null as string | null }
+}
+
+const cleanupFailedProductCreate = async (supabase, productId: string) => {
+  if (!productId) return
+
+  await Promise.allSettled([
+    supabase.from(VARIATIONS_TABLE).delete().eq('product_id', productId),
+    supabase.from(IMAGE_TABLE).delete().eq('product_id', productId),
+    supabase.from(PRODUCT_PENDING_CATEGORY_LINKS).delete().eq('product_id', productId),
+    supabase.from(BRAND_LINKS).delete().eq('product_id', productId),
+    supabase.from(TAG_LINKS).delete().eq('product_id', productId),
+    supabase.from(CATEGORY_LINKS).delete().eq('product_id', productId),
+  ])
+
+  const { error } = await supabase.from(PRODUCT_TABLE).delete().eq('id', productId)
+  if (error) {
+    console.error('failed product cleanup delete failed:', error.message, { productId })
+  }
+}
+
 const updateImages = async (supabase, productId, imageIds, userId?: string | null) => {
   if (!imageIds || !imageIds.length) {
     return { resolvedImageIds: [] as string[], idMap: new Map<string, string>() }
@@ -786,6 +844,24 @@ export async function createProduct(request: NextRequest) {
   const requestedCategoryIds = Array.isArray(parsed.data.category_ids)
     ? parsed.data.category_ids
     : []
+  const validatedCategoryIds = await validateReferencedIds(
+    db,
+    'admin_categories',
+    requestedCategoryIds,
+    'categories',
+  )
+  if (validatedCategoryIds.error) {
+    return jsonError(validatedCategoryIds.error, 400)
+  }
+  const validatedTagIds = await validateReferencedIds(
+    db,
+    'admin_tags',
+    parsed.data.tag_ids || [],
+    'tags',
+  )
+  if (validatedTagIds.error) {
+    return jsonError(validatedTagIds.error, 400)
+  }
   const pendingValidation = await validatePendingCategoryRequests(
     db,
     parsed.data.pending_category_request_ids || [],
@@ -823,6 +899,15 @@ export async function createProduct(request: NextRequest) {
     }
     const requestedBrandIds = filterBrandIdsForVendor(parsed.data.brand_ids || [], vendorBrandIds)
     finalBrandIds = requestedBrandIds.length ? requestedBrandIds : [vendorBrandIds[0]]
+  }
+  const validatedBrandIds = await validateReferencedIds(
+    db,
+    'admin_brands',
+    finalBrandIds,
+    'brands',
+  )
+  if (validatedBrandIds.error) {
+    return jsonError(validatedBrandIds.error, 400)
   }
 
   const providedSku = parsed.data.sku?.trim()
@@ -923,9 +1008,9 @@ export async function createProduct(request: NextRequest) {
   }
 
   try {
-    await updateLinks(db, CATEGORY_LINKS, 'category_id', data.id, requestedCategoryIds)
-    await updateLinks(db, TAG_LINKS, 'tag_id', data.id, parsed.data.tag_ids || [])
-    await updateLinks(db, BRAND_LINKS, 'brand_id', data.id, finalBrandIds)
+    await updateLinks(db, CATEGORY_LINKS, 'category_id', data.id, validatedCategoryIds.ids)
+    await updateLinks(db, TAG_LINKS, 'tag_id', data.id, validatedTagIds.ids)
+    await updateLinks(db, BRAND_LINKS, 'brand_id', data.id, validatedBrandIds.ids)
     await syncPendingCategoryRequestLinks(db, data.id, pendingCategoryRequestIds)
     const { resolvedImageIds, idMap } = await updateImages(
       db,
@@ -952,6 +1037,7 @@ export async function createProduct(request: NextRequest) {
     await updateVariations(db, data.id, parsed.data.variations || [])
   } catch (linkError) {
     console.error('product links failed:', linkError)
+    await cleanupFailedProductCreate(db, String(data?.id || ''))
     return jsonError('Unable to attach product relationships.', 500)
   }
 
@@ -1112,6 +1198,29 @@ export async function updateProduct(request: NextRequest, id: string) {
     }
   }
 
+  let validatedUpdateCategoryIds: string[] | null = null
+  if (Array.isArray(updates.category_ids)) {
+    const validation = await validateReferencedIds(
+      db,
+      'admin_categories',
+      updates.category_ids,
+      'categories',
+    )
+    if (validation.error) {
+      return jsonError(validation.error, 400)
+    }
+    validatedUpdateCategoryIds = validation.ids
+  }
+
+  let validatedUpdateTagIds: string[] | null = null
+  if (Array.isArray(updates.tag_ids)) {
+    const validation = await validateReferencedIds(db, 'admin_tags', updates.tag_ids, 'tags')
+    if (validation.error) {
+      return jsonError(validation.error, 400)
+    }
+    validatedUpdateTagIds = validation.ids
+  }
+
   if (updates.status === 'publish') {
     let nextCategoryCount = 0
     if (Array.isArray(updates.category_ids)) {
@@ -1253,14 +1362,27 @@ export async function updateProduct(request: NextRequest, id: string) {
       const vendorBrandIds = await resolveVendorBrandIds(db, user.id, user)
       scopedBrandIds = filterBrandIdsForVendor(updates.brand_ids, vendorBrandIds)
     }
-    if (Array.isArray(updates.category_ids)) {
-      await updateLinks(db, CATEGORY_LINKS, 'category_id', data.id, updates.category_ids)
-    }
-    if (Array.isArray(updates.tag_ids)) {
-      await updateLinks(db, TAG_LINKS, 'tag_id', data.id, updates.tag_ids)
-    }
+    let validatedUpdateBrandIds: string[] | null = null
     if (Array.isArray(scopedBrandIds)) {
-      await updateLinks(db, BRAND_LINKS, 'brand_id', data.id, scopedBrandIds)
+      const validation = await validateReferencedIds(
+        db,
+        'admin_brands',
+        scopedBrandIds,
+        'brands',
+      )
+      if (validation.error) {
+        return jsonError(validation.error, 400)
+      }
+      validatedUpdateBrandIds = validation.ids
+    }
+    if (validatedUpdateCategoryIds !== null) {
+      await updateLinks(db, CATEGORY_LINKS, 'category_id', data.id, validatedUpdateCategoryIds)
+    }
+    if (validatedUpdateTagIds !== null) {
+      await updateLinks(db, TAG_LINKS, 'tag_id', data.id, validatedUpdateTagIds)
+    }
+    if (validatedUpdateBrandIds !== null) {
+      await updateLinks(db, BRAND_LINKS, 'brand_id', data.id, validatedUpdateBrandIds)
     }
     if (validatedPendingCategoryRequestIds !== null) {
       await syncPendingCategoryRequestLinks(db, data.id, validatedPendingCategoryRequestIds)

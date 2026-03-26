@@ -1,59 +1,13 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { GetObjectCommand } from '@aws-sdk/client-s3'
 import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { jsonError } from '@/lib/http/response'
-import { isR2TimeoutError } from '@/lib/storage/r2'
+import { readMediaFromStorage } from '@/lib/storage/admin-media-source'
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
 })
-
-const getR2Config = () => {
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
-  const bucketName = process.env.R2_BUCKET_NAME
-  const endpoint = process.env.R2_ENDPOINT
-
-  if (!accessKeyId || !secretAccessKey || !bucketName || !endpoint) {
-    throw new Error('R2 is not configured.')
-  }
-
-  return { accessKeyId, secretAccessKey, bucketName, endpoint }
-}
-
-const createR2Client = async () => {
-  const { S3Client } = await import('@aws-sdk/client-s3')
-  const config = getR2Config()
-  return {
-    config,
-    client: new S3Client({
-      region: 'auto',
-      endpoint: config.endpoint,
-      forcePathStyle: true,
-      credentials: {
-        accessKeyId: config.accessKeyId,
-        secretAccessKey: config.secretAccessKey,
-      },
-    }),
-  }
-}
-
-const proxyRemoteMedia = async (url: string) => {
-  const upstream = await fetch(url, { cache: 'no-store' })
-  if (!upstream.ok) {
-    return jsonError('Unable to fetch media source.', 502)
-  }
-  const bytes = await upstream.arrayBuffer()
-  return new Response(bytes, {
-    status: 200,
-    headers: {
-      'Content-Type': upstream.headers.get('content-type') || 'image/webp',
-      'Cache-Control': 'private, no-store',
-    },
-  })
-}
 
 const resolveVendorBrandIds = async (db: any, userId: string, user: any) => {
   const { data, error } = await db.from('admin_brands').select('id').eq('created_by', userId)
@@ -173,55 +127,19 @@ export async function GET(
     return jsonError('Media not found.', 404)
   }
 
-  if (!data.r2_key) {
-    if (!data.url) {
-      return jsonError('Media source unavailable.', 404)
-    }
-
-    try {
-      return await proxyRemoteMedia(data.url)
-    } catch (fetchError) {
-      console.error('Media source proxy failed:', fetchError)
-      return jsonError('Unable to fetch media source.', 502)
-    }
-  }
-
   try {
-    const { client, config } = await createR2Client()
-    const objectResponse = await client.send(
-      new GetObjectCommand({
-        Bucket: config.bucketName,
-        Key: data.r2_key,
-      }),
-    )
-
-    const bytes = await objectResponse.Body?.transformToByteArray?.()
-    if (!bytes) {
-      return jsonError('Media source unavailable.', 404)
-    }
-
-    return new Response(Buffer.from(bytes), {
-      status: 200,
-      headers: {
-        'Content-Type': objectResponse.ContentType || 'image/webp',
-        'Cache-Control': 'private, no-store',
-      },
+    return await readMediaFromStorage({
+      r2Key: data.r2_key,
+      url: data.url,
+      contentTypeFallback: 'image/webp',
     })
   } catch (storageError) {
     console.error('Media source read failed:', storageError)
-    if (isR2TimeoutError(storageError)) {
+    if ((storageError as { code?: string })?.code === 'R2_TIMEOUT') {
       return jsonError('Storage timed out while loading media.', 504)
     }
-    const storageCode = (storageError as { Code?: string; code?: string; name?: string })?.Code
-      || (storageError as { Code?: string; code?: string; name?: string })?.code
-      || (storageError as { Code?: string; code?: string; name?: string })?.name
-    if (storageCode === 'NoSuchKey' && data.url) {
-      try {
-        return await proxyRemoteMedia(data.url)
-      } catch (fetchError) {
-        console.error('Media source fallback proxy failed:', fetchError)
-        return jsonError('Unable to load media source.', 500)
-      }
+    if ((storageError as { code?: string })?.code === 'MEDIA_UNAVAILABLE') {
+      return jsonError('Media source unavailable.', 404)
     }
     return jsonError('Unable to load media source.', 500)
   }

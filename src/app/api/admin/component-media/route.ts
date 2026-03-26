@@ -76,10 +76,9 @@ export async function GET(request: NextRequest) {
       ? page + 1
       : page
 
-  const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL || ''
-  const normalizedPublicBase = publicBaseUrl.replace(/\/+$/, '')
-
   const items = (data ?? []).map((item) => {
+    const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL || ''
+    const normalizedPublicBase = publicBaseUrl.replace(/\/+$/, '')
     const resolvedUrl =
       normalizedPublicBase && item?.r2_key
         ? `${normalizedPublicBase}/${item.r2_key}`

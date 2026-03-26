@@ -1,3 +1,25 @@
+const flattenCategoryTree = (nodes, parentId = null) => {
+  const source = Array.isArray(nodes) ? nodes : [];
+  const flattened = [];
+
+  source.forEach((node) => {
+    if (!node) return;
+
+    const normalizedNode = {
+      ...node,
+      parent_id: node.parent_id ?? parentId ?? null,
+    };
+
+    flattened.push(normalizedNode);
+
+    if (Array.isArray(node.children) && node.children.length) {
+      flattened.push(...flattenCategoryTree(node.children, normalizedNode.id));
+    }
+  });
+
+  return flattened;
+};
+
 export const fetchProductCategories = async ({ limit = 500, search = '' } = {}) => {
   const params = new URLSearchParams({
     limit: String(limit),
@@ -14,5 +36,5 @@ export const fetchProductCategories = async ({ limit = 500, search = '' } = {}) 
     throw new Error(message);
   }
   const items = Array.isArray(payload?.items) ? payload.items : [];
-  return { categories: items, frequently_used: [] };
+  return { categories: flattenCategoryTree(items), frequently_used: [] };
 };

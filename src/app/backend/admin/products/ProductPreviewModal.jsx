@@ -548,6 +548,29 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
       });
   }, []);
 
+  useEffect(() => {
+    if (!Array.isArray(availableCategories) || !availableCategories.length) return;
+
+    const validCategoryIds = new Set(
+      availableCategories
+        .map((item) => String(item?.id || '').trim())
+        .filter(Boolean),
+    );
+
+    setSelectedCategories((prev) => {
+      const normalized = (Array.isArray(prev) ? prev : [])
+        .map((id) => String(id || '').trim())
+        .filter((id) => id && validCategoryIds.has(id));
+
+      if (normalized.length === prev.length) {
+        const unchanged = normalized.every((id, index) => id === String(prev[index] || '').trim());
+        if (unchanged) return prev;
+      }
+
+      return normalized;
+    });
+  }, [availableCategories]);
+
   const handleLoadTags = useCallback(() => {
     if (tagsLoaded || tagsLoading) return;
     setTagsLoading(true);
