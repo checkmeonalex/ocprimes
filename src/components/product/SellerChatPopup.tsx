@@ -13,6 +13,7 @@ type SellerChatPopupProps = {
   productId: string
   vendorName: string
   vendorAvatarUrl?: string
+  vendorBadge?: string
   hasBottomOffset?: boolean
   productPrice?: number
   currencySymbol?: string
@@ -156,6 +157,7 @@ export default function SellerChatPopup({
   productId,
   vendorName,
   vendorAvatarUrl,
+  vendorBadge = '',
   hasBottomOffset = false,
   productPrice = 0,
   currencySymbol = '$',
@@ -195,6 +197,8 @@ export default function SellerChatPopup({
   const [isSubmittingReport, setIsSubmittingReport] = useState(false)
   const messageBodyRef = useRef<HTMLDivElement | null>(null)
   const conversationMenuRef = useRef<HTMLDivElement | null>(null)
+  const normalizedVendorBadge = String(vendorBadge || '').trim()
+  const hasTrustedSellerBadge = normalizedVendorBadge.length > 0
 
   const updateSellerStatusLabel = (nextValue: unknown) => {
     const normalized = String(nextValue || '').trim()
@@ -860,7 +864,36 @@ export default function SellerChatPopup({
               <div className='min-w-0 flex-1'>
                 <div className='truncate text-sm font-semibold text-gray-900'>{vendorName}</div>
                 <div className='flex flex-wrap items-center gap-x-1 text-[11px] leading-tight text-gray-500'>
-                  <span>Seller</span>
+                  {hasTrustedSellerBadge ? (
+                    <span className='inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-700'>
+                      <svg
+                        viewBox='0 0 16 16'
+                        className='h-3.5 w-3.5 shrink-0'
+                        fill='none'
+                        xmlns='http://www.w3.org/2000/svg'
+                        aria-hidden='true'
+                      >
+                        <path
+                          d='M8 1.5 9.63 3.15l2.3-.33.32 2.29L14 6.75l-1.75 1.64.32 2.29-2.3-.33L8 12.5l-1.63-1.65-2.3.33-.32-2.29L2 6.75l1.75-1.64-.32-2.29 2.3.33L8 1.5Z'
+                          fill='currentColor'
+                          fillOpacity='0.16'
+                          stroke='currentColor'
+                          strokeWidth='1'
+                          strokeLinejoin='round'
+                        />
+                        <path
+                          d='m5.6 8.05 1.45 1.45 3.35-3.4'
+                          stroke='currentColor'
+                          strokeWidth='1.5'
+                          strokeLinecap='round'
+                          strokeLinejoin='round'
+                        />
+                      </svg>
+                      <span className='truncate'>{normalizedVendorBadge}</span>
+                    </span>
+                  ) : (
+                    <span>Seller</span>
+                  )}
                   {sellerStatusLabel ? (
                     <>
                       <span aria-hidden='true'>•</span>

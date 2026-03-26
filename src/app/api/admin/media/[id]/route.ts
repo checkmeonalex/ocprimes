@@ -34,7 +34,7 @@ export async function DELETE(
   if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db = isAdmin ? createAdminSupabaseClient() : supabase
 
   const params = await context.params
   const parsed = paramsSchema.safeParse(params)
@@ -98,7 +98,7 @@ export async function PATCH(
   if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db = isAdmin ? createAdminSupabaseClient() : supabase
 
   const params = await context.params
   const parsedParams = paramsSchema.safeParse(params)

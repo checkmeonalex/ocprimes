@@ -1653,18 +1653,20 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                           </span>
                         </div>
                       )}
-                      <button
-                        type='button'
-                        onClick={() => {
-                          setShouldLoadReviews(true)
-                          const el = document.getElementById('reviews-section')
-                          if (!el) return
-                          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                        }}
-                        className='text-xs underline underline-offset-2 decoration-gray-300 hover:text-gray-800 hover:decoration-gray-500 transition'
-                      >
-                        {hasReviews ? `${totalReviewsCount} reviews` : 'No reviews yet'}
-                      </button>
+                      {hasReviews ? (
+                        <button
+                          type='button'
+                          onClick={() => {
+                            setShouldLoadReviews(true)
+                            const el = document.getElementById('reviews-section')
+                            if (!el) return
+                            el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                          }}
+                          className='text-xs underline underline-offset-2 decoration-gray-300 hover:text-gray-800 hover:decoration-gray-500 transition'
+                        >
+                          {`${totalReviewsCount} reviews`}
+                        </button>
+                      ) : null}
                       <span className={stockTextClass}>{stockLabel}</span>
                     </div>
                     <div className='text-xs text-gray-500'>SKU: {sku}</div>
@@ -2238,6 +2240,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
         productId={String(product?.id || '')}
         vendorName={String(product?.vendor || 'Seller')}
         vendorAvatarUrl={String(product?.vendorLogoUrl || '')}
+        vendorBadge={String(product?.vendorBadge || '')}
         hasBottomOffset={shouldShowMobileFloatingCart}
         productPrice={Number(activePrice) || 0}
         currencySymbol={chatCurrencySymbol}

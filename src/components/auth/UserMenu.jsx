@@ -184,6 +184,7 @@ const renderMenuItemIcon = (label) => {
 }
 
 export default function UserMenu({ variant = 'default', initialAuthUser = null }) {
+  const HOVER_CLOSE_DELAY_MS = 220
   const router = useRouter()
   const { user, isLoading } = useAuthUser(initialAuthUser, true)
   const { locale, setLocale, t } = useUserI18n()
@@ -196,6 +197,14 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
   const [profileDraft, setProfileDraft] = useState(null)
   const menuRef = useRef(null)
   const canUseHoverRef = useRef(false)
+  const closeTimeoutRef = useRef(null)
+
+  const clearCloseTimeout = () => {
+    if (closeTimeoutRef.current) {
+      window.clearTimeout(closeTimeoutRef.current)
+      closeTimeoutRef.current = null
+    }
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return undefined
@@ -218,6 +227,7 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
+        clearCloseTimeout()
         setIsOpen(false)
         setIsLocaleMenuOpen(false)
       }
@@ -227,7 +237,12 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  useEffect(() => () => {
+    clearCloseTimeout()
+  }, [])
+
   const handleLogout = async () => {
+    clearCloseTimeout()
     await fetch('/api/auth/signout', { method: 'POST' })
     invalidateUserProfileBootstrap()
     setIsOpen(false)
@@ -335,18 +350,23 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
   }
 
   const closeMenus = () => {
+    clearCloseTimeout()
     setIsOpen(false)
     setIsLocaleMenuOpen(false)
   }
 
   const handlePointerEnter = () => {
     if (!isSignedIn || !isCompactChip || !canUseHoverRef.current) return
+    clearCloseTimeout()
     setIsOpen(true)
   }
 
   const handlePointerLeave = () => {
     if (!isSignedIn || !isCompactChip || !canUseHoverRef.current) return
-    closeMenus()
+    clearCloseTimeout()
+    closeTimeoutRef.current = window.setTimeout(() => {
+      closeMenus()
+    }, HOVER_CLOSE_DELAY_MS)
   }
 
   return (

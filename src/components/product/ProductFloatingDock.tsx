@@ -10,7 +10,9 @@ type ProductFloatingDockProps = {
   inlineMode?: boolean
 }
 
-const MESSAGE_ICON_SETTLE_DELAY_MS = 4000
+const MESSAGE_ICON_SETTLE_DELAY_MS = 1800
+const MESSAGE_ATTENTION_ACTIVE_MS = 3000
+const MESSAGE_ATTENTION_IDLE_MS = 8000
 
 export default function ProductFloatingDock({
   isTopMode,
@@ -25,8 +27,10 @@ export default function ProductFloatingDock({
   const buttonAriaLabel = isTopMode ? 'Back to top' : 'Message seller'
   const buttonClickHandler = isTopMode ? onTopClick : onMessageClick
   const [showAttentionMessageIcon, setShowAttentionMessageIcon] = useState(false)
+  const [isAttentionAnimating, setIsAttentionAnimating] = useState(false)
   const [isReturningToFloat, setIsReturningToFloat] = useState(false)
   const animationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const animationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const positionModeRef = useRef(hasBottomOffset)
 
   useEffect(() => {
@@ -34,23 +38,44 @@ export default function ProductFloatingDock({
       clearTimeout(animationTimerRef.current)
       animationTimerRef.current = null
     }
+    if (animationIntervalRef.current) {
+      clearInterval(animationIntervalRef.current)
+      animationIntervalRef.current = null
+    }
 
     if (isTopMode) {
       setShowAttentionMessageIcon(false)
+      setIsAttentionAnimating(false)
       return
     }
 
-    // Show chat icon first, then settle to question icon.
+    const startAttentionCycle = () => {
+      setShowAttentionMessageIcon(true)
+      setIsAttentionAnimating(true)
+      animationTimerRef.current = setTimeout(() => {
+        setIsAttentionAnimating(false)
+        animationTimerRef.current = null
+      }, MESSAGE_ATTENTION_ACTIVE_MS)
+    }
+
     setShowAttentionMessageIcon(false)
     animationTimerRef.current = setTimeout(() => {
-      setShowAttentionMessageIcon(true)
+      startAttentionCycle()
+      animationIntervalRef.current = setInterval(() => {
+        startAttentionCycle()
+      }, MESSAGE_ATTENTION_ACTIVE_MS + MESSAGE_ATTENTION_IDLE_MS)
       animationTimerRef.current = null
     }, MESSAGE_ICON_SETTLE_DELAY_MS)
 
     return () => {
-      if (!animationTimerRef.current) return
-      clearTimeout(animationTimerRef.current)
-      animationTimerRef.current = null
+      if (animationTimerRef.current) {
+        clearTimeout(animationTimerRef.current)
+        animationTimerRef.current = null
+      }
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current)
+        animationIntervalRef.current = null
+      }
     }
   }, [isTopMode])
 
@@ -73,15 +98,17 @@ export default function ProductFloatingDock({
         isReturningToFloat ? 'dock-return-fade' : ''
       }`
   const buttonClassName = inlineMode
-    ? 'inline-flex items-center justify-center text-gray-600 transition hover:text-gray-900'
-    : 'inline-flex items-center justify-center rounded-l-md rounded-r-none py-2.5 px-1.5 text-gray-600 transition hover:text-gray-900 sm:py-2 sm:px-1'
+    ? 'inline-flex items-center justify-center text-gray-700 transition hover:text-gray-900'
+    : 'inline-flex min-h-[3.25rem] min-w-[3rem] items-center justify-center rounded-l-lg rounded-r-none px-2 py-3 text-gray-700 transition hover:text-gray-900 sm:min-h-[3rem] sm:min-w-[2.75rem] sm:px-1.5 sm:py-2.5'
   const shellClassName = inlineMode
     ? ''
-    : 'glass-shell relative rounded-l-lg rounded-r-none border border-r-0 border-white/45 bg-white/10 backdrop-blur-md shadow-[0_10px_24px_rgba(15,23,42,0.18)]'
+    : `glass-shell relative rounded-l-lg rounded-r-none border border-r-0 border-white/55 bg-white/16 backdrop-blur-md shadow-[0_12px_28px_rgba(15,23,42,0.2)] ${
+        !isTopMode && showAttentionMessageIcon && isAttentionAnimating ? 'dock-attention-shell' : ''
+      }`
   const iconWrapClassName = inlineMode
-    ? 'relative inline-flex h-5 w-5 items-center justify-center overflow-visible'
-    : 'relative inline-flex h-5 w-5 items-center justify-center overflow-visible'
-  const iconClassName = inlineMode ? 'h-5 w-5' : 'h-5 w-5'
+    ? 'relative inline-flex h-6 w-6 items-center justify-center overflow-visible'
+    : 'relative inline-flex h-7 w-7 items-center justify-center overflow-visible sm:h-6.5 sm:w-6.5'
+  const iconClassName = inlineMode ? 'h-6 w-6' : 'h-7 w-7 sm:h-6.5 sm:w-6.5'
 
   return (
     <div className={containerClassName}>
@@ -101,13 +128,14 @@ export default function ProductFloatingDock({
                   : 'translate-y-0 scale-100 opacity-100'
               }`}
               fill='none'
-              stroke='currentColor'
-              strokeWidth='1.8'
+              xmlns='http://www.w3.org/2000/svg'
               aria-hidden='true'
             >
-              <path d='M7 8.5h10M7 12h6' strokeLinecap='round' />
               <path
-                d='M6 18.2v-2.5c-1.7-1.3-2.8-3.3-2.8-5.6C3.2 6 6.9 3 12 3s8.8 3 8.8 7.1-3.7 7.1-8.8 7.1c-1.2 0-2.3-.2-3.4-.6L6 18.2z'
+                d='M16 10H16.01M12 10H12.01M8 10H8.01M7 18.5V21L12 16H20V10M7 16H4V4H20V6'
+                transform='matrix(-1 0 0 1 24 0)'
+                stroke='currentColor'
+                strokeWidth='1.7'
                 strokeLinecap='round'
                 strokeLinejoin='round'
               />
@@ -124,17 +152,12 @@ export default function ProductFloatingDock({
               aria-hidden='true'
             >
               <path
-                d='M10.125 8.875C10.125 7.83947 10.9645 7 12 7C13.0355 7 13.875 7.83947 13.875 8.875C13.875 9.56245 13.505 10.1635 12.9534 10.4899C12.478 10.7711 12 11.1977 12 11.75V13'
+                d='M16 10H16.01M12 10H12.01M8 10H8.01M7 18.5V21L12 16H20V10M7 16H4V4H20V6'
+                transform='matrix(-1 0 0 1 24 0)'
                 stroke='currentColor'
-                strokeWidth='1.5'
+                strokeWidth='1.8'
                 strokeLinecap='round'
-              />
-              <circle cx='12' cy='16' r='1' fill='currentColor' />
-              <path
-                d='M22 12C22 16.714 22 19.0711 20.5355 20.5355C19.0711 22 16.714 22 12 22C7.28595 22 4.92893 22 3.46447 20.5355C2 19.0711 2 16.714 2 12C2 7.28595 2 4.92893 3.46447 3.46447C4.92893 2 7.28595 2 12 2C16.714 2 19.0711 2 20.5355 3.46447C21.5093 4.43821 21.8356 5.80655 21.9449 8'
-                stroke='currentColor'
-                strokeWidth='1.5'
-                strokeLinecap='round'
+                strokeLinejoin='round'
               />
             </svg>
             <svg
@@ -185,31 +208,53 @@ export default function ProductFloatingDock({
 
         @keyframes dockAttentionSequence {
           0% {
-            transform: scale(0.86) rotate(0deg);
+            transform: translateY(0) scale(0.92) rotate(0deg);
           }
-          20% {
-            transform: scale(1.12) rotate(-8deg);
+          14% {
+            transform: translateY(-1px) scale(1.12) rotate(-8deg);
           }
-          34% {
-            transform: scale(1.08) rotate(7deg);
+          28% {
+            transform: translateY(0) scale(1.08) rotate(7deg);
           }
-          48% {
-            transform: scale(1.13) rotate(-6deg);
+          42% {
+            transform: translateY(-1px) scale(1.13) rotate(-6deg);
           }
-          62% {
-            transform: scale(1.06) rotate(5deg);
+          56% {
+            transform: translateY(0) scale(1.06) rotate(5deg);
           }
-          78% {
-            transform: scale(1.02) rotate(-2deg);
+          70% {
+            transform: translateY(0) scale(1.02) rotate(-2deg);
+          }
+          84% {
+            transform: translateY(-1px) scale(1.05) rotate(2deg);
           }
           100% {
-            transform: scale(1) rotate(0deg);
+            transform: translateY(0) scale(1) rotate(0deg);
+          }
+        }
+
+        @keyframes dockAttentionShellPulse {
+          0% {
+            transform: translateX(0);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+          }
+          50% {
+            transform: translateX(-2px);
+            box-shadow: 0 14px 34px rgba(15, 23, 42, 0.24);
+          }
+          100% {
+            transform: translateX(0);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
           }
         }
 
         .dock-attention-icon {
-          animation: dockAttentionSequence 780ms ease-out;
+          animation: dockAttentionSequence 1.45s ease-in-out;
           transform-origin: center;
+        }
+
+        .dock-attention-shell {
+          animation: dockAttentionShellPulse 2.2s ease-in-out;
         }
 
         .dock-return-fade {
