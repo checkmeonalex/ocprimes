@@ -434,15 +434,39 @@ const cleanupFailedProductCreate = async (supabase, productId: string) => {
 }
 
 const updateImages = async (supabase, productId, imageIds, userId?: string | null) => {
-  if (!imageIds || !imageIds.length) {
+  const normalizedImageIds = Array.from(
+    new Set((Array.isArray(imageIds) ? imageIds : []).filter(Boolean).map(String)),
+  )
+  const { data: existingImages, error: existingError } = await supabase
+    .from(IMAGE_TABLE)
+    .select('id')
+    .eq('product_id', productId)
+  if (existingError) {
+    console.error('existing product image load failed:', existingError.message)
+    throw new Error('Unable to attach images.')
+  }
+
+  if (!normalizedImageIds.length) {
+    const existingImageIds = (existingImages || [])
+      .map((row: any) => String(row?.id || '').trim())
+      .filter(Boolean)
+    if (existingImageIds.length) {
+      const { error: deleteError } = await supabase
+        .from(IMAGE_TABLE)
+        .delete()
+        .eq('product_id', productId)
+      if (deleteError) {
+        console.error('product image clear failed:', deleteError.message)
+        throw new Error('Unable to attach images.')
+      }
+    }
     return { resolvedImageIds: [] as string[], idMap: new Map<string, string>() }
   }
 
-  const uniqueIds = Array.from(new Set(imageIds.filter(Boolean)))
   const { data: sourceImages, error: loadError } = await supabase
     .from(IMAGE_TABLE)
     .select('id, product_id, r2_key, url, alt_text, created_by')
-    .in('id', uniqueIds)
+    .in('id', normalizedImageIds)
   if (loadError) {
     console.error('product image load failed:', loadError.message)
     throw new Error('Unable to attach images.')
@@ -496,6 +520,22 @@ const updateImages = async (supabase, productId, imageIds, userId?: string | nul
     }
     resolvedImageIds.push(originalId)
     idMap.set(originalId, originalId)
+  }
+
+  const resolvedImageIdSet = new Set(resolvedImageIds)
+  const staleImageIds = (existingImages || [])
+    .map((row: any) => String(row?.id || '').trim())
+    .filter((id: string) => id && !resolvedImageIdSet.has(id))
+  if (staleImageIds.length) {
+    const { error: deleteError } = await supabase
+      .from(IMAGE_TABLE)
+      .delete()
+      .in('id', staleImageIds)
+      .eq('product_id', productId)
+    if (deleteError) {
+      console.error('product stale image delete failed:', deleteError.message)
+      throw new Error('Unable to attach images.')
+    }
   }
 
   return { resolvedImageIds, idMap }

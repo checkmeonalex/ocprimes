@@ -45,7 +45,10 @@ const baseProductSchema = z.object({
   pending_category_request_ids: z.array(z.string().uuid()).max(20).optional(),
   brand_ids: z.array(z.string().uuid()).optional(),
   image_ids: z.array(z.string().uuid()).optional(),
-  main_image_id: z.preprocess(normalizeBlank, z.string().uuid().optional()),
+  main_image_id: z.preprocess(
+    normalizeNullableBlank,
+    z.string().uuid().nullable().optional(),
+  ),
   product_video_key: z.preprocess(
     normalizeNullableBlank,
     z.string().max(500).nullable().optional(),

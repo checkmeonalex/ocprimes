@@ -127,11 +127,13 @@ export const buildProductPayload = (form, options = {}) => {
   const mainImageId = normalizeUuid(String(form.image_id ?? ''));
   if (mainImageId) {
     payload.main_image_id = mainImageId;
+  } else if (mode === 'update') {
+    payload.main_image_id = null;
   } else if (mode === 'create') {
     payload.main_image_id = undefined;
   }
   const imageIds = normalizeUuidArray(form.image_ids);
-  if (Array.isArray(imageIds) && imageIds.length) {
+  if (Array.isArray(imageIds)) {
     payload.image_ids = imageIds;
   }
   if (typeof form.product_video_key === 'string') {

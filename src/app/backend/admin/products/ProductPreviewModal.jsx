@@ -1056,7 +1056,8 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     () => normalizeGallery(galleryImages),
     [galleryImages],
   );
-  const previewImage = selectedImage?.url || product?.images?.[0]?.url || product?.images?.[0]?.src || '';
+  const previewImage =
+    selectedImage?.url || normalizedGalleryForModal[0]?.url || '';
   const hasProductVideo = Boolean(String(form.product_video_url || '').trim());
   const previewCandidateUrl = useMemo(
     () => buildProductUrl(savedProduct || { slug: previewSlug }, previewSlug, { preview: true }),
@@ -1680,6 +1681,53 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   const handleChange = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
   };
+  const syncGalleryState = useCallback((nextGallery) => {
+    const normalized = normalizeGallery(nextGallery);
+    const nextPrimary = normalized[0] || null;
+    const retainedIds = new Set(normalized.map((item) => String(item.id || '')).filter(Boolean));
+
+    setGalleryImages(normalized);
+    setSelectedImage(nextPrimary);
+    setForm((prev) => ({
+      ...prev,
+      image_id: nextPrimary?.id ? String(nextPrimary.id) : '',
+      image_ids: normalized.map((item) => item.id).filter(Boolean),
+    }));
+    setVariations((prev) =>
+      prev.map((variation) => {
+        const variationImageId = String(variation?.image_id || '').trim();
+        if (!variationImageId || retainedIds.has(variationImageId)) {
+          return variation;
+        }
+        return {
+          ...variation,
+          image_id: '',
+        };
+      }),
+    );
+    setColorImageMap((prev) => {
+      const next = {};
+      Object.entries(prev || {}).forEach(([colorValue, imageIds]) => {
+        const filtered = (Array.isArray(imageIds) ? imageIds : [imageIds])
+          .map((id) => String(id || '').trim())
+          .filter((id) => id && retainedIds.has(id));
+        if (filtered.length) {
+          next[colorValue] = filtered;
+        }
+      });
+      return next;
+    });
+
+    return normalized;
+  }, []);
+  const removeGalleryImage = useCallback(
+    (imageId) => {
+      const targetId = String(imageId || '').trim();
+      if (!targetId) return;
+      syncGalleryState(galleryImages.filter((item) => String(item?.id || '').trim() !== targetId));
+    },
+    [galleryImages, syncGalleryState],
+  );
   const handleBasePriceChange = (event) => {
     const nextValue = event.target.value;
     setForm((prev) => ({
@@ -2491,26 +2539,45 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             {(isIdentityStep || isReviewStep) && (
             <div className={isIdentityStep ? bodyCardClass : cardClass}>
               <p className="text-xs font-semibold text-slate-500">Media</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setImageLibraryPurpose('product');
-                  setIsImageModalOpen(true);
-                }}
-                className="mt-4 flex w-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-100 px-3 py-2 text-left"
-              >
-                <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-slate-100">
-                  {previewImage ? (
-                    <LazyImage src={previewImage} alt={form.name || 'Product'} />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-slate-400">
-                      {hasProductVideo
-                        ? 'Add image of your product'
-                        : 'Add product images and a video.'}
-                    </div>
-                  )}
-                </div>
-              </button>
+              <div className="mt-4 relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageLibraryPurpose('product');
+                    setIsImageModalOpen(true);
+                  }}
+                  className="flex w-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-100 px-3 py-2 text-left"
+                >
+                  <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-slate-100">
+                    {previewImage ? (
+                      <LazyImage src={previewImage} alt={form.name || 'Product'} />
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-xs text-slate-400">
+                        {hasProductVideo
+                          ? 'Add image of your product'
+                          : 'Add product images and a video.'}
+                      </div>
+                    )}
+                  </div>
+                </button>
+                {selectedImage?.id ? (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      removeGalleryImage(selectedImage.id);
+                    }}
+                    className="absolute bottom-3 left-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-500 shadow-sm transition hover:text-rose-600"
+                    aria-label="Remove current image"
+                    title="Remove current image"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 6 6 18" />
+                      <path d="M6 6l12 12" />
+                    </svg>
+                  </button>
+                ) : null}
+              </div>
               <div className="mt-3 flex items-center gap-2">
                 <button
                   type="button"
@@ -2563,17 +2630,11 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                             if (selectedImage?.id === image.id) {
                               return;
                             }
-                            const nextGallery = normalizeGallery([
+                            const nextGallery = [
                               image,
                               ...galleryImages.filter((item) => item.id !== image.id),
-                            ]);
-                            setSelectedImage(image);
-                            setGalleryImages(nextGallery);
-                            setForm((prev) => ({
-                              ...prev,
-                              image_id: image?.id ? String(image.id) : '',
-                              image_ids: nextGallery.map((item) => item.id).filter(Boolean),
-                            }));
+                            ];
+                            syncGalleryState(nextGallery);
                           }}
                           className="group relative flex h-full w-full items-center justify-center"
                         >
@@ -2600,18 +2661,9 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            const nextGallery = galleryImages.filter((item) => item.id !== image.id);
-                            const normalized = normalizeGallery(nextGallery);
-                            const nextPrimary = normalized[0] || null;
-                            setGalleryImages(normalized);
-                            setSelectedImage(nextPrimary);
-                            setForm((prev) => ({
-                              ...prev,
-                              image_id: nextPrimary?.id ? String(nextPrimary.id) : '',
-                              image_ids: normalized.map((item) => item.id).filter(Boolean),
-                            }));
+                            removeGalleryImage(image.id);
                           }}
-                          className="absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-white/90 text-slate-400 opacity-0 transition group-hover:opacity-100"
+                          className="absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-white/90 text-slate-400 transition group-hover:text-rose-600"
                           aria-label="Remove image"
                         >
                           <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
@@ -3571,31 +3623,21 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             }
             return;
           }
-          const normalized = normalizeGallery(gallery);
-          if (normalized.length > 0) {
-            const primary = normalized[0] || null;
-            setSelectedImage(primary);
-            setGalleryImages(normalized);
-          }
+          const normalized = syncGalleryState(gallery);
           const selectedVideo = Array.isArray(videos) ? videos[0] : null;
           setForm((prev) => ({
             ...prev,
-            image_id:
-              normalized.length > 0
-                ? normalized[0]?.id
-                  ? String(normalized[0].id)
-                  : ''
-                : prev.image_id,
-            image_ids:
-              normalized.length > 0
-                ? normalized.map((image) => image.id).filter(Boolean)
-                : prev.image_ids,
             ...(selectedVideo?.url
               ? {
                   product_video_key: String(selectedVideo?.r2_key || selectedVideo?.key || '').trim(),
                   product_video_url: String(selectedVideo.url || '').trim(),
                 }
-              : {}),
+              : videos?.length === 0
+                ? {
+                    product_video_key: '',
+                    product_video_url: '',
+                  }
+                : {}),
           }));
         }}
       />
