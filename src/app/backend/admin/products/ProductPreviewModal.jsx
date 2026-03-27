@@ -1728,6 +1728,9 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     },
     [galleryImages, syncGalleryState],
   );
+  const clearAllGalleryImages = useCallback(() => {
+    syncGalleryState([]);
+  }, [syncGalleryState]);
   const handleBasePriceChange = (event) => {
     const nextValue = event.target.value;
     setForm((prev) => ({
@@ -2589,6 +2592,15 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 >
                   {hasProductVideo ? '1 video added' : 'Add a video'}
                 </button>
+                {galleryImages.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={clearAllGalleryImages}
+                    className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-semibold text-rose-700"
+                  >
+                    Clear all images
+                  </button>
+                ) : null}
                 {hasProductVideo ? (
                   <button
                     type="button"
