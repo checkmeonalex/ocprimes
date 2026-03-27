@@ -14,6 +14,8 @@ type SellerChatPopupProps = {
   vendorName: string
   vendorAvatarUrl?: string
   vendorBadge?: string
+  vendorIsTrusted?: boolean
+  vendorTrustedBadgeUrl?: string
   hasBottomOffset?: boolean
   productPrice?: number
   currencySymbol?: string
@@ -158,6 +160,8 @@ export default function SellerChatPopup({
   vendorName,
   vendorAvatarUrl,
   vendorBadge = '',
+  vendorIsTrusted = false,
+  vendorTrustedBadgeUrl = '',
   hasBottomOffset = false,
   productPrice = 0,
   currencySymbol = '$',
@@ -198,7 +202,8 @@ export default function SellerChatPopup({
   const messageBodyRef = useRef<HTMLDivElement | null>(null)
   const conversationMenuRef = useRef<HTMLDivElement | null>(null)
   const normalizedVendorBadge = String(vendorBadge || '').trim()
-  const hasTrustedSellerBadge = normalizedVendorBadge.length > 0
+  const normalizedTrustedBadgeUrl = String(vendorTrustedBadgeUrl || '').trim()
+  const hasTrustedSellerBadge = Boolean(vendorIsTrusted || normalizedVendorBadge || normalizedTrustedBadgeUrl)
 
   const updateSellerStatusLabel = (nextValue: unknown) => {
     const normalized = String(nextValue || '').trim()
@@ -546,7 +551,7 @@ export default function SellerChatPopup({
 
   if (!shouldRender) return null
 
-  const popupDesktopBottomClass = hasBottomOffset ? 'sm:bottom-28' : 'sm:bottom-24'
+  const popupDesktopBottomClass = hasBottomOffset ? 'sm:bottom-6' : 'sm:bottom-4'
   const offerPresets = buildThoughtfulOfferPresets(productPrice)
 
   const sendMessage = async (rawMessage: string) => {
@@ -809,7 +814,7 @@ export default function SellerChatPopup({
   return (
     <>
       <div
-        className={`fixed inset-x-0 bottom-0 z-[60] w-full transition-[opacity,transform] duration-300 ease-out sm:inset-x-auto sm:right-4 sm:w-[22rem] ${popupDesktopBottomClass} ${
+        className={`fixed inset-x-0 bottom-0 z-[60] w-full transition-[opacity,transform] duration-300 ease-out sm:inset-x-auto sm:right-4 sm:w-[25rem] ${popupDesktopBottomClass} ${
           isVisible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'
         }`}
       >
@@ -862,34 +867,54 @@ export default function SellerChatPopup({
                 </div>
               )}
               <div className='min-w-0 flex-1'>
-                <div className='truncate text-sm font-semibold text-gray-900'>{vendorName}</div>
+                <div className='flex min-w-0 items-center gap-1.5'>
+                  <div className='truncate text-sm font-semibold text-gray-900'>{vendorName}</div>
+                  {hasTrustedSellerBadge ? (
+                    normalizedTrustedBadgeUrl ? (
+                      <Image
+                        src={normalizedTrustedBadgeUrl}
+                        alt='Verified seller'
+                        width={18}
+                        height={18}
+                        unoptimized
+                        className='h-[18px] w-[18px] shrink-0 object-contain'
+                      />
+                    ) : (
+                      <span
+                        className='inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full bg-violet-50 text-violet-600 ring-1 ring-violet-200'
+                        aria-label='Verified seller'
+                      >
+                        <svg
+                          viewBox='0 0 16 16'
+                          className='h-3.5 w-3.5'
+                          fill='none'
+                          xmlns='http://www.w3.org/2000/svg'
+                          aria-hidden='true'
+                        >
+                          <path
+                            d='M8 1.5 9.63 3.15l2.3-.33.32 2.29L14 6.75l-1.75 1.64.32 2.29-2.3-.33L8 12.5l-1.63-1.65-2.3.33-.32-2.29L2 6.75l1.75-1.64-.32-2.29 2.3.33L8 1.5Z'
+                            fill='currentColor'
+                            fillOpacity='0.16'
+                            stroke='currentColor'
+                            strokeWidth='1'
+                            strokeLinejoin='round'
+                          />
+                          <path
+                            d='m5.6 8.05 1.45 1.45 3.35-3.4'
+                            stroke='currentColor'
+                            strokeWidth='1.5'
+                            strokeLinecap='round'
+                            strokeLinejoin='round'
+                          />
+                        </svg>
+                      </span>
+                    )
+                  ) : null}
+                </div>
                 <div className='flex flex-wrap items-center gap-x-1 text-[11px] leading-tight text-gray-500'>
                   {hasTrustedSellerBadge ? (
-                    <span className='inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-emerald-700'>
-                      <svg
-                        viewBox='0 0 16 16'
-                        className='h-3.5 w-3.5 shrink-0'
-                        fill='none'
-                        xmlns='http://www.w3.org/2000/svg'
-                        aria-hidden='true'
-                      >
-                        <path
-                          d='M8 1.5 9.63 3.15l2.3-.33.32 2.29L14 6.75l-1.75 1.64.32 2.29-2.3-.33L8 12.5l-1.63-1.65-2.3.33-.32-2.29L2 6.75l1.75-1.64-.32-2.29 2.3.33L8 1.5Z'
-                          fill='currentColor'
-                          fillOpacity='0.16'
-                          stroke='currentColor'
-                          strokeWidth='1'
-                          strokeLinejoin='round'
-                        />
-                        <path
-                          d='m5.6 8.05 1.45 1.45 3.35-3.4'
-                          stroke='currentColor'
-                          strokeWidth='1.5'
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                        />
-                      </svg>
-                      <span className='truncate'>{normalizedVendorBadge}</span>
+                    <span className='inline-flex items-center gap-1 text-[11px] font-medium text-violet-700'>
+                      <span>{normalizedVendorBadge || 'Trusted seller'}</span>
                     </span>
                   ) : (
                     <span>Seller</span>
@@ -955,7 +980,7 @@ export default function SellerChatPopup({
 
         <div
           ref={messageBodyRef}
-          className={`seller-chat-scrollbar relative min-h-[42dvh] max-h-[48dvh] px-3 pb-3 pt-2 [@media(max-height:760px)]:min-h-[34dvh] [@media(max-height:760px)]:max-h-[38dvh] sm:min-h-[19rem] sm:max-h-[19rem] ${
+          className={`seller-chat-scrollbar relative min-h-[42dvh] max-h-[48dvh] px-3 pb-3 pt-2 [@media(max-height:760px)]:min-h-[34dvh] [@media(max-height:760px)]:max-h-[38dvh] sm:min-h-[31rem] sm:max-h-[31rem] ${
             hasAcceptedSafetyNotice ? 'overflow-y-auto' : 'overflow-hidden'
           }`}
         >

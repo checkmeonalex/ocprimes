@@ -16,13 +16,13 @@ export const buildVendorHref = ({
 }) => {
   const safeSlug = normalize(slug)
   if (safeSlug) {
-    return `/vendors/${encodeURIComponent(toSlug(safeSlug))}`
+    return `/${encodeURIComponent(toSlug(safeSlug))}`
   }
 
   const safeName = normalize(name)
   if (safeName) {
-    return `/vendors/${encodeURIComponent(toSlug(safeName))}`
+    return `/${encodeURIComponent(toSlug(safeName))}`
   }
 
-  return '/vendors'
+  return '/products'
 }

@@ -1078,9 +1078,9 @@ export default function Navbar({
                       </div>
                     ) : liveSearchSuggestions.length ? (
                       liveSearchSuggestions.map((item) => (
-                        <button
+                        <Link
                           key={`${item.kind}-${item.id}-${item.href}`}
-                          type='button'
+                          href={item.href}
                           onClick={() => handleSearchSuggestionSelect(item)}
                           className='flex items-center gap-3 px-3 py-3 text-left hover:bg-[#f7f4ef]'
                         >
@@ -1103,7 +1103,7 @@ export default function Navbar({
                               {formatSuggestionLabel(item)}
                             </div>
                           </div>
-                        </button>
+                        </Link>
                       ))
                     ) : (
                       <div className='px-3 py-4 text-sm text-gray-500'>

@@ -58,7 +58,7 @@ export const buildCategorySuggestionHref = (slug: string) =>
   `/products/${encodeURIComponent(slug)}`
 
 export const buildBrandSuggestionHref = (slug: string) =>
-  `/vendors/${encodeURIComponent(slug)}`
+  `/${encodeURIComponent(slug)}`
 
 export const buildQuerySuggestionHref = (query: string) =>
   `/products?search=${encodeURIComponent(normalizeSearchQuery(query))}`

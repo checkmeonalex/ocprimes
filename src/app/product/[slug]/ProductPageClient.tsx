@@ -24,6 +24,7 @@ import ProductDealCountdown from '../../../components/product/ProductDealCountdo
 import ProductImagePlaceholder from '../../../components/product/ProductDetails/ProductImagePlaceholder'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { getCurrencyMeta } from '@/lib/i18n/locale-config'
+import { DEFAULT_VENDOR_VERIFIED_BADGE_PATH } from '@/lib/catalog/vendor-verification'
 import {
   DeferredSectionLoader,
   RelatedProductsSkeleton,
@@ -356,6 +357,10 @@ const mapApiProduct = (item: any) => {
     vendorSoldCount: Math.max(0, Number(vendorProfile?.sold) || 0),
     vendorItemsCount: Math.max(0, Number(vendorProfile?.items) || 0),
     vendorBadge: String(vendorProfile?.badge || '').trim(),
+    vendorIsTrusted: Boolean(vendorProfile?.is_trusted_vendor || vendorProfile?.isTrusted),
+    vendorTrustedBadgeUrl:
+      String(vendorProfile?.trusted_badge_url || vendorProfile?.trustedBadgeUrl || '').trim() ||
+      DEFAULT_VENDOR_VERIFIED_BADGE_PATH,
     vendorLogoUrl: String(vendorProfile?.logo_url || primaryBrand?.logo_url || '').trim(),
     vendorFont: 'Georgia, serif',
     shortDescription: item.short_description || '',
@@ -2241,6 +2246,8 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
         vendorName={String(product?.vendor || 'Seller')}
         vendorAvatarUrl={String(product?.vendorLogoUrl || '')}
         vendorBadge={String(product?.vendorBadge || '')}
+        vendorIsTrusted={Boolean(product?.vendorIsTrusted)}
+        vendorTrustedBadgeUrl={String(product?.vendorTrustedBadgeUrl || '')}
         hasBottomOffset={shouldShowMobileFloatingCart}
         productPrice={Number(activePrice) || 0}
         currencySymbol={chatCurrencySymbol}

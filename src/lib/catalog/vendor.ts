@@ -9,5 +9,5 @@ export const buildVendorHref = (vendorName: string, vendorSlug?: string | null) 
   const explicitSlug = String(vendorSlug || '').trim()
   const slug = explicitSlug || slugifyVendor(vendorName)
   if (!slug) return '/products'
-  return `/vendors/${encodeURIComponent(slug)}`
+  return `/${encodeURIComponent(slug)}`
 }

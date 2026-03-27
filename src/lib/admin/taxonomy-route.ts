@@ -27,12 +27,13 @@ export async function listTaxonomy(request: NextRequest, config: TaxonomyConfig)
   if (!canManageCatalog) {
     return jsonError('Forbidden.', 403)
   }
-  const db =
-    config.table === 'admin_brands'
-      ? createAdminSupabaseClient()
-      : isAdmin
-        ? supabase
-        : createAdminSupabaseClient()
+  const shouldUseAdminClient =
+    config.table === 'admin_brands' || (config.table === 'admin_tags' && isAdmin)
+  const db = shouldUseAdminClient
+    ? createAdminSupabaseClient()
+    : isAdmin
+      ? supabase
+      : createAdminSupabaseClient()
 
   const parseResult = listQuerySchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -139,11 +140,7 @@ export async function createTaxonomy(request: NextRequest, config: TaxonomyConfi
   const dashboardUser = await requireDashboardUser(request)
   const adminUser = tagTable ? null : await requireAdmin(request)
 
-  const supabase = tagTable
-    ? dashboardUser.isAdmin
-      ? dashboardUser.supabase
-      : createAdminSupabaseClient()
-    : adminUser!.supabase
+  const supabase = createAdminSupabaseClient()
   const applyCookies = tagTable ? dashboardUser.applyCookies : adminUser!.applyCookies
   const user = tagTable ? dashboardUser.user : adminUser!.user
   const canCreate = tagTable
@@ -202,11 +199,12 @@ export async function createTaxonomy(request: NextRequest, config: TaxonomyConfi
 }
 
 export async function updateTaxonomy(request: NextRequest, config: TaxonomyConfig) {
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { applyCookies, isAdmin } = await requireAdmin(request)
 
   if (!isAdmin) {
     return jsonError('Forbidden.', 403)
   }
+  const supabase = createAdminSupabaseClient()
 
   let payload: unknown
   try {
@@ -278,7 +276,7 @@ export async function deleteTaxonomy(request: NextRequest, config: TaxonomyConfi
       return jsonError(`Invalid ${config.singularLabel} details.`, 400)
     }
 
-    const db = isAdmin ? supabase : createAdminSupabaseClient()
+    const db = createAdminSupabaseClient()
     if (!isAdmin) {
       const { data: existing, error: existingError } = await db
         .from(config.table)
@@ -319,10 +317,11 @@ export async function deleteTaxonomy(request: NextRequest, config: TaxonomyConfi
     return response
   }
 
-  const { supabase, applyCookies, isAdmin } = await requireAdmin(request)
+  const { applyCookies, isAdmin } = await requireAdmin(request)
   if (!isAdmin) {
     return jsonError('Forbidden.', 403)
   }
+  const supabase = createAdminSupabaseClient()
 
   let payload: unknown
   try {

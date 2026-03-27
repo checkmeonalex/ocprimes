@@ -2,7 +2,8 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
-import { countBrandFollowersMap, fetchBrandsByIds } from '@/lib/catalog/brand-following'
+import { fetchBrandsByIds, resolveBrandDisplayedFollowers } from '@/lib/catalog/brand-following'
+import { DEFAULT_VENDOR_VERIFIED_BADGE_PATH } from '@/lib/catalog/vendor-verification'
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -73,10 +74,7 @@ export async function GET(request: NextRequest) {
     return response
   }
 
-  const [brands, followerCounts] = await Promise.all([
-    fetchBrandsByIds(brandIds),
-    countBrandFollowersMap(brandIds),
-  ])
+  const brands = await fetchBrandsByIds(brandIds)
 
   const brandsById = new Map(
     brands.map((brand: any) => [String(brand?.id || ''), brand]),
@@ -178,6 +176,16 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const displayedFollowersByBrandId = new Map<string, number>()
+  await Promise.all(
+    brandIds.map(async (brandId) => {
+      const normalizedBrandId = String(brandId || '').trim()
+      if (!normalizedBrandId) return
+      const followers = await resolveBrandDisplayedFollowers(normalizedBrandId)
+      displayedFollowersByBrandId.set(normalizedBrandId, Math.max(0, Number(followers) || 0))
+    }),
+  )
+
   const items = rows
     .map((row: any) => {
       const brandId = String(row?.brand_id || '').trim()
@@ -188,8 +196,12 @@ export async function GET(request: NextRequest) {
         brand_name: String(brand?.name || ''),
         brand_slug: String(brand?.slug || ''),
         brand_logo_url: String(brand?.logo_url || ''),
+        brand_is_trusted: Boolean(brand?.is_trusted_vendor),
+        brand_badge: Boolean(brand?.is_trusted_vendor) ? 'Trusted seller' : '',
+        brand_trusted_badge_url:
+          String(brand?.trusted_badge_url || '').trim() || DEFAULT_VENDOR_VERIFIED_BADGE_PATH,
         followed_at: row?.created_at || null,
-        followers: Math.max(0, Number(followerCounts.get(brandId) || 0)),
+        followers: Math.max(0, Number(displayedFollowersByBrandId.get(brandId) || 0)),
         preview_products: previewProductsByBrandId.get(brandId) || [],
       }
     })

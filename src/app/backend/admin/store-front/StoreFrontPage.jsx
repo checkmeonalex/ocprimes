@@ -666,7 +666,7 @@ export default function StoreFrontPage() {
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Store front</p>
                 {String(brand?.slug || '').trim() ? (
                   <a
-                    href={`/vendors/${String(brand.slug).trim()}`}
+                    href={`/${String(brand.slug).trim()}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50"

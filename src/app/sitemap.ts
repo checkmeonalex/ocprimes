@@ -57,7 +57,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         ...brandsResult.data
           .map((item) => String(item?.slug || '').trim())
           .filter(Boolean)
-          .map((slug) => buildEntry(`/vendors/${encodeURIComponent(slug)}`, 'weekly', 0.7, now)),
+          .map((slug) => buildEntry(`/${encodeURIComponent(slug)}`, 'weekly', 0.7, now)),
       )
     }
 
@@ -80,4 +80,3 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return Array.from(uniqueEntries.values())
 }
-

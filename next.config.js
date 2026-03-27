@@ -36,7 +36,8 @@ const nextConfig = {
       { source: '/backend/admin/settings', destination: '/admin/settings', permanent: true },
       { source: '/backend/admin/extra', destination: '/admin/extra', permanent: true },
       { source: '/backend/admin/shortcut', destination: '/admin/shortcut', permanent: true },
-      { source: '/vendors/:slug', destination: '/store/:slug', permanent: true },
+      { source: '/vendors/:slug', destination: '/:slug', permanent: true },
+      { source: '/store/:slug', destination: '/:slug', permanent: true },
       { source: '/help-center', destination: '/help', permanent: true },
       { source: '/help-center/:sectionId/:articleId', destination: '/help/:sectionId/:articleId', permanent: true },
     ]
@@ -75,7 +76,6 @@ const nextConfig = {
       { source: '/admin/settings', destination: '/backend/admin/settings' },
       { source: '/admin/extra', destination: '/backend/admin/extra' },
       { source: '/admin/shortcut', destination: '/backend/admin/shortcut' },
-      { source: '/store/:slug', destination: '/vendors/:slug' },
       { source: '/help', destination: '/help-center' },
       { source: '/help/:sectionId/:articleId', destination: '/help-center/:sectionId/:articleId' },
     ]

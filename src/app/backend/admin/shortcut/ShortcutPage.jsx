@@ -35,6 +35,33 @@ const normalizeIdArray = (value) =>
     ? value.map((item) => String(item || '').trim()).filter(Boolean)
     : []
 
+const collectCategoryIds = (items) => {
+  const ids = new Set()
+
+  const visit = (entry) => {
+    if (!entry || typeof entry !== 'object') return
+    const id = String(entry.id || '').trim()
+    if (id) ids.add(id)
+
+    const childGroups = Array.isArray(entry.subcategories) ? entry.subcategories : []
+    childGroups.forEach((group) => {
+      if (Array.isArray(group?.items)) {
+        group.items.forEach(visit)
+      }
+    })
+
+    if (Array.isArray(entry.children)) {
+      entry.children.forEach(visit)
+    }
+  }
+
+  if (Array.isArray(items)) {
+    items.forEach(visit)
+  }
+
+  return ids
+}
+
 export default function ShortcutPage() {
   const [profile, setProfile] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -163,6 +190,34 @@ export default function ShortcutPage() {
     loadShortcutCategories()
     loadShortcutTags()
   }, [])
+
+  useEffect(() => {
+    const validTagIds = new Set(
+      (Array.isArray(shortcutTags) ? shortcutTags : [])
+        .map((item) => String(item?.id || '').trim())
+        .filter(Boolean),
+    )
+
+    setShortcutsForm((prev) => {
+      const nextTagIds = normalizeIdArray(prev.defaultTagIds).filter((id) => validTagIds.has(id))
+      return nextTagIds.length === prev.defaultTagIds.length
+        ? prev
+        : { ...prev, defaultTagIds: nextTagIds }
+    })
+  }, [shortcutTags])
+
+  useEffect(() => {
+    const validCategoryIds = collectCategoryIds(shortcutCategories)
+
+    setShortcutsForm((prev) => {
+      const nextCategoryIds = normalizeIdArray(prev.defaultCategoryIds).filter((id) =>
+        validCategoryIds.has(id),
+      )
+      return nextCategoryIds.length === prev.defaultCategoryIds.length
+        ? prev
+        : { ...prev, defaultCategoryIds: nextCategoryIds }
+    })
+  }, [shortcutCategories])
 
   const saveShortcutsSection = async () => {
     setError('')

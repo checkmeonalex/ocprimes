@@ -1118,9 +1118,9 @@ function MobileNavbar({
                       </div>
                     ) : liveSearchSuggestions.length ? (
                       liveSearchSuggestions.map((item, index) => (
-                        <button
+                        <Link
                           key={`${item.kind}-${item.id}-${item.href}`}
-                          type='button'
+                          href={item.href}
                           onClick={() => handleSearchSuggestionSelect(item)}
                           className={`flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-[#f7f4ef] ${
                             index < liveSearchSuggestions.length - 1
@@ -1147,7 +1147,7 @@ function MobileNavbar({
                               {formatSuggestionLabel(item)}
                             </div>
                           </div>
-                        </button>
+                        </Link>
                       ))
                     ) : (
                       <div className='px-3 py-4 text-sm text-gray-500'>

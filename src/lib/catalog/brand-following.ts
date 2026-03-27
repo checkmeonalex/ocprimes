@@ -63,10 +63,24 @@ export const fetchBrandsByIds = async (ids: string[]) => {
   if (!cleanIds.length) return []
 
   return withAdminFallback(async (supabase) => {
-    const { data, error } = await supabase
+    const baseSelect = 'id, name, slug, logo_url'
+    const extendedSelect = `${baseSelect}, is_trusted_vendor, trusted_badge_url`
+
+    let { data, error } = await supabase
       .from('admin_brands')
-      .select('id, name, slug, logo_url')
+      .select(extendedSelect)
       .in('id', cleanIds)
+
+    const errorCode = (error as { code?: string } | null)?.code
+    if (error && errorCode === '42703') {
+      const fallbackResult = await supabase
+        .from('admin_brands')
+        .select(baseSelect)
+        .in('id', cleanIds)
+      data = fallbackResult.data
+      error = fallbackResult.error
+    }
+
     if (error) {
       console.error('followed stores brand lookup failed:', error.message)
       return []
