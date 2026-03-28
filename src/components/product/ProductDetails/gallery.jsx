@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import MobileGallery from '../../mobile/ProductDetails/MobileGallery'
 import ProductDeferredImage from '../ProductDeferredImage'
 
@@ -346,6 +347,304 @@ export default function Gallery({
 
   if (!mediaItems.length) return null
 
+  const lightboxOverlay = isLightboxOpen ? (
+    <div
+      className='fixed inset-0 z-[2147483000] flex items-center justify-center bg-slate-900/35 p-2 sm:p-4'
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          setIsLightboxOpen(false)
+        }
+      }}
+    >
+      <div
+        className='flex w-full max-w-[1540px] overflow-hidden rounded-2xl border border-gray-200 bg-white text-slate-900 shadow-[0_20px_45px_rgba(15,23,42,0.12)] sm:rounded-3xl'
+        style={{ height: `${lightboxShellHeight}px` }}
+      >
+        <aside
+          className='flex shrink-0 flex-col border-r border-gray-200 bg-white'
+          style={{ width: `${lightboxSidebarWidth}px` }}
+        >
+          <div className='border-b border-gray-200 p-5'>
+            <p className='text-xs font-semibold uppercase tracking-[0.2em] text-slate-600'>
+              Product Media
+            </p>
+            <h3 className='mt-2 text-xl font-semibold text-slate-900'>Shop Gallery</h3>
+            <p className='mt-1 text-sm text-slate-700'>{mediaItems.length} items</p>
+            <div className='mt-4 grid grid-cols-3 gap-2 rounded-xl border border-gray-200 bg-gray-50 p-1'>
+              <button
+                type='button'
+                onClick={() => setLightboxFilter('all')}
+                className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${
+                  lightboxFilter === 'all'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-700 hover:bg-white/70'
+                }`}
+              >
+                All
+              </button>
+              <button
+                type='button'
+                onClick={() => setLightboxFilter('image')}
+                className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${
+                  lightboxFilter === 'image'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-700 hover:bg-white/70'
+                }`}
+              >
+                Images
+              </button>
+              {lightboxVideoCount > 0 ? (
+                <button
+                  type='button'
+                  onClick={() => setLightboxFilter('video')}
+                  className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${
+                    lightboxFilter === 'video'
+                      ? 'bg-white text-slate-900 shadow-sm'
+                      : 'text-slate-700 hover:bg-white/70'
+                  }`}
+                >
+                  Videos
+                </button>
+              ) : (
+                <div />
+              )}
+            </div>
+          </div>
+
+          <div className='flex-1 overflow-y-auto px-4 py-4'>
+            <div className='grid grid-cols-2 gap-3'>
+              {filteredLightboxIndexes.map((index) => {
+                const item = mediaItems[index]
+                if (!item) return null
+                return (
+                  <div
+                    key={`${item.type}-${item.url}-${index}`}
+                    className={`group relative cursor-pointer overflow-hidden rounded-xl border transition ${
+                      lightboxCurrentIndex === index
+                        ? 'border-gray-900 ring-2 ring-gray-200'
+                        : 'border-gray-200 hover:border-gray-400'
+                    }`}
+                    onClick={() => setLightboxCurrentIndex(index)}
+                    style={{ aspectRatio: '1 / 1' }}
+                  >
+                    {item.type === 'video' ? (
+                      <>
+                        <video
+                          src={item.url}
+                          poster={item.poster || undefined}
+                          muted
+                          preload='metadata'
+                          className='h-full w-full object-cover'
+                        />
+                        <span className='pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25'>
+                          <svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' className='h-8 w-8'>
+                            <path
+                              fillRule='evenodd'
+                              clipRule='evenodd'
+                              d='M11.0748 7.50835C9.74622 6.72395 8.25 7.79065 8.25 9.21316V14.7868C8.25 16.2093 9.74622 17.276 11.0748 16.4916L15.795 13.7048C17.0683 12.953 17.0683 11.047 15.795 10.2952L11.0748 7.50835ZM9.75 9.21316C9.75 9.01468 9.84615 8.87585 9.95947 8.80498C10.0691 8.73641 10.1919 8.72898 10.3122 8.80003L15.0324 11.5869C15.165 11.6652 15.25 11.8148 15.25 12C15.25 12.1852 15.165 12.3348 15.0324 12.4131L10.3122 15.2C10.1919 15.271 10.0691 15.2636 9.95947 15.195C9.84615 15.1242 9.75 14.9853 9.75 14.7868V9.21316Z'
+                              fill='#ededed'
+                            />
+                            <path
+                              fillRule='evenodd'
+                              clipRule='evenodd'
+                              d='M12 1.25C6.06294 1.25 1.25 6.06294 1.25 12C1.25 17.9371 6.06294 22.75 12 22.75C17.9371 22.75 22.75 17.9371 22.75 12C22.75 6.06294 17.9371 1.25 12 1.25ZM2.75 12C2.75 6.89137 6.89137 2.75 12 2.75C17.1086 2.75 21.25 6.89137 21.25 12C21.25 17.1086 17.1086 21.25 12 21.25C6.89137 21.25 2.75 17.1086 2.75 12Z'
+                              fill='#ededed'
+                            />
+                          </svg>
+                        </span>
+                      </>
+                    ) : (
+                      <img src={item.url} alt={`${productName} ${index + 1}`} className='h-full w-full object-cover' />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className='border-t border-gray-200 px-5 py-4 text-sm text-slate-700'>
+            <span className='font-medium text-slate-900'>
+              {filteredLightboxIndexes.length ? activeLightboxPosition + 1 : 0} / {filteredLightboxIndexes.length}
+            </span>
+            <span className='ml-2 text-slate-600'>
+              ({lightboxImageCount} images{lightboxVideoCount > 0 ? `, ${lightboxVideoCount} videos` : ''})
+            </span>
+          </div>
+        </aside>
+
+        <section className='relative flex flex-1 items-center justify-center overflow-hidden bg-white'>
+          <button
+            type='button'
+            onClick={() => setIsLightboxOpen(false)}
+            className='absolute right-5 top-5 z-20 rounded-full border border-gray-300 bg-white p-2 text-gray-700 transition hover:bg-gray-100'
+            title='Close'
+          >
+            <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor'>
+              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M6 6l12 12M18 6L6 18' />
+            </svg>
+          </button>
+
+          <button
+            onClick={goToPrevious}
+            className='absolute left-5 top-1/2 z-20 -translate-y-1/2 rounded-full border border-gray-300 bg-white p-3 text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-35'
+            title='Previous'
+            disabled={filteredLightboxIndexes.length <= 1}
+          >
+            <svg className='h-6 w-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' />
+            </svg>
+          </button>
+
+          <button
+            onClick={goToNext}
+            className='absolute right-5 top-1/2 z-20 -translate-y-1/2 rounded-full border border-gray-300 bg-white p-3 text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-35'
+            title='Next'
+            disabled={filteredLightboxIndexes.length <= 1}
+          >
+            <svg className='h-6 w-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+              <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 5l7 7-7 7' />
+            </svg>
+          </button>
+
+          <div className='flex h-full w-full items-center justify-center p-4 lg:p-6'>
+            {activeLightboxMedia?.type === 'video' ? (
+              <video
+                src={activeLightboxMedia?.url}
+                controls
+                loop
+                preload='metadata'
+                onLoadedMetadata={(event) => {
+                  const width = Number(event.currentTarget.videoWidth || 0)
+                  const height = Number(event.currentTarget.videoHeight || 0)
+                  if (!width || !height) return
+                  const nextAspect = width / height
+                  if (!Number.isFinite(nextAspect) || nextAspect <= 0) return
+                  setLightboxActiveAspect(nextAspect)
+                }}
+                className='rounded-2xl bg-black object-contain'
+                style={{
+                  width: `${lightboxMediaWidth}px`,
+                  height: `${lightboxMediaHeight}px`,
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                }}
+              />
+            ) : (
+              <div
+                className='relative'
+                onClick={() => {
+                  if (lightboxSuppressClickRef.current) {
+                    lightboxSuppressClickRef.current = false
+                    return
+                  }
+                  setIsLightboxZooming((prev) => {
+                    const next = !prev
+                    if (!next) {
+                      setLightboxZoomPosition({ x: 50, y: 50 })
+                      setIsLightboxDragging(false)
+                    }
+                    return next
+                  })
+                }}
+                onMouseDown={(event) => {
+                  if (!isLightboxZooming) return
+                  event.preventDefault()
+                  setIsLightboxDragging(true)
+                  lightboxSuppressClickRef.current = false
+                  lightboxDragStartRef.current = {
+                    clientX: event.clientX,
+                    clientY: event.clientY,
+                    zoomX: lightboxZoomPosition.x,
+                    zoomY: lightboxZoomPosition.y,
+                  }
+                }}
+                onMouseMove={handleLightboxMouseMove}
+                onMouseUp={() => setIsLightboxDragging(false)}
+                onMouseLeave={() => setIsLightboxDragging(false)}
+                onTouchStart={(event) => {
+                  if (!isLightboxZooming) return
+                  const touch = event.touches?.[0]
+                  if (!touch) return
+                  lightboxTouchDraggingRef.current = true
+                  lightboxSuppressClickRef.current = false
+                  lightboxDragStartRef.current = {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY,
+                    zoomX: lightboxZoomPosition.x,
+                    zoomY: lightboxZoomPosition.y,
+                  }
+                }}
+                onTouchMove={(event) => {
+                  if (!isLightboxZooming || !lightboxTouchDraggingRef.current) return
+                  event.preventDefault()
+                  const touch = event.touches?.[0]
+                  const node = event.currentTarget
+                  if (!touch || !node) return
+                  const rect = node.getBoundingClientRect()
+                  if (!rect.width || !rect.height) return
+                  const deltaX = touch.clientX - lightboxDragStartRef.current.clientX
+                  const deltaY = touch.clientY - lightboxDragStartRef.current.clientY
+                  let x = lightboxDragStartRef.current.zoomX - (deltaX / rect.width) * 100
+                  let y = lightboxDragStartRef.current.zoomY - (deltaY / rect.height) * 100
+                  x = Math.min(90, Math.max(10, x))
+                  y = Math.min(90, Math.max(10, y))
+                  setLightboxZoomPosition({ x, y })
+                  if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+                    lightboxSuppressClickRef.current = true
+                  }
+                }}
+                onTouchEnd={() => {
+                  lightboxTouchDraggingRef.current = false
+                }}
+                onTouchCancel={() => {
+                  lightboxTouchDraggingRef.current = false
+                }}
+                style={{
+                  overflow: 'hidden',
+                  cursor: isLightboxZooming
+                    ? isLightboxDragging
+                      ? 'grabbing'
+                      : 'grab'
+                    : 'zoom-in',
+                  touchAction: isLightboxZooming ? 'none' : 'auto',
+                  width: `${lightboxMediaWidth}px`,
+                  height: `${lightboxMediaHeight}px`,
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                }}
+              >
+                <img
+                  src={activeLightboxMedia?.url}
+                  alt={`${productName} ${lightboxCurrentIndex + 1}`}
+                  onLoad={(event) => {
+                    const width = Number(event.currentTarget.naturalWidth || 0)
+                    const height = Number(event.currentTarget.naturalHeight || 0)
+                    if (!width || !height) return
+                    const nextAspect = width / height
+                    if (!Number.isFinite(nextAspect) || nextAspect <= 0) return
+                    setLightboxActiveAspect(nextAspect)
+                  }}
+                  className='h-full w-full rounded-2xl object-contain transition-transform duration-200'
+                  style={
+                    isLightboxZooming
+                      ? {
+                          transform: 'scale(2)',
+                          transformOrigin: `${lightboxZoomPosition.x}% ${lightboxZoomPosition.y}%`,
+                        }
+                      : {
+                          transform: 'scale(1)',
+                        }
+                  }
+                  draggable={false}
+                />
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    </div>
+  ) : null
+
   return (
     <>
       {forceMobileView ? (
@@ -593,303 +892,9 @@ export default function Gallery({
         </div>
       )}
 
-      {isLightboxOpen && (
-        <div
-          className='fixed inset-0 z-[2147483000] flex items-center justify-center bg-slate-900/35 p-2 sm:p-4'
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setIsLightboxOpen(false)
-            }
-          }}
-        >
-          <div
-            className='flex w-full max-w-[1540px] overflow-hidden rounded-2xl sm:rounded-3xl border border-gray-200 bg-white text-slate-900 shadow-[0_20px_45px_rgba(15,23,42,0.12)]'
-            style={{ height: `${lightboxShellHeight}px` }}
-          >
-            <aside
-              className='flex shrink-0 flex-col border-r border-gray-200 bg-white'
-              style={{ width: `${lightboxSidebarWidth}px` }}
-            >
-              <div className='border-b border-gray-200 p-5'>
-                <p className='text-xs font-semibold uppercase tracking-[0.2em] text-slate-600'>
-                  Product Media
-                </p>
-                <h3 className='mt-2 text-xl font-semibold text-slate-900'>Shop Gallery</h3>
-                <p className='mt-1 text-sm text-slate-700'>{mediaItems.length} items</p>
-                <div className='mt-4 grid grid-cols-3 gap-2 rounded-xl border border-gray-200 bg-gray-50 p-1'>
-                  <button
-                    type='button'
-                    onClick={() => setLightboxFilter('all')}
-                    className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${
-                      lightboxFilter === 'all'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-700 hover:bg-white/70'
-                    }`}
-                  >
-                    All
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => setLightboxFilter('image')}
-                    className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${
-                      lightboxFilter === 'image'
-                        ? 'bg-white text-slate-900 shadow-sm'
-                        : 'text-slate-700 hover:bg-white/70'
-                    }`}
-                  >
-                    Images
-                  </button>
-                  {lightboxVideoCount > 0 ? (
-                    <button
-                      type='button'
-                      onClick={() => setLightboxFilter('video')}
-                      className={`rounded-lg px-2 py-2 text-xs font-semibold transition ${
-                        lightboxFilter === 'video'
-                          ? 'bg-white text-slate-900 shadow-sm'
-                          : 'text-slate-700 hover:bg-white/70'
-                      }`}
-                    >
-                      Videos
-                    </button>
-                  ) : (
-                    <div />
-                  )}
-                </div>
-              </div>
-
-              <div className='flex-1 overflow-y-auto px-4 py-4'>
-                <div className='grid grid-cols-2 gap-3'>
-                  {filteredLightboxIndexes.map((index) => {
-                    const item = mediaItems[index]
-                    if (!item) return null
-                    return (
-                      <div
-                        key={`${item.type}-${item.url}-${index}`}
-                        className={`group relative cursor-pointer overflow-hidden rounded-xl border transition ${
-                          lightboxCurrentIndex === index
-                            ? 'border-gray-900 ring-2 ring-gray-200'
-                            : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                        onClick={() => setLightboxCurrentIndex(index)}
-                        style={{ aspectRatio: '1 / 1' }}
-                      >
-                        {item.type === 'video' ? (
-                          <>
-                            <video
-                              src={item.url}
-                              poster={item.poster || undefined}
-                              muted
-                              preload='metadata'
-                              className='h-full w-full object-cover'
-                            />
-                            <span className='pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25'>
-                              <svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' className='h-8 w-8'>
-                                <path
-                                  fillRule='evenodd'
-                                  clipRule='evenodd'
-                                  d='M11.0748 7.50835C9.74622 6.72395 8.25 7.79065 8.25 9.21316V14.7868C8.25 16.2093 9.74622 17.276 11.0748 16.4916L15.795 13.7048C17.0683 12.953 17.0683 11.047 15.795 10.2952L11.0748 7.50835ZM9.75 9.21316C9.75 9.01468 9.84615 8.87585 9.95947 8.80498C10.0691 8.73641 10.1919 8.72898 10.3122 8.80003L15.0324 11.5869C15.165 11.6652 15.25 11.8148 15.25 12C15.25 12.1852 15.165 12.3348 15.0324 12.4131L10.3122 15.2C10.1919 15.271 10.0691 15.2636 9.95947 15.195C9.84615 15.1242 9.75 14.9853 9.75 14.7868V9.21316Z'
-                                  fill='#ededed'
-                                />
-                                <path
-                                  fillRule='evenodd'
-                                  clipRule='evenodd'
-                                  d='M12 1.25C6.06294 1.25 1.25 6.06294 1.25 12C1.25 17.9371 6.06294 22.75 12 22.75C17.9371 22.75 22.75 17.9371 22.75 12C22.75 6.06294 17.9371 1.25 12 1.25ZM2.75 12C2.75 6.89137 6.89137 2.75 12 2.75C17.1086 2.75 21.25 6.89137 21.25 12C21.25 17.1086 17.1086 21.25 12 21.25C6.89137 21.25 2.75 17.1086 2.75 12Z'
-                                  fill='#ededed'
-                                />
-                              </svg>
-                            </span>
-                          </>
-                        ) : (
-                          <img src={item.url} alt={`${productName} ${index + 1}`} className='h-full w-full object-cover' />
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className='border-t border-gray-200 px-5 py-4 text-sm text-slate-700'>
-                <span className='font-medium text-slate-900'>
-                  {filteredLightboxIndexes.length ? activeLightboxPosition + 1 : 0} / {filteredLightboxIndexes.length}
-                </span>
-                <span className='ml-2 text-slate-600'>
-                  ({lightboxImageCount} images{lightboxVideoCount > 0 ? `, ${lightboxVideoCount} videos` : ''})
-                </span>
-              </div>
-            </aside>
-
-            <section className='relative flex flex-1 items-center justify-center overflow-hidden bg-white'>
-              <button
-                type='button'
-                onClick={() => setIsLightboxOpen(false)}
-                className='absolute right-5 top-5 z-20 rounded-full border border-gray-300 bg-white p-2 text-gray-700 transition hover:bg-gray-100'
-                title='Close'
-              >
-                <svg viewBox='0 0 24 24' className='h-5 w-5' fill='none' stroke='currentColor'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth='2' d='M6 6l12 12M18 6L6 18' />
-                </svg>
-              </button>
-
-              <button
-                onClick={goToPrevious}
-                className='absolute left-5 top-1/2 z-20 -translate-y-1/2 rounded-full border border-gray-300 bg-white p-3 text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-35'
-                title='Previous'
-                disabled={filteredLightboxIndexes.length <= 1}
-              >
-                <svg className='h-6 w-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' />
-                </svg>
-              </button>
-
-              <button
-                onClick={goToNext}
-                className='absolute right-5 top-1/2 z-20 -translate-y-1/2 rounded-full border border-gray-300 bg-white p-3 text-gray-700 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-35'
-                title='Next'
-                disabled={filteredLightboxIndexes.length <= 1}
-              >
-                <svg className='h-6 w-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                  <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 5l7 7-7 7' />
-                </svg>
-              </button>
-
-              <div className='flex h-full w-full items-center justify-center p-4 lg:p-6'>
-                {activeLightboxMedia?.type === 'video' ? (
-                  <video
-                    src={activeLightboxMedia?.url}
-                    controls
-                    loop
-                    preload='metadata'
-                    onLoadedMetadata={(event) => {
-                      const width = Number(event.currentTarget.videoWidth || 0)
-                      const height = Number(event.currentTarget.videoHeight || 0)
-                      if (!width || !height) return
-                      const nextAspect = width / height
-                      if (!Number.isFinite(nextAspect) || nextAspect <= 0) return
-                      setLightboxActiveAspect(nextAspect)
-                    }}
-                    className='rounded-2xl bg-black object-contain'
-                    style={{
-                      width: `${lightboxMediaWidth}px`,
-                      height: `${lightboxMediaHeight}px`,
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                    }}
-                  />
-                ) : (
-                  <div
-                    className='relative'
-                    onClick={() => {
-                      if (lightboxSuppressClickRef.current) {
-                        lightboxSuppressClickRef.current = false
-                        return
-                      }
-                      setIsLightboxZooming((prev) => {
-                        const next = !prev
-                        if (!next) {
-                          setLightboxZoomPosition({ x: 50, y: 50 })
-                          setIsLightboxDragging(false)
-                        }
-                        return next
-                      })
-                    }}
-                    onMouseDown={(event) => {
-                      if (!isLightboxZooming) return
-                      event.preventDefault()
-                      setIsLightboxDragging(true)
-                      lightboxSuppressClickRef.current = false
-                      lightboxDragStartRef.current = {
-                        clientX: event.clientX,
-                        clientY: event.clientY,
-                        zoomX: lightboxZoomPosition.x,
-                        zoomY: lightboxZoomPosition.y,
-                      }
-                    }}
-                    onMouseMove={handleLightboxMouseMove}
-                    onMouseUp={() => setIsLightboxDragging(false)}
-                    onMouseLeave={() => setIsLightboxDragging(false)}
-                    onTouchStart={(event) => {
-                      if (!isLightboxZooming) return
-                      const touch = event.touches?.[0]
-                      if (!touch) return
-                      lightboxTouchDraggingRef.current = true
-                      lightboxSuppressClickRef.current = false
-                      lightboxDragStartRef.current = {
-                        clientX: touch.clientX,
-                        clientY: touch.clientY,
-                        zoomX: lightboxZoomPosition.x,
-                        zoomY: lightboxZoomPosition.y,
-                      }
-                    }}
-                    onTouchMove={(event) => {
-                      if (!isLightboxZooming || !lightboxTouchDraggingRef.current) return
-                      event.preventDefault()
-                      const touch = event.touches?.[0]
-                      const node = event.currentTarget
-                      if (!touch || !node) return
-                      const rect = node.getBoundingClientRect()
-                      if (!rect.width || !rect.height) return
-                      const deltaX = touch.clientX - lightboxDragStartRef.current.clientX
-                      const deltaY = touch.clientY - lightboxDragStartRef.current.clientY
-                      let x = lightboxDragStartRef.current.zoomX - (deltaX / rect.width) * 100
-                      let y = lightboxDragStartRef.current.zoomY - (deltaY / rect.height) * 100
-                      x = Math.min(90, Math.max(10, x))
-                      y = Math.min(90, Math.max(10, y))
-                      setLightboxZoomPosition({ x, y })
-                      if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
-                        lightboxSuppressClickRef.current = true
-                      }
-                    }}
-                    onTouchEnd={() => {
-                      lightboxTouchDraggingRef.current = false
-                    }}
-                    onTouchCancel={() => {
-                      lightboxTouchDraggingRef.current = false
-                    }}
-                    style={{
-                      overflow: 'hidden',
-                      cursor: isLightboxZooming
-                        ? isLightboxDragging
-                          ? 'grabbing'
-                          : 'grab'
-                        : 'zoom-in',
-                      touchAction: isLightboxZooming ? 'none' : 'auto',
-                      width: `${lightboxMediaWidth}px`,
-                      height: `${lightboxMediaHeight}px`,
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                    }}
-                  >
-                    <img
-                      src={activeLightboxMedia?.url}
-                      alt={`${productName} ${lightboxCurrentIndex + 1}`}
-                      onLoad={(event) => {
-                        const width = Number(event.currentTarget.naturalWidth || 0)
-                        const height = Number(event.currentTarget.naturalHeight || 0)
-                        if (!width || !height) return
-                        const nextAspect = width / height
-                        if (!Number.isFinite(nextAspect) || nextAspect <= 0) return
-                        setLightboxActiveAspect(nextAspect)
-                      }}
-                      className='h-full w-full rounded-2xl object-contain transition-transform duration-200'
-                      style={
-                        isLightboxZooming
-                          ? {
-                              transform: 'scale(2)',
-                              transformOrigin: `${lightboxZoomPosition.x}% ${lightboxZoomPosition.y}%`,
-                            }
-                          : {
-                              transform: 'scale(1)',
-                            }
-                      }
-                      draggable={false}
-                    />
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>
-        </div>
-      )}
+      {lightboxOverlay && typeof document !== 'undefined'
+        ? createPortal(lightboxOverlay, document.body)
+        : lightboxOverlay}
     </>
   )
 }

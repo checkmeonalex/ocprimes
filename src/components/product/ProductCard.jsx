@@ -214,7 +214,7 @@ const ProductCard = ({
         <div
           className={`relative ${
             product.isPortrait ? 'aspect-[3/4]' : 'aspect-square'
-          } overflow-hidden rounded-t-[5px] bg-gray-50`}
+          } overflow-hidden bg-gray-50`}
         >
           <div className='relative w-full h-full'>
             <ProductDeferredImage
