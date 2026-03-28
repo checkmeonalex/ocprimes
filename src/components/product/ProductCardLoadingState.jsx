@@ -2,8 +2,8 @@ import Skeleton from '@/components/Skeleton'
 
 const ProductCardLoadingState = ({ className = '' }) => {
   return (
-    <div className={`relative overflow-hidden rounded-[5px] bg-white shadow-sm ${className}`.trim()}>
-      <div className='relative aspect-square overflow-hidden bg-gray-50'>
+    <div className={`relative rounded-b-[5px] bg-white shadow-sm ${className}`.trim()}>
+      <div className='relative aspect-square overflow-hidden rounded-t-[5px] bg-gray-50'>
         <Skeleton className='h-full w-full rounded-none bg-gray-200' />
         <Skeleton className='absolute left-3 top-4 h-4 w-12 rounded-sm bg-gray-100' />
         <Skeleton className='absolute right-3 top-3 h-10 w-10 rounded-full bg-gray-100' />

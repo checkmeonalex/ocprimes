@@ -32,11 +32,11 @@ const MISSING_COLUMN_CODE = '42703'
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const PRODUCT_LIST_FULL_SELECT =
-  'id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by'
+  'id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, stock_quantity, initial_stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by'
 const PRODUCT_LIST_CARD_SELECT =
-  'id, name, slug, price, discount_price, deal_expires_at, sku, stock_quantity, status, product_type, main_image_id, product_video_url, created_at, created_by'
+  'id, name, slug, price, discount_price, deal_expires_at, sku, stock_quantity, initial_stock_quantity, status, product_type, main_image_id, product_video_url, created_at, created_by'
 const PRODUCT_SINGLE_SELECT =
-  'id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by'
+  'id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, stock_quantity, initial_stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by'
 
 const encodeListCursor = (item: any) => {
   const id = String(item?.id || '').trim()
@@ -272,7 +272,10 @@ const buildCategoryHref = (category) => {
 const attachPrimaryCategoryPath = async (supabase, item) => {
   if (!item) return item
   const categories = Array.isArray(item.categories) ? item.categories : []
-  const primaryCategory = categories[0]
+  const childCategories = categories.filter((category) =>
+    Boolean(String(category?.parent_id || '').trim()),
+  )
+  const primaryCategory = childCategories[0] || categories[0]
 
   if (!primaryCategory?.id) {
     return {

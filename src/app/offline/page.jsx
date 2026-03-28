@@ -8,25 +8,33 @@ export const metadata = {
 
 export default function OfflinePage() {
   return (
-    <main className='min-h-screen bg-[#f8f1e7] px-6 py-16 text-[#2f2019]'>
-      <div className='mx-auto flex min-h-[70vh] w-full max-w-xl flex-col items-center justify-center rounded-[28px] border border-[#e7d6c1] bg-white px-8 py-12 text-center shadow-[0_24px_80px_rgba(47,32,25,0.08)]'>
-        <div className='mb-4 text-[12px] font-semibold uppercase tracking-[0.45em] text-[#9b6f47]'>
-          Alxora Offline
+    <main className='min-h-screen bg-[#f8f1e7] text-[#2f2019]'>
+      <section className='flex min-h-screen w-full items-center px-6 py-16 sm:px-10 lg:px-16'>
+        <div className='w-full max-w-3xl'>
+          <div className='mb-5 text-[12px] font-semibold uppercase tracking-[0.45em] text-[#9b6f47]'>
+            Alxora Offline
+          </div>
+          <h1 className='max-w-2xl text-4xl font-semibold leading-[1.05] sm:text-5xl'>
+            You&apos;re offline right now.
+          </h1>
+          <p className='mt-6 max-w-2xl text-base leading-8 text-[#6f5643] sm:text-lg'>
+            It looks like your internet connection dropped for a moment. Once you&apos;re back
+            online, you can keep browsing products, visit your account, and continue where you
+            left off on Alxora.
+          </p>
+          <div className='mt-10 flex flex-wrap items-center gap-4'>
+            <a
+              href='/'
+              className='inline-flex items-center rounded-full bg-[#2f2019] px-6 py-3 text-sm font-medium text-white transition hover:bg-[#4a3429]'
+            >
+              Back to homepage
+            </a>
+            <span className='text-sm text-[#7d6551]'>
+              This offline page works for regular browsing too, even without installing the app.
+            </span>
+          </div>
         </div>
-        <h1 className='text-3xl font-semibold leading-tight text-[#2f2019]'>
-          You are offline right now
-        </h1>
-        <p className='mt-4 max-w-md text-sm leading-7 text-[#6f5643]'>
-          The app is installed and ready, but this page needs an internet connection to load fresh
-          products and account data.
-        </p>
-        <a
-          href='/'
-          className='mt-8 inline-flex items-center rounded-full border border-[#2f2019] px-6 py-3 text-sm font-medium text-[#2f2019] transition hover:bg-[#2f2019] hover:text-white'
-        >
-          Try the homepage again
-        </a>
-      </div>
+      </section>
     </main>
   )
 }

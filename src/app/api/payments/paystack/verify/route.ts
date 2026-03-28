@@ -8,6 +8,7 @@ import { fetchCartSnapshot, getCartForUser } from '@/lib/cart/cart-server'
 import { sendAdminTeamAlertToAll } from '@/lib/email/send-admin-team-alert-to-all'
 import { filterItemsByCheckoutSelection, parseCheckoutSelectionParam } from '@/lib/cart/checkout-selection'
 import { mergeOrderLifecycleStatus } from '@/lib/orders/lifecycle-status'
+import { deductConfirmedOrderInventory } from '@/lib/payments/order-inventory'
 
 const verifyPayloadSchema = z.object({
   reference: z.string().trim().min(1, 'Payment reference is required.'),
@@ -282,12 +283,16 @@ export async function POST(request: NextRequest) {
           if (!updatedOrder.error && updatedOrder.data?.id) {
             orderRow = updatedOrder.data as CheckoutOrderRow
             paymentStatus = 'paid'
+            const orderNumber = String(orderRow.order_number || '').trim() || toOrderNumber(orderRow.id)
+            await deductConfirmedOrderInventory(adminDb, String(orderRow.id), {
+              orderNumber,
+              userId: String(auth.user.id || ''),
+            })
             await clearPurchasedItemsFromCart(
               supabase,
               String(auth.user.id || ''),
               String(orderRow.checkout_selection || ''),
             )
-            const orderNumber = String(orderRow.order_number || '').trim() || toOrderNumber(orderRow.id)
             await notifyAllAdmins(adminDb, {
               title: `New order received ${orderNumber}`,
               message: `A new paid order has been placed on Alxora.`,

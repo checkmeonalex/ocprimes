@@ -61,10 +61,12 @@ type ProductCategoryRef = {
   id?: string
   name?: string
   slug?: string
+  parent_id?: string | null
 }
 
 type ProductWithCategories = {
   categories?: ProductCategoryRef[]
+  primary_category_path?: Array<{ id?: string; label?: string; slug?: string }>
 }
 
 type CategoryGraphRow = {
@@ -91,7 +93,27 @@ export const buildVendorCategoryImageList = async (
 ) => {
   noStore()
   const primaryCategories = products
-    .map((item) => (Array.isArray(item?.categories) ? item.categories[0] : null))
+    .flatMap((item) => {
+      const linkedCategories = Array.isArray(item?.categories) ? item.categories : []
+      const childLinkedCategories = linkedCategories.filter((entry) =>
+        Boolean(String(entry?.parent_id || '').trim()),
+      )
+      if (childLinkedCategories.length) {
+        return childLinkedCategories
+      }
+      const path = Array.isArray(item?.primary_category_path) ? item.primary_category_path : []
+      const deepestPathEntry = path.length ? path[path.length - 1] : null
+      if (deepestPathEntry?.label) {
+        return [
+          {
+            id: deepestPathEntry.id,
+            name: deepestPathEntry.label,
+            slug: deepestPathEntry.slug,
+          },
+        ]
+      }
+      return linkedCategories.length ? [linkedCategories[0]] : []
+    })
     .filter((entry): entry is ProductCategoryRef => Boolean(entry?.name))
 
   if (!primaryCategories.length) return []
@@ -183,16 +205,6 @@ export const buildVendorCategoryImageList = async (
         image_alt: String(categoryMeta?.image_alt || leafName).trim(),
       })
     }
-
-    const rootName = String(rootCategory?.name || '').trim()
-    if (!rootName || normalizeKey(rootName) === normalizeKey(leafName)) return
-    output.push({
-      id: String(rootCategory?.id || rootName),
-      name: rootName,
-      slug: String(rootCategory?.slug || '').trim(),
-      image_url: String(rootCategory?.image_url || categoryMeta?.image_url || '').trim(),
-      image_alt: String(rootCategory?.image_alt || rootName).trim(),
-    })
   })
 
   const filtered = output

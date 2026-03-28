@@ -1,4 +1,4 @@
-const VERSION = 'alxora-pwa-v1'
+const VERSION = 'alxora-pwa-v2'
 const OFFLINE_PAGE = '/offline'
 const CORE_CACHE = `${VERSION}-core`
 const ASSET_CACHE = `${VERSION}-assets`

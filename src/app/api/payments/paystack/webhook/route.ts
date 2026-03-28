@@ -7,6 +7,7 @@ import { filterItemsByCheckoutSelection, parseCheckoutSelectionParam } from '@/l
 import { notifyAllAdmins } from '@/lib/admin/notifications'
 import { sendAdminTeamAlertToAll } from '@/lib/email/send-admin-team-alert-to-all'
 import { mergeOrderLifecycleStatus } from '@/lib/orders/lifecycle-status'
+import { deductConfirmedOrderInventory } from '@/lib/payments/order-inventory'
 
 type PaystackWebhookPayload = {
   event?: string
@@ -149,6 +150,13 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', orderQuery.data.id)
 
+      const orderNumber =
+        toString(orderQuery.data.order_number) ||
+        `#${toString(orderQuery.data.id).replace(/-/g, '').toUpperCase()}`
+      await deductConfirmedOrderInventory(adminDb, toString(orderQuery.data.id), {
+        orderNumber,
+        userId: toString(orderQuery.data.user_id),
+      })
       await clearPurchasedItemsFromCart(
         adminDb,
         toString(orderQuery.data.user_id),
@@ -156,9 +164,6 @@ export async function POST(request: NextRequest) {
       )
 
       try {
-        const orderNumber =
-          toString(orderQuery.data.order_number) ||
-          `#${toString(orderQuery.data.id).replace(/-/g, '').toUpperCase()}`
         await notifyAllAdmins(adminDb, {
           title: `New order received ${orderNumber}`,
           message: 'A customer payment was confirmed and the order is ready for admin review.',

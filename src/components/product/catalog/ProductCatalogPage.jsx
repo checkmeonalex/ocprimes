@@ -28,9 +28,17 @@ const buildFacetList = (values) => {
   return Array.from(lookup.values())
 }
 const getProductCategoryNames = (product) => {
+  const deepestPathLabel = Array.isArray(product?.primaryCategoryPath) && product.primaryCategoryPath.length
+    ? String(product.primaryCategoryPath[product.primaryCategoryPath.length - 1]?.label || '').trim()
+    : ''
   const direct = String(product?.category || '').trim()
-  const related = Array.isArray(product?.categories)
-    ? product.categories
+  const linkedCategories = Array.isArray(product?.categories) ? product.categories : []
+  const childLinkedCategories = linkedCategories.filter((entry) =>
+    Boolean(String(entry?.parent_id || '').trim()),
+  )
+  const relatedSource = childLinkedCategories.length ? childLinkedCategories : linkedCategories
+  const related = Array.isArray(relatedSource)
+    ? relatedSource
         .map((entry) =>
           typeof entry === 'string'
             ? entry
@@ -40,7 +48,7 @@ const getProductCategoryNames = (product) => {
         .filter(Boolean)
     : []
 
-  const resolved = buildFacetList([...related, direct].filter(Boolean))
+  const resolved = buildFacetList([deepestPathLabel, direct, ...related].filter(Boolean))
   return resolved
 }
 const getProductTagNames = (product) =>
@@ -393,7 +401,13 @@ const ProductCatalogPage = ({
   )
   const storefrontSelectedItems = useMemo(
     () =>
-      (Array.isArray(storefrontFilter?.items) ? storefrontFilter.items : [])
+      (
+        vendorProfile && storefrontFilter?.mode !== 'tag'
+          ? []
+          : Array.isArray(storefrontFilter?.items)
+            ? storefrontFilter.items
+            : []
+      )
         .map((item) => ({
           id: String(item?.id || item?.slug || item?.name || '').trim(),
           name: String(item?.name || '').trim(),

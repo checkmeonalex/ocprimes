@@ -50,14 +50,24 @@ export const formatDealCountdownLabel = (expiresAt, nowMs = Date.now()) => {
   return `${hours.value}:${minutes.value}:${seconds.value}`;
 };
 
-export const getDealStockState = (stockCount) => {
+export const getDealStockState = (stockCount, initialStockCount = stockCount) => {
   const safeStock = Math.max(0, Number(stockCount) || 0);
+  const safeInitialStock = Math.max(safeStock, Number(initialStockCount) || 0);
+  const hasStockDropped = safeStock < safeInitialStock;
   if (safeStock <= 0) {
     return {
       tone: 'soldout',
       label: 'Sold out',
       helper: 'This deal is no longer available.',
       progress: 100,
+    };
+  }
+  if (!hasStockDropped) {
+    return {
+      tone: 'active',
+      label: `${safeStock} items available`,
+      helper: 'Deal stock available',
+      progress: safeStock < 15 ? 56 : safeStock < 40 ? 52 : 42,
     };
   }
   if (safeStock < 15) {

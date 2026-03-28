@@ -173,14 +173,28 @@ const normalizeProduct = (item) => {
   imageUrls.forEach((url) => {
     galleryMedia.push({ type: 'image', url, poster: '' })
   })
+  const primaryCategoryPath = Array.isArray(item?.primary_category_path)
+    ? item.primary_category_path
+        .map((entry) => ({
+          id: entry?.id || '',
+          label: entry?.label || entry?.name || '',
+          slug: entry?.slug || '',
+        }))
+        .filter((entry) => String(entry.label || '').trim())
+    : []
+  const deepestCategoryLabel = primaryCategoryPath.length
+    ? String(primaryCategoryPath[primaryCategoryPath.length - 1]?.label || '').trim()
+    : ''
 
   return {
     id: item?.id,
     name: item?.name || 'Untitled product',
     slug: item?.slug || '',
     categories: Array.isArray(item?.categories) ? item.categories : [],
+    primaryCategoryPath,
     tags: Array.isArray(item?.tags) ? item.tags : [],
     category:
+      deepestCategoryLabel ||
       item?.category ||
       (Array.isArray(item?.categories) ? item.categories[0]?.name : '') ||
       'Uncategorized',
@@ -215,6 +229,13 @@ const normalizeProduct = (item) => {
     stock: Number.isFinite(Number(item?.stock_quantity))
       ? Number(item.stock_quantity)
       : Number(item?.stock) || 0,
+    initialStock: Number.isFinite(Number(item?.initial_stock_quantity))
+      ? Number(item.initial_stock_quantity)
+      : Number.isFinite(Number(item?.initialStock))
+        ? Number(item.initialStock)
+        : Number.isFinite(Number(item?.stock_quantity))
+          ? Number(item.stock_quantity)
+          : Number(item?.stock) || 0,
     productType: item?.product_type || item?.productType || '',
     conditionCheck: item?.condition_check || item?.conditionCheck || '',
     packagingStyle: item?.packaging_style || item?.packagingStyle || '',

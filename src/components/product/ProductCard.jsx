@@ -121,7 +121,12 @@ const ProductCard = ({
     : null
   const dealExpiresAt = String(product?.dealExpiresAt || product?.deal_expires_at || '').trim()
   const stockCount = Math.max(0, Number(product?.stock) || 0)
+  const initialStockCount = Math.max(
+    stockCount,
+    Number(product?.initialStock ?? product?.initial_stock_quantity) || 0,
+  )
   const isOutOfStock = stockCount <= 0
+  const hasStockDropped = stockCount < initialStockCount
 
   React.useEffect(() => {
     const node = actionRowRef.current
@@ -201,7 +206,7 @@ const ProductCard = ({
         data-next-navigation='true'
       >
         <div
-          className={`relative ${className.includes('bg-') ? '' : 'bg-white'} rounded-[5px] overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 group ${className}`}
+          className={`relative ${className.includes('bg-') ? '' : 'bg-white'} rounded-b-[5px] shadow-sm hover:shadow-lg transition-all duration-300 group ${className}`}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
@@ -209,7 +214,7 @@ const ProductCard = ({
         <div
           className={`relative ${
             product.isPortrait ? 'aspect-[3/4]' : 'aspect-square'
-          } bg-gray-50 overflow-hidden`}
+          } overflow-hidden rounded-t-[5px] bg-gray-50`}
         >
           <div className='relative w-full h-full'>
             <ProductDeferredImage
@@ -277,21 +282,6 @@ const ProductCard = ({
                   </svg>
                 </button>
               )}
-
-              {/* Vendor Name - Top Left Overlay */}
-              <div className='absolute top-3 left-3 z-20'>
-                <button
-                  type='button'
-                  onClick={handleVendorClick}
-                  className='text-black font-light tracking-wide drop-shadow-lg'
-                  style={{
-                    fontFamily: product.vendorFont || 'serif',
-                    fontSize: '15px',
-                  }}
-                >
-                  {product.vendor}
-                </button>
-              </div>
 
               {/* Color Options - Bottom Right of Image - Adjusted for portrait */}
               {availableColors.length > 0 && (
@@ -368,7 +358,7 @@ const ProductCard = ({
             ) : null}
 
             {/* Almost Sold Out Badge */}
-            {stockCount <= 3 && (
+            {(isOutOfStock || (stockCount <= 3 && hasStockDropped)) && (
               <div className='mb-0.5'>
                 <span
                   className={`flex items-center gap-1 text-xs font-semibold ${
@@ -411,6 +401,7 @@ const ProductCard = ({
                 currentPrice={priceValue}
                 originalPrice={originalPriceValue}
                 stock={stockCount}
+                initialStock={initialStockCount}
               />
 
               <div

@@ -68,6 +68,7 @@ export default function ProductDealCountdown({
   currentPrice,
   originalPrice,
   stock = 0,
+  initialStock = stock,
   variant = 'page',
   className = '',
 }) {
@@ -115,7 +116,10 @@ export default function ProductDealCountdown({
     () => (hasMounted && nowMs ? formatDealCountdownLabel(expiresAt, nowMs) : '--:--:--'),
     [expiresAt, hasMounted, nowMs],
   )
-  const stockState = useMemo(() => getDealStockState(stock), [stock])
+  const stockState = useMemo(
+    () => getDealStockState(stock, initialStock),
+    [initialStock, stock],
+  )
   const toneStyles = STOCK_TONE_STYLES[stockState.tone] || STOCK_TONE_STYLES.active
 
   if (!isActive) return null

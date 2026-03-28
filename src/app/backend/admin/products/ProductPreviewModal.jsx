@@ -188,6 +188,16 @@ const normalizeShortcutIds = (value) =>
     ? value.map((item) => String(item || '').trim()).filter(Boolean)
     : [];
 
+const filterExistingShortcutIds = (ids, items) => {
+  const allowedIds = new Set(
+    (Array.isArray(items) ? items : [])
+      .map((item) => String(item?.id || '').trim())
+      .filter(Boolean),
+  );
+
+  return normalizeShortcutIds(ids).filter((id) => allowedIds.has(id));
+};
+
 const normalizeEntitySelectionIds = (value) =>
   Array.isArray(value)
     ? value
@@ -627,15 +637,37 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     if (product?.id) return;
     if (!shortcutDefaultsLoaded) return;
     if (hasAppliedShortcutDefaultsRef.current) return;
+
+    if (!shortcutDefaults.enabled) {
+      hasAppliedShortcutDefaultsRef.current = true;
+      return;
+    }
+
+    const needsCategoryDefaults =
+      Array.isArray(shortcutDefaults.defaultCategoryIds) && shortcutDefaults.defaultCategoryIds.length > 0;
+    const needsTagDefaults =
+      Array.isArray(shortcutDefaults.defaultTagIds) && shortcutDefaults.defaultTagIds.length > 0;
+
+    if (needsCategoryDefaults && !categoriesLoaded && !categoriesLoading && !categoriesError) {
+      handleLoadCategories();
+      return;
+    }
+    if (needsTagDefaults && !tagsLoaded && !tagsLoading && !tagsError) {
+      handleLoadTags();
+      return;
+    }
+
+    if (needsCategoryDefaults && !categoriesLoaded && !categoriesError) return;
+    if (needsTagDefaults && !tagsLoaded && !tagsError) return;
+
     hasAppliedShortcutDefaultsRef.current = true;
 
-    if (!shortcutDefaults.enabled) return;
-    if (Array.isArray(shortcutDefaults.defaultCategoryIds) && shortcutDefaults.defaultCategoryIds.length) {
-      handleLoadCategories();
-    }
-    if (Array.isArray(shortcutDefaults.defaultTagIds) && shortcutDefaults.defaultTagIds.length) {
-      handleLoadTags();
-    }
+    const validShortcutCategoryIds = needsCategoryDefaults
+      ? filterExistingShortcutIds(shortcutDefaults.defaultCategoryIds, availableCategories)
+      : [];
+    const validShortcutTagIds = needsTagDefaults
+      ? filterExistingShortcutIds(shortcutDefaults.defaultTagIds, availableTags)
+      : [];
 
     setForm((prev) => ({
       ...prev,
@@ -644,19 +676,24 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
       return_policy: shortcutDefaults.returnPolicy || prev.return_policy,
     }));
 
-    if (Array.isArray(shortcutDefaults.defaultCategoryIds) && shortcutDefaults.defaultCategoryIds.length) {
+    if (validShortcutCategoryIds.length) {
       setSelectedCategories((prev) => {
         if (Array.isArray(prev) && prev.length) return prev;
-        return [...shortcutDefaults.defaultCategoryIds];
+        return [...validShortcutCategoryIds];
       });
     }
-    if (Array.isArray(shortcutDefaults.defaultTagIds) && shortcutDefaults.defaultTagIds.length) {
+    if (validShortcutTagIds.length) {
       setSelectedTags((prev) => {
         if (Array.isArray(prev) && prev.length) return prev;
-        return [...shortcutDefaults.defaultTagIds];
+        return [...validShortcutTagIds];
       });
     }
   }, [
+    availableCategories,
+    availableTags,
+    categoriesError,
+    categoriesLoaded,
+    categoriesLoading,
     handleLoadCategories,
     handleLoadTags,
     product?.id,
@@ -667,6 +704,9 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     shortcutDefaults.packagingStyle,
     shortcutDefaults.returnPolicy,
     shortcutDefaultsLoaded,
+    tagsError,
+    tagsLoaded,
+    tagsLoading,
   ]);
 
   const handleCreateTag = useCallback(
