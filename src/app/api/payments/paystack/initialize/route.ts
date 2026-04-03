@@ -40,6 +40,8 @@ const initializeSchema = z.object({
 const toMinorUnits = (amount: number) => Math.round(Number(amount || 0) * 100)
 const normalizeDeliveryType = (value: unknown) =>
   String(value || '').trim().toLowerCase() === 'express' ? 'express' : 'standard'
+const normalizeCheckoutMode = (value: unknown) =>
+  String(value || '').trim().toLowerCase() === 'pickup' ? 'pickup' : 'delivery'
 const normalizeAddressObject = (input: unknown) => {
   const source = input && typeof input === 'object' ? (input as Record<string, unknown>) : {}
   return {
@@ -211,6 +213,7 @@ export async function POST(request: NextRequest) {
     line1: String(metadata.billing_address_line1 || profileBillingAddress.line1 || ''),
     country: String(metadata.billing_address_country || profileBillingAddress.country || ''),
   })
+  const checkoutMode = normalizeCheckoutMode(metadata.checkout_mode)
   const shippingAddress = normalizeAddressObject({
     ...profileShippingAddress,
     label: String(metadata.shipping_address_label || profileShippingAddress.label || ''),
@@ -225,6 +228,10 @@ export async function POST(request: NextRequest) {
     paymentMethod: String(metadata.selected_payment_method || ''),
     paymentChannel: String(metadata.selected_payment_channel || ''),
   })
+  const pickupLocationId = String(metadata.pickup_location_id || '').trim()
+  const pickupLabel = String(metadata.pickup_label || '').trim()
+  const pickupPhone = String(metadata.pickup_phone || '').trim()
+  const pickupHours = String(metadata.pickup_hours || '').trim()
   const useWorldwideLogistics = isWorldwideCountry(shippingAddress.country)
   const selectedDeliveryType = useWorldwideLogistics
     ? 'express'
@@ -257,13 +264,16 @@ export async function POST(request: NextRequest) {
       : subtotal >= standardThreshold
         ? 0
         : STANDARD_SHIPPING_FEE
-  const shippingFee = useWorldwideLogistics
-    ? Math.max(0, Number(worldwideFeeNgn || 0))
-    : logisticsRate
-      ? Number(logisticsRate.price || 0)
-      : hasShippingLocation
-        ? 0
-        : fallbackShippingFee
+  const shippingFee =
+    checkoutMode === 'pickup'
+      ? 0
+      : useWorldwideLogistics
+        ? Math.max(0, Number(worldwideFeeNgn || 0))
+        : logisticsRate
+          ? Number(logisticsRate.price || 0)
+          : hasShippingLocation
+            ? 0
+            : fallbackShippingFee
   const taxAmount = 0
   const expectedTotal = subtotal + shippingFee + protectionFee
   const amountInKobo = toMinorUnits(expectedTotal)
@@ -288,6 +298,11 @@ export async function POST(request: NextRequest) {
     : String(logisticsRate?.checkoutEstimate || '')
   const orderShippingAddress = {
     ...shippingAddress,
+    checkout_mode: checkoutMode,
+    pickup_location_id: pickupLocationId || null,
+    pickup_label: pickupLabel || null,
+    pickup_phone: pickupPhone || null,
+    pickup_hours: pickupHours || null,
     logistics_delivery_type: selectedDeliveryType,
     logistics_scope: useWorldwideLogistics ? 'worldwide' : 'nigeria',
     logistics_eta_key: resolvedLogisticsEtaKey,

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
+import { formatVariationLabel } from '@/lib/product/variation-label.mjs'
 
 const formatShipRange = (createdAt) => {
   const base = createdAt ? new Date(createdAt) : new Date()
@@ -220,7 +221,7 @@ export default function CheckoutReviewPage() {
                         <div className='min-w-0'>
                           <p className='line-clamp-2 text-[11px] font-semibold text-slate-900'>{item.name}</p>
                           <p className='text-[10px] text-slate-500'>
-                            {item.selectedVariationLabel ? `${item.selectedVariationLabel} · ` : ''}
+                            {item.selectedVariationLabel ? `${formatVariationLabel(item.selectedVariationLabel)} · ` : ''}
                             Qty {item.quantity}
                           </p>
                           {Number(order?.protectionFee || 0) > 0 ? (
@@ -283,7 +284,7 @@ export default function CheckoutReviewPage() {
                           <div className='min-w-0'>
                             <p className='line-clamp-2 text-[11px] font-semibold text-slate-900'>{item.name}</p>
                             <p className='text-[10px] text-slate-500'>
-                              {item.selectedVariationLabel ? `${item.selectedVariationLabel} · ` : ''}
+                              {item.selectedVariationLabel ? `${formatVariationLabel(item.selectedVariationLabel)} · ` : ''}
                               Qty {item.quantity}
                             </p>
                             {Number(order?.protectionFee || 0) > 0 ? (
@@ -404,7 +405,7 @@ export default function CheckoutReviewPage() {
                     <div className='min-w-0'>
                       <p className='line-clamp-2 text-sm font-semibold text-slate-900'>{item.name}</p>
                       <p className='text-xs text-slate-500'>
-                        {item.selectedVariationLabel ? `${item.selectedVariationLabel} · ` : ''}
+                        {item.selectedVariationLabel ? `${formatVariationLabel(item.selectedVariationLabel)} · ` : ''}
                         Qty {item.quantity}
                       </p>
                       {Number(order?.protectionFee || 0) > 0 ? (

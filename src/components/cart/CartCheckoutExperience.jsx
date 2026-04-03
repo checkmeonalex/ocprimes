@@ -9,7 +9,7 @@ import CartItemSkeletonRow from '@/components/cart/CartItemSkeletonRow'
 import CartCheckoutProgressBar from '@/components/cart/CartCheckoutProgressBar'
 import CartSummaryPanel from '@/components/cart/CartSummaryPanel'
 import SellerIcon from '@/components/cart/SellerIcon'
-import emptyCartImage from '@/components/cart/empty-cart.webp'
+import emptyCartImage from '@/components/cart/cart-empty.png'
 import { normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
 import { getSelectionSummary } from '@/lib/cart/selection-summary'
 import { buildVendorHref } from '@/lib/cart/vendor-link'
@@ -288,9 +288,13 @@ const CartCheckoutExperience = ({
                     className='mb-0 h-[14rem] w-[20rem] object-cover object-center'
                     draggable={false}
                   />
+                  <h2 className='mt-1 text-lg font-semibold text-slate-900'>Your cart is empty</h2>
+                  <p className='mt-1 max-w-xs text-xs text-slate-500'>
+                    Looks like you haven&apos;t added anything to your cart yet.
+                  </p>
                   <Link
                     href='/'
-                    className='mt-0 inline-flex rounded-md bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-black'
+                    className='mt-3 inline-flex rounded-md bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-black'
                   >
                     Continue shopping
                   </Link>

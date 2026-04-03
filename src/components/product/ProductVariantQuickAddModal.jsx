@@ -5,8 +5,19 @@ import Image from 'next/image'
 import { createPortal } from 'react-dom'
 import { extractVariationValue } from './variationUtils.mjs'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
+import { formatVariationToken } from '@/lib/product/variation-label.mjs'
 
 const normalizeKey = (value) => String(value || '').toLowerCase().replace(/^pa_/, '')
+const normalizeOptionValue = (value) => String(value || '').trim().toLowerCase()
+
+const getOptionLabel = (product, key, value) => {
+  const mapped =
+    product?.variationAttributeOptionNames?.[
+      `${normalizeKey(key)}::${normalizeOptionValue(value)}`
+    ]
+  if (mapped) return String(mapped).trim()
+  return formatVariationToken(value)
+}
 
 const resolveVariationPricing = (variation, fallbackPrice, fallbackOriginalPrice) => {
   const basePrice = Number(fallbackPrice ?? 0)
@@ -29,11 +40,11 @@ const resolveVariationPricing = (variation, fallbackPrice, fallbackOriginalPrice
   }
 }
 
-const buildVariationLabel = (attrs = {}) =>
+const buildVariationLabel = (product, attrs = {}) =>
   Object.entries(attrs)
     .map(([key, value]) => {
       if (!value) return ''
-      return `${String(key).replace(/[_-]+/g, ' ')}: ${String(value)}`
+      return getOptionLabel(product, key, value)
     })
     .filter(Boolean)
     .join(' / ')
@@ -143,15 +154,45 @@ const ProductVariantQuickAddModal = ({
     })
     return Array.from(map.entries()).map(([key, set]) => ({
       key,
-      label: key.replace(/[_-]+/g, ' '),
+      label: String(product?.variationAttributeNames?.[key] || formatVariationToken(key)),
       options: Array.from(set),
     }))
-  }, [normalizedVariations])
+  }, [normalizedVariations, product])
+  const singleOptionByKey = useMemo(() => {
+    const map = new Map()
+    attributeOptions.forEach((section) => {
+      if (section.options.length === 1) {
+        map.set(section.key, String(section.options[0] || ''))
+      }
+    })
+    return map
+  }, [attributeOptions])
 
   useEffect(() => {
     if (!open) return
-    setSelected({})
-  }, [open, attributeOptions, initialColor, initialSize])
+    setSelected(() => {
+      const next = {}
+      singleOptionByKey.forEach((value, key) => {
+        if (!value) return
+        next[key] = value
+      })
+      return next
+    })
+  }, [open, attributeOptions, initialColor, initialSize, singleOptionByKey])
+
+  useEffect(() => {
+    if (!open || !attributeOptions.length) return
+    setSelected((prev) => {
+      const next = { ...prev }
+      let changed = false
+      singleOptionByKey.forEach((value, key) => {
+        if (!value || next[key] === value) return
+        next[key] = value
+        changed = true
+      })
+      return changed ? next : prev
+    })
+  }, [open, attributeOptions, singleOptionByKey])
 
   useEffect(() => {
     if (!open) return
@@ -863,8 +904,8 @@ const ProductVariantQuickAddModal = ({
                             setActivePreviewMedia({ type: 'image', url: entry.image, poster: '' })
                             setIsActiveVideoPlaying(false)
                           }}
-                          className={`w-[86px] overflow-hidden rounded-lg border bg-white p-0.5 text-left transition ${
-                            active ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200'
+                          className={`w-[92px] overflow-hidden rounded-xl border-2 bg-white p-0.5 text-left transition ${
+                            active ? 'border-blue-600 ring-2 ring-blue-200' : 'border-gray-300 hover:border-gray-400'
                           }`}
                         >
                           <div className='relative h-[82px] w-full overflow-hidden rounded-md bg-gray-100'>
@@ -876,8 +917,8 @@ const ProductVariantQuickAddModal = ({
                               className='object-cover'
                             />
                           </div>
-                          <div className='pt-1 text-[10px] font-semibold text-gray-900 truncate capitalize'>{entry.color}</div>
-                          <div className='text-[9px] font-semibold text-gray-900'>{formatMoney(entry.price)}</div>
+                          <div className='pt-1.5 text-xs font-semibold text-gray-900 truncate capitalize'>{entry.color}</div>
+                          <div className='text-[10px] font-semibold text-gray-900'>{formatMoney(entry.price)}</div>
                         </button>
                       )
                     })}
@@ -899,8 +940,8 @@ const ProductVariantQuickAddModal = ({
                             if (video.poster) setActivePreviewImage(video.poster)
                             setIsActiveVideoPlaying(false)
                           }}
-                          className={`relative h-12 rounded-full border px-3 text-xs font-semibold transition ${
-                            active ? 'border-gray-900 bg-white text-gray-900' : 'border-gray-300 bg-white text-gray-700'
+                          className={`relative h-12 rounded-xl border-2 px-4 text-sm font-semibold transition ${
+                            active ? 'border-gray-900 bg-white text-gray-900' : 'border-gray-300 bg-white text-gray-700 hover:border-gray-500'
                           }`}
                         >
                           <span className='inline-flex items-center gap-1.5'>
@@ -918,26 +959,34 @@ const ProductVariantQuickAddModal = ({
               ) : null}
               {nonColorAttributes.map((section) => (
                 <div key={section.key}>
-                  <div className='mb-2 text-sm font-semibold uppercase tracking-[0.08em] text-gray-900 capitalize'>{section.label}</div>
-                  <div className='flex flex-wrap gap-2'>
-                    {section.options.map((option) => {
-                      const active = String(selected[section.key] || '') === String(option)
-                      return (
-                        <button
-                          key={`${section.key}-${option}`}
-                          type='button'
-                          onClick={() => applyOptionSelection(section.key, option)}
-                          className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
-                            active
-                              ? 'border-gray-900 bg-white text-gray-900'
-                              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                          }`}
-                        >
-                          {String(option).toUpperCase()}
-                        </button>
-                      )
-                    })}
-                  </div>
+                  {section.options.length === 1 ? (
+                    <div className='text-sm font-semibold text-gray-900'>
+                      {section.label}: {getOptionLabel(product, section.key, String(section.options[0]))}
+                    </div>
+                  ) : (
+                    <>
+                      <div className='mb-2 text-sm font-semibold uppercase tracking-[0.08em] text-gray-900 capitalize'>{section.label}</div>
+                      <div className='flex flex-wrap gap-2'>
+                        {section.options.map((option) => {
+                          const active = String(selected[section.key] || '') === String(option)
+                          return (
+                            <button
+                              key={`${section.key}-${option}`}
+                              type='button'
+                              onClick={() => applyOptionSelection(section.key, option)}
+                              className={`rounded-xl border-2 px-4 py-2 text-[15px] font-semibold transition ${
+                                active
+                                  ? 'border-gray-900 bg-white text-gray-900'
+                                  : 'border-gray-300 bg-white text-gray-700 hover:border-gray-500'
+                              }`}
+                            >
+                              {getOptionLabel(product, section.key, option)}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
               ))}
               </div>
@@ -994,7 +1043,7 @@ const ProductVariantQuickAddModal = ({
                       selectedSize: selected.size || initialSize || '',
                       selectedAttributes: selected,
                       selectedVariationId: matching.variation?.id,
-                      selectedVariationLabel: buildVariationLabel(matching.attrs),
+                      selectedVariationLabel: buildVariationLabel(product, matching.attrs),
                       image: previewImage || product?.image || '',
                       price: pricing.price,
                       originalPrice: pricing.originalPrice,
@@ -1008,7 +1057,7 @@ const ProductVariantQuickAddModal = ({
               </div>
               {matching ? (
                 <div className='mt-2 text-[11px] text-gray-500'>
-                  Selected: {buildVariationLabel(matching.attrs)}
+                  Selected: {buildVariationLabel(product, matching.attrs)}
                 </div>
               ) : null}
             </div>

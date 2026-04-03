@@ -7,6 +7,7 @@ import { createNotifications, notifyAllAdmins } from '@/lib/admin/notifications'
 import type { EmailOrderBreakdown } from '@/lib/email/order-breakdown'
 import { sendOrderStatusEmail } from '@/lib/email/send-order-status-email'
 import { reconcilePendingCheckoutOrderPayment } from '@/lib/payments/reconcile-pending-checkout'
+import { formatVariationLabel } from '@/lib/product/variation-label.mjs'
 
 const PAYMENT_WINDOW_MINUTES = 10
 const PAYMENT_WINDOW_MS = PAYMENT_WINDOW_MINUTES * 60 * 1000
@@ -404,7 +405,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
       vendor: vendorByProductId.get(productId) || 'Alxora',
       name: String(entry.name || 'Product'),
       image: entry.image ? String(entry.image) : null,
-      variation: entry.selected_variation_label ? String(entry.selected_variation_label) : '',
+      variation: entry.selected_variation_label ? formatVariationLabel(entry.selected_variation_label) : '',
       quantity: Number(entry.quantity || 0),
       unitPrice: Number(entry.unit_price || 0),
       originalUnitPrice:

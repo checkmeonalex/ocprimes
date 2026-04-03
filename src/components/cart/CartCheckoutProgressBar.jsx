@@ -11,15 +11,32 @@ const toMoney = (value) => {
 }
 
 export default function CartCheckoutProgressBar({ subtotal = 0, formatMoney, config }) {
+  if (!config) {
+    return (
+      <section className='rounded-xl border border-slate-200 bg-white px-4 py-3'>
+        <div className='mx-auto h-4 w-72 max-w-full animate-pulse rounded bg-slate-200' />
+        <div className='mt-3 flex items-center justify-between'>
+          <div className='h-3 w-10 animate-pulse rounded bg-slate-200' />
+          <div className='h-3 w-12 animate-pulse rounded bg-slate-200' />
+        </div>
+        <div className='mt-2 h-2 animate-pulse rounded-full bg-slate-200' />
+        <div className='mt-3 flex items-center justify-between'>
+          <div className='h-3 w-24 animate-pulse rounded bg-slate-200' />
+          <div className='h-3 w-20 animate-pulse rounded bg-slate-200' />
+        </div>
+      </section>
+    )
+  }
+
   if (config && config.enabled === false) {
     return null
   }
 
   const total = toMoney(subtotal)
-  const standardThreshold = toMoney(config?.standardFreeShippingThreshold || 50)
+  const standardThreshold = toMoney(config.standardFreeShippingThreshold)
   const expressThreshold = Math.max(
     standardThreshold,
-    toMoney(config?.expressFreeShippingThreshold || 100),
+    toMoney(config.expressFreeShippingThreshold),
   )
 
   const maxThreshold = Math.max(1, expressThreshold)

@@ -1,3 +1,5 @@
+import { formatVariationLabel } from '@/lib/product/variation-label.mjs'
+
 const isMeaningfulValue = (value: unknown) =>
   value !== null && value !== undefined && String(value).trim() !== '' && String(value) !== 'default'
 
@@ -9,7 +11,7 @@ export const getSelectionSummary = (item: {
   const parts: string[] = []
 
   if (isMeaningfulValue(item?.selectedVariationLabel)) {
-    parts.push(String(item.selectedVariationLabel))
+    parts.push(formatVariationLabel(item.selectedVariationLabel))
   }
   if (isMeaningfulValue(item?.selectedColor)) {
     parts.push(`Color: ${String(item.selectedColor)}`)

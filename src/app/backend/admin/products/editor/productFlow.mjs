@@ -18,7 +18,7 @@ export const isStepValid = ({
   variations,
 }) => {
   if (stepId === 'identity') {
-    return hasText(form?.name) && hasText(form?.short_description) && hasText(form?.image_id);
+    return hasText(form?.name) && hasText(form?.image_id);
   }
   if (stepId === 'commercial') {
     const basePrice = form?.regular_price || form?.price;

@@ -1,3 +1,5 @@
+import { formatVariationLabel } from '@/lib/product/variation-label.mjs'
+
 export const normalizeValue = (value) => {
   if (typeof value === 'string') {
     return value.trim() ? value.trim() : 'default'
@@ -32,7 +34,9 @@ export const normalizeItem = (item) => ({
       : null,
   image: item.image || null,
   selectedVariationId: normalizeValue(item.selectedVariationId),
-  selectedVariationLabel: item.selectedVariationLabel || null,
+  selectedVariationLabel: item.selectedVariationLabel
+    ? formatVariationLabel(item.selectedVariationLabel)
+    : null,
   selectedColor: normalizeValue(item.selectedColor),
   selectedSize: normalizeValue(item.selectedSize),
   productType: item.productType || null,
@@ -53,7 +57,9 @@ export const normalizeUpsertItem = (item) => ({
       : null,
   image: item.image || null,
   selectedVariationId: normalizeValue(item.selectedVariationId),
-  selectedVariationLabel: item.selectedVariationLabel || null,
+  selectedVariationLabel: item.selectedVariationLabel
+    ? formatVariationLabel(item.selectedVariationLabel)
+    : null,
   selectedColor: normalizeValue(item.selectedColor),
   selectedSize: normalizeValue(item.selectedSize),
   productType: item.productType || null,
@@ -77,7 +83,9 @@ export const fromRow = (row) => ({
   originalPrice: row.original_price !== null ? Number(row.original_price) : null,
   image: row.image,
   selectedVariationId: normalizeValue(row.selected_variation_id),
-  selectedVariationLabel: row.selected_variation_label,
+  selectedVariationLabel: row.selected_variation_label
+    ? formatVariationLabel(row.selected_variation_label)
+    : null,
   selectedColor: normalizeValue(row.selected_color),
   selectedSize: normalizeValue(row.selected_size),
   isProtected: Boolean(row.is_protected),

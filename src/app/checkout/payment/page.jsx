@@ -74,6 +74,7 @@ const METHOD_TO_PAYSTACK_CHANNEL = {
   'bank-transfer': 'bank_transfer',
   ussd: 'ussd',
 }
+const CHECKOUT_SELECTION_STORAGE_KEY = 'ocprimes_checkout_selection'
 
 const emptyAddressDraft = {
   id: '',
@@ -135,6 +136,19 @@ const normalizeCheckoutCountry = (country) => {
 
 const normalizeDeliveryType = (value) =>
   String(value || '').trim().toLowerCase() === 'express' ? 'express' : 'standard'
+const normalizeCheckoutMode = (value) =>
+  String(value || '').trim().toLowerCase() === 'pickup' ? 'pickup' : 'delivery'
+const readStoredCheckoutSelection = () => {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = String(window.sessionStorage.getItem(CHECKOUT_SELECTION_STORAGE_KEY) || '').trim()
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
 
 const getDialCodeByCountry = (country) => {
   const normalized = String(country || '')
@@ -230,6 +244,7 @@ const WorldwideIcon = ({ className = 'h-4 w-4 text-slate-600' }) => (
 function CheckoutPaymentPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [storedCheckoutSelection] = useState(() => readStoredCheckoutSelection())
   const { formatMoney } = useUserI18n()
   const { user, isLoading: isAuthLoading } = useAuthUser()
   const { items, summary, updateQuantity, isReady, isServerReady } = useCart()
@@ -246,12 +261,36 @@ function CheckoutPaymentPageContent() {
     [searchParams],
   )
   const selectedShippingCountryParam = useMemo(
-    () => String(searchParams?.get('shipping_country') || '').trim(),
-    [searchParams],
+    () =>
+      String(searchParams?.get('shipping_country') || storedCheckoutSelection?.shippingCountry || '').trim(),
+    [searchParams, storedCheckoutSelection],
+  )
+  const checkoutMode = useMemo(
+    () => normalizeCheckoutMode(searchParams?.get('checkout_mode') || storedCheckoutSelection?.checkoutMode),
+    [searchParams, storedCheckoutSelection],
   )
   const selectedDeliveryType = useMemo(
-    () => normalizeDeliveryType(searchParams?.get('delivery_type')),
-    [searchParams],
+    () => normalizeDeliveryType(searchParams?.get('delivery_type') || storedCheckoutSelection?.deliveryType),
+    [searchParams, storedCheckoutSelection],
+  )
+  const selectedPickupLocation = useMemo(
+    () => ({
+      id: String(searchParams?.get('pickup_location_id') || storedCheckoutSelection?.pickupLocation?.id || '').trim(),
+      label: String(searchParams?.get('pickup_label') || storedCheckoutSelection?.pickupLocation?.label || '').trim(),
+      line1: String(searchParams?.get('pickup_line1') || storedCheckoutSelection?.pickupLocation?.line1 || '').trim(),
+      line2: String(searchParams?.get('pickup_line2') || storedCheckoutSelection?.pickupLocation?.line2 || '').trim(),
+      city: String(searchParams?.get('pickup_city') || storedCheckoutSelection?.pickupLocation?.city || '').trim(),
+      state: String(searchParams?.get('pickup_state') || storedCheckoutSelection?.pickupLocation?.state || '').trim(),
+      postalCode: String(
+        searchParams?.get('pickup_postal_code') || storedCheckoutSelection?.pickupLocation?.postalCode || '',
+      ).trim(),
+      country: normalizeCheckoutCountry(
+        searchParams?.get('pickup_country') || storedCheckoutSelection?.pickupLocation?.country,
+      ),
+      phone: String(searchParams?.get('pickup_phone') || storedCheckoutSelection?.pickupLocation?.phone || '').trim(),
+      hours: String(searchParams?.get('pickup_hours') || storedCheckoutSelection?.pickupLocation?.hours || '').trim(),
+    }),
+    [searchParams, storedCheckoutSelection],
   )
   const checkoutItems = useMemo(
     () => filterItemsByCheckoutSelection(items, selectedKeys),
@@ -371,6 +410,19 @@ function CheckoutPaymentPageContent() {
     [shippingAddresses, selectedShippingAddressId],
   )
   const resolvedShippingAddress = useMemo(() => {
+    if (checkoutMode === 'pickup') {
+      if (!selectedPickupLocation.line1 && !selectedPickupLocation.label) return null
+      return {
+        label: String(selectedPickupLocation.label || ''),
+        line1: String(selectedPickupLocation.line1 || ''),
+        line2: String(selectedPickupLocation.line2 || ''),
+        city: String(selectedPickupLocation.city || ''),
+        state: String(selectedPickupLocation.state || ''),
+        postalCode: String(selectedPickupLocation.postalCode || ''),
+        country: normalizeCheckoutCountry(selectedPickupLocation.country),
+        phone: String(selectedPickupLocation.phone || ''),
+      }
+    }
     const rawDeliveryAddress =
       selectedShippingAddress ||
       (profile?.deliveryAddress && typeof profile.deliveryAddress === 'object'
@@ -394,9 +446,10 @@ function CheckoutPaymentPageContent() {
           '',
       ),
     }
-  }, [profile?.deliveryAddress, selectedShippingAddress, shippingAddresses])
+  }, [checkoutMode, profile?.deliveryAddress, selectedPickupLocation, selectedShippingAddress, shippingAddresses])
 
   const canRequestLogisticsQuote = useMemo(() => {
+    if (checkoutMode === 'pickup') return false
     const state = String(resolvedShippingAddress?.state || '').trim()
     const city = String(resolvedShippingAddress?.city || '').trim()
     const country = String(resolvedShippingAddress?.country || '').trim()
@@ -404,13 +457,16 @@ function CheckoutPaymentPageContent() {
     if (normalizeCheckoutCountry(country) !== DEFAULT_COUNTRY) return true
     return Boolean(state && city)
   }, [
+    checkoutMode,
     resolvedShippingAddress?.city,
     resolvedShippingAddress?.country,
     resolvedShippingAddress?.state,
   ])
   const isShippingPricingPending =
+    checkoutMode === 'delivery' &&
     canRequestLogisticsQuote && (isLoadingLogisticsQuote || !hasResolvedLogisticsQuote)
-  const shippingFee = logisticsQuote ? Number(logisticsQuote.price || 0) : null
+  const shippingFee =
+    checkoutMode === 'pickup' ? 0 : logisticsQuote ? Number(logisticsQuote.price || 0) : null
   const shippingDisplayCurrency =
     String(logisticsQuote?.displayCurrency || '').toUpperCase() === 'USD' ? 'USD' : 'NGN'
   const shippingDisplayAmount =
@@ -436,6 +492,12 @@ function CheckoutPaymentPageContent() {
   useEffect(() => {
     let cancelled = false
     const loadLogisticsQuote = async () => {
+      if (checkoutMode === 'pickup') {
+        setLogisticsQuote(null)
+        setHasResolvedLogisticsQuote(true)
+        setIsLoadingLogisticsQuote(false)
+        return
+      }
       const state = String(resolvedShippingAddress?.state || '').trim()
       const city = String(resolvedShippingAddress?.city || '').trim()
       const country = String(resolvedShippingAddress?.country || '').trim()
@@ -501,6 +563,7 @@ function CheckoutPaymentPageContent() {
       cancelled = true
     }
   }, [
+    checkoutMode,
     resolvedShippingAddress?.city,
     resolvedShippingAddress?.country,
     resolvedShippingAddress?.state,
@@ -668,7 +731,7 @@ function CheckoutPaymentPageContent() {
         sectionRef: paymentMethodSectionRef,
       }
     }
-    if (isShippingPricingPending || shippingFee == null || totalAmount == null) {
+    if (checkoutMode === 'delivery' && (isShippingPricingPending || shippingFee == null || totalAmount == null)) {
       return {
         message: 'Please wait while delivery pricing loads.',
         sectionRef: paymentMethodSectionRef,
@@ -956,6 +1019,7 @@ function CheckoutPaymentPageContent() {
             billing_address_label: selectedBillingAddress.label,
             billing_address_country: selectedBillingAddress.country,
             billing_address_line1: selectedBillingAddress.line1,
+            checkout_mode: checkoutMode,
             shipping_address_label: resolvedShippingAddress?.label || '',
             shipping_address_line1: resolvedShippingAddress?.line1 || '',
             shipping_address_line2: resolvedShippingAddress?.line2 || '',
@@ -963,6 +1027,10 @@ function CheckoutPaymentPageContent() {
             shipping_address_state: resolvedShippingAddress?.state || '',
             shipping_address_postal_code: resolvedShippingAddress?.postalCode || '',
             shipping_address_country: resolvedShippingAddress?.country || '',
+            pickup_location_id: selectedPickupLocation.id || '',
+            pickup_label: selectedPickupLocation.label || '',
+            pickup_phone: selectedPickupLocation.phone || '',
+            pickup_hours: selectedPickupLocation.hours || '',
             selected_delivery_type: selectedDeliveryType,
           },
         }),

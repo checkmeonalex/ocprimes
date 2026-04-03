@@ -25,21 +25,41 @@ import ProductImagePlaceholder from '../../../components/product/ProductDetails/
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { getCurrencyMeta } from '@/lib/i18n/locale-config'
 import { DEFAULT_VENDOR_VERIFIED_BADGE_PATH } from '@/lib/catalog/vendor-verification'
+import { formatVariationToken } from '@/lib/product/variation-label.mjs'
 import {
   DeferredSectionLoader,
   RelatedProductsSkeleton,
 } from '../../../components/product/ProductDeferredSection'
 import { useWishlist } from '../../../context/WishlistContext'
 
-const buildVariationLabel = (attributes: Record<string, string> | null | undefined) => {
+const normalizeVariationAttributeKey = (key: string) => {
+  const normalized = String(key || '').trim().toLowerCase().replace(/^pa_/, '')
+  return normalized === 'colour' ? 'color' : normalized
+}
+
+const normalizeVariationOptionValue = (value: string) => String(value || '').trim().toLowerCase()
+
+const resolveVariationOptionLabel = (
+  key: string,
+  value: string,
+  optionNames: Record<string, string> | null | undefined,
+) => {
+  const normalizedKey = normalizeVariationAttributeKey(key)
+  const normalizedValue = normalizeVariationOptionValue(value)
+  const mapped = optionNames?.[`${normalizedKey}::${normalizedValue}`]
+  if (mapped) return String(mapped).trim()
+  return formatVariationToken(value)
+}
+
+const buildVariationLabel = (
+  attributes: Record<string, string> | null | undefined,
+  optionNames?: Record<string, string> | null,
+) => {
   if (!attributes || typeof attributes !== 'object') return ''
   const parts = Object.entries(attributes)
     .map(([key, value]) => {
       if (!value) return ''
-      const labelKey = key.replace(/[_-]+/g, ' ').trim()
-      const labelValue = String(value).replace(/[_-]+/g, ' ').trim()
-      if (!labelKey || !labelValue) return ''
-      return `${labelKey}: ${labelValue}`
+      return resolveVariationOptionLabel(key, String(value), optionNames)
     })
     .filter(Boolean)
   return parts.join(' / ')
@@ -64,7 +84,7 @@ const resolveVariationImage = (variation: any, images: any[], fallback: string) 
 }
 
 const normalizeAttributeKey = (key: string) =>
-  key.toLowerCase().replace(/[^a-z0-9]/g, '')
+  normalizeVariationAttributeKey(key).replace(/[^a-z0-9]/g, '')
 
 const slugifyCategory = (value: string) =>
   String(value || '')
@@ -320,7 +340,11 @@ const mapApiProduct = (item: any) => {
         const attributes = variation?.attributes || {}
         const color = extractAttributeValue(attributes, ['color', 'colour'])
         const size = extractAttributeValue(attributes, ['size'])
-        const label = buildVariationLabel(variation?.attributes) || `Variant ${variation?.id || ''}`.trim()
+        const label =
+          buildVariationLabel(
+            variation?.attributes,
+            item?.variation_attribute_option_names || {},
+          ) || `Variant ${variation?.id || ''}`.trim()
         const pricing = resolveVariationPrice(variation, displayPrice)
         const hasImage = Boolean(variation?.image_id)
         const image = hasImage ? resolveVariationImage(variation, images, fallbackImage) : ''
@@ -386,6 +410,15 @@ const mapApiProduct = (item: any) => {
     tags: normalizedTagLinks.map((tag: any) => tag?.name).filter(Boolean),
     tagLinks: normalizedTagLinks,
     variations,
+    variationAttributeNames:
+      item?.variation_attribute_names && typeof item.variation_attribute_names === 'object'
+        ? item.variation_attribute_names
+        : {},
+    variationAttributeOptionNames:
+      item?.variation_attribute_option_names &&
+      typeof item.variation_attribute_option_names === 'object'
+        ? item.variation_attribute_option_names
+        : {},
   }
 }
 
@@ -398,8 +431,8 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   const product: any = useMemo(() => mapApiProduct(initialItem), [initialItem])
 
   const [relatedProducts, setRelatedProducts] = useState<any[]>([])
-  const [selectedColor, setSelectedColor] = useState(() => product?.colors?.[0] || '')
-  const [selectedSize, setSelectedSize] = useState(() => product?.sizes?.[0] || '')
+  const [selectedColor, setSelectedColor] = useState('')
+  const [selectedSize, setSelectedSize] = useState('')
   const [currentImage, setCurrentImage] = useState(() => product?.video || product?.image || '')
   const [activeTab, setActiveTab] = useState('details')
   const [showFloatingCart, setShowFloatingCart] = useState(false)
@@ -463,8 +496,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
       const source = variation?.attributes || {}
       Object.entries(source).forEach(([key, value]) => {
         if (!key || value === undefined || value === null) return
-        const normalized = String(key).toLowerCase().replace(/^pa_/, '')
-        const mappedKey = normalized === 'colour' ? 'color' : normalized
+        const mappedKey = normalizeVariationAttributeKey(String(key))
         attrs[mappedKey] = String(value)
       })
       if (variation?.color) {
@@ -490,13 +522,30 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
     })
     return Array.from(map.entries()).map(([key, values]) => ({
       key,
-      label: key.replace(/[_-]+/g, ' '),
+      label: String(product?.variationAttributeNames?.[key] || formatVariationToken(key)),
       options: Array.from(values),
     }))
-  }, [normalizedVariations])
+  }, [normalizedVariations, product?.variationAttributeNames])
+  const getOptionLabel = useCallback(
+    (key: string, value: string) =>
+      resolveVariationOptionLabel(key, value, product?.variationAttributeOptionNames),
+    [product?.variationAttributeOptionNames],
+  )
+  const colorOptions = useMemo(() => {
+    const fromAttrs = attributeOptions.find((item) => item.key === 'color')?.options || []
+    return fromAttrs.length ? fromAttrs : product?.colors || []
+  }, [attributeOptions, product?.colors])
+  const sizeOptions = useMemo(() => {
+    const fromAttrs = attributeOptions.find((item) => item.key === 'size')?.options || []
+    return fromAttrs.length ? fromAttrs : product?.sizes || []
+  }, [attributeOptions, product?.sizes])
   const extraAttributeOptions = useMemo(
     () => attributeOptions.filter((item) => item.key !== 'color' && item.key !== 'size'),
     [attributeOptions],
+  )
+  const selectableExtraAttributeOptions = useMemo(
+    () => extraAttributeOptions.filter((item) => item.options.length > 1),
+    [extraAttributeOptions],
   )
   const selectionMap = useMemo(() => {
     return {
@@ -536,7 +585,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   )
   const requiresColor = attributeOptions.some((item) => item.key === 'color')
   const requiresSize = attributeOptions.some((item) => item.key === 'size')
-  const requiresExtras = extraAttributeOptions.map((item) => item.key)
+  const requiresExtras = selectableExtraAttributeOptions.map((item) => item.key)
   const requiredSelectionKeys = useMemo(
     () => attributeOptions.map((item) => item.key),
     [attributeOptions],
@@ -591,14 +640,45 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
     })
     return Array.from(map.values())
   }, [variationList])
-  const colorOptions = useMemo(() => {
-    const fromAttrs = attributeOptions.find((item) => item.key === 'color')?.options || []
-    return fromAttrs.length ? fromAttrs : product?.colors || []
-  }, [attributeOptions, product?.colors])
-  const sizeOptions = useMemo(() => {
-    const fromAttrs = attributeOptions.find((item) => item.key === 'size')?.options || []
-    return fromAttrs.length ? fromAttrs : product?.sizes || []
-  }, [attributeOptions, product?.sizes])
+  const singleValueAttributeSummaries = useMemo(() => {
+    const items: Array<{ key: string; label: string; value: string }> = []
+
+    if (colorOptions.length === 1) {
+      items.push({
+        key: 'color',
+        label: 'Color',
+        value: getOptionLabel('color', String(colorOptions[0] || '')),
+      })
+    }
+
+    if (sizeOptions.length === 1) {
+      items.push({
+        key: 'size',
+        label: 'Size',
+        value: getOptionLabel('size', String(sizeOptions[0] || '')),
+      })
+    }
+
+    extraAttributeOptions.forEach((attribute) => {
+      if (attribute.options.length !== 1) return
+      items.push({
+        key: attribute.key,
+        label: attribute.label,
+        value: getOptionLabel(attribute.key, String(attribute.options[0] || '')),
+      })
+    })
+
+    return items.filter((item) => item.value)
+  }, [colorOptions, extraAttributeOptions, getOptionLabel, sizeOptions])
+  const singleOptionByKey = useMemo(() => {
+    const map = new Map<string, string>()
+    attributeOptions.forEach((item) => {
+      if (item.options.length === 1) {
+        map.set(item.key, String(item.options[0] || ''))
+      }
+    })
+    return map
+  }, [attributeOptions])
 
   useEffect(() => {
     if (!variationList.length) return
@@ -626,13 +706,47 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   }, [variationList])
 
   useEffect(() => {
-    setSelectedColor(product?.colors?.[0] || '')
-    setSelectedSize(product?.sizes?.[0] || '')
+    setSelectedColor(singleOptionByKey.get('color') || '')
+    setSelectedSize(singleOptionByKey.get('size') || '')
+    setSelectedAttributes(() => {
+      const next: Record<string, string> = {}
+      singleOptionByKey.forEach((value, key) => {
+        if (!value || key === 'color' || key === 'size') return
+        next[key] = value
+      })
+      return next
+    })
     setCurrentImage(product?.video || product?.image || '')
     setSelectedVariation(null)
     setShowSelectionErrors(false)
     setVariationError('')
-  }, [product?.id, product?.colors, product?.sizes, product?.video, product?.image])
+  }, [product?.id, product?.video, product?.image, singleOptionByKey])
+
+  useEffect(() => {
+    if (!attributeOptions.length) return
+
+    const autoColor = singleOptionByKey.get('color') || ''
+    if (autoColor && selectedColor !== autoColor) {
+      setSelectedColor(autoColor)
+    }
+
+    const autoSize = singleOptionByKey.get('size') || ''
+    if (autoSize && selectedSize !== autoSize) {
+      setSelectedSize(autoSize)
+    }
+
+    const nextAutoAttributes: Record<string, string> = {}
+    singleOptionByKey.forEach((value, key) => {
+      if (!value || key === 'color' || key === 'size') return
+      nextAutoAttributes[key] = value
+    })
+
+    if (
+      Object.entries(nextAutoAttributes).some(([key, value]) => selectedAttributes[key] !== value)
+    ) {
+      setSelectedAttributes((prev) => ({ ...prev, ...nextAutoAttributes }))
+    }
+  }, [attributeOptions, selectedAttributes, selectedColor, selectedSize, singleOptionByKey])
 
   useEffect(() => {
     setShouldLoadReviews(false)
@@ -1761,7 +1875,16 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                         : ''
                     }`}
                   >
-                    {hasCompleteVariationImages && colorVariationCards.length > 0 && (
+                    {singleValueAttributeSummaries.length > 0 && (
+                      <div className='space-y-1'>
+                        {singleValueAttributeSummaries.map((item) => (
+                          <p key={item.key} className='text-sm font-semibold text-gray-900'>
+                            {item.label}: {item.value}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                    {hasCompleteVariationImages && colorVariationCards.length > 1 && (
                       <div className={`space-y-2 ${shakeKeys.length ? 'oc-shake' : ''}`}>
                         <div className='space-y-1'>
                           <div className='text-sm font-semibold text-gray-900'>
@@ -1799,10 +1922,10 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                                   }
                                   setCurrentImage(variation.image || product.image)
                                 }}
-                                className={`w-[76px] text-left border rounded-lg p-0.5 transition ${
+                                className={`w-[82px] text-left rounded-xl border-2 p-0.5 transition ${
                                   isSelected
-                                    ? 'border-blue-500 ring-2 ring-blue-200'
-                                    : 'border-gray-200 hover:border-gray-300'
+                                    ? 'border-blue-600 ring-2 ring-blue-200'
+                                    : 'border-gray-300 hover:border-gray-400'
                                 }`}
                               >
                                 <div className='h-[78px] w-full rounded-md overflow-hidden bg-gray-100 relative'>
@@ -1814,10 +1937,12 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                                     className='object-cover'
                                   />
                                 </div>
-                                <div className='pt-1 text-[10px] font-semibold text-gray-900 truncate'>
-                                  {variation.color || variation.label}
+                                <div className='pt-1.5 text-xs font-semibold text-gray-900 truncate'>
+                                  {variation.color
+                                    ? getOptionLabel('color', String(variation.color))
+                                    : variation.label}
                                 </div>
-                                <div className='text-[9px] font-semibold text-gray-900'>
+                                <div className='text-[10px] font-semibold text-gray-900'>
                                   {formatMoney(variation.price)}
                                 </div>
                               </button>
@@ -1826,11 +1951,12 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                         </div>
                       </div>
                     )}
-                    {((!hasCompleteVariationImages && (colorOptions.length > 0 || sizeOptions.length > 0)) ||
-                      (hasCompleteVariationImages && sizeOptions.length > 0)) && (
-                      <div className={`grid gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 ${shakeKeys.length ? 'oc-shake' : ''}`}>
+                    {((!hasCompleteVariationImages && (colorOptions.length > 1 || sizeOptions.length > 1)) ||
+                      (hasCompleteVariationImages && sizeOptions.length > 1) ||
+                      selectableExtraAttributeOptions.length > 0) && (
+                      <div className={`grid gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 ${shakeKeys.length ? 'oc-shake' : ''}`}>
                         <div className='flex flex-wrap items-start gap-4'>
-                          {!hasCompleteVariationImages && (
+                          {!hasCompleteVariationImages && colorOptions.length > 1 && (
                             <div className='flex-1 min-w-[220px]'>
                               <div className='mb-2 space-y-1'>
                                 <div className='text-xs font-semibold uppercase tracking-wide text-gray-600'>
@@ -1861,12 +1987,12 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                                         String(prev) === String(color) ? '' : String(color),
                                       )
                                     }}
-                                    className={`flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
+                                    className={`flex items-center gap-2 rounded-xl border-2 px-4 py-1.5 text-[15px] font-semibold transition ${
                                       isSelected && !isAvailable
                                         ? 'border-rose-500 bg-white text-gray-900'
                                         : isSelected
                                         ? 'border-gray-900 bg-white text-gray-900'
-                                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-500'
                                     } ${!isAvailable && !isSelected ? 'opacity-40 cursor-not-allowed' : ''}`}
                                     aria-pressed={isSelected}
                                   >
@@ -1874,11 +2000,56 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                                       className='h-3.5 w-3.5 rounded-full border border-gray-300'
                                       style={getSwatchStyle(color)}
                                     />
-                                    <span className='capitalize'>{color}</span>
+                                    <span>{getOptionLabel('color', String(color))}</span>
                                   </button>
                                 )
                                 })}
-                                {!colorOptions.length && (
+                              </div>
+                            </div>
+                          )}
+                          {sizeOptions.length > 1 && (
+                            <div className='flex-1 min-w-[220px]'>
+                              <div className='mb-2 space-y-1'>
+                                <div className='text-xs font-semibold uppercase tracking-wide text-gray-600'>
+                                  Size
+                                </div>
+                                {showSelectionErrors && missingSelectionKeySet.has('size') && (
+                                  <p className='text-xs font-semibold text-rose-600'>
+                                    {getSelectionErrorMessage('size')}
+                                  </p>
+                                )}
+                              </div>
+                              <div className='flex flex-wrap gap-2'>
+                                {sizeOptions.map((size: string) => {
+                                  const isAvailable = isOptionAvailable('size', String(size))
+                                  const isSelected = selectedSize === size
+                                  return (
+                                  <button
+                                    key={size}
+                                    aria-disabled={!isAvailable}
+                                    className={`inline-flex min-w-[60px] items-center justify-center rounded-xl border-2 px-4 py-1.5 text-[15px] font-semibold transition ${
+                                      isSelected && !isAvailable
+                                        ? 'border-rose-500 bg-white text-gray-900'
+                                        : isSelected
+                                        ? 'border-gray-900 bg-white text-gray-900'
+                                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-500'
+                                    } ${!isAvailable && !isSelected ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    onClick={() => {
+                                      if (!isAvailable) {
+                                        setVariationError('The option you selected is sold out.')
+                                        return
+                                      }
+                                      setVariationError('')
+                                      setSelectedSize((prev) =>
+                                        String(prev) === String(size) ? '' : String(size),
+                                      )
+                                    }}
+                                  >
+                                    {getOptionLabel('size', String(size))}
+                                  </button>
+                                  )
+                                })}
+                                {!sizeOptions.length && (
                                   <span className='text-xs text-gray-400'>
                                     —
                                   </span>
@@ -1886,55 +2057,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                               </div>
                             </div>
                           )}
-                          <div className='flex-1 min-w-[220px]'>
-                            <div className='mb-2 space-y-1'>
-                              <div className='text-xs font-semibold uppercase tracking-wide text-gray-600'>
-                                Size
-                              </div>
-                              {showSelectionErrors && missingSelectionKeySet.has('size') && (
-                                <p className='text-xs font-semibold text-rose-600'>
-                                  {getSelectionErrorMessage('size')}
-                                </p>
-                              )}
-                            </div>
-                            <div className='flex flex-wrap gap-2'>
-                              {sizeOptions.map((size: string) => {
-                                const isAvailable = isOptionAvailable('size', String(size))
-                                const isSelected = selectedSize === size
-                                return (
-                                <button
-                                  key={size}
-                                  aria-disabled={!isAvailable}
-                                  className={`inline-flex min-w-[52px] items-center justify-center rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
-                                    isSelected && !isAvailable
-                                      ? 'border-rose-500 bg-white text-gray-900'
-                                      : isSelected
-                                      ? 'border-gray-900 bg-white text-gray-900'
-                                      : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                                  } ${!isAvailable && !isSelected ? 'opacity-40 cursor-not-allowed' : ''}`}
-                                  onClick={() => {
-                                    if (!isAvailable) {
-                                      setVariationError('The option you selected is sold out.')
-                                      return
-                                    }
-                                    setVariationError('')
-                                    setSelectedSize((prev) =>
-                                      String(prev) === String(size) ? '' : String(size),
-                                    )
-                                  }}
-                                >
-                                  {size}
-                                </button>
-                                )
-                              })}
-                              {!sizeOptions.length && (
-                                <span className='text-xs text-gray-400'>
-                                  —
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          {extraAttributeOptions.map((attribute) => (
+                          {selectableExtraAttributeOptions.map((attribute) => (
                             <div key={attribute.key} className='flex-1 min-w-[220px]'>
                               <div className='mb-2 space-y-1'>
                                 <div className='text-xs font-semibold uppercase tracking-wide text-gray-600'>
@@ -1954,12 +2077,12 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                                   <button
                                     key={`${attribute.key}-${option}`}
                                     aria-disabled={!isAvailable}
-                                    className={`inline-flex min-w-[52px] items-center justify-center rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
+                                    className={`inline-flex min-w-[60px] items-center justify-center rounded-xl border-2 px-4 py-1.5 text-[15px] font-semibold transition ${
                                       isSelected && !isAvailable
                                         ? 'border-rose-500 bg-white text-gray-900'
                                         : isSelected
                                         ? 'border-gray-900 bg-white text-gray-900'
-                                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-500'
                                     } ${!isAvailable && !isSelected ? 'opacity-40 cursor-not-allowed' : ''}`}
                                     onClick={() => {
                                       if (!isAvailable) {
@@ -1978,7 +2101,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                                       })
                                     }}
                                   >
-                                    {String(option)}
+                                    {getOptionLabel(attribute.key, String(option))}
                                   </button>
                                   )
                                 })}

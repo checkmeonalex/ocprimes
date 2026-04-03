@@ -206,7 +206,8 @@ const ProductCard = ({
         data-next-navigation='true'
       >
         <div
-          className={`relative ${className.includes('bg-') ? '' : 'bg-white'} rounded-b-[5px] shadow-sm hover:shadow-lg transition-all duration-300 group ${className}`}
+          className={`relative ${className.includes('bg-') ? '' : 'bg-white'} rounded-none shadow-sm hover:shadow-lg transition-all duration-300 group ${className}`}
+          style={{ borderRadius: 0 }}
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
@@ -215,6 +216,7 @@ const ProductCard = ({
           className={`relative ${
             product.isPortrait ? 'aspect-[3/4]' : 'aspect-square'
           } overflow-hidden bg-gray-50`}
+          style={{ borderRadius: 0 }}
         >
           <div className='relative w-full h-full'>
             <ProductDeferredImage
@@ -229,6 +231,7 @@ const ProductCard = ({
               }`}
               placeholderClassName='absolute inset-0'
               observerClassName='absolute inset-0'
+              imgStyle={{ borderRadius: 0 }}
               onReady={() => {
                 if (!imageLoaded) {
                   setImageLoaded(true)
@@ -305,7 +308,7 @@ const ProductCard = ({
         </div>
 
         {imageLoaded && (
-          <div className={wishlistMode ? 'p-2.5 sm:p-3' : 'p-3'}>
+          <div className={`${wishlistMode ? 'p-2.5 sm:p-3' : 'p-3'} rounded-b-[5px] bg-white`}>
             {/* Brand/Name and Trending */}
             <div>
               <div className='flex items-center justify-between mb-1'>

@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { requireAdmin } from '@/lib/auth/require-admin'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import {
   normalizeOrderProtectionConfig,
   orderProtectionConfigSchema,
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const { supabase, applyCookies, user, isAdmin } = await requireAdmin(request)
+  const { applyCookies, user, isAdmin } = await requireAdmin(request)
   if (!isAdmin || !user) {
     return jsonError('Forbidden.', 403)
   }
@@ -63,7 +64,8 @@ export async function PATCH(request: NextRequest) {
   }
 
   const config = normalizeOrderProtectionConfig(parsed.data)
-  const { data, error } = await supabase
+  const adminDb = createAdminSupabaseClient()
+  const { data, error } = await adminDb
     .from('order_protection_settings')
     .upsert(
       {
@@ -77,6 +79,9 @@ export async function PATCH(request: NextRequest) {
     .single()
 
   if (error || !data) {
+    if (error) {
+      console.error('order protection settings save failed:', error.message, error.details || '', error.hint || '')
+    }
     return jsonError('Unable to save order protection settings.', 500)
   }
 

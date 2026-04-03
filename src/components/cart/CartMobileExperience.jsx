@@ -10,7 +10,7 @@ import CartItemSkeletonRow from '@/components/cart/CartItemSkeletonRow'
 import DiscountPriceDisplay from '@/components/cart/DiscountPriceDisplay'
 import OrderProtectionInfoButton from '@/components/cart/OrderProtectionInfoButton'
 import SellerIcon from '@/components/cart/SellerIcon'
-import emptyCartImage from '@/components/cart/empty-cart.webp'
+import emptyCartImage from '@/components/cart/cart-empty.png'
 import { isReturnPolicyDisabled, normalizeReturnPolicyKey } from '@/lib/cart/return-policy'
 import { buildCheckoutSelectionParam } from '@/lib/cart/checkout-selection'
 import { getSelectionSummary } from '@/lib/cart/selection-summary'
@@ -84,10 +84,10 @@ const CartMobileExperience = ({
   const selectedSavings = Math.max(0, selectedOriginalTotal - selectedSubtotal)
   const freeShippingThreshold = Math.max(
     0,
-    Number(checkoutProgressConfig?.standardFreeShippingThreshold || 50),
+    Number(checkoutProgressConfig?.standardFreeShippingThreshold || 0),
   )
   const deliveryFee =
-    selectedSubtotal > 0 && selectedSubtotal < freeShippingThreshold ? 5 : 0
+    freeShippingThreshold > 0 && selectedSubtotal > 0 && selectedSubtotal < freeShippingThreshold ? 5 : 0
   const selectedTotal = selectedSubtotal + deliveryFee
   const selectedProtectedSubtotal = selectedItems.reduce((sum, item) => {
     if (!item.isProtected || isDigitalProductLike(item)) return sum
@@ -249,9 +249,13 @@ const CartMobileExperience = ({
               className='mb-0 h-[14rem] w-[20rem] object-cover object-center'
               draggable={false}
             />
+            <h2 className='mt-1 text-lg font-semibold text-slate-900'>Your cart is empty</h2>
+            <p className='mt-1 max-w-xs text-xs text-slate-500'>
+              Looks like you haven&apos;t added anything to your cart yet.
+            </p>
             <Link
               href='/'
-              className='mt-0 inline-flex rounded-md bg-slate-900 px-4 py-2 text-xs font-semibold text-white'
+              className='mt-3 inline-flex rounded-md bg-slate-900 px-4 py-2 text-xs font-semibold text-white'
             >
               Continue shopping
             </Link>

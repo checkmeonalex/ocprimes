@@ -84,6 +84,8 @@ export const createProductSchema = baseProductSchema
 
 export const updateProductSchema = baseProductSchema.partial().extend({
   id: z.string().uuid(),
+  short_description: z.preprocess(normalizeNullableBlank, z.string().max(500).nullable().optional()),
+  description: z.preprocess(normalizeNullableBlank, z.string().max(4000).nullable().optional()),
 })
 
 export const productIdSchema = z.object({

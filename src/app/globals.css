@@ -588,6 +588,10 @@ button,
   display: block;
 }
 
+.product-grid-masonry .masonry-item {
+  border-radius: 0;
+}
+
 /* Staggered animation for masonry items */
 .masonry-item:nth-child(1) {
   animation-delay: 0.05s;

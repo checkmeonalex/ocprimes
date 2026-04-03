@@ -17,11 +17,14 @@ import {
   fetchPublicLinkedProductIds,
   resolvePublicTaxonomyIdBySlugOrId,
 } from '@/lib/catalog/public-taxonomy'
+import { formatVariationToken } from '@/lib/product/variation-label.mjs'
 
 const PRODUCT_TABLE = 'products'
 const CATEGORY_TABLE = 'admin_categories'
 const TAG_TABLE = 'admin_tags'
 const BRAND_TABLE = 'admin_brands'
+const ATTRIBUTE_TABLE = 'admin_attributes'
+const ATTRIBUTE_OPTIONS_TABLE = 'admin_attribute_options'
 const CATEGORY_LINKS = 'product_category_links'
 const TAG_LINKS = 'product_tag_links'
 const BRAND_LINKS = 'product_brand_links'
@@ -37,6 +40,7 @@ const PRODUCT_LIST_CARD_SELECT =
   'id, name, slug, price, discount_price, deal_expires_at, sku, stock_quantity, initial_stock_quantity, status, product_type, main_image_id, product_video_url, created_at, created_by'
 const PRODUCT_SINGLE_SELECT =
   'id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, stock_quantity, initial_stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, product_video_key, product_video_url, created_at, updated_at, created_by'
+const PRODUCT_CANONICAL_TOKEN_PREFIX = '--p'
 
 const encodeListCursor = (item: any) => {
   const id = String(item?.id || '').trim()
@@ -211,6 +215,47 @@ const toVendorReadableName = (value = '') =>
 
 const isUuid = (value = '') => UUID_PATTERN.test(String(value || '').trim())
 
+const normalizeProductSlug = (value = '') =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+
+const createProductCanonicalToken = (productId = '') =>
+  String(productId || '')
+    .replace(/-/g, '')
+    .toLowerCase()
+    .slice(-8)
+
+export const buildCanonicalProductSlug = (product: { slug?: string | null; id?: string | null }) => {
+  const baseSlug = normalizeProductSlug(product?.slug || '')
+  const token = createProductCanonicalToken(String(product?.id || '').trim())
+  if (!baseSlug) return ''
+  if (!token) return baseSlug
+  return `${baseSlug}${PRODUCT_CANONICAL_TOKEN_PREFIX}${token}`
+}
+
+const parseIncomingProductSlug = (value = '') => {
+  const raw = String(value || '').trim()
+  if (!raw) return { lookupSlug: '', requestedToken: '' }
+
+  const markerIndex = raw.lastIndexOf(PRODUCT_CANONICAL_TOKEN_PREFIX)
+  if (markerIndex === -1) {
+    return {
+      lookupSlug: normalizeProductSlug(raw),
+      requestedToken: '',
+    }
+  }
+
+  const baseSlug = normalizeProductSlug(raw.slice(0, markerIndex))
+  const requestedToken = raw.slice(markerIndex + PRODUCT_CANONICAL_TOKEN_PREFIX.length).trim().toLowerCase()
+  return {
+    lookupSlug: baseSlug || normalizeProductSlug(raw),
+    requestedToken,
+  }
+}
+
 const resolveVendorBrandIds = async (supabase, vendorValue) => {
   const rawVendor = String(vendorValue || '').trim()
   if (!rawVendor) return []
@@ -268,6 +313,13 @@ const buildCategoryHref = (category) => {
   if (!rawSlug) return '/products'
   return `/products/${encodeURIComponent(rawSlug)}`
 }
+
+const normalizeVariationAttributeKey = (value = '') => {
+  const normalized = String(value || '').trim().toLowerCase().replace(/^pa_/, '')
+  return normalized === 'colour' ? 'color' : normalized
+}
+
+const normalizeVariationOptionValue = (value = '') => String(value || '').trim().toLowerCase()
 
 const attachPrimaryCategoryPath = async (supabase, item) => {
   if (!item) return item
@@ -489,6 +541,77 @@ const attachRelations = async (supabase, items) => {
     .in('product_id', ids)
     .order('sort_order', { ascending: true })
 
+  const variationAttributeKeys = new Set<string>()
+  const variationOptionValues = new Set<string>()
+  ;(variationRows || []).forEach((row) => {
+    const attributes = row?.attributes
+    if (!attributes || typeof attributes !== 'object') return
+    Object.entries(attributes).forEach(([rawKey, rawValue]) => {
+      const normalizedKey = normalizeVariationAttributeKey(rawKey)
+      const normalizedValue = normalizeVariationOptionValue(String(rawValue || ''))
+      if (normalizedKey) variationAttributeKeys.add(normalizedKey)
+      if (normalizedValue) variationOptionValues.add(normalizedValue)
+    })
+  })
+
+  const variationAttributeNames = new Map<string, string>()
+  const variationAttributeOptionNames = new Map<string, string>()
+
+  if (variationAttributeKeys.size > 0) {
+    let metadataDb = supabase
+    try {
+      metadataDb = createAdminSupabaseClient()
+    } catch (_error) {
+      metadataDb = supabase
+    }
+
+    const attributeSlugs = Array.from(variationAttributeKeys)
+    const { data: attributeRows, error: attributeError } = await metadataDb
+      .from(ATTRIBUTE_TABLE)
+      .select('id, name, slug')
+      .in('slug', attributeSlugs)
+
+    if (attributeError) {
+      console.error('variation attribute metadata lookup failed:', attributeError.message)
+    }
+
+    const attributeIds: string[] = []
+    ;(attributeRows || []).forEach((row) => {
+      const slug = normalizeVariationAttributeKey(row?.slug || '')
+      const name = String(row?.name || '').trim()
+      const id = String(row?.id || '').trim()
+      if (slug && name) variationAttributeNames.set(slug, name)
+      if (id) attributeIds.push(id)
+    })
+
+    if (attributeIds.length > 0 && variationOptionValues.size > 0) {
+      const { data: optionRows, error: optionError } = await metadataDb
+        .from(ATTRIBUTE_OPTIONS_TABLE)
+        .select('attribute_id, name, slug')
+        .in('attribute_id', attributeIds)
+        .in('slug', Array.from(variationOptionValues))
+
+      if (optionError) {
+        console.error('variation option metadata lookup failed:', optionError.message)
+      }
+
+      const attributeSlugById = new Map<string, string>()
+      ;(attributeRows || []).forEach((row) => {
+        const id = String(row?.id || '').trim()
+        const slug = normalizeVariationAttributeKey(row?.slug || '')
+        if (id && slug) attributeSlugById.set(id, slug)
+      })
+
+      ;(optionRows || []).forEach((row) => {
+        const attributeSlug = attributeSlugById.get(String(row?.attribute_id || '').trim())
+        const optionSlug = normalizeVariationOptionValue(row?.slug || '')
+        const optionName = String(row?.name || '').trim()
+        if (!attributeSlug || !optionSlug || !optionName) return
+        variationAttributeOptionNames.set(`${attributeSlug}::${optionSlug}`, optionName)
+      })
+    }
+  }
+
   const variationsByProduct = new Map()
   ;(variationRows || []).forEach((row) => {
     const list = variationsByProduct.get(row.product_id) || []
@@ -512,6 +635,8 @@ const attachRelations = async (supabase, items) => {
           return fallbackBrand ? [fallbackBrand] : []
         })(),
       variations: variationsByProduct.get(item.id) || [],
+      variation_attribute_names: Object.fromEntries(variationAttributeNames),
+      variation_attribute_option_names: Object.fromEntries(variationAttributeOptionNames),
     }
   })
 }
@@ -724,7 +849,7 @@ export async function getPublicProduct(request: NextRequest, slug: string) {
     return response
   }
 
-  const response = jsonOk({ item: result.item })
+  const response = jsonOk({ item: result.item, canonical_slug: result.canonicalSlug || '' })
   applyCookies(response)
   return response
 }
@@ -787,7 +912,10 @@ export async function loadPublicProductItem(
     }
   }
 
-  let query = readDb.from(PRODUCT_TABLE).select(PRODUCT_SINGLE_SELECT).eq('slug', parsed.data.slug)
+  const incomingSlug = parseIncomingProductSlug(parsed.data.slug)
+  const lookupSlug = incomingSlug.lookupSlug || normalizeProductSlug(parsed.data.slug)
+
+  let query = readDb.from(PRODUCT_TABLE).select(PRODUCT_SINGLE_SELECT).eq('slug', lookupSlug)
 
   if (!previewRequested) {
     query = query.eq('status', 'publish')
@@ -838,9 +966,11 @@ export async function loadPublicProductItem(
   const [item] = await attachRelations(readDb, [data])
   const itemWithCategoryPath = await attachPrimaryCategoryPath(readDb, item)
   const itemWithVendorProfile = await attachVendorProfile(readDb, itemWithCategoryPath)
+  const canonicalSlug = buildCanonicalProductSlug(itemWithVendorProfile)
 
   return {
     item: itemWithVendorProfile,
+    canonicalSlug,
     status: 200,
     error: null,
   }

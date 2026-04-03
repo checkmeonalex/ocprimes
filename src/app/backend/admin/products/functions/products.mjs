@@ -21,6 +21,17 @@ const PACKAGING_VALUES = new Set([
 
 const RETURN_POLICY_VALUES = new Set(['not_returnable', 'support_return']);
 
+const toSlug = (value) => {
+  if (!value) return '';
+  return String(value)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+};
+
 const normalizeEnumValue = (value, allowedValues) => {
   if (typeof value !== 'string') return '';
   const normalized = value.trim();
@@ -62,10 +73,14 @@ const normalizeVariations = (value) => {
 
 export const buildProductPayload = (form, options = {}) => {
   const mode = options?.mode === 'update' ? 'update' : 'create';
+  const derivedSlug = toSlug(form?.name || '');
+  const rawShortDescription = String(form?.short_description ?? '').trim();
+  const rawDescription = String(form?.description ?? '').trim();
   const payload = {
     name: form.name.trim(),
-    description: form.description,
-    short_description: form.short_description,
+    slug: derivedSlug || undefined,
+    description: mode === 'update' ? (rawDescription || null) : form.description,
+    short_description: mode === 'update' ? (rawShortDescription || null) : form.short_description,
   };
   const sku = typeof form.sku === 'string' ? form.sku.trim() : '';
   if (sku) {

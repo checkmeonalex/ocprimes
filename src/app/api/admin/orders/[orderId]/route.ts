@@ -4,6 +4,7 @@ import { jsonError, jsonOk } from '@/lib/http/response'
 import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { createNotifications } from '@/lib/admin/notifications'
+import { formatVariationLabel } from '@/lib/product/variation-label.mjs'
 
 type AnyRecord = Record<string, unknown>
 
@@ -411,7 +412,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ord
     vendorUserId: vendorUserIdByProductId.get(String(entry.product_id || '')) || null,
     name: String(entry.name || 'Product'),
     image: entry.image ? String(entry.image) : null,
-    variation: entry.selected_variation_label ? String(entry.selected_variation_label) : 'Standard option',
+    variation: entry.selected_variation_label
+      ? formatVariationLabel(entry.selected_variation_label)
+      : 'Standard option',
     quantity: Math.max(1, Number(entry.quantity || 1)),
     unitPrice: Number(entry.unit_price || 0),
     originalUnitPrice:

@@ -19,7 +19,7 @@ const ProductGrid = ({
   if (masonry) {
     return (
       <MasonryGrid
-        className={className}
+        className={`product-grid-masonry ${className}`.trim()}
         gap='12px'
         mobileGap='8px'
         itemGap='12px'

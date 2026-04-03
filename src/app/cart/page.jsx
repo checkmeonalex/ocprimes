@@ -5,18 +5,10 @@ import CartCheckoutExperience from '@/components/cart/CartCheckoutExperience'
 import { useCart } from '@/context/CartContext'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 
-const defaultCheckoutProgressConfig = {
-  enabled: true,
-  standardFreeShippingThreshold: 50,
-  expressFreeShippingThreshold: 100,
-}
-
 export default function CartPage() {
   const { formatMoney } = useUserI18n()
   const [reorderNotice, setReorderNotice] = useState(null)
-  const [checkoutProgressConfig, setCheckoutProgressConfig] = useState(
-    defaultCheckoutProgressConfig,
-  )
+  const [checkoutProgressConfig, setCheckoutProgressConfig] = useState(null)
   const {
     items,
     savedItems,
@@ -44,21 +36,17 @@ export default function CartPage() {
         if (!response.ok) return
         const payload = await response.json().catch(() => null)
         if (!payload || cancelled) return
+        const standardFreeShippingThreshold = Number(payload?.standardFreeShippingThreshold)
+        const expressFreeShippingThreshold = Number(payload?.expressFreeShippingThreshold)
+        if (!Number.isFinite(standardFreeShippingThreshold) || standardFreeShippingThreshold < 0) return
+        if (!Number.isFinite(expressFreeShippingThreshold) || expressFreeShippingThreshold < 0) return
         const next = {
           enabled: payload?.enabled !== false,
-          standardFreeShippingThreshold:
-            Number(payload?.standardFreeShippingThreshold) >= 0
-              ? Number(payload.standardFreeShippingThreshold)
-              : defaultCheckoutProgressConfig.standardFreeShippingThreshold,
-          expressFreeShippingThreshold:
-            Number(payload?.expressFreeShippingThreshold) >= 0
-              ? Number(payload.expressFreeShippingThreshold)
-              : defaultCheckoutProgressConfig.expressFreeShippingThreshold,
+          standardFreeShippingThreshold,
+          expressFreeShippingThreshold,
         }
         setCheckoutProgressConfig(next)
-      } catch {
-        // keep defaults when profile settings are unavailable
-      }
+      } catch {}
     }
 
     void loadCheckoutProgressConfig()

@@ -170,6 +170,8 @@ const normalizePickupLocations = (payload) => {
     .filter((entry) => entry.isActive !== false)
 }
 
+const CHECKOUT_SELECTION_STORAGE_KEY = 'ocprimes_checkout_selection'
+
 const ShippingDetailsPage = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -708,6 +710,7 @@ const ShippingDetailsPage = () => {
     const params = new URLSearchParams()
     if (selected) params.set('selected', selected)
     if (promo) params.set('promo', promo)
+    params.set('checkout_mode', checkoutMode)
     if (checkoutMode === 'delivery' && selectedDeliveryOptionId) {
       params.set('delivery_type', selectedDeliveryOptionId)
     }
@@ -718,6 +721,72 @@ const ShippingDetailsPage = () => {
       }
       if (String(selectedAddress.country || '').trim()) {
         params.set('shipping_country', String(selectedAddress.country || '').trim())
+      }
+    }
+    if (checkoutMode === 'pickup' && selectedPickupLocation) {
+      params.set('pickup_location_id', String(selectedPickupLocation.id || '').trim())
+      if (String(selectedPickupLocation.label || '').trim()) {
+        params.set('pickup_label', String(selectedPickupLocation.label || '').trim())
+      }
+      if (String(selectedPickupLocation.line1 || '').trim()) {
+        params.set('pickup_line1', String(selectedPickupLocation.line1 || '').trim())
+      }
+      if (String(selectedPickupLocation.line2 || '').trim()) {
+        params.set('pickup_line2', String(selectedPickupLocation.line2 || '').trim())
+      }
+      if (String(selectedPickupLocation.city || '').trim()) {
+        params.set('pickup_city', String(selectedPickupLocation.city || '').trim())
+      }
+      if (String(selectedPickupLocation.state || '').trim()) {
+        params.set('pickup_state', String(selectedPickupLocation.state || '').trim())
+      }
+      if (String(selectedPickupLocation.postalCode || '').trim()) {
+        params.set('pickup_postal_code', String(selectedPickupLocation.postalCode || '').trim())
+      }
+      if (String(selectedPickupLocation.country || '').trim()) {
+        const pickupCountry = String(selectedPickupLocation.country || '').trim()
+        params.set('pickup_country', pickupCountry)
+        params.set('shipping_country', pickupCountry)
+      }
+      if (String(selectedPickupLocation.phone || '').trim()) {
+        params.set('pickup_phone', String(selectedPickupLocation.phone || '').trim())
+      }
+      if (String(selectedPickupLocation.hours || '').trim()) {
+        params.set('pickup_hours', String(selectedPickupLocation.hours || '').trim())
+      }
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        window.sessionStorage.setItem(
+          CHECKOUT_SELECTION_STORAGE_KEY,
+          JSON.stringify({
+            checkoutMode,
+            deliveryType: checkoutMode === 'delivery' ? selectedDeliveryOptionId : '',
+            shippingAddressId: checkoutMode === 'delivery' ? String(selectedAddress?.id || '').trim() : '',
+            shippingPhone: checkoutMode === 'delivery' ? String(selectedAddress?.phone || '').trim() : '',
+            shippingCountry:
+              checkoutMode === 'delivery'
+                ? String(selectedAddress?.country || '').trim()
+                : String(selectedPickupLocation?.country || '').trim(),
+            pickupLocation:
+              checkoutMode === 'pickup' && selectedPickupLocation
+                ? {
+                    id: String(selectedPickupLocation.id || '').trim(),
+                    label: String(selectedPickupLocation.label || '').trim(),
+                    line1: String(selectedPickupLocation.line1 || '').trim(),
+                    line2: String(selectedPickupLocation.line2 || '').trim(),
+                    city: String(selectedPickupLocation.city || '').trim(),
+                    state: String(selectedPickupLocation.state || '').trim(),
+                    postalCode: String(selectedPickupLocation.postalCode || '').trim(),
+                    country: String(selectedPickupLocation.country || '').trim(),
+                    phone: String(selectedPickupLocation.phone || '').trim(),
+                    hours: String(selectedPickupLocation.hours || '').trim(),
+                  }
+                : null,
+          }),
+        )
+      } catch {
+        // ignore storage write failures
       }
     }
     const query = params.toString()
