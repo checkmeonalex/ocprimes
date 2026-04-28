@@ -6,6 +6,7 @@ import Sidebar from './Sidebar'
 import Footer from './Footer'
 import AdminMobileHeader from './admin/AdminMobileHeader'
 import AddToCartSuccessPopup from './cart/AddToCartSuccessPopup'
+import ProductNavigationOverlay from './product/ProductNavigationOverlay'
 import UserPresenceHeartbeat from './presence/UserPresenceHeartbeat'
 import { useScreenSize } from '../hooks/useScreenSize'
 import { usePathname, useSearchParams } from 'next/navigation'
@@ -161,10 +162,11 @@ export default function ClientLayout({
         }`}
       >
         <Sidebar />
-        <main className={`flex-1 transition-all duration-300`}>
+        <main className='min-h-[calc(100vh-6rem)] flex-1 transition-all duration-300 lg:min-h-[calc(100vh-6.625rem)]'>
           {children}
         </main>
       </div>
+      <ProductNavigationOverlay />
       {showStorefrontFooter ? <Footer showBackToTop={!isProductRoute} /> : null}
       <AddToCartSuccessPopup />
     </>

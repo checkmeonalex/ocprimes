@@ -22,14 +22,11 @@ import SellerChatPopup from '../../../components/product/SellerChatPopup'
 import ShippingTabDetails from '../../../components/product/ShippingTabDetails'
 import ProductDealCountdown from '../../../components/product/ProductDealCountdown'
 import ProductImagePlaceholder from '../../../components/product/ProductDetails/ProductImagePlaceholder'
+import { notifyProductRouteReady } from '../../../components/product/ProductNavigationOverlay'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { getCurrencyMeta } from '@/lib/i18n/locale-config'
 import { DEFAULT_VENDOR_VERIFIED_BADGE_PATH } from '@/lib/catalog/vendor-verification'
 import { formatVariationToken } from '@/lib/product/variation-label.mjs'
-import {
-  DeferredSectionLoader,
-  RelatedProductsSkeleton,
-} from '../../../components/product/ProductDeferredSection'
 import { useWishlist } from '../../../context/WishlistContext'
 
 const normalizeVariationAttributeKey = (key: string) => {
@@ -1325,6 +1322,11 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
     }
   }, [])
 
+  useEffect(() => {
+    if (!product?.id) return
+    notifyProductRouteReady()
+  }, [product?.id])
+
   if (!product) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -2243,18 +2245,13 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
 
                   {isMobile && shouldShowReviewsSection && (
                     <div id='reviews-section'>
-                      {isReviewsLoading ? (
-                        <DeferredSectionLoader
-                          title='Loading customer reviews'
-                          description='Fetching latest reviews and ratings...'
-                        />
-                      ) : (
+                      {!isReviewsLoading ? (
                         <CustomerReviews
                           data={reviewData}
                           productSlug={product.slug}
                           onReviewSubmitted={handleReviewSubmitted}
                         />
-                      )}
+                      ) : null}
                     </div>
                   )}
                   <AboutStoreCard
@@ -2274,31 +2271,22 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
               </div>
               {!isMobile && shouldShowReviewsSection && (
                 <div id='reviews-section' className='mt-6'>
-                  {isReviewsLoading ? (
-                    <DeferredSectionLoader
-                      title='Loading customer reviews'
-                      description='Fetching latest reviews and ratings...'
-                    />
-                  ) : (
+                  {!isReviewsLoading ? (
                     <CustomerReviews
                       data={reviewData}
                       productSlug={product.slug}
                       onReviewSubmitted={handleReviewSubmitted}
                     />
-                  )}
+                  ) : null}
                 </div>
               )}
               <div className='mt-4 sm:mt-5'>
-                {isRelatedLoading ? (
-                  <RelatedProductsSkeleton />
-                ) : (
+                <RecentlyViewedSection currentSlug={product.slug} />
+                {!isRelatedLoading ? (
                   <RelatedProductsSection
                     items={relatedProducts}
                     seeAllHref={categorySlug ? `/products/${categorySlug}` : undefined}
                   />
-                )}
-                {!isRelatedLoading ? (
-                  <RecentlyViewedSection currentSlug={product.slug} />
                 ) : null}
               </div>
             </div>
