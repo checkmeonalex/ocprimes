@@ -456,8 +456,6 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   const [isAddToCartLoading, setIsAddToCartLoading] = useState(false)
   const [reviewData, setReviewData] = useState<any>(createEmptyReviewData())
   const [reviewReloadKey, setReviewReloadKey] = useState(0)
-  const [shouldLoadReviews, setShouldLoadReviews] = useState(false)
-  const [shouldLoadRelated, setShouldLoadRelated] = useState(false)
   const [isReviewsLoading, setIsReviewsLoading] = useState(false)
   const [isRelatedLoading, setIsRelatedLoading] = useState(false)
   const [isDesktopHeaderVisible, setIsDesktopHeaderVisible] = useState(true)
@@ -473,8 +471,6 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   const returnInfoRef = useRef<HTMLDivElement | null>(null)
   const productContentAreaRef = useRef<HTMLDivElement | null>(null)
   const mobileGallerySectionRef = useRef<HTMLDivElement | null>(null)
-  const reviewsTriggerRef = useRef<HTMLDivElement | null>(null)
-  const relatedTriggerRef = useRef<HTMLDivElement | null>(null)
   const descriptionRef = useRef<HTMLDivElement | null>(null)
   const variationSectionRef = useRef<HTMLDivElement | null>(null)
   const cartSelectionHydratedRef = useRef<string | null>(null)
@@ -485,7 +481,6 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   const [galleryStickyStyle, setGalleryStickyStyle] = useState<Record<string, string>>({})
   const chatCurrencySymbol = getCurrencyMeta(locale.currency).symbol || locale.currency
   const handleReviewSubmitted = useCallback(() => {
-    setShouldLoadReviews(true)
     setReviewReloadKey((prev) => prev + 1)
   }, [])
 
@@ -749,8 +744,6 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   }, [attributeOptions, selectedAttributes, selectedColor, selectedSize, singleOptionByKey])
 
   useEffect(() => {
-    setShouldLoadReviews(false)
-    setShouldLoadRelated(false)
     setIsReviewsLoading(false)
     setIsRelatedLoading(false)
     setReviewData(createEmptyReviewData())
@@ -758,35 +751,6 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   }, [slug])
 
   useEffect(() => {
-    if (!product?.id) return
-    if (typeof window === 'undefined') return
-
-    const reviewTarget = reviewsTriggerRef.current
-    const relatedTarget = relatedTriggerRef.current
-    if (!reviewTarget && !relatedTarget) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.target === reviewTarget && entry.isIntersecting) {
-            setShouldLoadReviews(true)
-          }
-          if (entry.target === relatedTarget && entry.isIntersecting) {
-            setShouldLoadRelated(true)
-          }
-        })
-      },
-      { root: null, rootMargin: '380px 0px', threshold: 0.01 },
-    )
-
-    if (reviewTarget) observer.observe(reviewTarget)
-    if (relatedTarget) observer.observe(relatedTarget)
-
-    return () => observer.disconnect()
-  }, [product?.id, isMobile])
-
-  useEffect(() => {
-    if (!shouldLoadReviews) return
     let isActive = true
     const loadReviews = async () => {
       if (!slug) {
@@ -838,7 +802,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
     return () => {
       isActive = false
     }
-  }, [slug, reviewReloadKey, shouldLoadReviews])
+  }, [slug, reviewReloadKey])
 
   useEffect(() => {
     if (!product?.id) return
@@ -866,7 +830,6 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
   ])
 
   useEffect(() => {
-    if (!shouldLoadRelated) return
     let isActive = true
     const loadRelated = async () => {
       if (!product) {
@@ -941,7 +904,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
     return () => {
       isActive = false
     }
-  }, [product, shouldLoadRelated])
+  }, [product])
 
   useEffect(() => {
     setShowAllTags(false)
@@ -1776,7 +1739,6 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                         <button
                           type='button'
                           onClick={() => {
-                            setShouldLoadReviews(true)
                             const el = document.getElementById('reviews-section')
                             if (!el) return
                             el.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -2281,13 +2243,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
 
                   {isMobile && shouldShowReviewsSection && (
                     <div id='reviews-section'>
-                      <div ref={reviewsTriggerRef} className='h-0 w-full' aria-hidden='true' />
-                      {!shouldLoadReviews ? (
-                        <DeferredSectionLoader
-                          title='Customer reviews will load as you scroll'
-                          description='We prioritize product media and key buying details first.'
-                        />
-                      ) : isReviewsLoading ? (
+                      {isReviewsLoading ? (
                         <DeferredSectionLoader
                           title='Loading customer reviews'
                           description='Fetching latest reviews and ratings...'
@@ -2318,13 +2274,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
               </div>
               {!isMobile && shouldShowReviewsSection && (
                 <div id='reviews-section' className='mt-6'>
-                  <div ref={reviewsTriggerRef} className='h-0 w-full' aria-hidden='true' />
-                  {!shouldLoadReviews ? (
-                    <DeferredSectionLoader
-                      title='Customer reviews will load as you scroll'
-                      description='We prioritize product media and key buying details first.'
-                    />
-                  ) : isReviewsLoading ? (
+                  {isReviewsLoading ? (
                     <DeferredSectionLoader
                       title='Loading customer reviews'
                       description='Fetching latest reviews and ratings...'
@@ -2338,15 +2288,8 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                   )}
                 </div>
               )}
-              <div ref={relatedTriggerRef} className='h-0 w-full' aria-hidden='true' />
               <div className='mt-4 sm:mt-5'>
-                {!shouldLoadRelated ? (
-                  <DeferredSectionLoader
-                    className='mt-0'
-                    title='More products will load as you continue'
-                    description='Related items are deferred to keep this page fast.'
-                  />
-                ) : isRelatedLoading ? (
+                {isRelatedLoading ? (
                   <RelatedProductsSkeleton />
                 ) : (
                   <RelatedProductsSection
@@ -2354,7 +2297,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                     seeAllHref={categorySlug ? `/products/${categorySlug}` : undefined}
                   />
                 )}
-                {shouldLoadRelated && !isRelatedLoading ? (
+                {!isRelatedLoading ? (
                   <RecentlyViewedSection currentSlug={product.slug} />
                 ) : null}
               </div>

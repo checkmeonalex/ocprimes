@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ProductImagePlaceholder from './ProductDetails/ProductImagePlaceholder'
 import {
-  hasActivatedImageSource,
   hasReadyImageSource,
   markImageSourceActivated,
   markImageSourceReady,
@@ -23,13 +22,9 @@ export default function ProductDeferredImage({
   alt,
   imgClassName = '',
   placeholderClassName = '',
-  observerClassName = 'absolute inset-0',
   imgStyle,
   eager = false,
   isLoadEnabled = true,
-  loadWhenVisible = true,
-  rootMargin = '220px 0px',
-  threshold = 0.01,
   decoding = 'async',
   draggable = false,
   fetchPriority,
@@ -40,12 +35,11 @@ export default function ProductDeferredImage({
   imgRef = null,
 }) {
   const normalizedSrc = useMemo(() => String(src || '').trim(), [src])
-  const observerRef = useRef(null)
   const imageRef = useRef(null)
   const fallbackTimeoutRef = useRef(null)
   const [shouldLoad, setShouldLoad] = useState(() => {
     if (!normalizedSrc) return false
-    return eager || !loadWhenVisible || hasActivatedImageSource(normalizedSrc)
+    return true
   })
   const [isReady, setIsReady] = useState(() => {
     if (!normalizedSrc) return false
@@ -79,39 +73,19 @@ export default function ProductDeferredImage({
       return
     }
 
-    const activated = eager || !loadWhenVisible || hasActivatedImageSource(normalizedSrc)
     const ready = hasReadyImageSource(normalizedSrc)
-    setShouldLoad(activated)
+    markImageSourceActivated(normalizedSrc)
+    setShouldLoad(true)
     setIsReady(ready)
     setShowPlaceholder(!ready)
-  }, [eager, loadWhenVisible, normalizedSrc])
+  }, [normalizedSrc])
 
   useEffect(() => {
     if (!normalizedSrc || !isLoadEnabled) return undefined
-    if (shouldLoad) return undefined
-    if (typeof IntersectionObserver === 'undefined') {
-      markImageSourceActivated(normalizedSrc)
-      setShouldLoad(true)
-      return undefined
-    }
-
-    const node = observerRef.current
-    if (!node) return undefined
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0]
-        if (!entry?.isIntersecting) return
-        markImageSourceActivated(normalizedSrc)
-        setShouldLoad(true)
-        observer.disconnect()
-      },
-      { rootMargin, threshold },
-    )
-
-    observer.observe(node)
-    return () => observer.disconnect()
-  }, [isLoadEnabled, normalizedSrc, rootMargin, shouldLoad, threshold])
+    markImageSourceActivated(normalizedSrc)
+    setShouldLoad(true)
+    return undefined
+  }, [isLoadEnabled, normalizedSrc])
 
   useEffect(() => {
     if (eager && normalizedSrc && !shouldLoad) {
@@ -200,8 +174,6 @@ export default function ProductDeferredImage({
         />
       ) : null}
 
-      {!shouldLoad ? <span ref={observerRef} className={observerClassName} aria-hidden='true' /> : null}
-
       {shouldLoad ? (
         <img
           ref={setImageNode}
@@ -213,7 +185,7 @@ export default function ProductDeferredImage({
           draggable={draggable}
           fetchPriority={fetchPriority}
           sizes={sizes}
-          loading={eager ? 'eager' : 'lazy'}
+          loading='eager'
           onLoad={handleImageLoad}
           onError={handleImageError}
         />
