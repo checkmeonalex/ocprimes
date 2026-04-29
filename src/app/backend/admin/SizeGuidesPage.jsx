@@ -8,6 +8,7 @@ import LoadingButton from '../../../components/LoadingButton';
 import AdminSidebar from '@/components/AdminSidebar';
 import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
 import { useAlerts } from '@/context/AlertContext';
+import { sanitizeHtml } from '@/utils/sanitization';
 
 const buildTableHtml = (columns, rows) => {
   const head = columns.map((col) => `<th>${col || ''}</th>`).join('');
@@ -160,12 +161,13 @@ function WooCommerceSizeGuidesPage() {
       const htmlContent = imageUrl
         ? `${baseContent}\n<p><img src="${imageUrl}" alt="Size guide" /></p>`
         : baseContent;
+      const sanitizedContent = sanitizeHtml(htmlContent);
       const payload = await createSizeGuide({
         siteId,
         token,
         id: editingGuide?.id,
         title: title.trim(),
-        content: htmlContent,
+        content: sanitizedContent,
         general_info: generalInfo.trim(),
         category_ids: selectedCategoryIds,
       });
@@ -557,7 +559,7 @@ function WooCommerceSizeGuidesPage() {
                   </p>
                   <div
                     className="prose prose-sm mt-3 max-w-none text-slate-600"
-                    dangerouslySetInnerHTML={{ __html: content || '<p>No HTML content yet.</p>' }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) || '<p>No HTML content yet.</p>' }}
                   />
                 </div>
               </div>

@@ -11,8 +11,8 @@ export default function ProductPagePreloader({ className = '' }) {
           width: 120px;
           height: 120px;
           border-radius: 50%;
-          border: 4px solid rgba(238, 234, 217, 0.58);
-          filter: drop-shadow(0 0 10px rgba(238, 234, 217, 0.6));
+          border: 4px solid rgba(0, 0, 0, 0.56);
+          filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.62));
           transform-origin: 50% 50%;
           transform: perspective(200px) rotateX(66deg);
           animation: product-loader-wiggle 1.2s infinite;
@@ -37,8 +37,8 @@ export default function ProductPagePreloader({ className = '' }) {
         }
 
         .product-route-loader::after {
-          border-top-color: rgb(238 234 217);
-          filter: drop-shadow(0 0 5px rgba(238, 234, 217, 0.95));
+          border-top-color: rgb(0 0 0);
+          filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.95));
           animation-delay: 0.4s;
         }
 

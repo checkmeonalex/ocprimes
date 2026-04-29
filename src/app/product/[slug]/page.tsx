@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
-import { notFound, permanentRedirect } from 'next/navigation'
+import { notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { buildCanonicalProductSlug, loadPublicProductItem } from '@/lib/catalog/product-route'
 import { BRAND_NAME } from '@/lib/brand'
 import { SITE_URL } from '@/lib/seo'
-import ProductPageClient from './ProductPageClient'
+import ProductContent from './ProductPageClient'
 
 export const revalidate = 60
 
@@ -42,22 +42,6 @@ const getProductDisplayPrice = (item: any) => {
 }
 
 const buildCanonicalUrl = (slug: string) => `${SITE_URL}/product/${encodeURIComponent(slug)}`
-
-const toSearchParams = (value: Record<string, string | string[] | undefined>) => {
-  const params = new URLSearchParams()
-  Object.entries(value || {}).forEach(([key, entry]) => {
-    if (Array.isArray(entry)) {
-      entry.forEach((item) => {
-        const normalized = String(item || '').trim()
-        if (normalized) params.append(key, normalized)
-      })
-      return
-    }
-    const normalized = String(entry || '').trim()
-    if (normalized) params.set(key, normalized)
-  })
-  return params
-}
 
 export async function generateMetadata({
   params,
@@ -146,12 +130,6 @@ export default async function ProductPage({
   }
 
   const canonicalSlug = result.canonicalSlug || buildCanonicalProductSlug(initialItem)
-  if (!preview && canonicalSlug && canonicalSlug !== slug) {
-    const params = toSearchParams(resolvedSearchParams)
-    const query = params.toString()
-    permanentRedirect(`/product/${encodeURIComponent(canonicalSlug)}${query ? `?${query}` : ''}`)
-  }
-
   const canonical = buildCanonicalUrl(canonicalSlug || slug)
   const images = getProductImages(initialItem)
   const productName = String(initialItem?.name || 'Product').trim()
@@ -231,7 +209,7 @@ export default async function ProductPage({
         type='application/ld+json'
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
-      <ProductPageClient slug={slug} initialItem={initialItem} />
+      <ProductContent slug={slug} initialItem={initialItem} />
     </>
   )
 }

@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation'
 import { getSwatchStyle } from '../../../components/product/colorUtils.mjs'
 import StarRating from '../../../components/product/StarRating'
 import Gallery from '../../../components/product/ProductDetails/gallery'
+import ProductGalleryShippingWrapper from '../../../components/product/ProductGalleryShippingWrapper'
 import Breadcrumb from '../../../components/Breadcrumb'
 import ShippingInfoCard from '../../../components/product/ShippingInfoCard'
 import AboutStoreCard from '../../../components/product/AboutStoreCard'
@@ -1590,20 +1591,19 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
           },
         ]
       : []),
-    {
-      id: 'packaging',
-      label: 'Packaging',
-      content: `
+    ...(!isMobile
+      ? [
+          {
+            id: 'packaging',
+            label: 'Packaging',
+            content: `
         <p>${packagingStyleMeta.label}. ${packagingStyleMeta.details}</p>
         <h4 class="mt-2 text-sm font-semibold text-gray-800">Packing will look like this</h4>
         <img class="packaging-preview-image" src="${packagingImageSrc}" alt="${packagingStyleMeta.label} packaging example" loading="lazy" />
       `,
-    },
-    {
-      id: 'shipping',
-      label: 'Shipping Information',
-      content: `${shippingEstimate}. Express options available at checkout.`,
-    },
+          },
+        ]
+      : []),
   ]
   const activeTabData = tabs.find((tab) => tab.id === activeTab) || tabs[0]
   const isShippingTab = activeTabData?.id === 'shipping'
@@ -1624,24 +1624,26 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
 
           <div ref={mobileGallerySectionRef} className='w-full md:hidden'>
             {isMobile ? (
-              <Gallery
-                images={product.gallery}
-                media={product.galleryMedia}
-                currentImage={activeImage}
-                setCurrentImage={setCurrentImage}
-                productName={product.name}
-                vendorNameOverlay={String(product.vendor || '').trim()}
-                forceMobileView
-                badgeText={
-                  isNewProduct
-                    ? 'New'
-                    : discountPercentage
-                      ? `-${discountPercentage}%`
-                      : null
-                }
-                badgeVariant={isNewProduct ? 'new' : 'discount'}
-                mainImageRef={galleryMainRef}
-              />
+              <div className='w-full'>
+                <Gallery
+                  images={product.gallery}
+                  media={product.galleryMedia}
+                  currentImage={activeImage}
+                  setCurrentImage={setCurrentImage}
+                  productName={product.name}
+                  vendorNameOverlay={String(product.vendor || '').trim()}
+                  forceMobileView
+                  badgeText={
+                    isNewProduct
+                      ? 'New'
+                      : discountPercentage
+                        ? `-${discountPercentage}%`
+                        : null
+                  }
+                  badgeVariant={isNewProduct ? 'new' : 'discount'}
+                  mainImageRef={galleryMainRef}
+                />
+              </div>
             ) : (
               <div className='w-full'>
                 <div className='relative w-full overflow-hidden rounded-none bg-transparent'>
@@ -1671,23 +1673,27 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                       ref={galleryStickyContentRef}
                       style={galleryStickyStyle}
                     >
-                      <Gallery
-                        images={product.gallery}
-                        media={product.galleryMedia}
-                        currentImage={activeImage}
-                        setCurrentImage={setCurrentImage}
-                        productName={product.name}
-                        vendorNameOverlay={String(product.vendor || '').trim()}
-                        badgeText={
-                          isNewProduct
-                            ? 'New'
-                            : discountPercentage
-                              ? `-${discountPercentage}%`
-                              : null
-                        }
-                        badgeVariant={isNewProduct ? 'new' : 'discount'}
-                        mainImageRef={galleryMainRef}
-                      />
+                      <ProductGalleryShippingWrapper
+                        shippingSection={<ShippingTabDetails shippingEstimate={shippingEstimate} />}
+                      >
+                        <Gallery
+                          images={product.gallery}
+                          media={product.galleryMedia}
+                          currentImage={activeImage}
+                          setCurrentImage={setCurrentImage}
+                          productName={product.name}
+                          vendorNameOverlay={String(product.vendor || '').trim()}
+                          badgeText={
+                            isNewProduct
+                              ? 'New'
+                              : discountPercentage
+                                ? `-${discountPercentage}%`
+                                : null
+                          }
+                          badgeVariant={isNewProduct ? 'new' : 'discount'}
+                          mainImageRef={galleryMainRef}
+                        />
+                      </ProductGalleryShippingWrapper>
                     </div>
                   </div>
                 </div>
@@ -2116,6 +2122,32 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                       <p className='mt-2 text-xs text-rose-600'>{variationError}</p>
                     )}
                   </div>
+
+                  {isMobile && (
+                    <div className='space-y-6 pt-6 pb-2'>
+                      <section className='border-t border-gray-100 pt-6 px-1'>
+                        <h3 className='text-[16px] font-semibold text-gray-900 mb-4'>Shipping</h3>
+                        <ShippingTabDetails shippingEstimate={shippingEstimate} />
+                      </section>
+
+                      <section className='border-t border-gray-100 pt-6 px-1'>
+                        <h3 className='text-[16px] font-semibold text-gray-900 mb-4'>Packaging</h3>
+                        <div className='text-sm text-gray-600 leading-relaxed'>
+                          <p>{packagingStyleMeta.label}. {packagingStyleMeta.details}</p>
+                          <h4 className='mt-4 text-[13px] font-semibold text-gray-800'>Packing will look like this</h4>
+                          <div className='mt-3 relative w-full aspect-[4/3] rounded-xl overflow-hidden bg-gray-50 border border-gray-100'>
+                            <Image
+                              src={packagingImageSrc}
+                              alt={`${packagingStyleMeta.label} packaging example`}
+                              fill
+                              className='object-contain'
+                            />
+                          </div>
+                        </div>
+                      </section>
+                    </div>
+                  )}
+
                   <div className='bg-gray-100 rounded-full p-1 flex items-center gap-2 text-xs'>
                     {tabs.map((tab) => (
                       <button
@@ -2131,6 +2163,7 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                       </button>
                     ))}
                   </div>
+
                   <div className='relative'>
                     {isShippingTab ? (
                       <div ref={descriptionRef} className='overflow-x-hidden'>

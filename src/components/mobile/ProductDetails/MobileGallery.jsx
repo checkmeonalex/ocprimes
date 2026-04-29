@@ -783,21 +783,23 @@ export default function MobileGallery({
             </span>
           ) : null}
 
-          <div className='absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2'>
-            {mediaItems.map((item, index) => (
-              <button
-                key={`${item.type}-${item.url}-${index}`}
-                type='button'
-                onClick={() => handleImageSelect(index)}
-                className={`h-1.5 rounded-full transition-all ${
-                  activeIndex === index
-                    ? 'w-6 bg-blue-500'
-                    : 'w-2 bg-white/70'
-                }`}
-                aria-label={`View media ${index + 1}`}
-              />
-            ))}
-          </div>
+          {mediaCount > 1 && (
+            <div className='absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2'>
+              {mediaItems.map((item, index) => (
+                <button
+                  key={`${item.type}-${item.url}-${index}`}
+                  type='button'
+                  onClick={() => handleImageSelect(index)}
+                  className={`h-1.5 rounded-full transition-all ${
+                    activeIndex === index
+                      ? 'w-6 bg-blue-500'
+                      : 'w-2 bg-white/70'
+                  }`}
+                  aria-label={`View media ${index + 1}`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

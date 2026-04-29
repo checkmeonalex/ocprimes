@@ -222,18 +222,8 @@ const normalizeProductSlug = (value = '') =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
 
-const createProductCanonicalToken = (productId = '') =>
-  String(productId || '')
-    .replace(/-/g, '')
-    .toLowerCase()
-    .slice(-8)
-
 export const buildCanonicalProductSlug = (product: { slug?: string | null; id?: string | null }) => {
-  const baseSlug = normalizeProductSlug(product?.slug || '')
-  const token = createProductCanonicalToken(String(product?.id || '').trim())
-  if (!baseSlug) return ''
-  if (!token) return baseSlug
-  return `${baseSlug}${PRODUCT_CANONICAL_TOKEN_PREFIX}${token}`
+  return normalizeProductSlug(product?.slug || '')
 }
 
 const parseIncomingProductSlug = (value = '') => {

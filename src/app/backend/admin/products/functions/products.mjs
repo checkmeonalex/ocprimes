@@ -1,4 +1,5 @@
 import { dateTimeLocalInputToIso } from '../editor/dealExpiry.mjs';
+import { sanitizeHtml } from '@/utils/sanitization';
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -79,8 +80,8 @@ export const buildProductPayload = (form, options = {}) => {
   const payload = {
     name: form.name.trim(),
     slug: derivedSlug || undefined,
-    description: mode === 'update' ? (rawDescription || null) : form.description,
-    short_description: mode === 'update' ? (rawShortDescription || null) : form.short_description,
+    description: mode === 'update' ? (sanitizeHtml(rawDescription) || null) : sanitizeHtml(form.description),
+    short_description: mode === 'update' ? (sanitizeHtml(rawShortDescription) || null) : sanitizeHtml(form.short_description),
   };
   const sku = typeof form.sku === 'string' ? form.sku.trim() : '';
   if (sku) {
@@ -202,13 +203,24 @@ export const createProduct = async ({ form }) => {
 };
 
 export const updateProduct = async ({ id, updates }) => {
+  const sanitizedUpdates = { ...updates };
+  if (sanitizedUpdates.description) {
+    sanitizedUpdates.full_description = sanitizeHtml(sanitizedUpdates.description);
+    delete sanitizedUpdates.description;
+  } else if (sanitizedUpdates.full_description) {
+    sanitizedUpdates.full_description = sanitizeHtml(sanitizedUpdates.full_description);
+  }
+  if (sanitizedUpdates.short_description) {
+    sanitizedUpdates.short_description = sanitizeHtml(sanitizedUpdates.short_description);
+  }
+
   const response = await fetch(`/api/admin/products/${id}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
     },
     credentials: 'include',
-    body: JSON.stringify(updates),
+    body: JSON.stringify(sanitizedUpdates),
   });
   const result = await response.json().catch(() => null);
   if (!response.ok) {

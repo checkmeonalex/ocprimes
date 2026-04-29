@@ -660,105 +660,107 @@ export default function Gallery({
         />
       ) : (
         <div className='flex gap-0 items-start'>
-          <div
-            className='flex flex-col items-center'
-            style={{
-              width: defaultThumbSize + 16,
-              gap: `${gapSize}px`,
-              height: `${effectiveMainHeight}px`,
-              maxHeight: `${effectiveMainHeight}px`,
-              overflow: 'hidden',
-            }}
-          >
-            {mediaItems.slice(0, visibleThumbsCount).map((item, index) => (
-              <div
-                key={`${item.type}-${item.url}-${index}`}
-                className={`cursor-pointer border-2 rounded-md overflow-hidden transition-all ${
-                  activeMedia?.url === item.url
-                    ? 'border-gray-800 shadow-sm'
-                    : 'border-gray-200 hover:border-gray-400'
-                }`}
-                onClick={() => setCurrentImage(item.url)}
-                onMouseEnter={() => setCurrentImage(item.url)}
-                style={{
-                  width: defaultThumbSize,
-                  height: defaultThumbSize,
-                  minWidth: defaultThumbSize,
-                  minHeight: defaultThumbSize,
-                }}
-              >
-                {item.type === 'video' ? (
-                  <div className='relative h-full w-full bg-black'>
-                    <video
+          {mediaItems.length > 1 && (
+            <div
+              className='flex flex-col items-center'
+              style={{
+                width: defaultThumbSize + 16,
+                gap: `${gapSize}px`,
+                height: `${effectiveMainHeight}px`,
+                maxHeight: `${effectiveMainHeight}px`,
+                overflow: 'hidden',
+              }}
+            >
+              {mediaItems.slice(0, visibleThumbsCount).map((item, index) => (
+                <div
+                  key={`${item.type}-${item.url}-${index}`}
+                  className={`cursor-pointer border-2 rounded-md overflow-hidden transition-all ${
+                    activeMedia?.url === item.url
+                      ? 'border-gray-800 shadow-sm'
+                      : 'border-gray-200 hover:border-gray-400'
+                  }`}
+                  onClick={() => setCurrentImage(item.url)}
+                  onMouseEnter={() => setCurrentImage(item.url)}
+                  style={{
+                    width: defaultThumbSize,
+                    height: defaultThumbSize,
+                    minWidth: defaultThumbSize,
+                    minHeight: defaultThumbSize,
+                  }}
+                >
+                  {item.type === 'video' ? (
+                    <div className='relative h-full w-full bg-black'>
+                      <video
+                        src={item.url}
+                        poster={item.poster || undefined}
+                        muted
+                        preload='metadata'
+                        className='h-full w-full object-cover'
+                      />
+                      <span className='absolute inset-0 flex items-center justify-center'>
+                        <svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' className='h-7 w-7'>
+                          <path
+                            fillRule='evenodd'
+                            clipRule='evenodd'
+                            d='M11.0748 7.50835C9.74622 6.72395 8.25 7.79065 8.25 9.21316V14.7868C8.25 16.2093 9.74622 17.276 11.0748 16.4916L15.795 13.7048C17.0683 12.953 17.0683 11.047 15.795 10.2952L11.0748 7.50835ZM9.75 9.21316C9.75 9.01468 9.84615 8.87585 9.95947 8.80498C10.0691 8.73641 10.1919 8.72898 10.3122 8.80003L15.0324 11.5869C15.165 11.6652 15.25 11.8148 15.25 12C15.25 12.1852 15.165 12.3348 15.0324 12.4131L10.3122 15.2C10.1919 15.271 10.0691 15.2636 9.95947 15.195C9.84615 15.1242 9.75 14.9853 9.75 14.7868V9.21316Z'
+                            fill='#ededed'
+                          />
+                          <path
+                            fillRule='evenodd'
+                            clipRule='evenodd'
+                            d='M12 1.25C6.06294 1.25 1.25 6.06294 1.25 12C1.25 17.9371 6.06294 22.75 12 22.75C17.9371 22.75 22.75 17.9371 22.75 12C22.75 6.06294 17.9371 1.25 12 1.25ZM2.75 12C2.75 6.89137 6.89137 2.75 12 2.75C17.1086 2.75 21.25 6.89137 21.25 12C21.25 17.1086 17.1086 21.25 12 21.25C6.89137 21.25 2.75 17.1086 2.75 12Z'
+                            fill='#ededed'
+                          />
+                        </svg>
+                      </span>
+                    </div>
+                  ) : (
+                    <img
                       src={item.url}
-                      poster={item.poster || undefined}
+                      alt={`${productName} ${index + 1}`}
+                      className='w-full h-full object-cover hover:opacity-80 transition-opacity'
+                    />
+                  )}
+                </div>
+              ))}
+
+              {remainingCount > 0 && (
+                <div
+                  className='relative cursor-pointer border-2 rounded-md overflow-hidden border-gray-200 flex flex-col items-center justify-center text-center bg-gray-100'
+                  style={{
+                    width: defaultThumbSize,
+                    height: defaultThumbSize,
+                    minWidth: defaultThumbSize,
+                    minHeight: defaultThumbSize,
+                  }}
+                  onClick={openLightbox}
+                  title={`View all ${mediaItems.length} items`}
+                >
+                  <div className='absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center text-white text-base font-bold leading-tight'>
+                    +{remainingCount}
+                    <br />
+                    <span className='text-sm'>View All</span>
+                  </div>
+                  {mediaItems[visibleThumbsCount]?.type === 'video' ? (
+                    <video
+                      src={mediaItems[visibleThumbsCount]?.url}
                       muted
                       preload='metadata'
-                      className='h-full w-full object-cover'
+                      className='w-full h-full object-cover opacity-40'
                     />
-                    <span className='absolute inset-0 flex items-center justify-center'>
-                      <svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' className='h-7 w-7'>
-                        <path
-                          fillRule='evenodd'
-                          clipRule='evenodd'
-                          d='M11.0748 7.50835C9.74622 6.72395 8.25 7.79065 8.25 9.21316V14.7868C8.25 16.2093 9.74622 17.276 11.0748 16.4916L15.795 13.7048C17.0683 12.953 17.0683 11.047 15.795 10.2952L11.0748 7.50835ZM9.75 9.21316C9.75 9.01468 9.84615 8.87585 9.95947 8.80498C10.0691 8.73641 10.1919 8.72898 10.3122 8.80003L15.0324 11.5869C15.165 11.6652 15.25 11.8148 15.25 12C15.25 12.1852 15.165 12.3348 15.0324 12.4131L10.3122 15.2C10.1919 15.271 10.0691 15.2636 9.95947 15.195C9.84615 15.1242 9.75 14.9853 9.75 14.7868V9.21316Z'
-                          fill='#ededed'
-                        />
-                        <path
-                          fillRule='evenodd'
-                          clipRule='evenodd'
-                          d='M12 1.25C6.06294 1.25 1.25 6.06294 1.25 12C1.25 17.9371 6.06294 22.75 12 22.75C17.9371 22.75 22.75 17.9371 22.75 12C22.75 6.06294 17.9371 1.25 12 1.25ZM2.75 12C2.75 6.89137 6.89137 2.75 12 2.75C17.1086 2.75 21.25 6.89137 21.25 12C21.25 17.1086 17.1086 21.25 12 21.25C6.89137 21.25 2.75 17.1086 2.75 12Z'
-                          fill='#ededed'
-                        />
-                      </svg>
-                    </span>
-                  </div>
-                ) : (
-                  <img
-                    src={item.url}
-                    alt={`${productName} ${index + 1}`}
-                    className='w-full h-full object-cover hover:opacity-80 transition-opacity'
-                  />
-                )}
-              </div>
-            ))}
-
-            {remainingCount > 0 && (
-              <div
-                className='relative cursor-pointer border-2 rounded-md overflow-hidden border-gray-200 flex flex-col items-center justify-center text-center bg-gray-100'
-                style={{
-                  width: defaultThumbSize,
-                  height: defaultThumbSize,
-                  minWidth: defaultThumbSize,
-                  minHeight: defaultThumbSize,
-                }}
-                onClick={openLightbox}
-                title={`View all ${mediaItems.length} items`}
-              >
-                <div className='absolute inset-0 bg-black bg-opacity-50 flex flex-col items-center justify-center text-white text-base font-bold leading-tight'>
-                  +{remainingCount}
-                  <br />
-                  <span className='text-sm'>View All</span>
+                  ) : (
+                    <img
+                      src={mediaItems[visibleThumbsCount]?.url}
+                      alt='More media'
+                      className='w-full h-full object-cover opacity-40'
+                    />
+                  )}
                 </div>
-                {mediaItems[visibleThumbsCount]?.type === 'video' ? (
-                  <video
-                    src={mediaItems[visibleThumbsCount]?.url}
-                    muted
-                    preload='metadata'
-                    className='w-full h-full object-cover opacity-40'
-                  />
-                ) : (
-                  <img
-                    src={mediaItems[visibleThumbsCount]?.url}
-                    alt='More media'
-                    className='w-full h-full object-cover opacity-40'
-                  />
-                )}
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
-          <div className='flex flex-col w-full lg:w-[640px]'>
+          <div className='flex flex-col w-full'>
             <div
               ref={(node) => {
                 mainMediaContainerRef.current = node
@@ -774,7 +776,7 @@ export default function Gallery({
                 aspectRatio: activeMedia?.type === 'video'
                   ? '4 / 5'
                   : `${Math.max(0.2, Math.min(4, Number(mainAspect) || 0.75))}`,
-                maxWidth: `${mainImageMaxWidth}px`,
+                maxWidth: mediaItems.length > 1 ? `${mainImageMaxWidth}px` : '100%',
                 position: 'relative',
               }}
               onMouseEnter={() => setIsZooming(true)}

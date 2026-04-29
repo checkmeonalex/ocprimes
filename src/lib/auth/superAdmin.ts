@@ -1,7 +1,5 @@
-const defaultSuperAdminEmail = 'ocprimes@gmail.com'
-
 export function getSuperAdminEmail() {
-  return (process.env.SUPER_ADMIN_EMAIL || defaultSuperAdminEmail).toLowerCase()
+  return (process.env.SUPER_ADMIN_EMAIL || '').toLowerCase()
 }
 
 export function isSuperAdminEmail(email) {
