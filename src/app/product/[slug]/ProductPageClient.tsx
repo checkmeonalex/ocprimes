@@ -2314,13 +2314,13 @@ function ProductContent({ slug, initialItem }: ProductPageClientProps) {
                 </div>
               )}
               <div className='mt-4 sm:mt-5'>
-                <RecentlyViewedSection currentSlug={product.slug} />
                 {!isRelatedLoading ? (
                   <RelatedProductsSection
                     items={relatedProducts}
                     seeAllHref={categorySlug ? `/products/${categorySlug}` : undefined}
                   />
                 ) : null}
+                <RecentlyViewedSection currentSlug={product.slug} />
               </div>
             </div>
         </main>
