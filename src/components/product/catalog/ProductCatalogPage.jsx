@@ -10,6 +10,10 @@ import BannerSlider from '@/components/layout/BannerSlider'
 import FeaturedStrip from '@/components/layout/FeaturedStrip'
 import HotspotProductSlider from '@/components/layout/HotspotProductSlider'
 import LogoGrid from '@/components/layout/LogoGrid'
+import VendorStoreHeader from '@/components/vendor/VendorStoreHeader'
+import VendorStoreSidebar from '@/components/vendor/VendorStoreSidebar'
+import SellerChatPopup from '@/components/product/SellerChatPopup'
+import { useScrollDirection } from '@/hooks/useScrollDirection'
 import { normalizeCategoryLayoutOrder } from '@/lib/layouts/category-layout'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import {
@@ -132,6 +136,7 @@ const ProductCatalogPage = ({
   )
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [vendorLogoFailed, setVendorLogoFailed] = useState(false)
+  const [isChatOpen, setIsChatOpen] = useState(false)
   const [vendorFollowState, setVendorFollowState] = useState({
     isFollowing: Boolean(vendorProfile?.isFollowing),
     followers: Math.max(0, Number(vendorProfile?.followers) || 0),
@@ -1242,7 +1247,17 @@ const ProductCatalogPage = ({
 
   return (
     <div className='min-h-screen bg-gray-50'>
-      <div className='mx-auto max-w-7xl px-3 pb-0 pt-6 sm:pb-10'>
+      {vendorProfile && (
+        <VendorStoreHeader
+          vendorProfile={vendorProfile}
+          searchValue={vendorProductQuery}
+          setSearchValue={setVendorProductQuery}
+          onFollow={followVendor}
+          isFollowing={vendorFollowState.isFollowing}
+          isFollowLoading={vendorFollowState.isSaving}
+        />
+      )}
+      <div className={`mx-auto max-w-7xl px-3 pb-0 sm:pb-10 ${vendorProfile ? 'pt-[120px] lg:pt-36' : 'pt-6'}`}>
         {!vendorProfile && Array.isArray(childCategories) && childCategories.length > 0 && (
           <>
             {/* Mobile: horizontal strip */}
@@ -1364,217 +1379,11 @@ const ProductCatalogPage = ({
         ))}
         {vendorBannerSection}
 
-        <div>
-          {vendorProfile ? (
-            <section className='mobile-full-bleed overflow-hidden rounded-none border border-x-0 border-slate-200 bg-gradient-to-br from-white via-slate-50 to-sky-50 shadow-[0_18px_50px_rgba(15,23,42,0.08)] sm:rounded-3xl sm:border-x'>
-              <div className='px-4 py-5 sm:px-6 sm:py-6'>
-                <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
-                  <div className='flex min-w-0 items-center gap-4'>
-                    <div className='relative h-20 w-20 shrink-0 rounded-full bg-gradient-to-br from-amber-300 via-fuchsia-400 to-sky-500 p-[3px] shadow-md'>
-                      {vendorProfile?.logoUrl && !vendorLogoFailed ? (
-                        <img
-                          src={vendorProfile.logoUrl}
-                          alt={vendorProfile?.name || cleanTitle}
-                          className='h-full w-full rounded-full object-cover'
-                          onError={() => setVendorLogoFailed(true)}
-                        />
-                      ) : (
-                        <div className='flex h-full w-full items-center justify-center rounded-full bg-white text-xl font-semibold text-slate-900'>
-                          {toInitials(vendorProfile?.name || cleanTitle)}
-                        </div>
-                      )}
-                    </div>
-                    <div className='min-w-0'>
-                      <div className='flex items-center gap-2'>
-                        <h1 className='truncate text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl'>
-                          {vendorProfile?.name || cleanTitle}
-                        </h1>
-                        {vendorProfile?.isTrusted && vendorProfile?.trustedBadgeUrl ? (
-                          <img
-                            src={vendorProfile.trustedBadgeUrl}
-                            alt='Verified vendor'
-                            className='h-7 w-7 object-contain'
-                          />
-                        ) : null}
-                      </div>
-                      <p className='mt-0.5 text-sm font-medium text-slate-500'>
-                        {vendorProfile?.handle || ''}
-                      </p>
-                      <div className='mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-slate-700'>
-                        <span>
-                          <strong className='font-semibold text-slate-900'>{formatMetric(vendorProfile?.posts)}</strong> posts
-                        </span>
-                        <span>
-                          <strong className='font-semibold text-slate-900'>
-                            {formatMetric(vendorFollowState.followers)}
-                          </strong>{' '}
-                          followers
-                        </span>
-                        <span>
-                          <strong className='font-semibold text-slate-900'>{formatMetric(vendorProfile?.sold)}</strong> sold
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className='grid w-full grid-cols-2 gap-2 sm:w-auto sm:min-w-[260px]'>
-                    {vendorProfile?.canEditStorefront ? (
-                      <Link
-                        href='/backend/admin/store-front'
-                        className='inline-flex items-center justify-center rounded-xl border border-sky-300 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-700 transition hover:bg-sky-100'
-                      >
-                        Edit
-                      </Link>
-                    ) : (
-                      <button
-                        type='button'
-                        onClick={followVendor}
-                        disabled={vendorFollowState.isSaving || !vendorProfile?.slug}
-                        aria-busy={vendorFollowState.isSaving}
-                        className={`inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
-                          vendorFollowState.isFollowing
-                            ? 'border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                            : 'bg-slate-900 text-white hover:bg-slate-800'
-                        }`}
-                      >
-                        {vendorFollowState.isSaving ? (
-                          <span
-                            className='h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent'
-                            aria-hidden='true'
-                          />
-                        ) : vendorFollowState.isFollowing ? (
-                          'Following'
-                        ) : (
-                          'Follow'
-                        )}
-                      </button>
-                    )}
-                    <button
-                      type='button'
-                      className='inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50'
-                    >
-                      Message
-                    </button>
-                  </div>
-                </div>
-                {vendorFollowState.error ? (
-                  <p className='mt-3 text-sm text-rose-600'>{vendorFollowState.error}</p>
-                ) : null}
-              </div>
-            </section>
-          ) : (
-            <>
-              <h1 className='mb-2 text-3xl font-bold text-gray-900'>{cleanTitle}</h1>
-              {cleanSubtitle && <p className='text-gray-600'>{cleanSubtitle}</p>}
-            </>
-          )}
-        </div>
-
-        {vendorProfile && vendorCategoryTiles.length > 0 && (
-          <section className='mobile-full-bleed border-y border-slate-200 bg-white px-4 py-4 sm:rounded-3xl sm:border sm:px-6'>
-            <div className='mb-4'>
-              <div className='relative'>
-                <input
-                  type='search'
-                  value={vendorProductQuery}
-                  onChange={(event) => setVendorProductQuery(event.target.value)}
-                  placeholder={`Search all ${totalStoreItems} items in ${vendorProfile?.name || 'Store'}`}
-                  className='h-12 w-full rounded-full border border-slate-300 bg-white pl-5 pr-14 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:border-slate-400'
-                  aria-label='Search products'
-                />
-                <span className='pointer-events-none absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-700'>
-                  {isSearchingStoreProducts ? (
-                    <span className='h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent' />
-                  ) : (
-                    <svg viewBox='0 0 20 20' fill='none' className='h-4 w-4' stroke='currentColor' strokeWidth='1.8'>
-                      <path d='m14.5 14.5 3 3' strokeLinecap='round' />
-                      <circle cx='8.5' cy='8.5' r='5.5' />
-                    </svg>
-                  )}
-                </span>
-              </div>
-            </div>
-            <div className='grid grid-cols-3 gap-x-2 gap-y-4 min-[420px]:grid-cols-4 sm:grid-cols-4'>
-              {vendorCategoryTiles.map((category, index) => {
-                const isSelected = selectedCategoryKeys.has(normalizeKey(category.value))
-                const hiddenClass = !showAllVendorCategories
-                  ? index >= 16
-                    ? 'hidden'
-                    : index >= 8
-                      ? 'hidden sm:flex'
-                      : ''
-                  : ''
-                return (
-                  <button
-                    key={category.id}
-                    type='button'
-                    onClick={() => handleCategoryTileClick(category.value)}
-                    className={`group flex flex-col items-center gap-2 ${hiddenClass}`}
-                  >
-                    <div
-                      className={`flex h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24 items-center justify-center overflow-hidden rounded-full border transition ${
-                        isSelected
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-slate-100 text-slate-700 group-hover:border-slate-300'
-                      }`}
-                    >
-                      {category.imageUrl ? (
-                        <img
-                          src={category.imageUrl}
-                          alt={category.imageAlt}
-                          className='h-full w-full object-cover'
-                        />
-                      ) : (
-                        <span className='text-xs font-semibold'>•</span>
-                      )}
-                    </div>
-                    <span className='break-words text-center text-[13px] font-semibold leading-tight text-slate-800'>
-                      {category.name}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-            {vendorCategoryTiles.length > 8 && (
-              <div className='mt-4 flex justify-center sm:hidden'>
-                <button
-                  type='button'
-                  onClick={() => setShowAllVendorCategories((prev) => !prev)}
-                  className='inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700'
-                >
-                  {showAllVendorCategories ? 'See less' : 'See more'}
-                  <svg
-                    viewBox='0 0 20 20'
-                    fill='none'
-                    className={`h-4 w-4 transition-transform ${showAllVendorCategories ? 'rotate-180' : ''}`}
-                    stroke='currentColor'
-                    strokeWidth='1.8'
-                  >
-                    <path d='m5 7 5 6 5-6' strokeLinecap='round' strokeLinejoin='round' />
-                  </svg>
-                </button>
-              </div>
-            )}
-            {vendorCategoryTiles.length > 16 && (
-              <div className='mt-4 hidden justify-center sm:flex'>
-                <button
-                  type='button'
-                  onClick={() => setShowAllVendorCategories((prev) => !prev)}
-                  className='inline-flex items-center gap-1.5 rounded-full border border-slate-300 bg-white px-4 py-1.5 text-xs font-semibold text-slate-700'
-                >
-                  {showAllVendorCategories ? 'See less' : 'See more'}
-                  <svg
-                    viewBox='0 0 20 20'
-                    fill='none'
-                    className={`h-4 w-4 transition-transform ${showAllVendorCategories ? 'rotate-180' : ''}`}
-                    stroke='currentColor'
-                    strokeWidth='1.8'
-                  >
-                    <path d='m5 7 5 6 5-6' strokeLinecap='round' strokeLinejoin='round' />
-                  </svg>
-                </button>
-              </div>
-            )}
-          </section>
+        {!vendorProfile && (
+          <div>
+            <h1 className='mb-2 text-3xl font-bold text-gray-900'>{cleanTitle}</h1>
+            {cleanSubtitle && <p className='text-gray-600'>{cleanSubtitle}</p>}
+          </div>
         )}
 
         {vendorProfile && hasStorefrontSelection && (
@@ -1677,53 +1486,73 @@ const ProductCatalogPage = ({
                       : undefined
               }
             >
-              <ProductFilters
-                categories={categories}
-                vendors={vendors}
-                colors={colors}
-                sizes={sizes}
-                priceList={priceList}
-                priceBounds={priceBounds}
-                priceRange={priceRange}
-                currencyCode={locale.currency}
-                formatPrice={formatCatalogPrice}
-                selectedCategories={selectedCategories}
-                selectedVendors={selectedVendors}
-              selectedColors={selectedColors}
-              selectedSizes={selectedSizes}
-              dynamicSections={dynamicFilterSections}
-              selectedDynamic={selectedDynamicFilters}
-              onToggleCategory={(value) => toggleValue(setSelectedCategories, value)}
-              onToggleVendor={(value) => toggleValue(setSelectedVendors, value)}
-              onToggleColor={(value) => toggleValue(setSelectedColors, value)}
-              onToggleSize={(value) => toggleValue(setSelectedSizes, value)}
-              onToggleDynamic={(sectionKey, value) =>
-                setSelectedDynamicFilters((prev) => {
-                  const next = { ...prev }
-                  const sectionSet = new Set(next[sectionKey] || [])
-                  if (sectionSet.has(value)) sectionSet.delete(value)
-                  else sectionSet.add(value)
-                  next[sectionKey] = sectionSet
-                  return next
-                })
-              }
-              onClearCategory={() => setSelectedCategories(new Set())}
-              onClearVendor={() => setSelectedVendors(new Set())}
-              onClearColor={() => setSelectedColors(new Set())}
-              onClearSize={() => setSelectedSizes(new Set())}
-              onClearDynamic={(sectionKey) =>
-                setSelectedDynamicFilters((prev) => ({
-                  ...prev,
-                  [sectionKey]: new Set(),
-                }))
-              }
-              onPriceChange={setPriceRange}
-              onClear={handleClear}
-                onClose={null}
-                onDone={() => {}}
-                showClose={false}
-                showFooter={false}
-              />
+              {vendorProfile ? (
+                <VendorStoreSidebar
+                  categories={categories}
+                  colors={colors}
+                  sizes={sizes}
+                  priceBounds={priceBounds}
+                  priceRange={priceRange}
+                  selectedCategories={selectedCategories}
+                  selectedColors={selectedColors}
+                  selectedSizes={selectedSizes}
+                  onToggleCategory={(value) => toggleValue(setSelectedCategories, value)}
+                  onToggleColor={(value) => toggleValue(setSelectedColors, value)}
+                  onToggleSize={(value) => toggleValue(setSelectedSizes, value)}
+                  onPriceChange={setPriceRange}
+                  onClear={handleClear}
+                  currencyCode={locale.currency}
+                  formatPrice={formatCatalogPrice}
+                />
+              ) : (
+                <ProductFilters
+                  categories={categories}
+                  vendors={vendors}
+                  colors={colors}
+                  sizes={sizes}
+                  priceList={priceList}
+                  priceBounds={priceBounds}
+                  priceRange={priceRange}
+                  currencyCode={locale.currency}
+                  formatPrice={formatCatalogPrice}
+                  selectedCategories={selectedCategories}
+                  selectedVendors={selectedVendors}
+                  selectedColors={selectedColors}
+                  selectedSizes={selectedSizes}
+                  dynamicSections={dynamicFilterSections}
+                  selectedDynamic={selectedDynamicFilters}
+                  onToggleCategory={(value) => toggleValue(setSelectedCategories, value)}
+                  onToggleVendor={(value) => toggleValue(setSelectedVendors, value)}
+                  onToggleColor={(value) => toggleValue(setSelectedColors, value)}
+                  onToggleSize={(value) => toggleValue(setSelectedSizes, value)}
+                  onToggleDynamic={(sectionKey, value) =>
+                    setSelectedDynamicFilters((prev) => {
+                      const next = { ...prev }
+                      const sectionSet = new Set(next[sectionKey] || [])
+                      if (sectionSet.has(value)) sectionSet.delete(value)
+                      else sectionSet.add(value)
+                      next[sectionKey] = sectionSet
+                      return next
+                    })
+                  }
+                  onClearCategory={() => setSelectedCategories(new Set())}
+                  onClearVendor={() => setSelectedVendors(new Set())}
+                  onClearColor={() => setSelectedColors(new Set())}
+                  onClearSize={() => setSelectedSizes(new Set())}
+                  onClearDynamic={(sectionKey) =>
+                    setSelectedDynamicFilters((prev) => ({
+                      ...prev,
+                      [sectionKey]: new Set(),
+                    }))
+                  }
+                  onPriceChange={setPriceRange}
+                  onClear={handleClear}
+                  onClose={null}
+                  onDone={() => {}}
+                  showClose={false}
+                  showFooter={false}
+                />
+              )}
             </div>
           </aside>
 

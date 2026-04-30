@@ -90,6 +90,22 @@ function MobileNavbar({
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
+  const [isMainBarVisible, setIsMainBarVisible] = useState(true)
+
+  const isVendorStore = useMemo(() => {
+    const segments = pathname?.split('/').filter(Boolean) || []
+    if (segments.length !== 1) return false
+    
+    const platformRoutes = [
+      'about', 'admin', 'api', 'auth', 'cart', 'checkout', 
+      'forgot-password', 'help-center', 'legal', 'login', 
+      'offline', 'privacy-policy', 'product', 'products', 
+      'reset-password', 'sellersignup', 'signup', 'vendors', 
+      'wishlist', 'w', 'UserBackend', 'account', 'recently-viewed', 'play'
+    ]
+    return !platformRoutes.includes(segments[0])
+  }, [pathname])
+
   const [recentSearches, setRecentSearches] = useState([])
   const [mobileCategories, setMobileCategories] = useState(() =>
     Array.isArray(initialTopCategories) ? initialTopCategories : [],
@@ -306,7 +322,7 @@ function MobileNavbar({
     const SHOW_AT_Y = 80
     const HIDE_AFTER_Y = 140
 
-    if (isPlayRoute) {
+    if (isPlayRoute || isVendorStore) {
       setIsSecondBarVisible(false)
       return undefined
     }
@@ -318,12 +334,25 @@ function MobileNavbar({
         document.documentElement.scrollTop ||
         0
       const currentY = Math.max(0, rawY)
+      const nearTop = currentY < 80
       const scrollingUp = currentY < lastScrollYRef.current
 
+      // Handle Category/Second Bar
       if (currentY <= SHOW_AT_Y || scrollingUp) {
         setIsSecondBarVisible(true)
       } else if (currentY >= HIDE_AFTER_Y) {
         setIsSecondBarVisible(false)
+      }
+
+      // Handle Main Bar (Vendor Store isolation)
+      if (isVendorStore) {
+        if (nearTop || scrollingUp) {
+          setIsMainBarVisible(true)
+        } else {
+          setIsMainBarVisible(false)
+        }
+      } else {
+        setIsMainBarVisible(true)
       }
 
       lastScrollYRef.current = currentY
@@ -569,7 +598,7 @@ function MobileNavbar({
   return (
     <>
       {/* Main Mobile Navbar */}
-      <nav ref={navRef} className='fixed top-0 left-0 right-0 isolate bg-white shadow-sm border-b border-gray-200 z-[2147483000] lg:hidden'>
+      <nav ref={navRef} className={`fixed top-0 left-0 right-0 isolate bg-white shadow-sm border-b border-gray-200 z-[2147482999] lg:hidden transition-transform duration-300 ${isMainBarVisible ? 'translate-y-0' : '-translate-y-full'}`}>
         <div className='px-4'>
           <div className='flex items-center justify-between gap-2 h-14'>
             {/* Updated hamburger button with active state */}

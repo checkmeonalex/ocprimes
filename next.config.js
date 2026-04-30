@@ -76,6 +76,7 @@ const nextConfig = {
       { source: '/admin/settings', destination: '/backend/admin/settings' },
       { source: '/admin/extra', destination: '/backend/admin/extra' },
       { source: '/admin/shortcut', destination: '/backend/admin/shortcut' },
+      { source: '/admin/store-front', destination: '/backend/admin/store-front' },
       { source: '/help', destination: '/help-center' },
       { source: '/help/:sectionId/:articleId', destination: '/help-center/:sectionId/:articleId' },
     ]
@@ -127,3 +128,4 @@ const nextConfig = {
 }
 
 module.exports = nextConfig
+rts = nextConfig

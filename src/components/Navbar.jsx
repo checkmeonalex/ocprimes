@@ -74,6 +74,20 @@ export default function Navbar({
   const [logoutError, setLogoutError] = useState('')
   const [placeholderPopularIndex, setPlaceholderPopularIndex] = useState(0)
   const { formatMoney } = useUserI18n()
+
+  const isVendorStore = useMemo(() => {
+    const firstSegment = pathname?.split('/')[1]
+    if (!firstSegment) return false
+    const platformRoutes = [
+      'about', 'admin', 'api', 'auth', 'cart', 'checkout', 
+      'forgot-password', 'help-center', 'legal', 'login', 
+      'offline', 'privacy-policy', 'product', 'products', 
+      'reset-password', 'sellersignup', 'signup', 'vendors', 
+      'wishlist', 'w', 'UserBackend', 'account', 'recently-viewed'
+    ]
+    return !platformRoutes.includes(firstSegment)
+  }, [pathname])
+
   const {
     suggestions: liveSearchSuggestions,
     isLoading: isLiveSearchLoading,
@@ -558,7 +572,14 @@ export default function Navbar({
       const currentY = window.scrollY
       const nearTop = currentY < 20
       const scrollingUp = currentY < lastScrollY
-      const shouldShow = nearTop || scrollingUp
+      
+      let shouldShow = nearTop || scrollingUp
+      
+      // On vendor stores, we want to hide the main header when scrolling up
+      // to let the VendorStoreHeader be the main focus.
+      if (isVendorStore && scrollingUp && !nearTop) {
+        shouldShow = false
+      }
 
       setIsDesktopHeaderVisible(shouldShow)
       setLastScrollY(currentY)
