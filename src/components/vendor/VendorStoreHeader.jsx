@@ -14,6 +14,7 @@ export default function VendorStoreHeader({
   onFollow,
   isFollowing,
   isFollowLoading,
+  canFollow,
   onMessage,
   searchValue, 
   setSearchValue 
@@ -132,9 +133,9 @@ export default function VendorStoreHeader({
               <svg 
                 viewBox="0 0 24 24" 
                 fill="none" 
-                className="h-4.5 w-4.5 md:mr-2" 
+                className="h-4 w-4 md:mr-2" 
                 stroke="currentColor" 
-                strokeWidth="2"
+                strokeWidth="1.5"
               >
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
@@ -149,23 +150,18 @@ export default function VendorStoreHeader({
                 isFollowing
                   ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
                   : 'bg-black text-white hover:bg-gray-800'
-              } ${!isSearchExpanded ? 'w-9 h-9 md:w-auto md:h-10' : ''}`}
+              }`}
             >
               {isFollowLoading ? (
-                <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <div className="flex gap-1">
+                  <span className="h-1 w-1 rounded-full bg-current animate-[bounce_0.6s_infinite] [animation-delay:-0.3s]" />
+                  <span className="h-1 w-1 rounded-full bg-current animate-[bounce_0.6s_infinite] [animation-delay:-0.15s]" />
+                  <span className="h-1 w-1 rounded-full bg-current animate-[bounce_0.6s_infinite]" />
+                </div>
               ) : isFollowing ? (
-                <span className="md:inline hidden">Following</span>
+                <span>Following</span>
               ) : (
-                <span className="md:inline hidden">Follow</span>
-              )}
-              {!isFollowLoading && !isSearchExpanded && (
-                <svg viewBox="0 0 24 24" fill="none" className={`h-4 w-4 md:hidden ${isFollowing ? 'text-green-600' : 'text-white'}`} stroke="currentColor" strokeWidth="3">
-                  {isFollowing ? (
-                    <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-                  ) : (
-                    <path d="M12 5v14M5 12h14" strokeLinecap="round" strokeLinejoin="round" />
-                  )}
-                </svg>
+                <span>Follow</span>
               )}
             </button>
           </div>

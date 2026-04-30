@@ -1253,8 +1253,10 @@ const ProductCatalogPage = ({
           searchValue={vendorProductQuery}
           setSearchValue={setVendorProductQuery}
           onFollow={followVendor}
+          onMessage={() => setIsChatOpen(true)}
           isFollowing={vendorFollowState.isFollowing}
           isFollowLoading={vendorFollowState.isSaving}
+          canFollow={vendorProfile.canFollow}
         />
       )}
       <div className={`mx-auto max-w-7xl px-3 pb-0 sm:pb-10 ${vendorProfile ? 'pt-[120px] lg:pt-36' : 'pt-6'}`}>
@@ -1673,6 +1675,18 @@ const ProductCatalogPage = ({
             </div>
           </div>
         </div>
+      )}
+
+      {vendorProfile && (
+        <SellerChatPopup
+          isOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+          vendorName={vendorProfile.name}
+          vendorAvatarUrl={vendorProfile.logoUrl}
+          vendorIsTrusted={vendorProfile.isTrusted}
+          vendorTrustedBadgeUrl={vendorProfile.trustedBadgeUrl}
+          productId=""
+        />
       )}
     </div>
   )

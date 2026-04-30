@@ -50,7 +50,7 @@ export async function renderVendorPage(vendorSlug) {
   const vendorPublicSlug = String(vendorMeta?.slug || normalizedVendorSlug || '').trim()
   const brandOwnerUserId = String(vendorMeta?.created_by || '').trim()
 
-  let canFollow = false
+  let canFollow = true
   let isFollowing = false
   let canEditStorefront = false
 
@@ -61,12 +61,17 @@ export async function renderVendorPage(vendorSlug) {
     if (user?.id) {
       const role = await getUserRoleSafe(supabase, user.id)
       const canManageStorefrontRole = role === 'vendor' || role === 'admin'
+      
+      // Calculate if they can edit (owner)
       canEditStorefront = Boolean(
         brandOwnerUserId && brandOwnerUserId === user.id && canManageStorefrontRole,
       )
-      if (!canEditStorefront) {
-        canFollow = role === 'customer'
+      
+      // Only hide follow if they are the owner
+      if (canEditStorefront) {
+        canFollow = false
       }
+
       if (canFollow) {
         const { data } = await supabase
           .from('customer_vendor_follows')
