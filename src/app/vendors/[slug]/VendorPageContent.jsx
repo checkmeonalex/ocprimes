@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import ProductCatalogPage from '@/components/product/catalog/ProductCatalogPage'
 import { fetchProductListingPayload } from '@/lib/catalog/product-listing'
 import { fetchBrandBySlugOrId } from '@/lib/catalog/brands'
-import { buildVendorCategoryImageList } from '@/lib/catalog/categories'
+import { buildVendorCategoryImageList, buildVendorCategoryTree } from '@/lib/catalog/categories'
 import { countBrandFollowers } from '@/lib/catalog/brand-following'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getUserRoleSafe } from '@/lib/auth/roles'
@@ -14,14 +14,17 @@ const toReadableName = (value = '') =>
     .replace(/[-_]+/g, ' ')
     .replace(/\s+/g, ' ')
 
-export async function renderVendorPage(vendorSlug) {
+export async function renderVendorPage(vendorSlug, searchParams = {}) {
   const normalizedVendorSlug = String(vendorSlug || '').trim()
   if (!normalizedVendorSlug) {
     notFound()
   }
 
+  const categoryFilter = String(searchParams?.category || '').trim()
+
   const listing = await fetchProductListingPayload({
     vendor: normalizedVendorSlug,
+    category: categoryFilter || undefined,
     page: 1,
     perPage: 10,
     fields: 'card',
@@ -33,7 +36,10 @@ export async function renderVendorPage(vendorSlug) {
     notFound()
   }
 
-  const vendorCategories = await buildVendorCategoryImageList(items)
+  const [vendorCategories, vendorCategoryTree] = await Promise.all([
+    buildVendorCategoryImageList(items),
+    buildVendorCategoryTree(items),
+  ])
   const brandId = String(vendorMeta?.id || '').trim()
 
   const vendorName = String(vendorMeta?.name || toReadableName(normalizedVendorSlug) || 'Vendor')
@@ -125,7 +131,10 @@ export async function renderVendorPage(vendorSlug) {
       }}
       storeProductCount={productCount}
       childCategories={vendorCategories}
-      listingQuery={{ vendor: normalizedVendorSlug }}
+      categoryTree={vendorCategoryTree}
+      collectionsMenuMode={vendorMeta?.collections_menu_mode === 'flat' ? 'flat' : 'grouped'}
+      activeCategorySlug={categoryFilter || ''}
+      listingQuery={{ vendor: normalizedVendorSlug, ...(categoryFilter ? { category: categoryFilter } : {}) }}
       initialNextCursor={listing.nextCursor}
       initialHasMore={listing.hasMore}
     />

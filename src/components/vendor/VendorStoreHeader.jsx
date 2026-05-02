@@ -4,24 +4,31 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
+import VendorCollectionsMenu from './VendorCollectionsMenu';
+import VendorMobileCollectionsDropdown from './VendorMobileCollectionsDropdown';
 
 /**
  * VendorStoreHeader - A professional, high-end header for brand storefronts.
  * Implements logic to hide the main site header and remain sticky on scroll-up.
  */
-export default function VendorStoreHeader({ 
-  vendorProfile, 
+export default function VendorStoreHeader({
+  vendorProfile,
   onFollow,
   isFollowing,
   isFollowLoading,
   canFollow,
   onMessage,
-  searchValue, 
-  setSearchValue 
+  searchValue,
+  setSearchValue,
+  categoryTree = [],
+  collectionsMenuMode = 'grouped',
+  activeCategorySlug = '',
 }) {
   const { isScrollingUp, isAtTop, isScrollingDown } = useScrollDirection();
   const [logoFailed, setLogoFailed] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
+  const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
 
   // Vendor header is now ALWAYS sticky on both up and down scroll.
   // When at the top, it sits below the main navbar.
@@ -31,7 +38,8 @@ export default function VendorStoreHeader({
   const stickyTop = isAtTop ? 'lg:top-[112px] top-[56px]' : 'top-0';
 
   return (
-    <header 
+    <>
+    <header
       className={`fixed left-0 right-0 z-[2147483001] bg-white border-b border-gray-100 transition-all duration-300 ease-in-out ${headerTranslate} ${stickyTop} shadow-sm`}
     >
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -120,9 +128,13 @@ export default function VendorStoreHeader({
               <Link href={`/${vendorProfile?.slug}?sort=newest`} className="text-xs font-bold uppercase tracking-wider text-gray-900 hover:text-gray-500">
                 New Arrivals
               </Link>
-              <Link href={`/${vendorProfile?.slug}?sort=price_asc`} className="text-xs font-bold uppercase tracking-wider text-rose-600 hover:text-rose-700">
-                Sale
-              </Link>
+              <button
+                type="button"
+                onClick={() => setIsCollectionsOpen(true)}
+                className="text-xs font-bold uppercase tracking-wider text-gray-900 hover:text-gray-500 transition"
+              >
+                Collections
+              </button>
             </nav>
             
             <button
@@ -168,5 +180,50 @@ export default function VendorStoreHeader({
         </div>
       </div>
     </header>
+
+    {/* Mobile soft bar — collections dropdown trigger */}
+    <div
+      className={`fixed left-0 right-0 z-[2147483002] md:hidden bg-gray-50 border-b border-gray-200 transition-all duration-300 ease-in-out ${
+        isAtTop ? 'top-[120px]' : 'top-[64px]'
+      }`}
+    >
+      <div className="flex h-9 items-center justify-center">
+        <button
+          type="button"
+          onClick={() => setIsMobileDropdownOpen((prev) => !prev)}
+          className="flex items-center gap-1.5 px-4 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest text-gray-700 transition active:bg-gray-200"
+        >
+          Collections
+          <svg
+            className={`h-3.5 w-3.5 transition-transform duration-200 ${isMobileDropdownOpen ? 'rotate-180' : ''}`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth="2.5"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <VendorMobileCollectionsDropdown
+      isOpen={isMobileDropdownOpen}
+      onClose={() => setIsMobileDropdownOpen(false)}
+      categoryTree={categoryTree}
+      vendorSlug={vendorProfile?.slug}
+      mode={collectionsMenuMode}
+      activeCategorySlug={activeCategorySlug}
+    />
+
+    <VendorCollectionsMenu
+      isOpen={isCollectionsOpen}
+      onClose={() => setIsCollectionsOpen(false)}
+      categoryTree={categoryTree}
+      vendorSlug={vendorProfile?.slug}
+      mode={collectionsMenuMode}
+      activeCategorySlug={activeCategorySlug}
+    />
+    </>
   );
 }

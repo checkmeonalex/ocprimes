@@ -218,3 +218,125 @@ export const buildVendorCategoryImageList = async (
 
   return filtered
 }
+
+export type VendorCategoryTreeNode = {
+  id: string
+  name: string
+  slug: string
+  children: { id: string; name: string; slug: string }[]
+}
+
+export const buildVendorCategoryTree = async (
+  products: ProductWithCategories[] = [],
+): Promise<VendorCategoryTreeNode[]> => {
+  noStore()
+
+  // Collect all leaf category refs from products
+  const leafCategories = products
+    .flatMap((item) => {
+      const linked = Array.isArray(item?.categories) ? item.categories : []
+      const children = linked.filter((e) => Boolean(String(e?.parent_id || '').trim()))
+      if (children.length) return children
+      const path = Array.isArray(item?.primary_category_path) ? item.primary_category_path : []
+      const deepest = path.length ? path[path.length - 1] : null
+      if (deepest?.label) return [{ id: deepest.id, name: deepest.label, slug: deepest.slug }]
+      return linked.length ? [linked[0]] : []
+    })
+    .filter((e): e is ProductCategoryRef => Boolean(e?.name))
+
+  if (!leafCategories.length) return []
+
+  const ids = Array.from(
+    new Set(leafCategories.map((e) => String(e.id || '').trim()).filter(Boolean)),
+  )
+
+  const graph = new Map<string, CategoryGraphRow>()
+
+  if (ids.length) {
+    const supabase = await createServerSupabaseClient()
+    const visited = new Set<string>()
+    let frontier = ids
+
+    while (frontier.length) {
+      const batch = frontier.filter((id) => !visited.has(id))
+      if (!batch.length) break
+      batch.forEach((id) => visited.add(id))
+
+      const { data, error } = await supabase
+        .from('admin_categories')
+        .select('id, name, slug, parent_id, image_url, image_alt')
+        .in('id', batch)
+
+      if (error) {
+        console.error('vendor category tree lookup failed:', error.message)
+        break
+      }
+
+      const rows = (data || []) as CategoryGraphRow[]
+      rows.forEach((row) => { if (row?.id) graph.set(row.id, row) })
+      frontier = rows.map((row) => String(row.parent_id || '').trim()).filter(Boolean)
+    }
+  }
+
+  // For each leaf, walk up to find root and its direct child toward the leaf
+  type TreeEntry = { rootId: string; rootName: string; rootSlug: string; childId?: string; childName?: string; childSlug?: string }
+  const entries: TreeEntry[] = []
+
+  for (const leaf of leafCategories) {
+    const startId = String(leaf.id || '').trim()
+    if (!startId) continue
+    const startNode = graph.get(startId)
+    if (!startNode) continue
+
+    // Walk up to find root
+    const chain: CategoryGraphRow[] = [startNode]
+    const seen = new Set<string>([startNode.id])
+    let cursor = startNode
+    while (cursor.parent_id) {
+      const parent = graph.get(cursor.parent_id)
+      if (!parent || seen.has(parent.id)) break
+      seen.add(parent.id)
+      chain.unshift(parent)
+      cursor = parent
+    }
+
+    const root = chain[0]
+    // child toward leaf = immediate child of root (index 1), or undefined if leaf IS root
+    const directChild = chain.length > 1 ? chain[1] : undefined
+
+    entries.push({
+      rootId: root.id,
+      rootName: String(root.name || '').trim(),
+      rootSlug: String(root.slug || '').trim(),
+      childId: directChild?.id,
+      childName: directChild ? String(directChild.name || '').trim() : undefined,
+      childSlug: directChild ? String(directChild.slug || '').trim() : undefined,
+    })
+  }
+
+  // Build tree map: rootId → { root info, children set }
+  const treeMap = new Map<string, VendorCategoryTreeNode>()
+
+  for (const entry of entries) {
+    if (!entry.rootName) continue
+    if (!treeMap.has(entry.rootId)) {
+      treeMap.set(entry.rootId, { id: entry.rootId, name: entry.rootName, slug: entry.rootSlug, children: [] })
+    }
+    const node = treeMap.get(entry.rootId)!
+    if (entry.childId && entry.childName) {
+      const alreadyHasChild = node.children.some((c) => c.id === entry.childId)
+      if (!alreadyHasChild) {
+        node.children.push({ id: entry.childId, name: entry.childName, slug: entry.childSlug || '' })
+      }
+    }
+  }
+
+  const result = Array.from(treeMap.values())
+    .map((node) => ({
+      ...node,
+      children: node.children.sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  return result
+}

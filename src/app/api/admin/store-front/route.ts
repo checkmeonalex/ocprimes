@@ -39,6 +39,7 @@ const updateSchema = z.object({
       return normalized.length ? normalized : null
     }, z.string().max(80).nullable().optional()),
   storefront_filter_product_limit: z.number().int().min(1).max(48).optional(),
+  collections_menu_mode: z.enum(['grouped', 'flat']).optional(),
 })
 
 type StoreFrontUpdates = {
@@ -53,12 +54,13 @@ type StoreFrontUpdates = {
   storefront_filter_tag_ids?: string[]
   storefront_filter_title?: string | null
   storefront_filter_product_limit?: number
+  collections_menu_mode?: 'grouped' | 'flat'
 }
 
 const LEGACY_UPDATE_FIELDS = new Set(['logo_url'])
 
 const selectColumns =
-  'id, name, slug, description, logo_url, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit'
+  'id, name, slug, description, logo_url, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, collections_menu_mode'
 const selectColumnsLegacy = 'id, name, slug, description, logo_url'
 const MISSING_COLUMN_CODE = '42703'
 
@@ -91,6 +93,7 @@ const normalizeBrandPayload = (value: any) => ({
     1,
     Math.min(48, Number(value?.storefront_filter_product_limit) || 8),
   ),
+  collections_menu_mode: value?.collections_menu_mode === 'flat' ? 'flat' : 'grouped',
 })
 
 const uniqueNonEmpty = (values: unknown[] = []) =>
@@ -302,7 +305,7 @@ export async function GET(request: NextRequest) {
   if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db = createAdminSupabaseClient()
 
   const { data, error } = await loadBrandForUser(db, user, selectColumns, true)
 
@@ -358,7 +361,7 @@ export async function PATCH(request: NextRequest) {
   if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
-  const db = isAdmin ? supabase : createAdminSupabaseClient()
+  const db = createAdminSupabaseClient()
 
   let payload: unknown
   try {
@@ -406,6 +409,9 @@ export async function PATCH(request: NextRequest) {
   }
   if (parsed.data.storefront_filter_product_limit !== undefined) {
     updates.storefront_filter_product_limit = parsed.data.storefront_filter_product_limit
+  }
+  if (parsed.data.collections_menu_mode !== undefined) {
+    updates.collections_menu_mode = parsed.data.collections_menu_mode
   }
 
   if (!Object.keys(updates).length) {

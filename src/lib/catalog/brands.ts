@@ -144,7 +144,7 @@ export const fetchBrandBySlugOrId = async (value: string) => {
     supabase
       .from('admin_brands')
       .select(
-        'id, name, slug, description, logo_url, created_by, banner_slider_urls, banner_slider_mobile_urls, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor, trusted_badge_url',
+        'id, name, slug, description, logo_url, created_by, banner_slider_urls, banner_slider_mobile_urls, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor, trusted_badge_url, collections_menu_mode',
       )
       .limit(1)
   const baseQueryLegacy = () =>

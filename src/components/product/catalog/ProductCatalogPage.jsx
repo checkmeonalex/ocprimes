@@ -114,8 +114,12 @@ const ProductCatalogPage = ({
   storeProductCount = null,
   initialNextCursor = '',
   initialHasMore = false,
+  categoryTree = [],
+  collectionsMenuMode = 'grouped',
+  activeCategorySlug = '',
 }) => {
   const { locale, formatMoney } = useUserI18n()
+  const { isAtTop } = useScrollDirection()
   const cart = useOptionalCart()
   const addItem = cart?.addItem || (() => {})
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -921,6 +925,16 @@ const ProductCatalogPage = ({
   const cleanTitle = String(title || '').trim() || 'Products'
   const cleanSubtitle = String(subtitle || '').trim()
   const showingLabel = formatShowingCount(sortedProducts.length)
+  const activeCategoryName = useMemo(() => {
+    if (!activeCategorySlug || !Array.isArray(categoryTree)) return ''
+    for (const node of categoryTree) {
+      if (node.slug === activeCategorySlug) return node.name
+      for (const child of (node.children || [])) {
+        if (child.slug === activeCategorySlug) return child.name
+      }
+    }
+    return ''
+  }, [activeCategorySlug, categoryTree])
   const totalStoreItems = Math.max(
     0,
     Number(storeProductCount) || Number(loadedProducts.length) || 0,
@@ -1257,9 +1271,19 @@ const ProductCatalogPage = ({
           isFollowing={vendorFollowState.isFollowing}
           isFollowLoading={vendorFollowState.isSaving}
           canFollow={vendorProfile.canFollow}
+          categoryTree={categoryTree}
+          collectionsMenuMode={collectionsMenuMode}
+          activeCategorySlug={activeCategorySlug}
         />
+
       )}
-      <div className={`mx-auto max-w-7xl px-3 pb-0 sm:pb-10 ${vendorProfile ? 'pt-[120px] lg:pt-36' : 'pt-6'}`}>
+      <div className={`mx-auto max-w-7xl px-3 pb-0 sm:pb-10 transition-[padding] duration-300 ease-in-out ${
+        vendorProfile
+          ? isAtTop
+            ? 'pt-[156px] md:pt-[120px] lg:pt-36'
+            : 'pt-[100px] md:pt-[64px] lg:pt-20'
+          : 'pt-6'
+      }`}>
         {!vendorProfile && Array.isArray(childCategories) && childCategories.length > 0 && (
           <>
             {/* Mobile: horizontal strip */}
@@ -1376,10 +1400,10 @@ const ProductCatalogPage = ({
           </>
         )}
 
-        {orderedSections.map(({ key, element }) => (
+        {!activeCategorySlug && orderedSections.map(({ key, element }) => (
           <Fragment key={key}>{element}</Fragment>
         ))}
-        {vendorBannerSection}
+        {!activeCategorySlug && vendorBannerSection}
 
         {!vendorProfile && (
           <div>
@@ -1388,7 +1412,7 @@ const ProductCatalogPage = ({
           </div>
         )}
 
-        {vendorProfile && hasStorefrontSelection && (
+        {vendorProfile && hasStorefrontSelection && !activeCategorySlug && (
           <section className='mobile-full-bleed mb-4 border-y border-slate-200 bg-white px-4 py-4 sm:rounded-2xl sm:border sm:px-5'>
             <div className='mb-2 flex items-center justify-between gap-2'>
               <p className='text-xl font-semibold text-slate-900'>{storefrontSectionTitle}</p>
@@ -1451,7 +1475,12 @@ const ProductCatalogPage = ({
           </div>
         )}
 
-        <div ref={desktopFilterGridRef} className='mt-6 grid gap-6 lg:grid-cols-[260px_1fr]'>
+        {vendorProfile && (
+          <h2 className='mb-3 text-2xl font-bold tracking-tight text-gray-900'>
+            {activeCategoryName || 'All Products'}
+          </h2>
+        )}
+        <div ref={desktopFilterGridRef} className='grid gap-6 lg:grid-cols-[260px_1fr]'>
           <aside
             ref={desktopFilterColRef}
             className='hidden lg:block lg:relative'

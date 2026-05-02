@@ -7,6 +7,7 @@ import { useAlerts } from '@/context/AlertContext';
 import StoreFrontLogoSection from './components/StoreFrontLogoSection';
 import StoreFrontSliderEditorContent from './components/StoreFrontSliderEditorContent';
 import StoreFrontProductFilterSection from './components/StoreFrontProductFilterSection';
+import StoreFrontCollectionsMenuSection from './components/StoreFrontCollectionsMenuSection';
 import StoreFrontSliderSection from './components/StoreFrontSliderSection';
 import StoreFrontSliderMobileModal from './components/StoreFrontSliderMobileModal';
 import { prepareWebpUpload } from '../image/utils/webpUtils.mjs';
@@ -76,6 +77,7 @@ export default function StoreFrontPage() {
   const [isDesktopSliderEditorOpen, setIsDesktopSliderEditorOpen] = useState(false);
   const [isMobileSliderEditorOpen, setIsMobileSliderEditorOpen] = useState(false);
   const [isSavingFilterMode, setIsSavingFilterMode] = useState(false);
+  const [isSavingCollectionsMode, setIsSavingCollectionsMode] = useState(false);
   const [isSavingFilterTitle, setIsSavingFilterTitle] = useState(false);
   const [isSavingProductLimit, setIsSavingProductLimit] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
@@ -569,6 +571,28 @@ export default function StoreFrontPage() {
     }
   }, [brand, notifyError, notifySuccess, saveStoreFront, storefrontFilterTitleInput]);
 
+  const handleChangeCollectionsMenuMode = useCallback(
+    async (nextMode) => {
+      if (!brand || (nextMode !== 'grouped' && nextMode !== 'flat')) return;
+      const currentMode = brand?.collections_menu_mode === 'flat' ? 'flat' : 'grouped';
+      if (currentMode === nextMode) return;
+
+      const previousMode = currentMode;
+      setIsSavingCollectionsMode(true);
+      setBrand((prev) => (prev ? { ...prev, collections_menu_mode: nextMode } : prev));
+      try {
+        await saveStoreFront({ collections_menu_mode: nextMode });
+        notifySuccess(`Collections menu set to ${nextMode}.`);
+      } catch (saveErr) {
+        setBrand((prev) => (prev ? { ...prev, collections_menu_mode: previousMode } : prev));
+        notifyError(saveErr?.message || 'Unable to save collections menu setting.');
+      } finally {
+        setIsSavingCollectionsMode(false);
+      }
+    },
+    [brand, notifyError, notifySuccess, saveStoreFront],
+  );
+
   const handleSaveStoreFrontProductLimit = useCallback(async () => {
     if (!brand) return;
     const parsedLimit = Number(storefrontProductLimitInput);
@@ -716,6 +740,13 @@ export default function StoreFrontPage() {
               onProductLimitChange={setStorefrontProductLimitInput}
               onSaveProductLimit={handleSaveStoreFrontProductLimit}
               isSavingProductLimit={isSavingProductLimit}
+            />
+
+            <StoreFrontCollectionsMenuSection
+              isLoading={isLoading}
+              brand={brand}
+              isSaving={isSavingCollectionsMode}
+              onChangeMode={handleChangeCollectionsMenuMode}
             />
 
             <StoreFrontSliderSection
