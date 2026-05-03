@@ -35,7 +35,7 @@ export default function VendorStoreHeader({
   // When scrolling, it moves to the very top (top-0).
   
   const headerTranslate = 'translate-y-0';
-  const stickyTop = isAtTop ? 'lg:top-[112px] top-[56px]' : 'top-0';
+  const stickyTop = isAtTop ? 'lg:top-[112px] top-0' : 'top-0';
 
   return (
     <>
@@ -183,9 +183,7 @@ export default function VendorStoreHeader({
 
     {/* Mobile soft bar — collections dropdown trigger */}
     <div
-      className={`fixed left-0 right-0 z-[2147483002] md:hidden bg-gray-50 border-b border-gray-200 transition-all duration-300 ease-in-out ${
-        isAtTop ? 'top-[120px]' : 'top-[64px]'
-      }`}
+      className="fixed left-0 right-0 z-[2147483002] md:hidden bg-gray-50 border-b border-gray-200 top-[64px]"
     >
       <div className="flex h-9 items-center justify-center">
         <button

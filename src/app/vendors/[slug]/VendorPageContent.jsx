@@ -118,22 +118,14 @@ export async function renderVendorPage(vendorSlug, searchParams = {}) {
           : [],
         links: Array.isArray(vendorMeta?.banner_slider_links) ? vendorMeta.banner_slider_links : [],
       }}
-      storefrontFilter={{
-        mode: vendorMeta?.storefront_filter_mode === 'tag' ? 'tag' : 'category',
-        title: String(vendorMeta?.storefront_filter_title || '').trim(),
-        productLimit: Math.max(
-          1,
-          Math.min(48, Number(vendorMeta?.storefront_filter_product_limit) || 8),
-        ),
-        items: Array.isArray(vendorMeta?.storefront_filter_items)
-          ? vendorMeta.storefront_filter_items
-          : [],
-      }}
       storeProductCount={productCount}
       childCategories={vendorCategories}
       categoryTree={vendorCategoryTree}
       collectionsMenuMode={vendorMeta?.collections_menu_mode === 'flat' ? 'flat' : 'grouped'}
       activeCategorySlug={categoryFilter || ''}
+      bannerGrid={vendorMeta?.banner_grid ?? null}
+      storefrontSectionOrder={Array.isArray(vendorMeta?.storefront_section_order) ? vendorMeta.storefront_section_order : ['banner_grid', 'storefront_filter']}
+      storefrontBlocks={Array.isArray(vendorMeta?.storefront_blocks) ? vendorMeta.storefront_blocks : []}
       listingQuery={{ vendor: normalizedVendorSlug, ...(categoryFilter ? { category: categoryFilter } : {}) }}
       initialNextCursor={listing.nextCursor}
       initialHasMore={listing.hasMore}

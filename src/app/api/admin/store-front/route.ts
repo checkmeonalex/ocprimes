@@ -17,6 +17,40 @@ const sliderLinkSchema = z
     'Invalid slider link.',
   )
 
+const storefrontBlockSchema = z.object({
+  id: z.string().max(100),
+  type: z.enum(['banner_grid']),
+  config: z.object({
+    layout: z.enum(['single', 'two-col', 'two-by-two', 'three-col', 'four-col', 'hero-duo']).optional(),
+    mode: z.enum(['static', 'slider']).optional(),
+    slides: z
+      .array(
+        z.object({
+          imageUrl: z.string().max(500),
+          linkUrl: z.string().max(300),
+        }),
+      )
+      .max(16)
+      .optional(),
+  }),
+})
+
+const bannerGridSlideSchema = z.object({
+  imageUrl: z.string().max(500),
+  linkUrl: z.string().max(300).refine(
+    (v) => v === '' || v.startsWith('/') || v.startsWith('http://') || v.startsWith('https://'),
+    'Invalid link URL.',
+  ),
+})
+
+const bannerGridSchema = z
+  .object({
+    layout: z.enum(['single', 'two-col', 'two-by-two', 'three-col', 'four-col', 'hero-duo']),
+    mode: z.enum(['static', 'slider']),
+    slides: z.array(bannerGridSlideSchema).max(16),
+  })
+  .nullable()
+
 const updateSchema = z.object({
   logo_url: z
     .preprocess((value) => {
@@ -40,6 +74,9 @@ const updateSchema = z.object({
     }, z.string().max(80).nullable().optional()),
   storefront_filter_product_limit: z.number().int().min(1).max(48).optional(),
   collections_menu_mode: z.enum(['grouped', 'flat']).optional(),
+  banner_grid: bannerGridSchema.optional(),
+  storefront_section_order: z.array(z.enum(['banner_grid', 'storefront_filter'])).max(10).optional(),
+  storefront_blocks: z.array(storefrontBlockSchema).max(50).optional(),
 })
 
 type StoreFrontUpdates = {
@@ -55,12 +92,15 @@ type StoreFrontUpdates = {
   storefront_filter_title?: string | null
   storefront_filter_product_limit?: number
   collections_menu_mode?: 'grouped' | 'flat'
+  banner_grid?: { layout: string; mode: string; slides: { imageUrl: string; linkUrl: string }[] } | null
+  storefront_section_order?: string[]
+  storefront_blocks?: Array<{ id: string; type: string; config: Record<string, unknown> }>
 }
 
 const LEGACY_UPDATE_FIELDS = new Set(['logo_url'])
 
 const selectColumns =
-  'id, name, slug, description, logo_url, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, collections_menu_mode'
+  'id, name, slug, description, logo_url, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, collections_menu_mode, banner_grid, storefront_section_order, storefront_blocks'
 const selectColumnsLegacy = 'id, name, slug, description, logo_url'
 const MISSING_COLUMN_CODE = '42703'
 
@@ -94,6 +134,11 @@ const normalizeBrandPayload = (value: any) => ({
     Math.min(48, Number(value?.storefront_filter_product_limit) || 8),
   ),
   collections_menu_mode: value?.collections_menu_mode === 'flat' ? 'flat' : 'grouped',
+  banner_grid: value?.banner_grid && typeof value.banner_grid === 'object' ? value.banner_grid : null,
+  storefront_section_order: Array.isArray(value?.storefront_section_order)
+    ? value.storefront_section_order
+    : ['banner_grid', 'storefront_filter'],
+  storefront_blocks: Array.isArray(value?.storefront_blocks) ? value.storefront_blocks : [],
 })
 
 const uniqueNonEmpty = (values: unknown[] = []) =>
@@ -412,6 +457,15 @@ export async function PATCH(request: NextRequest) {
   }
   if (parsed.data.collections_menu_mode !== undefined) {
     updates.collections_menu_mode = parsed.data.collections_menu_mode
+  }
+  if (parsed.data.banner_grid !== undefined) {
+    updates.banner_grid = parsed.data.banner_grid
+  }
+  if (parsed.data.storefront_section_order !== undefined) {
+    updates.storefront_section_order = parsed.data.storefront_section_order
+  }
+  if (parsed.data.storefront_blocks !== undefined) {
+    updates.storefront_blocks = parsed.data.storefront_blocks
   }
 
   if (!Object.keys(updates).length) {

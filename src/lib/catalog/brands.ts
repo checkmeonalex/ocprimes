@@ -34,6 +34,11 @@ const normalizeBrand = (value: any) => ({
   custom_profile_sold: Math.max(0, Number(value?.custom_profile_sold) || 0),
   is_trusted_vendor: Boolean(value?.is_trusted_vendor),
   trusted_badge_url: String(value?.trusted_badge_url || '').trim(),
+  banner_grid: value?.banner_grid && typeof value.banner_grid === 'object' ? value.banner_grid : null,
+  storefront_section_order: Array.isArray(value?.storefront_section_order)
+    ? value.storefront_section_order
+    : ['banner_grid', 'storefront_filter'],
+  storefront_blocks: Array.isArray(value?.storefront_blocks) ? value.storefront_blocks : [],
 })
 
 const enrichBrandFilters = async (supabase: any, brand: any) => {
@@ -144,7 +149,7 @@ export const fetchBrandBySlugOrId = async (value: string) => {
     supabase
       .from('admin_brands')
       .select(
-        'id, name, slug, description, logo_url, created_by, banner_slider_urls, banner_slider_mobile_urls, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor, trusted_badge_url, collections_menu_mode',
+        'id, name, slug, description, logo_url, created_by, banner_slider_urls, banner_slider_mobile_urls, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor, trusted_badge_url, collections_menu_mode, banner_grid, storefront_section_order, storefront_blocks',
       )
       .limit(1)
   const baseQueryLegacy = () =>

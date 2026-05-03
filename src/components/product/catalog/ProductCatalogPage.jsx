@@ -11,6 +11,7 @@ import FeaturedStrip from '@/components/layout/FeaturedStrip'
 import HotspotProductSlider from '@/components/layout/HotspotProductSlider'
 import LogoGrid from '@/components/layout/LogoGrid'
 import VendorStoreHeader from '@/components/vendor/VendorStoreHeader'
+import VendorBannerGrid from '@/components/vendor/VendorBannerGrid'
 import VendorStoreSidebar from '@/components/vendor/VendorStoreSidebar'
 import SellerChatPopup from '@/components/product/SellerChatPopup'
 import { useScrollDirection } from '@/hooks/useScrollDirection'
@@ -110,16 +111,17 @@ const ProductCatalogPage = ({
   listingQuery = {},
   vendorProfile = null,
   vendorSlider = null,
-  storefrontFilter = null,
   storeProductCount = null,
   initialNextCursor = '',
   initialHasMore = false,
   categoryTree = [],
   collectionsMenuMode = 'grouped',
   activeCategorySlug = '',
+  bannerGrid = null,
+  storefrontSectionOrder = ['banner_grid', 'storefront_filter'],
+  storefrontBlocks = [],
 }) => {
   const { locale, formatMoney } = useUserI18n()
-  const { isAtTop } = useScrollDirection()
   const cart = useOptionalCart()
   const addItem = cart?.addItem || (() => {})
   const [filtersOpen, setFiltersOpen] = useState(false)
@@ -127,7 +129,6 @@ const ProductCatalogPage = ({
   const [isFilterSheetDragging, setIsFilterSheetDragging] = useState(false)
   const [selectedCategories, setSelectedCategories] = useState(() => new Set())
   const [selectedVendors, setSelectedVendors] = useState(() => new Set())
-  const [selectedStorefrontItemKey, setSelectedStorefrontItemKey] = useState('')
   const [selectedColors, setSelectedColors] = useState(() => new Set())
   const [selectedSizes, setSelectedSizes] = useState(() => new Set())
   const [selectedDynamicFilters, setSelectedDynamicFilters] = useState({})
@@ -201,7 +202,6 @@ const ProductCatalogPage = ({
     setShowAllVendorCategories(false)
     setVendorProductQuery('')
     setDebouncedVendorProductQuery('')
-    setSelectedStorefrontItemKey('')
   }, [vendorProfile?.name])
 
   const followVendor = async () => {
@@ -403,55 +403,6 @@ const ProductCatalogPage = ({
       }
     })
   }, [categories, categoryImageLookup, childCategories, vendorProfile])
-  const storefrontSectionTitle = String(storefrontFilter?.title || '').trim() || 'Most Popular'
-  const storefrontProductLimit = Math.max(
-    1,
-    Math.min(48, Number(storefrontFilter?.productLimit) || 8),
-  )
-  const storefrontSelectedItems = useMemo(
-    () =>
-      (
-        vendorProfile && storefrontFilter?.mode !== 'tag'
-          ? []
-          : Array.isArray(storefrontFilter?.items)
-            ? storefrontFilter.items
-            : []
-      )
-        .map((item) => ({
-          id: String(item?.id || item?.slug || item?.name || '').trim(),
-          name: String(item?.name || '').trim(),
-          slug: String(item?.slug || '').trim(),
-          type: item?.type === 'tag' ? 'tag' : 'category',
-          key: `${item?.type === 'tag' ? 'tag' : 'category'}:${String(
-            item?.id || item?.slug || item?.name || '',
-          ).trim()}`,
-        }))
-        .filter((item) => item.id && item.name && item.key),
-    [storefrontFilter?.items],
-  )
-  const storefrontTiles = useMemo(() => {
-    if (!vendorProfile) return []
-    if (storefrontSelectedItems.length) {
-      return storefrontSelectedItems.map((item) => ({
-        id: item.id,
-        name: item.name,
-        imageUrl: '',
-        imageAlt: item.name,
-        value: item.name,
-      }))
-    }
-    return vendorCategoryTiles
-  }, [storefrontSelectedItems, vendorCategoryTiles, vendorProfile])
-  const hasStorefrontSelection = storefrontSelectedItems.length > 0
-  useEffect(() => {
-    if (!hasStorefrontSelection) {
-      setSelectedStorefrontItemKey('')
-      return
-    }
-    const firstItemKey = String(storefrontSelectedItems[0]?.key || '').trim()
-    if (!firstItemKey) return
-    setSelectedStorefrontItemKey((prev) => (prev ? prev : firstItemKey))
-  }, [hasStorefrontSelection, storefrontSelectedItems])
   const vendors = useMemo(
     () => buildFacetList(normalized.map((product) => product.vendor)),
     [normalized]
@@ -519,10 +470,6 @@ const ProductCatalogPage = ({
   const selectedVendorKeys = useMemo(
     () => new Set([...selectedVendors].map(normalizeKey)),
     [selectedVendors]
-  )
-  const activeStorefrontItem = useMemo(
-    () => storefrontSelectedItems.find((item) => item.key === selectedStorefrontItemKey) || null,
-    [selectedStorefrontItemKey, storefrontSelectedItems],
   )
   const selectedColorKeys = useMemo(
     () => new Set([...selectedColors].map(normalizeKey)),
@@ -842,12 +789,6 @@ const ProductCatalogPage = ({
     addItem(productData, Math.max(1, Number(quantity) || 1))
   }
 
-  const handleStorefrontChipClick = (itemKey) => {
-    const nextKey = String(itemKey || '').trim()
-    if (!nextKey) return
-    setSelectedStorefrontItemKey((prev) => (prev === nextKey ? prev : nextKey))
-  }
-
   const handleCategoryTileClick = (value) => {
     toggleValue(setSelectedCategories, value)
     if (typeof window === 'undefined') return
@@ -859,25 +800,6 @@ const ProductCatalogPage = ({
     })
   }
 
-  const storefrontShowcaseProducts = useMemo(() => {
-    if (!hasStorefrontSelection || !activeStorefrontItem) return []
-    const matched = normalized.filter((product) => {
-      if (activeStorefrontItem.type === 'tag') {
-        const productTagKeys = new Set(getProductTagNames(product).map((value) => normalizeKey(value)))
-        return productTagKeys.has(normalizeKey(activeStorefrontItem.name))
-      }
-      const productCategoryKeys = new Set(
-        getProductCategoryNames(product).map((value) => normalizeKey(value)),
-      )
-      return productCategoryKeys.has(normalizeKey(activeStorefrontItem.name))
-    })
-    return matched.slice(0, storefrontProductLimit)
-  }, [
-    activeStorefrontItem,
-    hasStorefrontSelection,
-    normalized,
-    storefrontProductLimit,
-  ])
 
   const bannerWideImages = useMemo(() => {
     const raw = Array.isArray(parentCategory?.banner_slider_urls)
@@ -1277,13 +1199,7 @@ const ProductCatalogPage = ({
         />
 
       )}
-      <div className={`mx-auto max-w-7xl px-3 pb-0 sm:pb-10 transition-[padding] duration-300 ease-in-out ${
-        vendorProfile
-          ? isAtTop
-            ? 'pt-[156px] md:pt-[120px] lg:pt-36'
-            : 'pt-[100px] md:pt-[64px] lg:pt-20'
-          : 'pt-6'
-      }`}>
+      <div className={`mx-auto max-w-7xl px-3 pb-0 sm:pb-10 ${vendorProfile ? 'pt-0 lg:pt-20' : 'pt-6'}`}>
         {!vendorProfile && Array.isArray(childCategories) && childCategories.length > 0 && (
           <>
             {/* Mobile: horizontal strip */}
@@ -1400,10 +1316,10 @@ const ProductCatalogPage = ({
           </>
         )}
 
-        {!activeCategorySlug && orderedSections.map(({ key, element }) => (
+        {/* Non-vendor ordered sections (banners, hotspot, etc.) */}
+        {!vendorProfile && !activeCategorySlug && orderedSections.map(({ key, element }) => (
           <Fragment key={key}>{element}</Fragment>
         ))}
-        {!activeCategorySlug && vendorBannerSection}
 
         {!vendorProfile && (
           <div>
@@ -1412,41 +1328,27 @@ const ProductCatalogPage = ({
           </div>
         )}
 
-        {vendorProfile && hasStorefrontSelection && !activeCategorySlug && (
-          <section className='mobile-full-bleed mb-4 border-y border-slate-200 bg-white px-4 py-4 sm:rounded-2xl sm:border sm:px-5'>
-            <div className='mb-2 flex items-center justify-between gap-2'>
-              <p className='text-xl font-semibold text-slate-900'>{storefrontSectionTitle}</p>
-            </div>
-            <div className='no-scrollbar flex gap-2 overflow-x-auto pb-1'>
-              {storefrontSelectedItems.map((item) => {
-                const isSelected = selectedStorefrontItemKey === item.key
-                return (
-                  <button
-                    key={item.key}
-                    type='button'
-                    onClick={() => handleStorefrontChipClick(item.key)}
-                    className={`inline-flex shrink-0 items-center rounded-full border px-4 py-2 text-sm font-semibold ${
-                      isSelected
-                        ? 'border-slate-900 bg-slate-900 text-white'
-                        : 'border-slate-300 bg-white text-slate-900'
-                    }`}
-                  >
-                    {item.name}
-                  </button>
-                )
-              })}
-            </div>
-            {storefrontShowcaseProducts.length > 0 ? (
-              <div className='mt-4'>
-                <ProductGrid
-                  products={storefrontShowcaseProducts}
-                  onAddToCart={handleAddToCart}
-                  masonry
-                />
-              </div>
-            ) : null}
-          </section>
-        )}
+        {/* Vendor storefront sections — rendered in configurable order */}
+        {vendorProfile && !activeCategorySlug && storefrontSectionOrder.map((sectionKey) => {
+          if (sectionKey === 'banner_grid') {
+            const blocks = Array.isArray(storefrontBlocks) && storefrontBlocks.length > 0
+              ? storefrontBlocks
+              : bannerGrid
+                ? [{ id: 'legacy_banner_grid', type: 'banner_grid', config: bannerGrid }]
+                : []
+            if (!blocks.length) return null
+            return (
+              <Fragment key='banner_grid'>
+                {blocks.map((block) =>
+                  block.type === 'banner_grid' ? (
+                    <VendorBannerGrid key={block.id} bannerGrid={block.config} />
+                  ) : null
+                )}
+              </Fragment>
+            )
+          }
+          return null
+        })}
 
         {activeChips.length > 0 && (
           <div className='mb-4 flex flex-col gap-2 text-sm'>
@@ -1476,8 +1378,8 @@ const ProductCatalogPage = ({
         )}
 
         {vendorProfile && (
-          <h2 className='mb-3 text-2xl font-bold tracking-tight text-gray-900'>
-            {activeCategoryName || 'All Products'}
+          <h2 className='mb-3 pt-4 text-2xl font-bold tracking-tight text-gray-900'>
+            {activeCategoryName || 'All In Store'}
           </h2>
         )}
         <div ref={desktopFilterGridRef} className='grid gap-6 lg:grid-cols-[260px_1fr]'>

@@ -7,9 +7,7 @@ export default function StoreFrontLogoSection({
   onLogoError,
   initials,
   isLogoUploading,
-  fileInputRef,
-  onLogoChange,
-  onOpenLogoPicker,
+  onOpenMediaLibrary,
   onRemoveLogo,
 }) {
   return (
@@ -74,21 +72,14 @@ export default function StoreFrontLogoSection({
                 No brand is linked to this account yet. Ask an admin to create/assign your brand first.
               </p>
             ) : null}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={onLogoChange}
-            />
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                onClick={onOpenLogoPicker}
+                onClick={onOpenMediaLibrary}
                 disabled={isLogoUploading || !brand}
                 className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isLogoUploading ? 'Uploading...' : 'Upload Logo'}
+                {isLogoUploading ? 'Saving…' : 'Choose Logo'}
               </button>
               <button
                 type="button"
