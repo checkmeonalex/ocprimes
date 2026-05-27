@@ -50,6 +50,16 @@ export async function provisionVendorAccess(
   }
 
   if (existingByOwner?.id) {
+    // admin_brands row already exists — ensure vendors row is also present
+    const { error: vendorUpsertError } = await adminClient
+      .from('vendors')
+      .upsert(
+        { user_id: userId, store_name: brandName.trim(), slug: brandSlug, status: 'active' },
+        { onConflict: 'user_id', ignoreDuplicates: true },
+      )
+    if (vendorUpsertError && vendorUpsertError.code !== '23505') {
+      throw new Error('Unable to create vendor record.')
+    }
     return
   }
 
@@ -74,5 +84,15 @@ export async function provisionVendorAccess(
   })
   if (brandInsertError) {
     throw new Error(brandInsertError.message || 'Unable to create vendor brand.')
+  }
+
+  const { error: vendorInsertError } = await adminClient.from('vendors').insert({
+    user_id: userId,
+    store_name: brandName.trim(),
+    slug: finalSlug,
+    status: 'active',
+  })
+  if (vendorInsertError && vendorInsertError.code !== '23505') {
+    throw new Error('Unable to create vendor record.')
   }
 }

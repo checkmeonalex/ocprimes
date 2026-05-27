@@ -44,6 +44,7 @@ export default function Gallery({
   badgeVariant = 'discount',
   mainImageRef = null,
   forceMobileView = false,
+  fillContainer = false,
 }) {
   const mediaItems = useMemo(() => normalizeMediaItems(media, images), [media, images])
   const activeMedia = useMemo(() => {
@@ -268,7 +269,7 @@ export default function Gallery({
   const isTabletView = !forceMobileView && viewportWidth >= 768 && viewportWidth < 1024
   const mainImageMaxWidth = isTabletView ? 390 : 560
   const mainImageHeight = mainImageMaxWidth / mainAspect
-  const defaultThumbSize = isTabletView ? 52 : 64
+  const defaultThumbSize = isTabletView ? 80 : 96
   const gapSize = 8
   const fallbackMainHeight = Math.max(defaultThumbSize, Math.round(mainImageHeight))
   const effectiveMainHeight = Math.max(
@@ -776,7 +777,7 @@ export default function Gallery({
                 aspectRatio: activeMedia?.type === 'video'
                   ? '4 / 5'
                   : `${Math.max(0.2, Math.min(4, Number(mainAspect) || 0.75))}`,
-                maxWidth: mediaItems.length > 1 ? `${mainImageMaxWidth}px` : '100%',
+                maxWidth: fillContainer ? '100%' : (mediaItems.length > 1 ? `${mainImageMaxWidth}px` : '100%'),
                 position: 'relative',
               }}
               onMouseEnter={() => setIsZooming(true)}

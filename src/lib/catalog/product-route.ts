@@ -400,7 +400,7 @@ const attachRelations = async (supabase, items) => {
       .in('product_id', ids),
     supabase
       .from(BRAND_LINKS)
-      .select('product_id, admin_brands(id, name, slug, created_by)')
+      .select('product_id, admin_brands(id, name, slug, template, created_by)')
       .in('product_id', ids),
     supabase
       .from(IMAGE_TABLE)
@@ -455,7 +455,7 @@ const attachRelations = async (supabase, items) => {
       const adminDb = createAdminSupabaseClient()
       const fallbackBrandResult = await adminDb
         .from(BRAND_LINKS)
-        .select('product_id, admin_brands(id, name, slug, logo_url, created_by)')
+        .select('product_id, admin_brands(id, name, slug, logo_url, template, created_by)')
         .in('product_id', ids)
       if (!fallbackBrandResult.error && Array.isArray(fallbackBrandResult.data)) {
         brandRows = fallbackBrandResult.data
@@ -504,7 +504,7 @@ const attachRelations = async (supabase, items) => {
       }
       const { data: creatorBrands, error: creatorBrandsError } = await creatorLookupDb
         .from(BRAND_TABLE)
-        .select('id, name, slug, logo_url, created_by')
+        .select('id, name, slug, logo_url, template, created_by')
         .in('created_by', creatorIds)
       if (creatorBrandsError) {
         console.error('fallback creator brands lookup failed:', creatorBrandsError.message)

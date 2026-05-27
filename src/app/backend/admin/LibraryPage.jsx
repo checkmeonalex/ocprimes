@@ -5,8 +5,7 @@ import LibrarySkeletonCard from './components/LibrarySkeletonCard';
 import ImageEditorModal from './image/ImageEditorModal';
 import LoadingButton from '../../../components/LoadingButton';
 import { prepareWebpUpload } from './image/utils/webpUtils.mjs';
-import AdminSidebar from '@/components/AdminSidebar';
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
+import AdminShell from '@/components/admin/AdminShell';
 import { useAlerts } from '@/context/AlertContext';
 
 const MEDIA_PAGE_SIZE = 20;
@@ -340,13 +339,8 @@ function WooCommerceLibraryPage({
   }, [canLoadMore, isLoading, loadMedia, page]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="flex min-h-screen">
-        <AdminSidebar />
-
-        <main className="flex-1 px-4 pb-6 sm:px-6 lg:px-10">
-                  <AdminDesktopHeader />
-          <div className="mx-auto w-full max-w-6xl">
+    <AdminShell>
+      <div className="mx-auto w-full max-w-6xl">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Library</p>
@@ -619,8 +613,6 @@ function WooCommerceLibraryPage({
                 setActiveMedia(null);
               }}
             />
-          </div>
-        </main>
       </div>
 
       {isUploadOpen && (
@@ -695,7 +687,7 @@ function WooCommerceLibraryPage({
           </div>
         </div>
       )}
-    </div>
+    </AdminShell>
   );
 }
 

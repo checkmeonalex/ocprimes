@@ -1,7 +1,5 @@
 const MAX_VENDOR_ITEM_SCAN = 5000
 
-type VendorBrandRow = { id?: string | null }
-type VendorProductRow = { product_id?: string | null }
 type VendorOrderItemIdRow = { order_id?: string | null }
 
 const toSafeId = (value: unknown) => String(value || '').trim()
@@ -10,50 +8,26 @@ export async function loadVendorProductIds(adminDb: any, userId: string) {
   const safeUserId = toSafeId(userId)
   if (!safeUserId) return []
 
-  const [{ data: brandRows, error: brandError }, { data: ownProductRows, error: ownProductError }] =
-    await Promise.all([
-      adminDb
-        .from('admin_brands')
-        .select('id')
-        .eq('created_by', safeUserId),
-      adminDb
-        .from('products')
-        .select('id')
-        .eq('created_by', safeUserId),
-    ])
+  const { data: vendorRow, error: vendorError } = await adminDb
+    .from('vendors')
+    .select('id')
+    .eq('user_id', safeUserId)
+    .maybeSingle()
 
-  if (brandError) {
-    throw new Error('Unable to load vendor brand scope.')
-  }
-  if (ownProductError) {
+  if (vendorError || !vendorRow?.id) return []
+
+  const { data: productRows, error: productError } = await adminDb
+    .from('products')
+    .select('id')
+    .eq('vendor_id', vendorRow.id)
+
+  if (productError) {
     throw new Error('Unable to load vendor product scope.')
   }
 
-  const brandIds = (Array.isArray(brandRows) ? (brandRows as VendorBrandRow[]) : [])
-    .map((row) => toSafeId(row?.id))
-    .filter(Boolean)
-
-  let linkedProductIds: string[] = []
-  if (brandIds.length > 0) {
-    const { data: linkRows, error: linkError } = await adminDb
-      .from('product_brand_links')
-      .select('product_id')
-      .in('brand_id', brandIds)
-
-    if (linkError) {
-      throw new Error('Unable to load vendor product scope.')
-    }
-
-    linkedProductIds = (Array.isArray(linkRows) ? (linkRows as VendorProductRow[]) : [])
-      .map((row) => toSafeId(row?.product_id))
-      .filter(Boolean)
-  }
-
-  const ownProductIds = (Array.isArray(ownProductRows) ? ownProductRows : [])
+  return (Array.isArray(productRows) ? productRows : [])
     .map((row: { id?: string | null }) => toSafeId(row?.id))
     .filter(Boolean)
-
-  return Array.from(new Set([...ownProductIds, ...linkedProductIds]))
 }
 
 export async function loadVendorOrderIds(adminDb: any, productIds: string[]) {

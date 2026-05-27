@@ -3,20 +3,24 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { useScrollDirection } from '@/hooks/useScrollDirection';
 import VendorCollectionsMenu from './VendorCollectionsMenu';
 import VendorMobileCollectionsDropdown from './VendorMobileCollectionsDropdown';
 
-/**
- * VendorStoreHeader - A professional, high-end header for brand storefronts.
- * Implements logic to hide the main site header and remain sticky on scroll-up.
- */
+function formatCompact(n) {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1) + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1) + 'K'
+  return String(n)
+}
+
 export default function VendorStoreHeader({
   vendorProfile,
   onFollow,
   isFollowing,
   isFollowLoading,
   canFollow,
+  canEditStorefront = false,
   onMessage,
   searchValue,
   setSearchValue,
@@ -25,17 +29,44 @@ export default function VendorStoreHeader({
   activeCategorySlug = '',
 }) {
   const { isScrollingUp, isAtTop, isScrollingDown } = useScrollDirection();
+  const pathname = usePathname();
+  const isProductPage = pathname?.startsWith('/product/');
   const [logoFailed, setLogoFailed] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
 
-  // Vendor header is now ALWAYS sticky on both up and down scroll.
-  // When at the top, it sits below the main navbar.
-  // When scrolling, it moves to the very top (top-0).
-  
+  const rating = Number(vendorProfile?.rating) || 0;
+  const reviewCount = Number(vendorProfile?.reviewCount) || 0;
+  const orders = Number(vendorProfile?.orders) || 0;
+  const yearsOnPlatform = Number(vendorProfile?.yearsOnPlatform) || 0;
+  const monthsOnPlatform = Number(vendorProfile?.monthsOnPlatform) || 0;
+  const followersGrowthPct = Number(vendorProfile?.followersGrowthPct) || 0;
+
+  const statsItems = [
+    rating > 0 && {
+      id: 'rating',
+      label: `${rating.toFixed(1)} ★ ${reviewCount > 0 ? `(${formatCompact(reviewCount)})` : ''}`.trim(),
+    },
+    orders > 0 && { id: 'orders', label: `${formatCompact(orders)} orders` },
+    (yearsOnPlatform > 0 || monthsOnPlatform > 0) && {
+      id: 'years',
+      label: yearsOnPlatform > 0
+        ? `${yearsOnPlatform} yr on platform`
+        : `${monthsOnPlatform} mo on platform`,
+    },
+    followersGrowthPct !== 0 && {
+      id: 'growth',
+      label: `${followersGrowthPct > 0 ? '↑' : '↓'} ${Math.abs(followersGrowthPct)}% followers`,
+    },
+  ].filter(Boolean);
+
+  const hasStats = statsItems.length > 0;
+
   const headerTranslate = 'translate-y-0';
-  const stickyTop = isAtTop ? 'lg:top-[112px] top-0' : 'top-0';
+  // On product pages the secondary nav bar is removed from DOM, so offset only by main nav height.
+  // On storefront pages the secondary bar is present, so offset by full 112px.
+  const stickyTop = isAtTop ? 'top-14 xl:top-16' : 'top-0';
 
   return (
     <>
@@ -137,53 +168,86 @@ export default function VendorStoreHeader({
               </button>
             </nav>
             
-            <button
-              type="button"
-              onClick={onMessage}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-900 transition hover:bg-gray-50 md:h-10 md:w-auto md:px-4 md:text-xs md:font-bold md:uppercase md:tracking-widest"
-            >
-              <svg 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                className="h-4 w-4 md:mr-2" 
-                stroke="currentColor" 
-                strokeWidth="1.5"
+            {canEditStorefront ? (
+              <Link
+                href="/backend/admin/store-front"
+                className="inline-flex h-9 items-center justify-center rounded-full border border-gray-200 bg-white px-4 text-[10px] font-bold uppercase tracking-widest text-gray-900 transition hover:bg-gray-50 md:h-10 md:px-5 md:text-xs"
               >
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              <span className="hidden md:inline">Message</span>
-            </button>
-            
-            <button
-              type="button"
-              onClick={onFollow}
-              disabled={isFollowLoading}
-              className={`inline-flex h-9 items-center justify-center rounded-full px-4 text-[10px] font-bold uppercase tracking-widest transition shadow-sm md:h-10 md:px-5 md:text-xs ${
-                isFollowing
-                  ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
-                  : 'bg-black text-white hover:bg-gray-800'
-              }`}
-            >
-              {isFollowLoading ? (
-                <div className="flex gap-1">
-                  <span className="h-1 w-1 rounded-full bg-current animate-[bounce_0.6s_infinite] [animation-delay:-0.3s]" />
-                  <span className="h-1 w-1 rounded-full bg-current animate-[bounce_0.6s_infinite] [animation-delay:-0.15s]" />
-                  <span className="h-1 w-1 rounded-full bg-current animate-[bounce_0.6s_infinite]" />
-                </div>
-              ) : isFollowing ? (
-                <span>Following</span>
-              ) : (
-                <span>Follow</span>
-              )}
-            </button>
+                <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 md:mr-2" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+                <span className="hidden md:inline">Edit Store</span>
+              </Link>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onMessage}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-900 transition hover:bg-gray-50 md:h-10 md:w-auto md:px-4 md:text-xs md:font-bold md:uppercase md:tracking-widest"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="h-4 w-4 md:mr-2"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  >
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                  <span className="hidden md:inline">Message</span>
+                </button>
+
+                {canFollow && (
+                  <button
+                    type="button"
+                    onClick={onFollow}
+                    disabled={isFollowLoading}
+                    className={`inline-flex h-9 items-center justify-center rounded-full px-4 text-[10px] font-bold uppercase tracking-widest transition shadow-sm md:h-10 md:px-5 md:text-xs ${
+                      isFollowing
+                        ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-gray-200'
+                        : 'bg-black text-white hover:bg-gray-800'
+                    }`}
+                  >
+                    {isFollowLoading ? (
+                      <div className="flex gap-1">
+                        <span className="h-1 w-1 rounded-full bg-current animate-[bounce_0.6s_infinite] [animation-delay:-0.3s]" />
+                        <span className="h-1 w-1 rounded-full bg-current animate-[bounce_0.6s_infinite] [animation-delay:-0.15s]" />
+                        <span className="h-1 w-1 rounded-full bg-current animate-[bounce_0.6s_infinite]" />
+                      </div>
+                    ) : isFollowing ? (
+                      <span>Following</span>
+                    ) : (
+                      <span>Follow</span>
+                    )}
+                  </button>
+                )}
+              </>
+            )}
           </div>
         </div>
+
+        {/* Stats bar */}
+        {hasStats && (
+          <div className="border-t border-gray-100 py-1.5">
+            <div className="flex items-center justify-center gap-4 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {statsItems.map((item, i) => (
+                <span key={item.id} className="flex items-center gap-4 shrink-0">
+                  <span className="text-[11px] font-semibold text-gray-600">{item.label}</span>
+                  {i < statsItems.length - 1 && (
+                    <span className="text-gray-300 text-[10px]">·</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </header>
 
     {/* Mobile soft bar — collections dropdown trigger */}
     <div
-      className="fixed left-0 right-0 z-[2147483002] md:hidden bg-gray-50 border-b border-gray-200 top-[64px]"
+      className={`fixed left-0 right-0 z-[2147483002] md:hidden bg-gray-50 border-b border-gray-200 transition-all duration-300 ${isAtTop ? 'top-[120px]' : 'top-[64px]'}`}
     >
       <div className="flex h-9 items-center justify-center">
         <button

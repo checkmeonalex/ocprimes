@@ -2,6 +2,11 @@
 @import 'rc-slider/assets/index.css';
 @import 'cropperjs/dist/cropper.css';
 :root {
+  /* ── Type system ──────────────────────────────────────── */
+  --serif: "Instrument Serif", "Cormorant Garamond", Georgia, serif;
+  --sans:  var(--font-geist), "Söhne", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono:  var(--font-geist-mono), ui-monospace, "JetBrains Mono", monospace;
+
   --glass-spinner-border: rgba(0, 0, 0, 0.35);
   --glass-spinner-top: rgba(0, 0, 0, 0.7);
   --app-sidebar-width: 4rem;
@@ -50,8 +55,7 @@ body {
   @apply overflow-x-hidden;
   min-height: 100%;
   max-width: 100vw !important;   /* Add this */
-  font-family: var(--font-outfit), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
-    'Segoe UI', sans-serif;
+  font-family: var(--sans);
   font-weight: 400;
   /* Better font rendering */
   -webkit-font-smoothing: antialiased;
@@ -110,18 +114,25 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-outfit), ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--sans);
   font-weight: 700;
 }
 
 button,
+input,
+textarea,
+select,
 input[type='button'],
 input[type='submit'],
 input[type='reset'] {
-  font-family: var(--font-outfit), ui-sans-serif, system-ui, -apple-system,
-    BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--sans);
   font-weight: 500;
+}
+
+/* Prices, counts, timestamps, monospaced labels */
+.font-mono,
+[data-mono] {
+  font-family: var(--mono);
 }
 
 /* Global horizontal clamp to prevent overflow on wide layouts */

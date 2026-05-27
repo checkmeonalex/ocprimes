@@ -76,6 +76,7 @@ function MobileNavbar({
   const router = useRouter()
   const pathname = usePathname()
   const isPlayRoute = pathname?.startsWith('/play')
+  const isProductPage = pathname?.startsWith('/product/')
   const {
     isOpen,
     toggleSidebar,
@@ -110,7 +111,7 @@ function MobileNavbar({
   const [mobileCategories, setMobileCategories] = useState(() =>
     Array.isArray(initialTopCategories) ? initialTopCategories : [],
   )
-  const [isSecondBarVisible, setIsSecondBarVisible] = useState(true)
+  const [isSecondBarVisible, setIsSecondBarVisible] = useState(!isVendorStore)
   const [menuTopOffset, setMenuTopOffset] = useState(56)
   const searchRef = useRef(null)
   const accountMenuRef = useRef(null)
@@ -962,7 +963,7 @@ function MobileNavbar({
         </div>
 
         {/* Top Navigation Bar */}
-        {!isPlayRoute ? (
+        {!isPlayRoute && !isProductPage && !isVendorStore ? (
           <div
             className={`overflow-hidden border-b border-gray-200 bg-white transition-all duration-300 ${
               isSecondBarVisible

@@ -6,7 +6,6 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { homeSettingsUpdateSchema } from '@/lib/home/schema'
 import { getHomePageSettings, updateHomePageSettings, HOME_PAGE_CACHE_TAG } from '@/lib/home/settings'
 import { HOME_BROWSE_CARDS_CACHE_TAG } from '@/lib/home/browse-cards'
-import { HOME_STORIES_CACHE_TAG } from '@/lib/home/stories'
 
 export async function GET(request: NextRequest) {
   const { applyCookies, isAdmin } = await requireAdmin(request)
@@ -35,7 +34,6 @@ export async function PUT(request: NextRequest) {
 
   revalidateTag(HOME_PAGE_CACHE_TAG)
   revalidateTag(HOME_BROWSE_CARDS_CACHE_TAG)
-  revalidateTag(HOME_STORIES_CACHE_TAG)
   revalidatePath('/')
 
   const response = jsonOk({ item: result.item })

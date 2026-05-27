@@ -3,8 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import BouncingDotsLoader from '../components/BouncingDotsLoader'
 import CustomerRowSkeleton from './components/CustomerRowSkeleton'
-import AdminSidebar from '@/components/AdminSidebar'
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+import AdminShell from '@/components/admin/AdminShell'
 import CreateAccountModal from '../brands/components/CreateAccountModal'
 import { fetchCustomerStats, fetchCustomers } from './lib/customerApi.mjs'
 
@@ -220,13 +219,8 @@ function CustomersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f7fb] text-slate-900">
-      <div className="flex min-h-screen">
-        <AdminSidebar />
-
-        <main className="flex-1 px-4 pb-6 sm:px-6 lg:px-10">
-          <AdminDesktopHeader />
-          <div className="mx-auto w-full max-w-6xl">
+    <AdminShell bg="bg-[#f5f7fb]">
+      <div className="mx-auto w-full max-w-6xl">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h1 className="text-[26px] font-semibold text-slate-900">All Customers</h1>
@@ -416,8 +410,6 @@ function CustomersPage() {
                 {error && <p className="px-6 py-3 text-xs text-rose-500">{error}</p>}
               </div>
             </div>
-          </div>
-        </main>
       </div>
       <CreateAccountModal
         open={createModalOpen}
@@ -431,7 +423,7 @@ function CustomersPage() {
         }}
         onSubmit={handleCreateCustomer}
       />
-    </div>
+    </AdminShell>
   )
 }
 

@@ -3,12 +3,10 @@ import CustomSelect from '@/components/common/CustomSelect'
 import { useEffect, useState, useRef, use, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import AdminSidebar from '@/components/AdminSidebar';
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
+import AdminShell from '@/components/admin/AdminShell';
 import ProductImageLibraryModal from '../../products/ProductImageLibraryModal.jsx';
 import ProductPickerModal from '../../components/ProductPickerModal.jsx';
 import ColorPicker from '../../components/ColorPicker.jsx';
-import HomeStoriesEditor from '../components/HomeStoriesEditor.jsx';
 import {
   CATEGORY_LAYOUT_KEYS,
   CATEGORY_LAYOUT_LABELS,
@@ -38,7 +36,6 @@ const emptyBrowseCards = {
   women: [],
 };
 
-const emptyStories = [];
 
 function CategoryDetailPage({ params }) {
   const resolvedParams = use(params);
@@ -112,10 +109,6 @@ function CategoryDetailPage({ params }) {
   const [browseCardsSaving, setBrowseCardsSaving] = useState(false);
   const [browseCardsError, setBrowseCardsError] = useState('');
   const [activeBrowseSegment, setActiveBrowseSegment] = useState('all');
-  const [storiesItems, setStoriesItems] = useState(emptyStories);
-  const [storiesLoading, setStoriesLoading] = useState(false);
-  const [storiesSaving, setStoriesSaving] = useState(false);
-  const [storiesError, setStoriesError] = useState('');
   const [redirectingHome, setRedirectingHome] = useState(false);
   const activeLayout =
     hotspotLayouts.find((layout) => layout.id === activeLayoutId) ||
@@ -302,33 +295,6 @@ function CategoryDetailPage({ params }) {
           setBrowseCardsLoading(false);
         }
 
-        setStoriesLoading(true);
-        setStoriesError('');
-        try {
-          const storiesResp = await fetch(`/api/admin/categories/${categoryId}/stories`, {
-            credentials: 'include',
-          });
-          const storiesPayload = await storiesResp.json().catch(() => null);
-          if (!storiesResp.ok) {
-            throw new Error(storiesPayload?.error || 'Unable to load stories.');
-          }
-          const stories = Array.isArray(storiesPayload?.items) ? storiesPayload.items : [];
-          setStoriesItems(
-            stories.map((entry) => ({
-              id: entry.id || `${entry.media_type}-${entry.media_url}`,
-              title: entry.title || '',
-              media_type: entry.media_type === 'video' ? 'video' : 'image',
-              media_url: entry.media_url || '',
-              media_key: entry.media_key || null,
-              media_alt: entry.media_alt || '',
-            })),
-          );
-        } catch (storiesErr) {
-          setStoriesItems(emptyStories);
-          setStoriesError(storiesErr?.message || 'Unable to load stories.');
-        } finally {
-          setStoriesLoading(false);
-        }
       } catch (err) {
         setError(err?.message || 'Unable to load category.');
       } finally {
@@ -517,53 +483,6 @@ function CategoryDetailPage({ params }) {
           items: nextItems.slice(0, 60),
         };
       });
-      setShowLibrary(false);
-      setUploadingSlot('');
-      return;
-    }
-
-    if (libraryContext.type === 'stories') {
-      const imageItems = Array.isArray(gallery) ? gallery : [];
-      const videoItems = Array.isArray(videos) ? videos : [];
-      const pickedMedia = videoItems[0]
-        ? {
-            media_type: 'video',
-            media_url: videoItems[0].url,
-            media_key: videoItems[0].r2_key || videoItems[0].key || null,
-            media_alt: videoItems[0].title || '',
-            title: videoItems[0].title || 'Story',
-          }
-        : imageItems[0]
-          ? {
-              media_type: 'image',
-              media_url: imageItems[0].url,
-              media_key: imageItems[0].r2_key || imageItems[0].key || null,
-              media_alt: imageItems[0].alt_text || imageItems[0].title || '',
-              title: imageItems[0].alt_text || imageItems[0].title || 'Story',
-            }
-          : null;
-
-      if (pickedMedia) {
-        const targetId = String(libraryContext.index || '').trim();
-        setStoriesItems((prev) => {
-          if (targetId) {
-            return prev.map((story) =>
-              story.id === targetId
-                ? {
-                    ...story,
-                    ...pickedMedia,
-                  }
-                : story,
-            );
-          }
-
-          const nextItem = {
-            id: pickedMedia.media_key || pickedMedia.media_url || `story-${Date.now()}`,
-            ...pickedMedia,
-          };
-          return [...prev, nextItem].slice(0, 24);
-        });
-      }
       setShowLibrary(false);
       setUploadingSlot('');
       return;
@@ -1297,90 +1216,10 @@ function CategoryDetailPage({ params }) {
     }
   };
 
-  const handleStoryItemChange = (id, field, value) => {
-    setStoriesItems((prev) =>
-      prev.map((story) => (story.id === id ? { ...story, [field]: value } : story)),
-    );
-  };
-
-  const handleRemoveStoryItem = (id) => {
-    setStoriesItems((prev) => prev.filter((story) => story.id !== id));
-  };
-
-  const handleSaveStories = async () => {
-    if (!item?.id) return;
-    setStoriesSaving(true);
-    setStoriesError('');
-    try {
-      const payloadItems = storiesItems
-        .filter((story) => story.media_url && String(story.title || '').trim())
-        .map((story) => ({
-          title: String(story.title || '').trim(),
-          media_type: story.media_type === 'video' ? 'video' : 'image',
-          media_url: story.media_url,
-          media_key: story.media_key || null,
-          media_alt: String(story.media_alt || story.title || '').trim() || null,
-        }));
-
-      const response = await fetch(`/api/admin/categories/${item.id}/stories`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ items: payloadItems }),
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Unable to save stories.');
-      }
-
-      const savedItems = Array.isArray(payload?.items) ? payload.items : [];
-      setStoriesItems(
-        savedItems.map((entry) => ({
-          id: entry.id,
-          title: entry.title || '',
-          media_type: entry.media_type === 'video' ? 'video' : 'image',
-          media_url: entry.media_url || '',
-          media_key: entry.media_key || null,
-          media_alt: entry.media_alt || '',
-        })),
-      );
-    } catch (err) {
-      setStoriesError(err?.message || 'Unable to save stories.');
-    } finally {
-      setStoriesSaving(false);
-    }
-  };
-
-  const handleClearStories = async () => {
-    if (!item?.id) return;
-    setStoriesSaving(true);
-    setStoriesError('');
-    try {
-      const response = await fetch(`/api/admin/categories/${item.id}/stories`, {
-        method: 'DELETE',
-        credentials: 'include',
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Unable to clear stories.');
-      }
-      setStoriesItems(emptyStories);
-    } catch (err) {
-      setStoriesError(err?.message || 'Unable to clear stories.');
-    } finally {
-      setStoriesSaving(false);
-    }
-  };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="flex min-h-screen">
-        <div className="sticky top-0 self-start h-screen">
-          <AdminSidebar />
-        </div>
-
-        <main className="flex-1 px-4 py-8 sm:px-6 lg:px-10 space-y-6">
-                  <AdminDesktopHeader />
+    <AdminShell>
+      <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
@@ -2343,27 +2182,6 @@ function CategoryDetailPage({ params }) {
                 </div>
               </div>
 
-              <div id="home-stories">
-                <HomeStoriesEditor
-                  items={storiesItems}
-                  loading={storiesLoading}
-                  saving={storiesSaving}
-                  error={storiesError}
-                  onAddMedia={() => {
-                    setLibraryContext({ type: 'stories', index: '', device: 'desktop' });
-                    setShowLibrary(true);
-                  }}
-                  onReplaceMedia={(storyId) => {
-                    setLibraryContext({ type: 'stories', index: storyId, device: 'desktop' });
-                    setShowLibrary(true);
-                  }}
-                  onRemove={handleRemoveStoryItem}
-                  onChange={handleStoryItemChange}
-                  onSave={handleSaveStories}
-                  onClear={handleClearStories}
-                />
-              </div>
-
               <div
                 id="browse-categories-cards"
                 className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4"
@@ -2631,7 +2449,6 @@ function CategoryDetailPage({ params }) {
               </div>
             </div>
           )}
-        </main>
       </div>
       {showLibrary && (
         <ProductImageLibraryModal
@@ -2642,8 +2459,6 @@ function CategoryDetailPage({ params }) {
           selectedIds={
             libraryContext.type === 'logo-grid'
               ? (logoGrid.items || []).map((item) => item.id)
-              : libraryContext.type === 'stories'
-                ? []
               : String(libraryContext.type || '').startsWith('browse-')
                 ? (browseCards[String(libraryContext.type).replace('browse-', '')] || []).map(
                     (item) => item.id,
@@ -2655,8 +2470,6 @@ function CategoryDetailPage({ params }) {
           maxSelection={
             libraryContext.type === 'logo-grid'
               ? 36
-              : libraryContext.type === 'stories'
-                ? 1
               : String(libraryContext.type || '').startsWith('browse-')
                 ? 24
               : libraryContext.type === 'category-image'
@@ -2666,7 +2479,6 @@ function CategoryDetailPage({ params }) {
           listEndpoint="/api/admin/component-media"
           uploadEndpoint="/api/admin/component-media/upload"
           deleteEndpointBase="/api/admin/component-media"
-          enableVideoTab={libraryContext.type === 'stories'}
           title={
             libraryContext.type === 'category-image'
               ? 'Category Image Library'
@@ -2681,7 +2493,7 @@ function CategoryDetailPage({ params }) {
           onSelect={handleHotspotProductSelect}
         />
       )}
-    </div>
+    </AdminShell>
   );
 }
 

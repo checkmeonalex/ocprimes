@@ -7,7 +7,7 @@ const normalizeBlank = (value: unknown) => {
   return trimmed === '' ? null : trimmed
 }
 
-export const HOME_LAYOUT_KEYS = ['featured_strip', 'hotspot', 'logo_grid'] as const
+export const HOME_LAYOUT_KEYS = ['blocks', 'featured_strip', 'hotspot', 'logo_grid'] as const
 
 export const homeLayoutKeySchema = z.enum(HOME_LAYOUT_KEYS)
 
@@ -55,6 +55,7 @@ export const homePageRecordSchema = z.object({
   home_catalog_tag_id: z.string().uuid().nullable().optional(),
   home_catalog_limit: z.number().int().default(12),
   layout_order: z.array(z.string()).default(HOME_LAYOUT_KEYS.slice()),
+  home_blocks: z.array(z.any()).default([]),
   is_active: z.boolean().default(true),
   created_at: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),
@@ -80,6 +81,11 @@ export const homeSettingsUpdateSchema = z.object({
   home_catalog_tag_id: z.preprocess(normalizeBlank, z.string().uuid().nullable().optional()),
   home_catalog_limit: z.number().int().min(1).max(30).optional(),
   layout_order: z.array(homeLayoutKeySchema).max(HOME_LAYOUT_KEYS.length).optional(),
+  home_blocks: z.array(z.object({
+    id: z.string().max(100),
+    type: z.enum(['banner_grid', 'hero_slider', 'featured_strip', 'hotspot', 'logo_grid', 'product_catalog', 'browse_cards']),
+    config: z.record(z.string(), z.any()),
+  })).max(50).optional(),
 })
 
 export type HomePageRecord = z.infer<typeof homePageRecordSchema>

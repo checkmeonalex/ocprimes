@@ -36,6 +36,7 @@ const HOME_PAGE_SELECT = [
   'home_catalog_tag_id',
   'home_catalog_limit',
   'layout_order',
+  'home_blocks',
   'is_active',
   'created_at',
   'updated_at',
@@ -287,6 +288,7 @@ export async function updateHomePageSettings(
   if (data.home_catalog_tag_id !== undefined) updates.home_catalog_tag_id = data.home_catalog_tag_id
   if (data.home_catalog_limit !== undefined) updates.home_catalog_limit = data.home_catalog_limit
   if (data.layout_order !== undefined) updates.layout_order = normalizeHomeLayoutOrder(data.layout_order)
+  if (data.home_blocks !== undefined) updates.home_blocks = Array.isArray(data.home_blocks) ? data.home_blocks : []
 
   const { data: updated, error } = await supabase
     .from(HOME_TABLE)

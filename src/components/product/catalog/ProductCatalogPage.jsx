@@ -10,7 +10,6 @@ import BannerSlider from '@/components/layout/BannerSlider'
 import FeaturedStrip from '@/components/layout/FeaturedStrip'
 import HotspotProductSlider from '@/components/layout/HotspotProductSlider'
 import LogoGrid from '@/components/layout/LogoGrid'
-import VendorStoreHeader from '@/components/vendor/VendorStoreHeader'
 import VendorBannerGrid from '@/components/vendor/VendorBannerGrid'
 import VendorStoreSidebar from '@/components/vendor/VendorStoreSidebar'
 import SellerChatPopup from '@/components/product/SellerChatPopup'
@@ -21,6 +20,7 @@ import {
   buildDynamicAttributeSections,
   extractDynamicAttributeRows,
 } from './productAttributeFilters.mjs'
+import { getTemplate } from '@/templates/index.mjs'
 
 const normalizeKey = (value) => String(value || '').trim().toLowerCase()
 const buildFacetList = (values) => {
@@ -120,7 +120,13 @@ const ProductCatalogPage = ({
   bannerGrid = null,
   storefrontSectionOrder = ['banner_grid', 'storefront_filter'],
   storefrontBlocks = [],
+  vendorTemplate = 'default',
 }) => {
+  const template = getTemplate(vendorProfile ? vendorTemplate : 'default')
+  const isPrestige = template.config.id !== 'default'
+  const isBiad = template.config.id === 'biad'
+  const TemplateVendorHeader = template.VendorHeader
+  const TemplateProductCard = template.ProductCard
   const { locale, formatMoney } = useUserI18n()
   const cart = useOptionalCart()
   const addItem = cart?.addItem || (() => {})
@@ -1182,9 +1188,9 @@ const ProductCatalogPage = ({
     .filter((entry) => !!entry.element)
 
   return (
-    <div className='min-h-screen bg-gray-50'>
+    <div className={`min-h-screen ${isBiad ? 'bg-[#0a0a0a]' : isPrestige ? 'bg-[#f5f4f2]' : 'bg-gray-50'}`}>
       {vendorProfile && (
-        <VendorStoreHeader
+        <TemplateVendorHeader
           vendorProfile={vendorProfile}
           searchValue={vendorProductQuery}
           setSearchValue={setVendorProductQuery}
@@ -1193,13 +1199,13 @@ const ProductCatalogPage = ({
           isFollowing={vendorFollowState.isFollowing}
           isFollowLoading={vendorFollowState.isSaving}
           canFollow={vendorProfile.canFollow}
+          canEditStorefront={vendorProfile.canEditStorefront}
           categoryTree={categoryTree}
           collectionsMenuMode={collectionsMenuMode}
           activeCategorySlug={activeCategorySlug}
         />
-
       )}
-      <div className={`mx-auto max-w-7xl px-3 pb-0 sm:pb-10 ${vendorProfile ? 'pt-0 lg:pt-20' : 'pt-6'}`}>
+      <div className={`mx-auto max-w-7xl px-3 pb-0 sm:pb-10 ${vendorProfile ? (isBiad ? 'pt-0 lg:pt-24' : 'pt-0 lg:pt-20') : 'pt-6'}`}>
         {!vendorProfile && Array.isArray(childCategories) && childCategories.length > 0 && (
           <>
             {/* Mobile: horizontal strip */}
@@ -1328,27 +1334,45 @@ const ProductCatalogPage = ({
           </div>
         )}
 
-        {/* Vendor storefront sections — rendered in configurable order */}
-        {vendorProfile && !activeCategorySlug && storefrontSectionOrder.map((sectionKey) => {
-          if (sectionKey === 'banner_grid') {
-            const blocks = Array.isArray(storefrontBlocks) && storefrontBlocks.length > 0
-              ? storefrontBlocks
-              : bannerGrid
-                ? [{ id: 'legacy_banner_grid', type: 'banner_grid', config: bannerGrid }]
-                : []
-            if (!blocks.length) return null
-            return (
-              <Fragment key='banner_grid'>
-                {blocks.map((block) =>
-                  block.type === 'banner_grid' ? (
-                    <VendorBannerGrid key={block.id} bannerGrid={block.config} />
-                  ) : null
-                )}
-              </Fragment>
-            )
-          }
-          return null
-        })}
+        {/* Vendor storefront banner sections */}
+        {vendorProfile && !activeCategorySlug && (
+          isPrestige ? (
+            /* Prestige: full-width hero from the slider's first image */
+            vendorBannerSlides.length ? (
+              <div className='mobile-full-bleed mb-4 overflow-hidden md:rounded-2xl' style={{ aspectRatio: '21/9', maxHeight: 480 }}>
+                <img
+                  src={vendorBannerSlides[0].mobileUrl || vendorBannerSlides[0].desktopUrl}
+                  srcSet={vendorBannerSlides[0].desktopUrl ? `${vendorBannerSlides[0].desktopUrl} 1200w, ${vendorBannerSlides[0].mobileUrl || vendorBannerSlides[0].desktopUrl} 768w` : undefined}
+                  sizes='100vw'
+                  alt={vendorProfile.name}
+                  className='h-full w-full object-cover'
+                />
+              </div>
+            ) : null
+          ) : (
+            /* Default: configurable block-based banner grid */
+            storefrontSectionOrder.map((sectionKey) => {
+              if (sectionKey === 'banner_grid') {
+                const blocks = Array.isArray(storefrontBlocks) && storefrontBlocks.length > 0
+                  ? storefrontBlocks
+                  : bannerGrid
+                    ? [{ id: 'legacy_banner_grid', type: 'banner_grid', config: bannerGrid }]
+                    : []
+                if (!blocks.length) return null
+                return (
+                  <Fragment key='banner_grid'>
+                    {blocks.map((block) =>
+                      block.type === 'banner_grid' ? (
+                        <VendorBannerGrid key={block.id} bannerGrid={block.config} />
+                      ) : null
+                    )}
+                  </Fragment>
+                )
+              }
+              return null
+            })
+          )
+        )}
 
         {activeChips.length > 0 && (
           <div className='mb-4 flex flex-col gap-2 text-sm'>
@@ -1377,11 +1401,144 @@ const ProductCatalogPage = ({
           </div>
         )}
 
-        {vendorProfile && (
-          <h2 className='mb-3 pt-4 text-2xl font-bold tracking-tight text-gray-900'>
-            {activeCategoryName || 'All In Store'}
+        {vendorProfile && !isBiad && (
+          <h2 className={`mb-3 pt-4 text-2xl font-bold tracking-tight ${isPrestige ? 'font-light tracking-wider text-gray-800' : 'text-gray-900'}`}>
+            {activeCategoryName || (isPrestige ? 'Collection' : 'All In Store')}
           </h2>
         )}
+
+        {/* ── Biad layout: dark full-bleed, giant heading, category tabs ── */}
+        {isBiad ? (
+          <div className='pb-16'>
+            {/* Heading */}
+            <div className='mb-8 pt-6'>
+              <h1 className='text-[clamp(3rem,10vw,7rem)] font-black uppercase leading-none tracking-tight text-white'>
+                {activeCategoryName || 'All Drops'}
+              </h1>
+              <p className='mt-3 text-xs font-bold uppercase tracking-[0.2em] text-white/40'>
+                {sortedProducts.length} Products
+              </p>
+            </div>
+
+            {/* Category tabs */}
+            {Array.isArray(childCategories) && childCategories.length > 0 && (
+              <div className='mb-8 border-b border-white/10'>
+                <div className='flex items-center gap-6 overflow-x-auto pb-px [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'>
+                  <a
+                    href={`/${vendorProfile.slug}`}
+                    className={`shrink-0 pb-3 text-xs font-black uppercase tracking-widest transition border-b-2 ${
+                      !activeCategorySlug
+                        ? 'border-white text-white'
+                        : 'border-transparent text-white/40 hover:text-white/70'
+                    }`}
+                  >
+                    All
+                  </a>
+                  {childCategories.map((cat) => {
+                    const isActive = activeCategorySlug === (cat.slug || cat.name?.toLowerCase().replace(/\s+/g, '-'))
+                    return (
+                      <a
+                        key={cat.id || cat.name}
+                        href={`/${vendorProfile.slug}?category=${encodeURIComponent(cat.slug || cat.name)}`}
+                        className={`shrink-0 pb-3 text-xs font-black uppercase tracking-widest transition border-b-2 ${
+                          isActive
+                            ? 'border-white text-white'
+                            : 'border-transparent text-white/40 hover:text-white/70'
+                        }`}
+                      >
+                        {cat.name}
+                      </a>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Product grid */}
+            {sortedProducts.length ? (
+              <>
+                <div className='grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 lg:grid-cols-4'>
+                  {sortedProducts.map((product) => (
+                    <TemplateProductCard
+                      key={product.id}
+                      product={product}
+                      onAddToCart={handleAddToCart}
+                    />
+                  ))}
+                </div>
+                {hasMoreFromServer && (
+                  <div
+                    ref={loadMoreRef}
+                    className='flex items-center justify-center py-12 text-xs tracking-[0.3em] text-white/30 uppercase'
+                  >
+                    {isLoadingMore ? 'Loading…' : '— More —'}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className='py-20 text-center text-sm text-white/30 uppercase tracking-widest'>
+                No products found.
+              </div>
+            )}
+          </div>
+        ) : isPrestige ? (
+          <div>
+            <div className='flex items-center justify-between pb-4'>
+              <button
+                type='button'
+                onClick={() => setFiltersOpen(true)}
+                className='flex items-center gap-1.5 rounded-sm border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:border-gray-400 lg:hidden'
+              >
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M4 6h16M7 12h10M10 18h4" strokeLinecap="round" />
+                </svg>
+                Filter
+              </button>
+              <div className='flex shrink-0 items-center gap-2 text-xs text-gray-500 ml-auto'>
+                <span className='hidden sm:inline'>Sort</span>
+                <select
+                  value={sortValue}
+                  onChange={(event) => setSortValue(event.target.value)}
+                  className='h-8 rounded-sm border border-gray-200 bg-white px-2 pr-7 text-xs text-gray-800 outline-none'
+                  aria-label='Sort products'
+                >
+                  <option value='default'>Featured</option>
+                  <option value='newest'>Newest</option>
+                  <option value='price_asc'>Price ↑</option>
+                  <option value='price_desc'>Price ↓</option>
+                  <option value='name_asc'>A – Z</option>
+                  <option value='name_desc'>Z – A</option>
+                </select>
+              </div>
+            </div>
+            {sortedProducts.length ? (
+              <>
+                <div className='grid grid-cols-2 gap-px sm:grid-cols-3 lg:grid-cols-4'>
+                  {sortedProducts.map((product) => (
+                    <TemplateProductCard
+                      key={product.id}
+                      product={product}
+                      onAddToCart={handleAddToCart}
+                    />
+                  ))}
+                </div>
+                {hasMoreFromServer && (
+                  <div
+                    ref={loadMoreRef}
+                    className='flex items-center justify-center py-6 text-xs tracking-widest text-gray-400 uppercase'
+                  >
+                    {isLoadingMore ? 'Loading…' : 'More'}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className='py-20 text-center text-sm text-gray-400'>
+                No products match these filters.
+              </div>
+            )}
+          </div>
+        ) : (
+        /* ── Default layout: sidebar + masonry grid ── */
         <div ref={desktopFilterGridRef} className='grid gap-6 lg:grid-cols-[260px_1fr]'>
           <aside
             ref={desktopFilterColRef}
@@ -1541,6 +1698,7 @@ const ProductCatalogPage = ({
             )}
           </div>
         </div>
+        )}
       </div>
 
       {filtersOpen && (

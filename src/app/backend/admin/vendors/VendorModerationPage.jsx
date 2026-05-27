@@ -4,8 +4,7 @@ import CustomSelect from '@/components/common/CustomSelect'
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import AdminSidebar from '@/components/AdminSidebar'
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+import AdminShell from '@/components/admin/AdminShell'
 import { useAlerts } from '@/context/AlertContext'
 import VendorTakeDownModal from './components/VendorTakeDownModal'
 import VendorModerationSkeleton from './components/VendorModerationSkeleton'
@@ -66,6 +65,11 @@ export default function VendorModerationPage() {
     customSold: '0',
     isTrustedVendor: false,
     requireProductReviewForPublish: false,
+    useCustomRating: false,
+    customRating: '0',
+    customReviews: '0',
+    useCustomFollowersGrowth: false,
+    followersGrowthPct: '0',
   })
   const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [isAccessActionLoading, setIsAccessActionLoading] = useState(false)
@@ -132,6 +136,11 @@ export default function VendorModerationPage() {
         customSold: String(Math.max(0, Number(nextVendor?.brand?.custom_profile_sold) || 0)),
         isTrustedVendor: Boolean(nextVendor?.brand?.is_trusted_vendor),
         requireProductReviewForPublish: Boolean(nextVendor?.brand?.require_product_review_for_publish),
+        useCustomRating: Boolean(nextVendor?.brand?.use_custom_rating),
+        customRating: String(Number(nextVendor?.brand?.custom_profile_rating) || 0),
+        customReviews: String(Math.max(0, Number(nextVendor?.brand?.custom_profile_reviews) || 0)),
+        useCustomFollowersGrowth: Boolean(nextVendor?.brand?.use_custom_followers_growth),
+        followersGrowthPct: String(Number(nextVendor?.brand?.followers_growth_pct) || 0),
       })
       setDeleteConfirmation('')
     } catch (loadError) {
@@ -295,6 +304,11 @@ export default function VendorModerationPage() {
           custom_profile_sold: Math.max(0, Number(settingsForm.customSold) || 0),
           is_trusted_vendor: settingsForm.isTrustedVendor,
           require_product_review_for_publish: settingsForm.requireProductReviewForPublish,
+          use_custom_rating: settingsForm.useCustomRating,
+          custom_profile_rating: Math.min(5, Math.max(0, Number(settingsForm.customRating) || 0)),
+          custom_profile_reviews: Math.max(0, Number(settingsForm.customReviews) || 0),
+          use_custom_followers_growth: settingsForm.useCustomFollowersGrowth,
+          followers_growth_pct: Number(settingsForm.followersGrowthPct) || 0,
         }),
       })
       const payload = await response.json().catch(() => null)
@@ -362,12 +376,8 @@ export default function VendorModerationPage() {
   }
 
   return (
-    <div className='min-h-screen bg-[#f5f7fb] text-slate-900'>
-      <div className='flex min-h-screen'>
-        <AdminSidebar />
-        <main className='flex-1 px-4 pb-6 sm:px-6 lg:px-10'>
-          <AdminDesktopHeader />
-          <div className='mx-auto w-full max-w-6xl'>
+    <AdminShell bg="bg-[#f5f7fb]">
+      <div className='mx-auto w-full max-w-6xl'>
             <div className='flex flex-wrap items-center justify-between gap-3'>
               <div>
                 <p className='text-xs font-semibold uppercase tracking-[0.22em] text-slate-400'>Vendor moderation</p>
@@ -595,79 +605,187 @@ export default function VendorModerationPage() {
                       </div>
 
                       <div className='rounded-xl border border-slate-200 p-4'>
-                        <h2 className='text-base font-semibold text-slate-900'>Storefront data controls</h2>
-                        <p className='mt-1 text-xs text-slate-500'>Set custom prop values for followers and sold when needed.</p>
+                        <h2 className='text-base font-semibold text-slate-900'>Storefront profile stats</h2>
+                        <p className='mt-1 text-xs text-slate-500'>
+                          Each stat has a manual override toggle. When off, the site uses real platform data automatically.
+                        </p>
 
-                        <form onSubmit={handleSaveSettings} className='mt-4 space-y-4'>
-                          <label className='flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2'>
-                            <span className='text-sm font-semibold text-slate-700'>Use custom profile metrics</span>
-                            <input
-                              type='checkbox'
-                              checked={settingsForm.useCustomMetrics}
-                              onChange={(event) =>
-                                setSettingsForm((prev) => ({ ...prev, useCustomMetrics: event.target.checked }))
-                              }
-                            />
-                          </label>
+                        <form onSubmit={handleSaveSettings} className='mt-4 space-y-3'>
 
-                          <div className='grid gap-3 sm:grid-cols-2'>
-                            <label className='space-y-1'>
-                              <span className='text-xs font-semibold uppercase tracking-[0.14em] text-slate-400'>Custom followers</span>
-                              <input
-                                type='number'
-                                min='0'
-                                value={settingsForm.customFollowers}
-                                onChange={(event) =>
-                                  setSettingsForm((prev) => ({ ...prev, customFollowers: event.target.value }))
-                                }
-                                className='h-10 w-full rounded-lg border border-slate-300 px-3 text-sm text-slate-800'
-                              />
-                            </label>
-                            <label className='space-y-1'>
-                              <span className='text-xs font-semibold uppercase tracking-[0.14em] text-slate-400'>Custom sold</span>
-                              <input
-                                type='number'
-                                min='0'
-                                value={settingsForm.customSold}
-                                onChange={(event) =>
-                                  setSettingsForm((prev) => ({ ...prev, customSold: event.target.value }))
-                                }
-                                className='h-10 w-full rounded-lg border border-slate-300 px-3 text-sm text-slate-800'
-                              />
-                            </label>
+                          {/* ── Rating & reviews ── */}
+                          <div className='overflow-hidden rounded-xl border border-slate-200'>
+                            <div className='flex items-center justify-between bg-slate-50 px-4 py-2.5'>
+                              <div>
+                                <p className='text-sm font-semibold text-slate-800'>Rating & reviews</p>
+                                <p className='text-[11px] text-slate-400'>e.g. 4.9 · (12,480 reviews)</p>
+                              </div>
+                              <button
+                                type='button'
+                                onClick={() => setSettingsForm((prev) => ({ ...prev, useCustomRating: !prev.useCustomRating }))}
+                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  settingsForm.useCustomRating ? 'bg-slate-900' : 'bg-slate-200'
+                                }`}
+                                aria-label='Toggle manual rating'
+                              >
+                                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                                  settingsForm.useCustomRating ? 'translate-x-5' : 'translate-x-0'
+                                }`} />
+                              </button>
+                            </div>
+                            <div className={`grid gap-3 px-4 py-3 sm:grid-cols-2 transition-opacity ${settingsForm.useCustomRating ? 'opacity-100' : 'pointer-events-none opacity-40'}`}>
+                              <label className='space-y-1'>
+                                <span className='text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400'>Rating (0–5)</span>
+                                <input
+                                  type='number'
+                                  min='0' max='5' step='0.1'
+                                  value={settingsForm.customRating}
+                                  onChange={(e) => setSettingsForm((prev) => ({ ...prev, customRating: e.target.value }))}
+                                  className='h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-sm text-slate-800'
+                                />
+                              </label>
+                              <label className='space-y-1'>
+                                <span className='text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400'>Review count</span>
+                                <input
+                                  type='number'
+                                  min='0'
+                                  value={settingsForm.customReviews}
+                                  onChange={(e) => setSettingsForm((prev) => ({ ...prev, customReviews: e.target.value }))}
+                                  className='h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-sm text-slate-800'
+                                />
+                              </label>
+                            </div>
+                            {!settingsForm.useCustomRating && (
+                              <p className='px-4 pb-3 text-[11px] text-slate-400'>Auto — using real review data from the platform</p>
+                            )}
                           </div>
 
-                          <label className='flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2'>
-                            <span className='text-sm font-semibold text-slate-700'>Verification enabled</span>
-                            <input
-                              type='checkbox'
-                              checked={settingsForm.isTrustedVendor}
-                              onChange={(event) =>
-                                setSettingsForm((prev) => ({ ...prev, isTrustedVendor: event.target.checked }))
-                              }
-                            />
-                          </label>
+                          {/* ── Followers growth % ── */}
+                          <div className='overflow-hidden rounded-xl border border-slate-200'>
+                            <div className='flex items-center justify-between bg-slate-50 px-4 py-2.5'>
+                              <div>
+                                <p className='text-sm font-semibold text-slate-800'>Follower growth %</p>
+                                <p className='text-[11px] text-slate-400'>e.g. ↑ +820% followers</p>
+                              </div>
+                              <button
+                                type='button'
+                                onClick={() => setSettingsForm((prev) => ({ ...prev, useCustomFollowersGrowth: !prev.useCustomFollowersGrowth }))}
+                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  settingsForm.useCustomFollowersGrowth ? 'bg-slate-900' : 'bg-slate-200'
+                                }`}
+                                aria-label='Toggle manual follower growth'
+                              >
+                                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                                  settingsForm.useCustomFollowersGrowth ? 'translate-x-5' : 'translate-x-0'
+                                }`} />
+                              </button>
+                            </div>
+                            <div className={`px-4 py-3 transition-opacity ${settingsForm.useCustomFollowersGrowth ? 'opacity-100' : 'pointer-events-none opacity-40'}`}>
+                              <label className='space-y-1'>
+                                <span className='text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400'>Growth % (can be negative)</span>
+                                <input
+                                  type='number'
+                                  value={settingsForm.followersGrowthPct}
+                                  onChange={(e) => setSettingsForm((prev) => ({ ...prev, followersGrowthPct: e.target.value }))}
+                                  className='h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-sm text-slate-800'
+                                />
+                              </label>
+                            </div>
+                            {!settingsForm.useCustomFollowersGrowth && (
+                              <p className='px-4 pb-3 text-[11px] text-slate-400'>Auto — calculated from follower history</p>
+                            )}
+                          </div>
 
-                          <label className='flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2'>
-                            <span className='text-sm font-semibold text-slate-700'>Require admin review before publish</span>
-                            <input
-                              type='checkbox'
-                              checked={settingsForm.requireProductReviewForPublish}
-                              onChange={(event) =>
-                                setSettingsForm((prev) => ({
-                                  ...prev,
-                                  requireProductReviewForPublish: event.target.checked,
-                                }))
-                              }
-                            />
-                          </label>
+                          {/* ── Followers & sold (existing) ── */}
+                          <div className='overflow-hidden rounded-xl border border-slate-200'>
+                            <div className='flex items-center justify-between bg-slate-50 px-4 py-2.5'>
+                              <div>
+                                <p className='text-sm font-semibold text-slate-800'>Followers & sold display</p>
+                                <p className='text-[11px] text-slate-400'>Raw follower count + sold number shown on storefront</p>
+                              </div>
+                              <button
+                                type='button'
+                                onClick={() => setSettingsForm((prev) => ({ ...prev, useCustomMetrics: !prev.useCustomMetrics }))}
+                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  settingsForm.useCustomMetrics ? 'bg-slate-900' : 'bg-slate-200'
+                                }`}
+                                aria-label='Toggle manual followers/sold'
+                              >
+                                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                                  settingsForm.useCustomMetrics ? 'translate-x-5' : 'translate-x-0'
+                                }`} />
+                              </button>
+                            </div>
+                            <div className={`grid gap-3 px-4 py-3 sm:grid-cols-2 transition-opacity ${settingsForm.useCustomMetrics ? 'opacity-100' : 'pointer-events-none opacity-40'}`}>
+                              <label className='space-y-1'>
+                                <span className='text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400'>Custom followers</span>
+                                <input
+                                  type='number'
+                                  min='0'
+                                  value={settingsForm.customFollowers}
+                                  onChange={(e) => setSettingsForm((prev) => ({ ...prev, customFollowers: e.target.value }))}
+                                  className='h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-sm text-slate-800'
+                                />
+                              </label>
+                              <label className='space-y-1'>
+                                <span className='text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400'>Custom sold</span>
+                                <input
+                                  type='number'
+                                  min='0'
+                                  value={settingsForm.customSold}
+                                  onChange={(e) => setSettingsForm((prev) => ({ ...prev, customSold: e.target.value }))}
+                                  className='h-9 w-full rounded-lg border border-slate-200 px-3 font-mono text-sm text-slate-800'
+                                />
+                              </label>
+                            </div>
+                            {!settingsForm.useCustomMetrics && (
+                              <p className='px-4 pb-3 text-[11px] text-slate-400'>Auto — using real follower and sales data</p>
+                            )}
+                          </div>
+
+                          {/* ── Account flags ── */}
+                          <div className='space-y-2 pt-1'>
+                            <label className='flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 cursor-pointer'>
+                              <div>
+                                <p className='text-sm font-semibold text-slate-700'>Verification badge</p>
+                                <p className='text-[11px] text-slate-400'>Show verified checkmark on vendor profile</p>
+                              </div>
+                              <button
+                                type='button'
+                                onClick={() => setSettingsForm((prev) => ({ ...prev, isTrustedVendor: !prev.isTrustedVendor }))}
+                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  settingsForm.isTrustedVendor ? 'bg-emerald-500' : 'bg-slate-200'
+                                }`}
+                              >
+                                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                                  settingsForm.isTrustedVendor ? 'translate-x-5' : 'translate-x-0'
+                                }`} />
+                              </button>
+                            </label>
+                            <label className='flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 cursor-pointer'>
+                              <div>
+                                <p className='text-sm font-semibold text-slate-700'>Require admin review before publish</p>
+                                <p className='text-[11px] text-slate-400'>Products must be approved before going live</p>
+                              </div>
+                              <button
+                                type='button'
+                                onClick={() => setSettingsForm((prev) => ({ ...prev, requireProductReviewForPublish: !prev.requireProductReviewForPublish }))}
+                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                                  settingsForm.requireProductReviewForPublish ? 'bg-amber-500' : 'bg-slate-200'
+                                }`}
+                              >
+                                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${
+                                  settingsForm.requireProductReviewForPublish ? 'translate-x-5' : 'translate-x-0'
+                                }`} />
+                              </button>
+                            </label>
+                          </div>
 
                           <button
                             type='submit'
                             disabled={isSavingSettings}
-                            className='h-10 rounded-full bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-70'
+                            className='h-10 w-full rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-70 sm:w-auto sm:px-6'
                           >
-                            {isSavingSettings ? 'Saving...' : 'Save action settings'}
+                            {isSavingSettings ? 'Saving...' : 'Save profile settings'}
                           </button>
                         </form>
                       </div>
@@ -729,8 +847,6 @@ export default function VendorModerationPage() {
                 </section>
               </>
             ) : null}
-          </div>
-        </main>
       </div>
 
       <VendorTakeDownModal
@@ -744,6 +860,6 @@ export default function VendorModerationPage() {
         onClose={closeTakeDownDialog}
         onConfirm={confirmTakeDown}
       />
-    </div>
+    </AdminShell>
   )
 }

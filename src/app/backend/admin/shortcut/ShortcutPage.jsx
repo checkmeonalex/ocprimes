@@ -2,8 +2,7 @@
 
 import CustomSelect from '@/components/common/CustomSelect'
 import { useEffect, useState } from 'react'
-import AdminSidebar from '@/components/AdminSidebar'
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+import AdminShell from '@/components/admin/AdminShell'
 import { PRODUCT_CONDITION_OPTIONS } from '@/lib/admin/product-conditions'
 import { PRODUCT_PACKAGING_OPTIONS } from '@/lib/admin/product-packaging'
 import { PRODUCT_RETURN_POLICY_OPTIONS } from '@/lib/admin/product-returns'
@@ -265,12 +264,8 @@ export default function ShortcutPage() {
   }
 
   return (
-    <div className='min-h-screen bg-[#f6f7f9] text-slate-900'>
-      <div className='flex min-h-screen'>
-        <AdminSidebar />
-        <main className='flex-1 px-4 pb-6 pt-0 sm:px-6 lg:px-10'>
-          <AdminDesktopHeader />
-          <div className='mx-auto w-full max-w-6xl space-y-6'>
+    <AdminShell bg="bg-[#f6f7f9]">
+      <div className='mx-auto w-full max-w-6xl space-y-6'>
             <section className='px-3 sm:px-1'>
               <h1 className='text-[34px] font-semibold tracking-tight text-slate-900'>Shortcut</h1>
               <p className='mt-2 text-sm text-slate-500'>
@@ -416,9 +411,7 @@ export default function ShortcutPage() {
                 </div>
               )}
             </section>
-          </div>
-        </main>
       </div>
-    </div>
+    </AdminShell>
   )
 }

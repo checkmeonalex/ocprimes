@@ -24,8 +24,8 @@ export default function HomeHeroSlider({
         className='h-full'
         showControls
         controlsVariant='rect'
-        controlsTop='10%'
-        controlsTranslateY='0%'
+        controlsTop='50%'
+        controlsTranslateY='-50%'
         indicatorPosition='top-right'
         indicatorVariant='pill'
         showPlayPause

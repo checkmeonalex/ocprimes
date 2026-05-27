@@ -2,8 +2,7 @@
 
 import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
-import AdminSidebar from '@/components/AdminSidebar'
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+import AdminShell from '@/components/admin/AdminShell'
 import ProductImageLibraryModal from '../products/ProductImageLibraryModal.jsx'
 import { normalizeOrderProtectionConfig, ORDER_PROTECTION_DEFAULTS } from '@/lib/order-protection/config'
 
@@ -339,14 +338,8 @@ export default function ExtraPage() {
   }
 
   return (
-    <div className='min-h-screen bg-slate-50 text-slate-900'>
-      <div className='flex min-h-screen'>
-        <div className='sticky top-0 self-start h-screen'>
-          <AdminSidebar />
-        </div>
-        <main className='flex-1 px-4 pb-8 sm:px-6 lg:px-10'>
-          <AdminDesktopHeader />
-          <div className='mx-auto w-full max-w-7xl py-5'>
+    <AdminShell>
+      <div className='mx-auto w-full max-w-7xl py-5'>
             <div className='flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between'>
               <div>
                 <p className='text-xs font-semibold uppercase tracking-[0.3em] text-slate-400'>
@@ -789,8 +782,6 @@ export default function ExtraPage() {
                 )}
               </section>
             </div>
-          </div>
-        </main>
       </div>
       <ProductImageLibraryModal
         isOpen={isImageLibraryOpen}
@@ -805,6 +796,6 @@ export default function ExtraPage() {
         zIndexClass='z-[80]'
         zIndex={4000}
       />
-    </div>
+    </AdminShell>
   )
 }

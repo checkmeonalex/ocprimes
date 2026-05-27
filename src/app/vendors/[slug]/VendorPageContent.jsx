@@ -52,6 +52,23 @@ export async function renderVendorPage(vendorSlug, searchParams = {}) {
   const customSold = Math.max(0, Number(vendorMeta?.custom_profile_sold) || 0)
   const followersCount = useCustomMetrics ? customFollowers : realFollowersCount
   const soldCount = useCustomMetrics ? customSold : realSoldCount
+
+  const ratingValue = Boolean(vendorMeta?.use_custom_rating)
+    ? Math.min(5, Math.max(0, Number(vendorMeta?.custom_profile_rating) || 0))
+    : 0
+  const reviewCount = Boolean(vendorMeta?.use_custom_rating)
+    ? Math.max(0, Number(vendorMeta?.custom_profile_reviews) || 0)
+    : 0
+  const ordersCount = soldCount
+  const followersGrowthPct = Boolean(vendorMeta?.use_custom_followers_growth)
+    ? Number(vendorMeta?.followers_growth_pct) || 0
+    : 0
+  const createdAt = vendorMeta?.created_at ? new Date(vendorMeta.created_at) : null
+  const daysOnPlatform = createdAt
+    ? Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)))
+    : 0
+  const yearsOnPlatform = Math.floor(daysOnPlatform / 365)
+  const monthsOnPlatform = Math.floor(daysOnPlatform / 30)
   const vendorHandle = `@${String(vendorMeta?.slug || normalizedVendorSlug || vendorName).replace(/\s+/g, '').toLowerCase()}`
   const vendorPublicSlug = String(vendorMeta?.slug || normalizedVendorSlug || '').trim()
   const brandOwnerUserId = String(vendorMeta?.created_by || '').trim()
@@ -101,6 +118,12 @@ export async function renderVendorPage(vendorSlug, searchParams = {}) {
         posts: productCount,
         followers: followersCount,
         sold: soldCount,
+        orders: ordersCount,
+        rating: ratingValue,
+        reviewCount,
+        followersGrowthPct,
+        yearsOnPlatform,
+        monthsOnPlatform,
         logoUrl: String(vendorMeta?.logo_url || '').trim(),
         slug: vendorPublicSlug,
         brandId,
@@ -111,6 +134,7 @@ export async function renderVendorPage(vendorSlug, searchParams = {}) {
         trustedBadgeUrl:
           String(vendorMeta?.trusted_badge_url || '').trim() || DEFAULT_VENDOR_VERIFIED_BADGE_PATH,
       }}
+      vendorTemplate={String(vendorMeta?.template || 'default').trim() || 'default'}
       vendorSlider={{
         urls: Array.isArray(vendorMeta?.banner_slider_urls) ? vendorMeta.banner_slider_urls : [],
         mobileUrls: Array.isArray(vendorMeta?.banner_slider_mobile_urls)

@@ -8,7 +8,7 @@ export default function HomePageAdminCard() {
       <p className='text-xs font-semibold uppercase tracking-[0.4em] text-slate-400'>Pages</p>
       <h1 className='mt-3 text-2xl font-semibold text-slate-900'>Home</h1>
       <p className='mt-3 text-sm text-slate-500'>
-        Edit the homepage as an independent page: hero slider, stories, featured strip config,
+        Edit the homepage as an independent page: hero slider, featured strip config,
         browse cards, home product catalog, and section order.
       </p>
 

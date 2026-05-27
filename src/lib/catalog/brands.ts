@@ -39,6 +39,7 @@ const normalizeBrand = (value: any) => ({
     ? value.storefront_section_order
     : ['banner_grid', 'storefront_filter'],
   storefront_blocks: Array.isArray(value?.storefront_blocks) ? value.storefront_blocks : [],
+  template: String(value?.template || 'default').trim() || 'default',
 })
 
 const enrichBrandFilters = async (supabase: any, brand: any) => {
@@ -149,7 +150,7 @@ export const fetchBrandBySlugOrId = async (value: string) => {
     supabase
       .from('admin_brands')
       .select(
-        'id, name, slug, description, logo_url, created_by, banner_slider_urls, banner_slider_mobile_urls, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor, trusted_badge_url, collections_menu_mode, banner_grid, storefront_section_order, storefront_blocks',
+        'id, name, slug, description, logo_url, created_by, created_at, banner_slider_urls, banner_slider_mobile_urls, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor, trusted_badge_url, collections_menu_mode, banner_grid, storefront_section_order, storefront_blocks, template, use_custom_rating, custom_profile_rating, custom_profile_reviews, use_custom_orders, custom_profile_sold_display, use_custom_followers_growth, followers_growth_pct',
       )
       .limit(1)
   const baseQueryLegacy = () =>
@@ -197,4 +198,69 @@ export const fetchBrandBySlugOrId = async (value: string) => {
   }
 
   return null
+}
+
+const VENDOR_SELECT_FULL =
+  'id, name, slug, logo_url, is_trusted_vendor, custom_profile_followers, custom_profile_sold, use_custom_profile_metrics, use_custom_rating, custom_profile_rating, custom_profile_reviews, use_custom_orders, custom_profile_sold_display, use_custom_followers_growth, followers_growth_pct, created_at'
+const VENDOR_SELECT_BASE =
+  'id, name, slug, logo_url, is_trusted_vendor, custom_profile_followers, custom_profile_sold, created_at'
+
+function mapVendorRow(v: any) {
+  const createdAt = v.created_at ? new Date(v.created_at) : null
+  const daysOnPlatform = createdAt
+    ? Math.max(0, Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24)))
+    : 0
+  const yearsOnPlatform = Math.floor(daysOnPlatform / 365)
+  const monthsOnPlatform = Math.floor(daysOnPlatform / 30)
+
+  const useCustomRating = Boolean(v.use_custom_rating)
+  const useCustomOrders = Boolean(v.use_custom_orders)
+  const useCustomFollowersGrowth = Boolean(v.use_custom_followers_growth)
+  const useCustomMetrics = Boolean(v.use_custom_profile_metrics)
+
+  return {
+    id: String(v.id || ''),
+    name: String(v.name || ''),
+    slug: String(v.slug || ''),
+    logo_url: String(v.logo_url || ''),
+    is_trusted_vendor: Boolean(v.is_trusted_vendor),
+    custom_profile_followers: useCustomMetrics ? (Number(v.custom_profile_followers) || 0) : 0,
+    custom_profile_sold: useCustomMetrics ? (Number(v.custom_profile_sold) || 0) : 0,
+    custom_profile_rating: useCustomRating ? (Number(v.custom_profile_rating) || 0) : 0,
+    custom_profile_reviews: useCustomRating ? (Number(v.custom_profile_reviews) || 0) : 0,
+    custom_profile_orders: useCustomOrders ? (Number(v.custom_profile_sold_display) || 0) : 0,
+    followers_growth_pct: useCustomFollowersGrowth ? (Number(v.followers_growth_pct) || 0) : 0,
+    years_on_platform: yearsOnPlatform,
+    months_on_platform: monthsOnPlatform,
+  }
+}
+
+export const fetchAllVendors = async () => {
+  let supabase
+  try {
+    supabase = createAdminSupabaseClient()
+  } catch (_error) {
+    supabase = await createServerSupabaseClient()
+  }
+
+  let { data, error } = await supabase
+    .from('admin_brands')
+    .select(VENDOR_SELECT_FULL)
+    .order('name', { ascending: true })
+
+  if (isMissingColumnError(error)) {
+    const fallback = await supabase
+      .from('admin_brands')
+      .select(VENDOR_SELECT_BASE)
+      .order('name', { ascending: true })
+    data = fallback.data
+    error = fallback.error
+  }
+
+  if (error) {
+    console.error('fetchAllVendors error:', error.message)
+    return []
+  }
+
+  return (data ?? []).map(mapVendorRow)
 }

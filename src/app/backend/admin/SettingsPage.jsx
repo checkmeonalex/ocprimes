@@ -4,8 +4,7 @@ import CustomSelect from '@/components/common/CustomSelect'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import AdminSidebar from '@/components/AdminSidebar'
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+import AdminShell from '@/components/admin/AdminShell'
 import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
 import { toProfileIdentity, writeProfileIdentityCache } from '@/lib/user/profile-identity-cache'
 import {
@@ -471,12 +470,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className='min-h-screen bg-[#f6f7f9] text-slate-900'>
-      <div className='flex min-h-screen'>
-        <AdminSidebar />
-        <main className='flex-1 px-4 pb-6 sm:px-6 lg:px-10'>
-          <AdminDesktopHeader />
-          <div className='mx-auto w-full max-w-6xl'>
+    <AdminShell bg="bg-[#f6f7f9]">
+      <div className='mx-auto w-full max-w-6xl'>
             <section className='mb-6 space-y-4 lg:hidden'>
               {mobileSection === 'menu' ? (
                 <>
@@ -1247,9 +1242,7 @@ export default function SettingsPage() {
                 </section>
               </div>
             </div>
-          </div>
-        </main>
       </div>
-    </div>
+    </AdminShell>
   )
 }

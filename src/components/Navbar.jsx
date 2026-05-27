@@ -680,6 +680,8 @@ export default function Navbar({
   const isCartRoute = pathname?.startsWith('/cart')
   const isCheckoutRoute = pathname?.startsWith('/checkout')
   const isCheckoutFlow = isCartRoute || isCheckoutRoute
+  const isProductPage = pathname?.startsWith('/product/')
+  const isHomePage = pathname === '/'
   const isUserDashboard = pathname?.startsWith('/UserBackend') || pathname === '/account' || pathname?.startsWith('/account/')
   const hasAccountSearchQuery = accountSearchValue.trim().length > 0
   const accountSearchSuggestions = useMemo(
@@ -1301,10 +1303,9 @@ export default function Navbar({
         </div>
       </div>
 
+      {(!isProductPage && !isVendorStore && (isUserDashboard || lastScrollY < 20)) && (
       <div
-        className={`border-y border-gray-200 bg-white ${
-          isUserDashboard || lastScrollY < 20 ? 'block' : 'hidden'
-        }`}
+        className='border-y border-gray-200 bg-white'
       >
         {isUserDashboard ? (
           <div className='flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 md:px-5'>
@@ -1566,6 +1567,7 @@ export default function Navbar({
           </div>
         )}
       </div>
+      )}
 
       <div
         className='pointer-events-none absolute inset-x-0 top-full z-40'

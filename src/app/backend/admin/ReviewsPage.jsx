@@ -3,8 +3,7 @@
 import CustomSelect from '@/components/common/CustomSelect'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import AdminSidebar from '@/components/AdminSidebar';
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
+import AdminShell from '@/components/admin/AdminShell';
 
 const STAR_ITEMS = [1, 2, 3, 4, 5];
 
@@ -243,12 +242,8 @@ export default function ReviewsPage() {
   }, [closeEditor, editingReview, isDeleting, permissions.can_delete_review]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="flex min-h-screen">
-        <AdminSidebar />
-        <main className="flex-1 px-4 pb-8 sm:px-6 lg:px-10">
-          <AdminDesktopHeader />
-          <div className="mx-auto w-full max-w-7xl space-y-6">
+    <AdminShell>
+      <div className="mx-auto w-full max-w-7xl space-y-6">
             <section className="border-b border-slate-200 pb-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
@@ -521,9 +516,7 @@ export default function ReviewsPage() {
                 </div>
               </div>
             ) : null}
-          </div>
-        </main>
       </div>
-    </div>
+    </AdminShell>
   );
 }

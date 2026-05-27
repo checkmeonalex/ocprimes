@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import AdminSidebar from '@/components/AdminSidebar';
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
+import AdminShell from '@/components/admin/AdminShell';
 import InteractiveTrendChart from '@/components/admin/InteractiveTrendChart';
 import { DASHBOARD_RANGE_OPTIONS, DEFAULT_DASHBOARD_RANGE } from '@/lib/admin/dashboard-range-config';
 
@@ -149,12 +148,8 @@ function DashboardPage() {
     : [];
 
   return (
-    <div className="min-h-screen overflow-x-clip bg-white text-slate-900">
-      <div className="flex min-h-screen">
-        <AdminSidebar />
-        <main className="flex-1 px-4 pb-6 sm:px-6 lg:px-10">
-          <AdminDesktopHeader />
-          <div className="mx-auto w-full max-w-[1250px] px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-10">
+    <AdminShell bg="bg-white">
+      <div className="mx-auto w-full max-w-[1250px] px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-10">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className="text-2xl font-semibold text-slate-900">Dashboard</h1>
@@ -473,10 +468,8 @@ function DashboardPage() {
                 </article>
               </section>
             ) : null}
-          </div>
-        </main>
       </div>
-    </div>
+    </AdminShell>
   );
 }
 

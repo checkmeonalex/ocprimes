@@ -158,6 +158,8 @@ export default function ClientLayout({
               ? 'pt-16 lg:pt-0'
             : isUserBackendRoute
               ? 'pt-0 lg:pt-[106px]'
+            : isProductRoute
+              ? 'pt-0 lg:pt-14 xl:pt-16'
               : 'pt-24 lg:pt-[106px]'
         }`}
       >

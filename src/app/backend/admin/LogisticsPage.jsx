@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import AdminSidebar from '@/components/AdminSidebar'
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+import AdminShell from '@/components/admin/AdminShell'
 import CustomSelect from '@/components/common/CustomSelect'
 import PickupLocationsEditor from '@/components/admin/logistics/PickupLocationsEditor'
 import { DEFAULT_WORLDWIDE_ETA_KEY } from '@/lib/logistics/worldwide'
@@ -273,13 +272,8 @@ export default function LogisticsPage() {
         : rates.length > 0
 
   return (
-    <div className='min-h-screen bg-[#f4f7f9] text-slate-900 lg:bg-white'>
-      <div className='flex min-h-screen'>
-        <AdminSidebar />
-
-        <main className='flex-1 pb-8'>
-          <AdminDesktopHeader noMargin noBleed />
-          <section className='w-full bg-transparent p-0 lg:bg-white lg:px-4 xl:px-5'>
+    <AdminShell bg="bg-[#f4f7f9]" noBleed noPad>
+      <section className='w-full bg-transparent p-0 lg:bg-white lg:px-4 xl:px-5'>
             <div className='pb-24 pt-0 lg:pb-10'>
               <section className='bg-transparent'>
           <div className='px-4 py-4 sm:px-5'>
@@ -604,9 +598,6 @@ export default function LogisticsPage() {
               {isSaving ? 'Saving...' : 'Save logistics'}
             </button>
           </div>
-        </main>
-      </div>
-
-    </div>
+    </AdminShell>
   )
 }

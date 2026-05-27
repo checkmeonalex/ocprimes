@@ -1,7 +1,5 @@
 import HomeHeroSlider from './HomeHeroSlider'
-import StoriesComponent from '../pvideos/StoriesComponent'
 import { getCachedHomePageSettings } from '@/lib/home/settings'
-import { getCachedHomeStories } from '@/lib/home/stories'
 
 const DEFAULT_HERO_SLIDES = []
 
@@ -14,7 +12,6 @@ const resolveHeroSlides = (urls = []) => {
 
 export default async function HomeHero() {
   const settings = await getCachedHomePageSettings()
-  const stories = await getCachedHomeStories()
   const desktopSlots = resolveHeroSlides(settings?.banner_slider_urls)
   const mobileSlots = resolveHeroSlides(settings?.banner_slider_mobile_urls)
   const slides = []
@@ -34,16 +31,9 @@ export default async function HomeHero() {
   }
 
   return (
-    <section className='w-full'>
-      <div className='relative isolate overflow-hidden border border-gray-200 mobile-full-bleed'>
+    <section className='w-full px-3 sm:px-4 md:px-5'>
+      <div className='relative isolate overflow-hidden rounded-2xl md:rounded-3xl bg-gray-900 h-[44vw] max-h-[460px] min-h-[200px] sm:min-h-[260px]'>
         <HomeHeroSlider images={slides} mobileImages={mobile} links={slideLinks} autoMs={5000} />
-
-        <div className='pointer-events-none relative px-1 pb-0 pt-[20vh] sm:px-6 sm:pt-[22vh] lg:px-8 lg:pt-[30vh]'>
-          <div className='pointer-events-none absolute inset-x-0 bottom-0 top-[20vh] z-0 bg-gradient-to-b from-transparent via-white/70 to-white sm:top-[22vh] lg:top-[30vh]' />
-          <div className='pointer-events-auto relative z-10'>
-            <StoriesComponent stories={stories} />
-          </div>
-        </div>
       </div>
     </section>
   )

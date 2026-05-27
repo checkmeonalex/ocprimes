@@ -95,6 +95,10 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
   const snapshot = await buildSnapshot(request, context)
   if (snapshot.response) return snapshot.response
 
+  const isOwner =
+    Boolean(snapshot.user?.id) &&
+    Boolean(snapshot.brandOwnerUserId) &&
+    snapshot.user!.id === snapshot.brandOwnerUserId
   const response = jsonOk({
     brand: {
       id: String(snapshot.brand.id),
@@ -103,7 +107,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ slu
     },
     followers: snapshot.followers,
     is_following: snapshot.isFollowing,
-    can_follow: Boolean(snapshot.user?.id),
+    can_follow: Boolean(snapshot.user?.id) && !isOwner,
+    is_owner: isOwner,
   })
   snapshot.applyCookies?.(response)
   return response

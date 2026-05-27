@@ -100,7 +100,7 @@ type StoreFrontUpdates = {
 const LEGACY_UPDATE_FIELDS = new Set(['logo_url'])
 
 const selectColumns =
-  'id, name, slug, description, logo_url, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, collections_menu_mode, banner_grid, storefront_section_order, storefront_blocks'
+  'id, name, slug, description, logo_url, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, collections_menu_mode, banner_grid, storefront_section_order, storefront_blocks, template'
 const selectColumnsLegacy = 'id, name, slug, description, logo_url'
 const MISSING_COLUMN_CODE = '42703'
 

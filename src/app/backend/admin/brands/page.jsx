@@ -38,7 +38,7 @@ export default function AdminBrandsPage() {
   }, []);
 
   if (isLoading) {
-    return <div className="px-4 py-8 text-sm text-slate-500">Loading brands...</div>;
+    return null;
   }
 
   if (role === 'admin') {

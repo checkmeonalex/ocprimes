@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { buildCanonicalProductSlug, loadPublicProductItem } from '@/lib/catalog/product-route'
+import { DEFAULT_VENDOR_VERIFIED_BADGE_PATH } from '@/lib/catalog/vendor-verification'
 import { BRAND_NAME } from '@/lib/brand'
 import { SITE_URL } from '@/lib/seo'
 import ProductContent from './ProductPageClient'
@@ -132,6 +133,32 @@ export default async function ProductPage({
   const canonicalSlug = result.canonicalSlug || buildCanonicalProductSlug(initialItem)
   const canonical = buildCanonicalUrl(canonicalSlug || slug)
   const images = getProductImages(initialItem)
+  const vendorBrand = Array.isArray(initialItem?.brands) ? (initialItem.brands[0] || null) : null
+  const vendorTemplate = String(vendorBrand?.template || 'default').trim() || 'default'
+
+  // Build vendor header profile — auth state (follow/edit) resolved client-side to avoid extra DB round-trips
+  let vendorHeaderProfile: Record<string, any> | null = null
+  if (vendorBrand?.slug) {
+    const vp = initialItem?.vendor_profile || null
+    vendorHeaderProfile = {
+      name: String(vendorBrand.name || vp?.name || '').trim(),
+      logoUrl: String(vp?.logo_url || '').trim(),
+      slug: String(vendorBrand.slug || '').trim(),
+      brandId: String(vendorBrand.id || '').trim(),
+      brandCreatedBy: String(vendorBrand.created_by || '').trim(),
+      handle: `@${String(vendorBrand.slug || '').toLowerCase()}`,
+      followers: Math.max(0, Number(vp?.followers) || 0),
+      sold: Math.max(0, Number(vp?.sold) || 0),
+      posts: 0,
+      canFollow: true,
+      isFollowing: false,
+      canEditStorefront: false,
+      isTrusted: Boolean(vp?.is_trusted_vendor || vp?.isTrusted),
+      trustedBadgeUrl:
+        String(vp?.trusted_badge_url || vp?.trustedBadgeUrl || '').trim() ||
+        DEFAULT_VENDOR_VERIFIED_BADGE_PATH,
+    }
+  }
   const productName = String(initialItem?.name || 'Product').trim()
   const description = buildProductDescription(initialItem)
   const vendorName = String(
@@ -209,7 +236,7 @@ export default async function ProductPage({
         type='application/ld+json'
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
-      <ProductContent slug={slug} initialItem={initialItem} />
+      <ProductContent slug={slug} initialItem={initialItem} vendorTemplate={vendorTemplate} vendorHeaderProfile={vendorHeaderProfile} />
     </>
   )
 }

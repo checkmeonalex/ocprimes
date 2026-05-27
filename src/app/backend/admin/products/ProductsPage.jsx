@@ -12,8 +12,7 @@ import ProductPreviewModal from './ProductPreviewModal';
 import LoadingButton from '../../../../components/LoadingButton';
 import { FILTER_OPTIONS, SORT_OPTIONS, applyProductFilters, applyProductSort } from './filters/productFilters';
 import { createProduct, deleteProduct, fetchProducts, updateProduct } from './functions/products';
-import AdminSidebar from '@/components/AdminSidebar';
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
+import AdminShell from '@/components/admin/AdminShell';
 import { useAlerts } from '@/context/AlertContext';
 
 const PRODUCT_PAGE_SIZE = 8;
@@ -791,13 +790,8 @@ function WooCommerceProductsPage() {
     'rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm';
 
   return (
-    <div className="min-h-screen bg-white overflow-x-clip text-slate-900">
-      <div className="flex min-h-screen">
-        {!shouldHideBottomNav && <AdminSidebar />}
-
-        <main className="flex-1 pb-6 sm:px-6 lg:px-10">
-                  <AdminDesktopHeader />
-          <div className="mx-auto w-full max-w-6xl space-y-6">
+    <AdminShell bg="bg-white">
+      <div className="mx-auto w-full max-w-6xl space-y-6">
             <div className="relative w-full md:hidden">
               <div className="flex items-center gap-2 bg-white p-2 shadow-sm ring-1 ring-slate-200/80">
                 <div className="flex flex-1 items-center gap-2 rounded-lg border border-slate-300/80 bg-white px-3 py-2.5 text-slate-500">
@@ -1738,8 +1732,6 @@ function WooCommerceProductsPage() {
 
             </div>
           </div>
-        </main>
-      </div>
       <ProductPreviewModal
         isOpen={isPreviewOpen}
         product={previewProduct}
@@ -1781,7 +1773,7 @@ function WooCommerceProductsPage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </AdminShell>
   );
 }
 

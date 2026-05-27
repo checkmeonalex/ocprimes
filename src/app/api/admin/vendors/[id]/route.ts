@@ -16,6 +16,13 @@ const patchSchema = z.object({
   custom_profile_sold: z.coerce.number().int().min(0).max(100000000).optional(),
   is_trusted_vendor: z.boolean().optional(),
   require_product_review_for_publish: z.boolean().optional(),
+  use_custom_rating: z.boolean().optional(),
+  custom_profile_rating: z.coerce.number().min(0).max(5).optional(),
+  custom_profile_reviews: z.coerce.number().int().min(0).max(100000000).optional(),
+  use_custom_orders: z.boolean().optional(),
+  custom_profile_sold_display: z.coerce.number().int().min(0).max(100000000).optional(),
+  use_custom_followers_growth: z.boolean().optional(),
+  followers_growth_pct: z.coerce.number().int().min(-999).max(100000).optional(),
 })
 
 const productSelect =
@@ -60,7 +67,7 @@ const loadVendorWorkspace = async (vendorId: string) => {
     adminDb
       .from('admin_brands')
       .select(
-        'id, name, slug, description, logo_url, created_at, created_by, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor, trusted_badge_url, require_product_review_for_publish',
+        'id, name, slug, description, logo_url, created_at, created_by, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor, trusted_badge_url, require_product_review_for_publish, use_custom_rating, custom_profile_rating, custom_profile_reviews, use_custom_orders, custom_profile_sold_display, use_custom_followers_growth, followers_growth_pct',
       )
       .eq('created_by', vendorId)
       .maybeSingle(),
@@ -311,6 +318,27 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
   if (parsedBody.data.require_product_review_for_publish !== undefined) {
     updates.require_product_review_for_publish = parsedBody.data.require_product_review_for_publish
+  }
+  if (parsedBody.data.use_custom_rating !== undefined) {
+    updates.use_custom_rating = parsedBody.data.use_custom_rating
+  }
+  if (parsedBody.data.custom_profile_rating !== undefined) {
+    updates.custom_profile_rating = parsedBody.data.custom_profile_rating
+  }
+  if (parsedBody.data.custom_profile_reviews !== undefined) {
+    updates.custom_profile_reviews = parsedBody.data.custom_profile_reviews
+  }
+  if (parsedBody.data.use_custom_orders !== undefined) {
+    updates.use_custom_orders = parsedBody.data.use_custom_orders
+  }
+  if (parsedBody.data.custom_profile_sold_display !== undefined) {
+    updates.custom_profile_sold_display = parsedBody.data.custom_profile_sold_display
+  }
+  if (parsedBody.data.use_custom_followers_growth !== undefined) {
+    updates.use_custom_followers_growth = parsedBody.data.use_custom_followers_growth
+  }
+  if (parsedBody.data.followers_growth_pct !== undefined) {
+    updates.followers_growth_pct = parsedBody.data.followers_growth_pct
   }
   if (!Object.keys(updates).length) {
     return jsonError('No settings changes were provided.', 400)

@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import AdminSidebar from '@/components/AdminSidebar';
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
+import AdminShell from '@/components/admin/AdminShell';
 import { useAlerts } from '@/context/AlertContext';
 import StoreFrontLogoSection from './components/StoreFrontLogoSection';
 import StoreFrontCollectionsMenuSection from './components/StoreFrontCollectionsMenuSection';
@@ -151,12 +150,8 @@ export default function StoreFrontPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="flex min-h-screen">
-        <AdminSidebar />
-        <main className="flex-1 px-4 pb-8 sm:px-6 lg:px-10">
-          <AdminDesktopHeader />
-          <div className="mx-auto w-full max-w-5xl space-y-8">
+    <AdminShell>
+      <div className="mx-auto w-full max-w-5xl space-y-8">
             <section className="px-1">
               <div className="flex items-center gap-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Store front</p>
@@ -208,8 +203,6 @@ export default function StoreFrontPage() {
               onSave={saveStoreFront}
             />
 
-          </div>
-        </main>
       </div>
 
       <MediaLibraryModal
@@ -217,6 +210,6 @@ export default function StoreFrontPage() {
         onClose={() => setIsLogoMediaOpen(false)}
         onSelect={handleLogoSelect}
       />
-    </div>
+    </AdminShell>
   );
 }

@@ -1,8 +1,5 @@
-import HomeHero from '../components/layouts/home/HomeHero'
-import BrowseCategories from '../components/layouts/BrowseCategories'
-import HomeSectionSequence from '../components/layouts/home/HomeSectionSequence'
 import HomeLayoutSections from '../components/layouts/home/HomeLayoutSections'
-import HomeProductCatalogSection from '../components/layouts/home/HomeProductCatalogSection'
+import VendorBrowseSection from '../components/layouts/home/VendorBrowseSection'
 import { BRAND_NAME, BRAND_SEARCH_DESCRIPTION, BRAND_TAGLINE } from '../lib/brand'
 import { SITE_URL } from '../lib/seo'
 
@@ -60,21 +57,9 @@ export default function HomePage() {
             type='application/ld+json'
             dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
           />
-          {/* Use main-container class instead of px-4 to avoid double padding */}
           <div className='main-container pt-0 pb-2 mb-4 md:mb-2'>
-            <HomeHero />
-
-            <HomeSectionSequence>
-              <div className='mt-4'>
-                <BrowseCategories />
-              </div>
-
-              <HomeLayoutSections />
-
-              <div className='mt-4'>
-                <HomeProductCatalogSection />
-              </div>
-            </HomeSectionSequence>
+            <HomeLayoutSections />
+            <VendorBrowseSection />
           </div>
         </main>
       </div>

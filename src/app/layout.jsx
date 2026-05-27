@@ -2,6 +2,7 @@
 import ClientLayout from '../components/ClientLayout'
 import './globals.css'
 import localFont from 'next/font/local'
+import { Instrument_Serif, Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { SidebarProvider } from '../context/SidebarContext'
 import { CartProvider } from '../context/CartContext'
@@ -86,6 +87,26 @@ const outfit = localFont({
   display: 'swap',
 })
 
+const instrumentSerif = Instrument_Serif({
+  subsets: ['latin'],
+  weight: '400',
+  style: ['normal', 'italic'],
+  variable: '--font-instrument-serif',
+  display: 'swap',
+})
+
+const geist = Geist({
+  subsets: ['latin'],
+  variable: '--font-geist',
+  display: 'swap',
+})
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-geist-mono',
+  display: 'swap',
+})
+
 export default async function RootLayout({ children }) {
   let initialAuthUser = null
   let initialTopCategories = []
@@ -104,7 +125,7 @@ export default async function RootLayout({ children }) {
 
   return (
     <html lang='en'>
-      <body className={outfit.variable}>
+      <body className={`${outfit.variable} ${instrumentSerif.variable} ${geist.variable} ${geistMono.variable}`}>
         <PwaRegistration />
         <UserLocaleProvider>
           <AlertProvider>

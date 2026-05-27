@@ -3,8 +3,7 @@
 import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import AdminSidebar from '@/components/AdminSidebar'
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+import AdminShell from '@/components/admin/AdminShell'
 import CustomSelect from '@/components/common/CustomSelect'
 
 const PER_PAGE = 10
@@ -460,12 +459,8 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className='min-h-screen bg-[#f4f7f9] text-slate-900 lg:bg-white'>
-      <div className='flex min-h-screen'>
-        <AdminSidebar />
-        <main className='flex-1 pb-8'>
-          <AdminDesktopHeader />
-          <section className='w-full bg-transparent p-0 lg:bg-white lg:px-4 xl:px-5'>
+    <AdminShell bg="bg-[#f4f7f9]" noPad>
+      <section className='w-full bg-transparent p-0 lg:bg-white lg:px-4 xl:px-5'>
             <div className='px-3 pb-3 pt-4 lg:hidden'>
               <div className='grid grid-cols-2 gap-2'>
                 {MOBILE_SUMMARY_CARDS.map((card, index) => {
@@ -846,9 +841,7 @@ export default function OrdersPage() {
               </button>
             </div>
             </div>
-          </section>
-        </main>
-      </div>
-    </div>
+      </section>
+    </AdminShell>
   )
 }

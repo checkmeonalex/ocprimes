@@ -5,8 +5,7 @@ import { fetchProductCategories } from './products/functions/categories';
 import ProductCategorySelector from './products/ProductCategorySelector';
 import { uploadMediaFile } from './products/functions/media';
 import LoadingButton from '../../../components/LoadingButton';
-import AdminSidebar from '@/components/AdminSidebar';
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
+import AdminShell from '@/components/admin/AdminShell';
 import { useAlerts } from '@/context/AlertContext';
 import { sanitizeHtml } from '@/utils/sanitization';
 
@@ -234,13 +233,8 @@ function WooCommerceSizeGuidesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="flex min-h-screen">
-        <AdminSidebar />
-
-        <main className="flex-1 px-6 py-8">
-                  <AdminDesktopHeader />
-          <div className="flex flex-wrap items-center justify-between gap-3">
+    <AdminShell>
+      <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
                 Inventory
@@ -327,8 +321,6 @@ function WooCommerceSizeGuidesPage() {
                 )}
               </div>
             ))}
-          </div>
-        </main>
       </div>
 
       {isCreateOpen && (
@@ -585,7 +577,7 @@ function WooCommerceSizeGuidesPage() {
           </div>
         </div>
       )}
-    </div>
+    </AdminShell>
   );
 }
 

@@ -25,6 +25,7 @@ const CUSTOM_ATTRIBUTE_EXCLUDE = new Set([
   'rating',
   'reviews',
   'vendor',
+  'vendor_id',
   'brand',
   'category',
   'colors',
@@ -76,66 +77,66 @@ const buildCustomAttributes = (item) => {
 }
 
 const resolveVendorName = (item) => {
+  if (item?.vendor && typeof item.vendor === 'object') {
+    const name = String(item.vendor.store_name || '').trim()
+    if (name) return name
+  }
+
   const directCandidates = [
-    item?.vendor,
     item?.vendor_name,
     item?.vendorName,
-    item?.brand_name,
-    item?.brandName,
     item?.store_name,
     item?.storeName,
     item?.seller_name,
     item?.sellerName,
   ]
 
-  const directMatch = directCandidates.find(
-    (value) => String(value || '').trim(),
-  )
+  const directMatch = directCandidates.find((value) => String(value || '').trim())
   if (directMatch) return String(directMatch).trim()
 
   if (Array.isArray(item?.brands)) {
     const firstBrand = item.brands.find((brand) =>
-      String(brand?.name || brand?.brand_name || '').trim(),
+      String(brand?.name || '').trim(),
     )
-    if (firstBrand) {
-      return String(
-        firstBrand?.name || firstBrand?.brand_name || '',
-      ).trim()
-    }
+    if (firstBrand) return String(firstBrand.name).trim()
   }
 
   return ''
 }
 
 const resolveVendorSlug = (item) => {
+  if (item?.vendor && typeof item.vendor === 'object') {
+    const slug = String(item.vendor.slug || '').trim()
+    if (slug) return slug
+  }
+
   const directCandidates = [
     item?.vendorSlug,
     item?.vendor_slug,
-    item?.brand_slug,
-    item?.brandSlug,
     item?.store_slug,
     item?.storeSlug,
     item?.seller_slug,
     item?.sellerSlug,
   ]
 
-  const directMatch = directCandidates.find(
-    (value) => String(value || '').trim(),
-  )
+  const directMatch = directCandidates.find((value) => String(value || '').trim())
   if (directMatch) return String(directMatch).trim()
 
   if (Array.isArray(item?.brands)) {
     const firstBrand = item.brands.find((brand) =>
-      String(brand?.slug || brand?.brand_slug || '').trim(),
+      String(brand?.slug || '').trim(),
     )
-    if (firstBrand) {
-      return String(
-        firstBrand?.slug || firstBrand?.brand_slug || '',
-      ).trim()
-    }
+    if (firstBrand) return String(firstBrand.slug).trim()
   }
 
   return ''
+}
+
+const resolveVendorId = (item) => {
+  if (item?.vendor && typeof item.vendor === 'object') {
+    return String(item.vendor.id || '').trim()
+  }
+  return String(item?.vendor_id || '').trim()
 }
 
 const normalizeProduct = (item) => {
@@ -200,6 +201,7 @@ const normalizeProduct = (item) => {
       'Uncategorized',
     vendor: resolveVendorName(item),
     vendorSlug: resolveVendorSlug(item),
+    vendorId: resolveVendorId(item),
     vendorFont: item?.vendorFont || 'Georgia, serif',
     shortDescription: item?.short_description || item?.shortDescription || '',
     fullDescription: item?.description || item?.fullDescription || '',

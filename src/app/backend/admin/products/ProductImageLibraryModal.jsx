@@ -5,6 +5,7 @@ import LibrarySkeletonCard from '../components/LibrarySkeletonCard';
 import BouncingDotsLoader from '../components/BouncingDotsLoader';
 import { fetchMediaPage, uploadMediaFile, uploadProductVideoFile } from './functions/media';
 import LoadingButton from '../../../../components/LoadingButton';
+import { Link2 } from 'lucide-react';
 
 const MEDIA_PAGE_SIZE = 20;
 const MOBILE_MEDIA_PAGE_SIZE = 8;
@@ -144,7 +145,11 @@ function ProductImageLibraryModal({
   const [isMobile, setIsMobile] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [mediaFilter, setMediaFilter] = useState('all');
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [urlInputValue, setUrlInputValue] = useState('');
+  const [urlInputError, setUrlInputError] = useState('');
   const inputRef = useRef(null);
+  const urlInputRef = useRef(null);
   const loadMoreRef = useRef(null);
   const isLoadingRef = useRef(false);
   const previewVideoRefs = useRef({});
@@ -269,6 +274,9 @@ function ProductImageLibraryModal({
   useEffect(() => {
     if (!isOpen) {
       setIsVisible(false);
+      setShowUrlInput(false);
+      setUrlInputValue('');
+      setUrlInputError('');
       return;
     }
     setMediaFilter('all');
@@ -648,6 +656,25 @@ function ProductImageLibraryModal({
     videoEl.play().then(() => setPreviewPlayingId(key)).catch(() => setPreviewPlayingId(''));
   }, []);
 
+  const handleApplyUrl = () => {
+    const url = urlInputValue.trim()
+    if (!url) { setUrlInputError('Paste an image URL first.'); return }
+    try { new URL(url) } catch { setUrlInputError('That doesn\'t look like a valid URL.'); return }
+    const urlItem = {
+      id: url,
+      url,
+      r2_key: '',
+      alt_text: '',
+      title: 'External image',
+      media_type: 'image',
+    }
+    if (onApply) onApply({ gallery: [urlItem], videos: [], mediaType: 'mixed' })
+    setUrlInputValue('')
+    setUrlInputError('')
+    setShowUrlInput(false)
+    onClose()
+  }
+
   const handleApply = () => {
     const selectedById = new Map(
       items.filter((item) => item?.id).map((item) => [String(item.id), item]),
@@ -701,6 +728,22 @@ function ProductImageLibraryModal({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowUrlInput((prev) => !prev)
+                setUrlInputError('')
+                setTimeout(() => urlInputRef.current?.focus(), 50)
+              }}
+              className={`flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                showUrlInput
+                  ? 'border-slate-800 bg-slate-800 text-white'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              <Link2 size={13} strokeWidth={2.5} />
+              Use URL
+            </button>
             {canUpload ? (
               <>
                 <input
@@ -725,7 +768,7 @@ function ProductImageLibraryModal({
                   className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600"
                   isLoading={isUploading}
                 >
-                  Upload file(s)
+                  Upload New
                 </LoadingButton>
               </>
             ) : null}
@@ -738,6 +781,31 @@ function ProductImageLibraryModal({
             </button>
           </div>
         </div>
+
+        {showUrlInput && (
+          <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 sm:px-5">
+            <p className="mb-2 text-xs font-semibold text-slate-600">Paste an external image URL — it will be loaded directly from that link</p>
+            <div className="flex gap-2">
+              <input
+                ref={urlInputRef}
+                type="url"
+                value={urlInputValue}
+                onChange={(e) => { setUrlInputValue(e.target.value); setUrlInputError('') }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleApplyUrl() }}
+                placeholder="https://example.com/image.jpg"
+                className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 placeholder-slate-400 outline-none focus:border-slate-400 focus:ring-1 focus:ring-slate-300"
+              />
+              <button
+                type="button"
+                onClick={handleApplyUrl}
+                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700 transition"
+              >
+                Use this URL
+              </button>
+            </div>
+            {urlInputError && <p className="mt-1.5 text-xs text-rose-500">{urlInputError}</p>}
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto px-4 py-4 pb-24 sm:px-5 sm:py-5 sm:pb-24">
           {canUpload && !isMobile && (

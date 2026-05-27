@@ -5,8 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
-import AdminSidebar from '@/components/AdminSidebar'
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+import AdminShell from '@/components/admin/AdminShell'
 
 const STATUS_TONES = {
   pending: 'bg-amber-100 text-amber-700',
@@ -488,14 +487,8 @@ export default function OrderDetailPage() {
   }
 
   return (
-    <div className='min-h-screen bg-[#f3f7fc]'>
-      <div className='flex min-h-screen'>
-        <AdminSidebar />
-
-        <main className='flex-1 pb-8'>
-          <AdminDesktopHeader />
-
-          <div className='w-full py-5 sm:px-6 lg:px-7'>
+    <AdminShell bg="bg-[#f3f7fc]" noPad>
+      <div className='w-full py-5 sm:px-6 lg:px-7'>
             {isLoading ? (
               <div className='space-y-4 px-4 sm:px-0'>
                 <div className='h-10 w-72 animate-pulse rounded-lg bg-slate-200' />
@@ -1054,9 +1047,7 @@ export default function OrderDetailPage() {
                 </div>
               </div>
             ) : null}
-          </div>
-        </main>
       </div>
-    </div>
+    </AdminShell>
   )
 }

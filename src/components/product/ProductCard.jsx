@@ -342,7 +342,7 @@ const ProductCard = ({
                 </div>
               </div>
 
-              <h3 className='text-sm font-normal text-gray-900 line-clamp-2 leading-tight'>
+              <h3 className='text-[12px] sm:text-[13px] font-normal text-gray-900 line-clamp-1 leading-tight'>
                 {product.name}
               </h3>
             </div>
@@ -351,7 +351,7 @@ const ProductCard = ({
             {hasRating ? (
               <div className='flex items-center'>
                 <StarRating rating={product.rating} size={14} />
-                <span className='ml-2 text-xs text-gray-500'>
+                <span className='ml-2 font-mono text-[10.5px] text-gray-400' style={{ fontFeatureSettings: '"tnum"' }}>
                   {product.reviews > 1000
                     ? `${(product.reviews / 1000).toFixed(1)}k+`
                     : product.reviews}{' '}
@@ -378,7 +378,7 @@ const ProductCard = ({
                   >
                     <path d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' />
                   </svg>
-                  {isOutOfStock ? 'Out of stock' : `Only ${stockCount} left in stock`}
+                  <span className='font-mono text-[10px]'>{isOutOfStock ? 'Out of stock' : `Only ${stockCount} left in stock`}</span>
                 </span>
               </div>
             )}
@@ -387,11 +387,11 @@ const ProductCard = ({
             <div className='space-y-1'>
               <div className='flex flex-col'>
                 <div className='flex flex-wrap items-baseline gap-x-2 gap-y-0.5'>
-                  <span className='text-lg font-bold text-gray-900'>
+                  <span className='font-mono text-[14px] sm:text-[14px] font-medium text-gray-900' style={{ fontFeatureSettings: '"tnum"' }}>
                     {formatMoney(priceValue)}
                   </span>
                   {hasDiscount ? (
-                    <span className='text-sm text-gray-400 line-through'>
+                    <span className='font-mono text-[11px] font-normal text-gray-400 line-through' style={{ fontFeatureSettings: '"tnum"' }}>
                       {formatMoney(originalPriceValue)}
                     </span>
                   ) : null}
@@ -417,11 +417,12 @@ const ProductCard = ({
               >
                 {discountPercentage ? (
                   <span
-                    className={`min-w-0 font-semibold leading-tight text-green-600 sm:text-xs ${
+                    className={`font-mono min-w-0 font-normal leading-tight text-green-600 ${
                       quantity > 0 && !isOutOfStock && shouldWrapQuantityRow
                         ? 'w-full text-[10px]'
                         : 'flex-1 whitespace-nowrap text-[10px]'
                     }`}
+                    style={{ fontFeatureSettings: '"tnum"' }}
                   >
                     Save {formatMoney(originalPriceValue - priceValue)}
                   </span>

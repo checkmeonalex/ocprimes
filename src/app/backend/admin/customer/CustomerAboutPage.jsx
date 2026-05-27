@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import AdminSidebar from '@/components/AdminSidebar'
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+
+import AdminShell from '@/components/admin/AdminShell'
 import CustomerSkeletonCard from './components/CustomerSkeletonCard'
 import { getCustomerDetailTabs, buildInitials } from './lib/customerDetailShared.mjs'
 import { useCustomerDetail } from './lib/useCustomerDetail.mjs'
@@ -43,13 +43,8 @@ function CustomerAboutPage() {
   const detailTabs = useMemo(() => getCustomerDetailTabs(customerId), [customerId])
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="flex min-h-screen">
-        <AdminSidebar />
-
-        <main className="flex-1 px-4 pb-6 sm:px-6 lg:px-10">
-          <AdminDesktopHeader />
-          <div className="mx-auto w-full max-w-6xl">
+    <AdminShell>
+      <div className="mx-auto w-full max-w-6xl">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Customers</p>
@@ -125,7 +120,7 @@ function CustomerAboutPage() {
           </div>
         </main>
       </div>
-    </div>
+    </AdminShell>
   )
 }
 

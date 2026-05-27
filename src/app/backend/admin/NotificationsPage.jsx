@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import AdminSidebar from '@/components/AdminSidebar';
-import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
+import AdminShell from '@/components/admin/AdminShell';
 import emptyNotificationImage from '../../UserBackend/notifications/no-notificvstion.png';
 
 const formatDateOnly = (value) => {
@@ -264,12 +263,8 @@ export default function NotificationsPage() {
   }, [readStatus]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="flex min-h-screen">
-        <AdminSidebar />
-        <main className="flex-1 px-4 pb-8 sm:px-6 lg:px-10">
-          <AdminDesktopHeader />
-          <div className="mx-auto w-full max-w-none p-0 lg:max-w-5xl">
+    <AdminShell>
+      <div className="mx-auto w-full max-w-none p-0 lg:max-w-5xl">
             <section className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Notifications ({totalCount})</h1>
@@ -569,6 +564,6 @@ export default function NotificationsPage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </AdminShell>
   );
 }
