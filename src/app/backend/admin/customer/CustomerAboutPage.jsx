@@ -117,8 +117,6 @@ function CustomerAboutPage() {
                 )}
               </section>
             </div>
-          </div>
-        </main>
       </div>
     </AdminShell>
   )

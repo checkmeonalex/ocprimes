@@ -511,8 +511,6 @@ export default function NotificationsPage() {
                 </div>
               </section>
             ) : null}
-          </div>
-        </main>
       </div>
 
       {rejectTarget ? (

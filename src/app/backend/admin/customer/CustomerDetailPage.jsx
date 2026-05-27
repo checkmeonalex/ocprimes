@@ -308,8 +308,6 @@ function CustomerDetailPage() {
                 )}
               </section>
             </div>
-          </div>
-        </main>
       </div>
     </AdminShell>
   )

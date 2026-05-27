@@ -288,8 +288,6 @@ function CustomerAddressesPage() {
                 )}
               </section>
             </div>
-          </div>
-        </main>
       </div>
     </AdminShell>
   )

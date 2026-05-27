@@ -238,8 +238,6 @@ function CustomerSecurityPage() {
                 )}
               </section>
             </div>
-          </div>
-        </main>
       </div>
     </AdminShell>
   )
