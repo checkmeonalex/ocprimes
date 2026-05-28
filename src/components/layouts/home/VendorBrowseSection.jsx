@@ -11,10 +11,26 @@ export default async function VendorBrowseSection() {
     fetchAllVendors(),
   ]);
 
-  const categories = (Array.isArray(allCategories) ? allCategories : [])
-    .filter((c) => !c.parent_id)
+  const rootCategories = (Array.isArray(allCategories) ? allCategories : [])
     .slice(0, 12)
     .map((c) => ({ name: c.name, slug: c.slug }));
+
+  // If root categories are fewer than 5, use child categories instead
+  let categories = rootCategories;
+  if (rootCategories.length < 5) {
+    const childCats = [];
+    for (const root of Array.isArray(allCategories) ? allCategories : []) {
+      const items = root.subcategories?.[0]?.items ?? [];
+      for (const child of items) {
+        if (child.name && child.slug) {
+          childCats.push({ name: child.name, slug: child.slug });
+        }
+      }
+    }
+    if (childCats.length > 0) {
+      categories = childCats.slice(0, 12);
+    }
+  }
 
   // Fetch initial products for each vendor (5 each), plus total count
   const vendorRows = (

@@ -75,7 +75,6 @@ function MobileNavbar({
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const isPlayRoute = pathname?.startsWith('/play')
   const isProductPage = pathname?.startsWith('/product/')
   const {
     isOpen,
@@ -102,7 +101,7 @@ function MobileNavbar({
       'forgot-password', 'help-center', 'legal', 'login', 
       'offline', 'privacy-policy', 'product', 'products', 
       'reset-password', 'sellersignup', 'signup', 'vendors', 
-      'wishlist', 'w', 'UserBackend', 'account', 'recently-viewed', 'play'
+      'wishlist', 'w', 'UserBackend', 'account', 'recently-viewed'
     ]
     return !platformRoutes.includes(segments[0])
   }, [pathname])
@@ -323,7 +322,7 @@ function MobileNavbar({
     const SHOW_AT_Y = 80
     const HIDE_AFTER_Y = 140
 
-    if (isPlayRoute || isVendorStore) {
+    if (isVendorStore) {
       setIsSecondBarVisible(false)
       return undefined
     }
@@ -364,7 +363,7 @@ function MobileNavbar({
     return () => {
       window.removeEventListener('scroll', handleScroll)
     }
-  }, [isPlayRoute])
+  }, [isVendorStore])
 
   useEffect(() => {
     const navEl = navRef.current
@@ -821,6 +820,17 @@ function MobileNavbar({
                           </svg>
                           Help center
                         </Link>
+                        <div className='my-1 h-px bg-gray-100' />
+                        <Link
+                          href='/sellersignup'
+                          onClick={closeAccountMenu}
+                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50'
+                        >
+                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25' />
+                          </svg>
+                          Sell on Alxora
+                        </Link>
                         <button
                           type='button'
                           onClick={handleAccountSignOut}
@@ -876,6 +886,17 @@ function MobileNavbar({
                             />
                           </svg>
                           Help center
+                        </Link>
+                        <div className='my-1 h-px bg-gray-100' />
+                        <Link
+                          href='/sellersignup'
+                          onClick={closeAccountMenu}
+                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50'
+                        >
+                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25' />
+                          </svg>
+                          Sell on Alxora
                         </Link>
                       </>
                     )}
@@ -963,7 +984,7 @@ function MobileNavbar({
         </div>
 
         {/* Top Navigation Bar */}
-        {!isPlayRoute && !isProductPage && !isVendorStore ? (
+        {!isProductPage && !isVendorStore ? (
           <div
             className={`overflow-hidden border-b border-gray-200 bg-white transition-all duration-300 ${
               isSecondBarVisible
@@ -1007,39 +1028,10 @@ function MobileNavbar({
                   </div>
                 </div>
                 <Link
-                  href='/play'
-                  className='inline-flex shrink-0 items-center gap-1 whitespace-nowrap pb-2 text-sm font-semibold text-gray-900 hover:text-gray-600'
+                  href='/sellersignup'
+                  className='inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-gray-900 px-3 py-0.5 text-[11px] font-semibold text-white transition-opacity hover:opacity-75'
                 >
-                  <svg
-                    className='h-5 w-5'
-                    viewBox='0 0 24 24'
-                    fill='none'
-                    xmlns='http://www.w3.org/2000/svg'
-                    aria-hidden='true'
-                  >
-                    <path
-                      d='M19.5617 7C19.7904 5.69523 18.7863 4.5 17.4617 4.5H6.53788C5.21323 4.5 4.20922 5.69523 4.43784 7'
-                      stroke='#b80000'
-                      strokeWidth='1.5'
-                    />
-                    <path
-                      d='M17.4999 4.5C17.5283 4.24092 17.5425 4.11135 17.5427 4.00435C17.545 2.98072 16.7739 2.12064 15.7561 2.01142C15.6497 2 15.5194 2 15.2588 2H8.74099C8.48035 2 8.35002 2 8.24362 2.01142C7.22584 2.12064 6.45481 2.98072 6.45704 4.00434C6.45727 4.11135 6.47146 4.2409 6.49983 4.5'
-                      stroke='#b80000'
-                      strokeWidth='1.5'
-                    />
-                    <path
-                      d='M21.1935 16.793C20.8437 19.2739 20.6689 20.5143 19.7717 21.2572C18.8745 22 17.5512 22 14.9046 22H9.09536C6.44881 22 5.12553 22 4.22834 21.2572C3.33115 20.5143 3.15626 19.2739 2.80648 16.793L2.38351 13.793C1.93748 10.6294 1.71447 9.04765 2.66232 8.02383C3.61017 7 5.29758 7 8.67239 7H15.3276C18.7024 7 20.3898 7 21.3377 8.02383C22.0865 8.83268 22.1045 9.98979 21.8592 12'
-                      stroke='#b80000'
-                      strokeWidth='1.5'
-                      strokeLinecap='round'
-                    />
-                    <path
-                      d='M14.5812 13.6159C15.1396 13.9621 15.1396 14.8582 14.5812 15.2044L11.2096 17.2945C10.6669 17.6309 10 17.1931 10 16.5003L10 12.32C10 11.6273 10.6669 11.1894 11.2096 11.5258L14.5812 13.6159Z'
-                      stroke='#b80000'
-                      strokeWidth='1.5'
-                    />
-                  </svg>
-                  <span>PLAY</span>
+                  Sell on Alxora
                 </Link>
               </div>
             </div>

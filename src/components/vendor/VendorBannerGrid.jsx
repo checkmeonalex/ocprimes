@@ -344,16 +344,17 @@ function CardStrip({ slides, title }) {
   return (
     <div>
       <style>{`
-        .vbg-card-item { width: calc(100% / 4 - 10px); flex-shrink: 0; scroll-snap-align: start; }
-        @media (min-width: 640px)  { .vbg-card-item { width: calc(100% / 5 - 10px); } }
-        @media (min-width: 768px)  { .vbg-card-item { width: calc(100% / 6 - 10px); } }
-        @media (min-width: 1024px) { .vbg-card-item { width: calc(100% / 7 - 10px); } }
+        .vbg-card-item { width: calc(100% / 3.3 - 8px); flex-shrink: 0; scroll-snap-align: start; }
+        @media (min-width: 480px)  { .vbg-card-item { width: calc(100% / 4.3 - 8px); } }
+        @media (min-width: 640px)  { .vbg-card-item { width: calc(100% / 5.3 - 8px); } }
+        @media (min-width: 768px)  { .vbg-card-item { width: calc(100% / 6.3 - 8px); } }
+        @media (min-width: 1024px) { .vbg-card-item { width: calc(100% / 7.3 - 8px); } }
       `}</style>
       {title && (
         <p className="font-semibold text-sm sm:text-base mb-3 px-0.5">{title}</p>
       )}
       <div
-        className="flex gap-2.5 overflow-x-auto pb-1"
+        className="flex gap-2 overflow-x-auto pb-1"
         style={{ scrollSnapType: 'x mandatory', scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {filled.map((slide, i) => {
@@ -370,7 +371,7 @@ function CardStrip({ slides, title }) {
               {...linkProps}
               className="vbg-card-item flex flex-col gap-1.5 no-underline group cursor-pointer"
             >
-              <div className="w-[85%] mx-auto bg-gray-100 rounded-2xl overflow-hidden relative" style={{ aspectRatio: '1/1' }}>
+              <div className="w-full bg-gray-100 rounded-2xl overflow-hidden relative" style={{ aspectRatio: '1/1' }}>
                 <img
                   src={slide.imageUrl}
                   alt={slide.label || ''}

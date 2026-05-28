@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useUserI18n } from '@/lib/i18n/useUserI18n';
+import { useWishlist } from '@/context/WishlistContext';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -9,16 +11,6 @@ function fmt(n) {
   const v = Number(n) || 0;
   if (v >= 1000) return `${(v / 1000).toFixed(1).replace(/\.0$/, '')}k`;
   return String(v);
-}
-
-function fmtPrice(n) {
-  const v = Number(n) || 0;
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: v % 1 === 0 ? 0 : 2,
-    maximumFractionDigits: v % 1 === 0 ? 0 : 2,
-  }).format(v);
 }
 
 // ── Stars ─────────────────────────────────────────────────────────────────────
@@ -38,7 +30,11 @@ function Stars({ rating }) {
 
 // ── Product card ──────────────────────────────────────────────────────────────
 
-function ProductCard({ product }) {
+function ProductCard({ product, formatMoney }) {
+  const { openSaveModal, isWishlisted } = useWishlist();
+  const productId = product.id || product.slug || '';
+  const wishlisted = isWishlisted(productId);
+
   const img = product.image || product.image_url ||
     (Array.isArray(product.images) ? product.images[0]?.url || product.images[0] : '') || '';
   const basePrice = Number(product.price) || 0;
@@ -73,11 +69,21 @@ function ProductCard({ product }) {
           <span className="font-mono absolute top-2 left-2 z-10 rounded-md bg-gray-900 px-1.5 py-0.5 text-[10px] font-normal uppercase tracking-wide text-white leading-none">NEW</span>
         )}
 
-        {/* Wishlist — shows on hover */}
-        <button type="button" onClick={(e) => e.preventDefault()}
-          className="absolute top-2 right-2 z-10 h-7 w-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm hover:text-red-500"
-          aria-label="Save">
-          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+        {/* Wishlist */}
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); openSaveModal(product); }}
+          className="absolute top-2 right-2 z-10 h-7 w-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transition-colors shadow-sm"
+          aria-label={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+        >
+          <svg
+            className="h-3.5 w-3.5 transition-colors"
+            fill={wishlisted ? 'currentColor' : 'none'}
+            stroke="currentColor"
+            strokeWidth="2"
+            viewBox="0 0 24 24"
+            style={{ color: wishlisted ? '#ef4444' : '#9ca3af' }}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
           </svg>
         </button>
@@ -99,8 +105,8 @@ function ProductCard({ product }) {
       <div className="mt-2.5 space-y-0.5">
         <p className="text-sm font-normal text-gray-900 line-clamp-1 leading-snug">{product.name}</p>
         <div className="flex items-center gap-2" style={{ fontFeatureSettings: '"tnum"' }}>
-          <span className="font-mono text-sm font-semibold text-gray-900">{fmtPrice(price)}</span>
-          {hasDiscount && <span className="font-mono text-xs font-normal text-gray-400 line-through">{fmtPrice(originalPrice)}</span>}
+          <span className="font-mono text-sm font-semibold text-gray-900">{formatMoney(price)}</span>
+          {hasDiscount && <span className="font-mono text-xs font-normal text-gray-400 line-through">{formatMoney(originalPrice)}</span>}
         </div>
         <div className="flex items-center gap-1.5 font-mono text-xs text-gray-400" style={{ fontFeatureSettings: '"tnum"' }}>
           {rating > 0 && (
@@ -209,7 +215,7 @@ function VendorHeader({ vendor }) {
   ].filter(Boolean);
 
   return (
-    <div className="flex items-center gap-4 sm:gap-5 px-5 sm:px-6 py-4 sm:py-5 border-b border-gray-100">
+    <div className="flex items-center gap-4 sm:gap-5 px-1 py-4 sm:py-5 border-b border-gray-100">
       {/* Logo */}
       <div className="h-16 w-16 sm:h-[72px] sm:w-[72px] shrink-0 rounded-2xl overflow-hidden bg-gray-900 flex items-center justify-center">
         {vendor.logo_url ? (
@@ -262,7 +268,7 @@ function VendorHeader({ vendor }) {
 // ── Sort options ──────────────────────────────────────────────────────────────
 
 const SORT_OPTIONS = [
-  { value: 'trending',   label: 'Trending this week' },
+  { value: 'trending',   label: 'Recommended' },
   { value: 'newest',     label: 'New arrivals' },
   { value: 'price_asc',  label: 'Price: low to high' },
   { value: 'price_desc', label: 'Price: high to low' },
@@ -271,7 +277,7 @@ const SORT_OPTIONS = [
 
 // ── Per-vendor card ───────────────────────────────────────────────────────────
 
-function VendorRow({ vendor, initialProducts, totalCount }) {
+function VendorRow({ vendor, initialProducts, totalCount, formatMoney }) {
   const shopHref = `/${vendor.slug || ''}`;
   const shown = initialProducts.length;
   const remaining = Math.max(0, totalCount - shown);
@@ -279,10 +285,10 @@ function VendorRow({ vendor, initialProducts, totalCount }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
       <VendorHeader vendor={vendor} />
-      <div className="border-t border-gray-100 px-4 py-4 sm:px-5 sm:py-5">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="border-t border-gray-100 px-1 py-4 sm:py-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-[0.4rem]">
           {initialProducts.map((p, i) => (
-            <ProductCard key={p.id || p.slug || i} product={p} />
+            <ProductCard key={p.id || p.slug || i} product={p} formatMoney={formatMoney} />
           ))}
         </div>
 
@@ -308,6 +314,7 @@ function VendorRow({ vendor, initialProducts, totalCount }) {
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export default function VendorBrowseSectionClient({ categories, vendorRows }) {
+  const { formatMoney } = useUserI18n();
   const [activeSlug, setActiveSlug] = useState('all');
   const [sort, setSort] = useState('trending');
   const [rows, setRows] = useState(vendorRows || []);
@@ -356,45 +363,60 @@ export default function VendorBrowseSectionClient({ categories, vendorRows }) {
     fetchRows(activeSlug);
   }, [activeSlug, fetchRows]);
 
+  const pillsRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = pillsRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 1);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
+  }, []);
+
+  useEffect(() => {
+    const el = pillsRef.current;
+    if (!el) return;
+
+    // rAF guarantees we read after browser paint/layout
+    let raf = requestAnimationFrame(checkScroll);
+
+    const ro = new ResizeObserver(() => {
+      raf = requestAnimationFrame(checkScroll);
+    });
+    ro.observe(el);
+
+    el.addEventListener('scroll', checkScroll, { passive: true });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      el.removeEventListener('scroll', checkScroll);
+    };
+  }, [checkScroll, categories.length]);
+
+  const scrollPills = useCallback((dir) => {
+    pillsRef.current?.scrollBy({ left: dir === 'left' ? -240 : 240, behavior: 'smooth' });
+  }, []);
+
   const tabs = [{ name: 'All', slug: 'all' }, ...categories];
 
   return (
-    <section className="px-3 sm:px-4 md:px-5 py-8">
-      {/* Section heading */}
-      <div className="mb-5">
-        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
-          Shops you may{' '}
-          <em style={{ fontFamily: 'var(--font-instrument-serif), "Cormorant Garamond", Georgia, serif', color: '#e05c3a', fontStyle: 'italic', fontWeight: 400 }}>
-            also like
-          </em>
-        </h2>
-        <p className="text-sm text-gray-500 mt-1.5 leading-relaxed max-w-sm">
-          Hand-picked independents based on what you&apos;ve browsed this week.
-        </p>
-      </div>
-
-      {/* ── Tab row + Sort ───────────────────────────────────── */}
-      <div className="mb-6 flex items-center gap-3">
-        <div className="flex-1 min-w-0 flex items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {tabs.map((tab) => (
-            <button
-              key={tab.slug}
-              type="button"
-              onClick={() => handleTab(tab.slug)}
-              className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
-                activeSlug === tab.slug
-                  ? 'bg-gray-900 text-white shadow-sm'
-                  : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-400 hover:text-gray-900'
-              }`}
-            >
-              {tab.name}
-            </button>
-          ))}
+    <section className="py-8">
+      {/* Section heading + Sort on same row */}
+      <div className="mb-4 flex items-start justify-between gap-4 px-3 sm:px-4 md:px-5">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
+            Shops you may{' '}
+            <em style={{ fontFamily: 'var(--font-instrument-serif), "Cormorant Garamond", Georgia, serif', color: '#e05c3a', fontStyle: 'italic', fontWeight: 400 }}>
+              also like
+            </em>
+          </h2>
         </div>
 
-        {/* Sort by */}
-        <div className="shrink-0 flex items-center gap-1.5 text-sm whitespace-nowrap">
-          <span className="font-medium text-gray-700">Sort by</span>
+        {/* Sort by — top right */}
+        <div className="shrink-0 flex items-center gap-1.5 text-sm whitespace-nowrap pt-1">
+          <span className="font-medium text-gray-500">Sort</span>
           <div className="relative">
             <select
               value={sort}
@@ -412,9 +434,67 @@ export default function VendorBrowseSectionClient({ categories, vendorRows }) {
         </div>
       </div>
 
+      {/* ── Pills row with hover scroll arrows ───────────────── */}
+      <div className="group relative mb-6 w-full px-3 sm:px-4 md:px-5">
+        {/* Left arrow */}
+        <button
+          type="button"
+          onClick={() => scrollPills('left')}
+          aria-label="Scroll left"
+          className={`absolute left-0 top-1/2 z-10 -translate-x-1 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-md text-gray-700 transition-all duration-200 hover:bg-gray-50 ${
+            canScrollLeft
+              ? 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
+              : 'invisible pointer-events-none'
+          }`}
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+
+        {/* Scrollable strip */}
+        <div
+          ref={pillsRef}
+          className="w-full overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <div className="flex items-center gap-2 pb-0.5">
+            {tabs.map((tab) => (
+              <button
+                key={tab.slug}
+                type="button"
+                onClick={() => handleTab(tab.slug)}
+                className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
+                  activeSlug === tab.slug
+                    ? 'bg-gray-900 text-white shadow-sm'
+                    : 'border border-gray-200 bg-white text-gray-600 hover:border-gray-400 hover:text-gray-900'
+                }`}
+              >
+                {tab.name}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Right arrow */}
+        <button
+          type="button"
+          onClick={() => scrollPills('right')}
+          aria-label="Scroll right"
+          className={`absolute right-0 top-1/2 z-10 translate-x-1 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white shadow-md text-gray-700 transition-all duration-200 hover:bg-gray-50 ${
+            canScrollRight
+              ? 'opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto'
+              : 'invisible pointer-events-none'
+          }`}
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+
       {/* ── Vendor rows ──────────────────────────────────────── */}
       {loading ? (
-        <div className="space-y-6">
+        <div className="space-y-6 px-1">
           {[1, 2, 3].map((i) => (
             <div key={i} className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden animate-pulse">
               <div className="flex items-center gap-4 px-5 py-4 border-b border-gray-100">
@@ -437,13 +517,14 @@ export default function VendorBrowseSectionClient({ categories, vendorRows }) {
           No vendors found in this category
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 px-1">
           {rows.map(({ vendor, products, totalCount }) => (
             <VendorRow
               key={vendor.id}
               vendor={vendor}
               initialProducts={products}
               totalCount={totalCount || products.length}
+              formatMoney={formatMoney}
             />
           ))}
         </div>

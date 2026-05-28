@@ -42,14 +42,12 @@ export default function ClientLayout({
   const isUserBackendRoute = pathname?.startsWith('/UserBackend') || pathname === '/account' || pathname?.startsWith('/account/')
   const isCartRoute = pathname?.startsWith('/cart')
   const isCheckoutRoute = pathname?.startsWith('/checkout')
-  const isPlayRoute = pathname?.startsWith('/play')
   const isProductRoute = pathname?.startsWith('/product/')
   const isCheckoutFlowRoute = isCartRoute || isCheckoutRoute
   const showStorefrontFooter =
     !isUserBackendRoute &&
     !isCartRoute &&
     !isCheckoutRoute &&
-    !isPlayRoute &&
     !isAuthRoute &&
     !isBackendAdmin &&
     !isEmbedPreview
@@ -138,13 +136,13 @@ export default function ClientLayout({
     <>
       <UserPresenceHeartbeat />
       <ScrollHistoryRestoration />
-      {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute && (!isPlayRoute || isMobile) ? (
+      {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute ? (
         <MobileNavbar
           initialAuthUser={initialAuthUser}
           initialTopCategories={initialTopCategories}
         />
       ) : null}
-      {(!isMobile || isCheckoutFlowRoute) && !isPlayRoute ? (
+      {!isMobile || isCheckoutFlowRoute ? (
         <Navbar
           initialAuthUser={initialAuthUser}
           initialTopCategories={initialTopCategories}
@@ -154,8 +152,6 @@ export default function ClientLayout({
         className={`flex ${
           isCheckoutFlowRoute
             ? 'pt-0 sm:pt-16'
-            : isPlayRoute
-              ? 'pt-16 lg:pt-0'
             : isUserBackendRoute
               ? 'pt-0 lg:pt-[106px]'
             : isProductRoute

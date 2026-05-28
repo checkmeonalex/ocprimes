@@ -16,7 +16,6 @@ export const DEFAULT_SEO_DESCRIPTION = BRAND_SEARCH_DESCRIPTION
 export const PUBLIC_STATIC_ROUTES = [
   '',
   '/products',
-  '/play',
   '/help-center',
   '/privacy-policy',
 ]

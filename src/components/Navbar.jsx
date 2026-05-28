@@ -468,15 +468,6 @@ export default function Navbar({
         setIsAccountSearchOpen(false)
       }
 
-      if (
-        browsingHistoryRef.current &&
-        !browsingHistoryRef.current.contains(event.target) &&
-        historyPanelRef.current &&
-        !historyPanelRef.current.contains(event.target)
-      ) {
-        setIsHistoryOpen(false)
-        setIsHistoryPinned(false)
-      }
     }
 
     document.addEventListener('mousedown', handleClickOutside)
@@ -1454,28 +1445,6 @@ export default function Navbar({
             className='mx-auto flex h-9 w-full max-w-[1400px] items-center gap-2 px-4 sm:px-6 lg:px-8 xl:h-10 xl:gap-4'
             onMouseLeave={handleCategoriesMouseLeave}
           >
-          <div className='flex shrink-0 items-center gap-1.5 text-[11px] text-gray-700 xl:gap-2 xl:text-xs'>
-            <span className='leading-tight'>
-              <span className='hidden xl:inline'>
-                Your order is at your door in
-                <br />
-                <strong>2 hours with fast shipping.</strong>
-              </span>
-              <span className='xl:hidden'>
-                <strong>2hr delivery</strong>
-              </span>
-            </span>
-            <svg
-              className='h-5 w-5 text-gray-500 xl:h-6 xl:w-6'
-              fill='currentColor'
-              viewBox='0 0 24 24'
-              aria-hidden='true'
-            >
-              <path d='m8.59 16.59 4.58-4.59-4.58-4.59L10 6l6 6-6 6z' />
-            </svg>
-          </div>
-
-          <div className='h-5 w-px bg-gray-200 xl:h-6' />
 
           <div className='min-w-0 flex-1 overflow-hidden'>
             <div className={`flex min-w-0 items-center gap-4 overflow-x-auto whitespace-nowrap pr-2 xl:gap-6 ${hiddenHorizontalScrollbarClass}`}>
@@ -1496,73 +1465,13 @@ export default function Navbar({
             </div>
           </div>
 
-          <div className='flex shrink-0 items-center gap-3 border-l border-gray-200 bg-white pl-3'>
+          <div className='flex shrink-0 items-center border-l border-gray-200 pl-3'>
             <Link
-              href='/play'
-              className='inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-transparent transition-opacity hover:opacity-80'
-              style={{
-                backgroundImage: 'linear-gradient(135deg, rgb(225 208 131) 0%, rgb(192 184 173) 45%, rgb(150 109 16) 100%)',
-                WebkitBackgroundClip: 'text',
-                backgroundClip: 'text',
-              }}
+              href='/sellersignup'
+              className='inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-gray-900 px-3.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-75 xl:px-4 xl:text-xs'
             >
-              <svg
-                className='h-6 w-6'
-                viewBox='0 0 24 24'
-                fill='none'
-                xmlns='http://www.w3.org/2000/svg'
-                aria-hidden='true'
-              >
-                <path
-                  d='M19.5617 7C19.7904 5.69523 18.7863 4.5 17.4617 4.5H6.53788C5.21323 4.5 4.20922 5.69523 4.43784 7'
-                  stroke='url(#play-topbar-gold)'
-                  strokeWidth='1.5'
-                />
-                <path
-                  d='M17.4999 4.5C17.5283 4.24092 17.5425 4.11135 17.5427 4.00435C17.545 2.98072 16.7739 2.12064 15.7561 2.01142C15.6497 2 15.5194 2 15.2588 2H8.74099C8.48035 2 8.35002 2 8.24362 2.01142C7.22584 2.12064 6.45481 2.98072 6.45704 4.00434C6.45727 4.11135 6.47146 4.2409 6.49983 4.5'
-                  stroke='url(#play-topbar-gold)'
-                  strokeWidth='1.5'
-                />
-                <path
-                  d='M21.1935 16.793C20.8437 19.2739 20.6689 20.5143 19.7717 21.2572C18.8745 22 17.5512 22 14.9046 22H9.09536C6.44881 22 5.12553 22 4.22834 21.2572C3.33115 20.5143 3.15626 19.2739 2.80648 16.793L2.38351 13.793C1.93748 10.6294 1.71447 9.04765 2.66232 8.02383C3.61017 7 5.29758 7 8.67239 7H15.3276C18.7024 7 20.3898 7 21.3377 8.02383C22.0865 8.83268 22.1045 9.98979 21.8592 12'
-                  stroke='url(#play-topbar-gold)'
-                  strokeWidth='1.5'
-                  strokeLinecap='round'
-                />
-                <path
-                  d='M14.5812 13.6159C15.1396 13.9621 15.1396 14.8582 14.5812 15.2044L11.2096 17.2945C10.6669 17.6309 10 17.1931 10 16.5003L10 12.32C10 11.6273 10.6669 11.1894 11.2096 11.5258L14.5812 13.6159Z'
-                  stroke='url(#play-topbar-gold)'
-                  strokeWidth='1.5'
-                />
-                <defs>
-                  <linearGradient id='play-topbar-gold' x1='3' y1='2' x2='21' y2='22' gradientUnits='userSpaceOnUse'>
-                    <stop stopColor='rgb(225 208 131)' />
-                    <stop offset='0.45' stopColor='rgb(192 184 173)' />
-                    <stop offset='1' stopColor='rgb(150 109 16)' />
-                  </linearGradient>
-                </defs>
-              </svg>
-              <span>PLAY</span>
+              Sell on Alxora
             </Link>
-
-            <div
-              ref={browsingHistoryRef}
-              className='relative'
-              onMouseEnter={handleHistoryMouseEnter}
-              onMouseLeave={handleHistoryMouseLeave}
-            >
-              <button
-                type='button'
-                className='inline-flex shrink-0 items-center text-xs font-semibold text-gray-900 hover:text-gray-600 xl:text-sm'
-                onClick={handleHistoryClick}
-                aria-label='Browsing history'
-              >
-                <svg className='h-6 w-6' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' aria-hidden='true'>
-                  <path d='M12 8V12L14.5 14.5' stroke='#000000' strokeWidth='1.5' strokeLinecap='round' strokeLinejoin='round' />
-                  <path d='M5.60423 5.60423L5.0739 5.0739V5.0739L5.60423 5.60423ZM4.33785 6.87061L3.58786 6.87438C3.58992 7.28564 3.92281 7.61853 4.33408 7.6206L4.33785 6.87061ZM6.87963 7.63339C7.29384 7.63547 7.63131 7.30138 7.63339 6.88717C7.63547 6.47296 7.30138 6.13549 6.88717 6.13341L6.87963 7.63339ZM5.07505 4.32129C5.07296 3.90708 4.7355 3.57298 4.32129 3.57506C3.90708 3.57715 3.57298 3.91462 3.57507 4.32882L5.07505 4.32129ZM3.75 12C3.75 11.5858 3.41421 11.25 3 11.25C2.58579 11.25 2.25 11.5858 2.25 12H3.75ZM16.8755 20.4452C17.2341 20.2378 17.3566 19.779 17.1492 19.4204C16.9418 19.0619 16.483 18.9393 16.1245 19.1468L16.8755 20.4452ZM19.1468 16.1245C18.9393 16.483 19.0619 16.9418 19.4204 17.1492C19.779 17.3566 20.2378 17.2341 20.4452 16.8755L19.1468 16.1245ZM5.14033 5.07126C4.84598 5.36269 4.84361 5.83756 5.13505 6.13191C5.42648 6.42626 5.90134 6.42862 6.19569 6.13719L5.14033 5.07126ZM18.8623 5.13786C15.0421 1.31766 8.86882 1.27898 5.0739 5.0739L6.13456 6.13456C9.33366 2.93545 14.5572 2.95404 17.8017 6.19852L18.8623 5.13786ZM5.0739 5.0739L3.80752 6.34028L4.86818 7.40094L6.13456 6.13456L5.0739 5.0739ZM4.33408 7.6206L6.87963 7.63339L6.88717 6.13341L4.34162 6.12062L4.33408 7.6206ZM5.08784 6.86684L5.07505 4.32129L3.57507 4.32882L3.58786 6.87438L5.08784 6.86684ZM12 3.75C16.5563 3.75 20.25 7.44365 20.25 12H21.75C21.75 6.61522 17.3848 2.25 12 2.25V3.75ZM12 20.25C7.44365 20.25 3.75 16.5563 3.75 12H2.25C2.25 17.3848 6.61522 21.75 12 21.75V20.25ZM16.1245 19.1468C14.9118 19.8483 13.5039 20.25 12 20.25V21.75C13.7747 21.75 15.4407 21.2752 16.8755 20.4452L16.1245 19.1468ZM20.25 12C20.25 13.5039 19.8483 14.9118 19.1468 16.1245L20.4452 16.8755C21.2752 15.4407 21.75 13.7747 21.75 12H20.25ZM6.19569 6.13719C7.68707 4.66059 9.73646 3.75 12 3.75V2.25C9.32542 2.25 6.90113 3.32791 5.14033 5.07126L6.19569 6.13719Z' fill='#000000' />
-                </svg>
-              </button>
-            </div>
           </div>
           </div>
         )}
@@ -1587,161 +1496,6 @@ export default function Navbar({
         </div>
       </div>
 
-      {isHistoryOpen ? (
-        <div
-          ref={historyPanelRef}
-          className='absolute left-0 right-0 top-full z-40 bg-white'
-          onMouseEnter={handleHistoryMouseEnter}
-          onMouseLeave={handleHistoryMouseLeave}
-        >
-          <div className='mx-auto w-full max-w-[1400px] px-4 py-3 sm:px-6 lg:px-8'>
-            <div className='rounded-xl bg-white p-3'>
-              <div className='flex items-center justify-between gap-3'>
-                <h3 className='text-sm font-semibold text-gray-900'>
-                  Recently viewed
-                </h3>
-                <div className='flex items-center gap-2'>
-                  <button
-                    type='button'
-                    onClick={() => scrollHistoryList('left')}
-                    className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                    aria-label='Scroll left'
-                  >
-                    <svg className='h-5 w-5' viewBox='0 0 24 24' fill='currentColor' aria-hidden='true'>
-                      <path d='M15.41 16.59 10.83 12l4.58-4.59L14 6l-6 6 6 6z' />
-                    </svg>
-                  </button>
-                  <button
-                    type='button'
-                    onClick={() => scrollHistoryList('right')}
-                    className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
-                    aria-label='Scroll right'
-                  >
-                    <svg className='h-5 w-5' viewBox='0 0 24 24' fill='currentColor' aria-hidden='true'>
-                      <path d='m8.59 16.59 4.58-4.59-4.58-4.59L10 6l6 6-6 6z' />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {historyItems.length ? (
-                <div
-                  ref={historyListRef}
-                  className='featured-scroll mt-3 flex gap-3 overflow-x-auto pb-1'
-                >
-                  {historyItems.slice(0, 14).map((item) => {
-                    const discount = getDiscountPercent(item.price, item.originalPrice)
-                    return (
-                      <Link
-                        key={item.slug}
-                        href={`/product/${encodeURIComponent(item.slug)}`}
-                        className='group min-w-[220px] max-w-[220px] rounded-lg border border-gray-200 bg-white hover:shadow-sm'
-                      >
-                        <div className='relative h-[200px] overflow-hidden rounded-md bg-gray-100'>
-                          {item.image ? (
-                            <Image
-                              src={item.image}
-                              alt={item.name}
-                              fill
-                              sizes='220px'
-                              className='object-cover transition-transform duration-300 group-hover:scale-[1.03]'
-                              unoptimized
-                            />
-                          ) : (
-                            <div className='flex h-full w-full items-center justify-center text-xs text-gray-400'>
-                              No image
-                            </div>
-                          )}
-                          <span
-                            className='absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-gray-700 shadow-sm'
-                            aria-hidden='true'
-                          >
-                            <svg
-                              className='h-4 w-4'
-                              fill='none'
-                              stroke='currentColor'
-                              viewBox='0 0 24 24'
-                              strokeWidth='1.8'
-                            >
-                              <path
-                                strokeLinecap='round'
-                                strokeLinejoin='round'
-                                d='M12 21s-6.716-4.517-9.038-8.187C.13 8.342 2.72 3 7.2 3c2.159 0 3.54 1.112 4.8 2.797C13.26 4.112 14.642 3 16.8 3 21.28 3 23.87 8.342 21.038 12.813 18.716 16.483 12 21 12 21z'
-                              />
-                            </svg>
-                          </span>
-                        </div>
-
-                        <div className='mt-2.5'>
-                          <p className='line-clamp-2 text-[15px] font-semibold leading-5 text-gray-900'>
-                            {item.name}
-                          </p>
-                          <div className='mt-2 flex items-center gap-2'>
-                            <span className='text-xl font-bold leading-none text-[#159a52]'>
-                              {formatPrice(item.price)}
-                            </span>
-                            {item.originalPrice ? (
-                              <span className='text-sm font-semibold text-gray-400 line-through'>
-                                {formatPrice(item.originalPrice)}
-                              </span>
-                            ) : null}
-                            {discount ? (
-                              <span className='rounded bg-rose-100 px-1.5 py-0.5 text-xs font-bold text-rose-700'>
-                                {discount}%
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                      </Link>
-                    )
-                  })}
-                  {historyItems.length > 14 ? (
-                    <Link
-                      href='/recently-viewed'
-                      className='group min-w-[220px] max-w-[220px] rounded-lg border border-gray-200 bg-white hover:shadow-sm'
-                    >
-                      <div className='relative h-[200px] overflow-hidden rounded-md bg-gray-100'>
-                        <div className='absolute inset-0 grid grid-cols-3 grid-rows-3 gap-0 opacity-75 blur-[1px]'>
-                          {historyItems.slice(14, 23).map((item) => (
-                            <div
-                              key={`${item.slug}-view-all-preview`}
-                              className='relative overflow-hidden bg-gray-100'
-                            >
-                              {item.image ? (
-                                <Image
-                                  src={item.image}
-                                  alt=''
-                                  fill
-                                  sizes='74px'
-                                  className='object-cover'
-                                  unoptimized
-                                />
-                              ) : null}
-                            </div>
-                          ))}
-                        </div>
-                        <div className='absolute inset-0 bg-white/20' />
-                      </div>
-                      <div className='mt-2.5 p-2'>
-                        <p className='text-base font-semibold text-gray-900'>
-                          View all
-                        </p>
-                        <p className='mt-1 text-xs text-gray-400'>
-                          {historyItems.length - 14} more items
-                        </p>
-                      </div>
-                    </Link>
-                  ) : null}
-                </div>
-              ) : (
-                <div className='mt-3 rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-500'>
-                  No recently viewed products yet.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {isLogoutConfirmOpen ? (
         <div
