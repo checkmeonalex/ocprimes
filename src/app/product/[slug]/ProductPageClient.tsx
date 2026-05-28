@@ -502,7 +502,6 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
     }
     resolveVendorAuth()
     return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vendorHeaderProfile?.slug])
 
   const handleFollowVendor = useCallback(async () => {
@@ -1171,7 +1170,8 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
       // Main Alxora navbar: lg:h-14 (56px) up to xl, xl:h-16 (64px)
       const mainNavH = w >= 1280 ? 64 : 56
       // Vendor header (prestige: lg:h-16=64px; default: lg:h-20=80px)
-      const vendorH = vendorHeaderProfile
+      const hasVendorHeader = Boolean(vendorHeaderProfile)
+      const vendorH = hasVendorHeader
         ? (isPrestige ? (w >= 1024 ? 64 : 56) : (w >= 1024 ? 80 : 64))
         : 0
       // When main nav visible: both stacked; when hidden: only vendor header sticks
@@ -1245,7 +1245,7 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
         window.cancelAnimationFrame(frameId)
       }
     }
-  }, [isDesktopHeaderVisible, product?.id])
+  }, [isDesktopHeaderVisible, isPrestige, product?.id, vendorHeaderProfile])
 
   useEffect(() => {
     const contentArea = productContentAreaRef.current

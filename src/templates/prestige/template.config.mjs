@@ -1,4 +1,4 @@
-export default {
+const prestigeTemplateConfig = {
   id: 'prestige',
   name: 'Prestige',
   description:
@@ -15,3 +15,5 @@ export default {
   accentBgColor: 'bg-[#ede9e3]',
   isAvailable: true,
 }
+
+export default prestigeTemplateConfig

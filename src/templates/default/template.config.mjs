@@ -1,4 +1,4 @@
-export default {
+const defaultTemplateConfig = {
   id: 'default',
   name: 'Default',
   description:
@@ -15,3 +15,5 @@ export default {
   accentBgColor: 'bg-white',
   isAvailable: true,
 }
+
+export default defaultTemplateConfig
