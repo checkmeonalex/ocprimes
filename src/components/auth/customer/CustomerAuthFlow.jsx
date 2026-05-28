@@ -165,7 +165,7 @@ export default function CustomerAuthFlow() {
       const payload = await response.json().catch(() => null)
 
       if (!response.ok) {
-        setError(payload?.error || 'Unable to sign in.')
+        setError(payload?.error || "We couldn't sign you in. Please try again.")
         return
       }
 
@@ -178,7 +178,7 @@ export default function CustomerAuthFlow() {
       )
       router.refresh()
     } catch {
-      setError('Unable to sign in. Try again.')
+      setError("We couldn't sign you in. Please try again.")
     } finally {
       setIsSubmitting(false)
     }

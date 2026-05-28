@@ -5,6 +5,9 @@ import {
   ensureAuthUserExistsForMagicLink,
   generateMagicLinkEmailLink,
 } from '@/lib/auth/supabase-email-links'
+import { findAuthUserByEmail } from '@/lib/auth/find-user-by-email'
+import { getUserRoleInfoSafe } from '@/lib/auth/roles'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { sendVendorVerificationEmail } from '@/lib/email/send-auth-action-emails'
 import { enforceRateLimit } from '@/lib/security/rate-limit'
 
@@ -25,6 +28,20 @@ export async function POST(request: NextRequest) {
   }
 
   const email = parsed.data.email.trim().toLowerCase()
+
+  // Check if this email already belongs to an active seller — stop before sending OTP
+  try {
+    const existingUser = await findAuthUserByEmail(email)
+    if (existingUser?.id) {
+      const adminClient = createAdminSupabaseClient()
+      const roleInfo = await getUserRoleInfoSafe(adminClient, existingUser.id, email)
+      if (roleInfo.isVendor || roleInfo.isAdmin) {
+        return jsonOk({ sent: false, alreadySeller: true })
+      }
+    }
+  } catch {
+    // non-fatal — continue with normal flow
+  }
 
   try {
     await ensureAuthUserExistsForMagicLink(email)

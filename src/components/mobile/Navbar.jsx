@@ -998,7 +998,7 @@ function MobileNavbar({
                   <div className='flex items-center space-x-6'>
                     <button
                       onClick={handleCategoriesClick}
-                      className='text-sm font-medium text-gray-900 border-b-2 border-red-500 pb-2 whitespace-nowrap flex items-center gap-2'
+                      className='text-sm font-medium text-gray-900 border-b-2 border-red-500 whitespace-nowrap flex items-center gap-2'
                       aria-label='Toggle categories'
                     >
                       <svg
@@ -1020,7 +1020,7 @@ function MobileNavbar({
                         key={item.id}
                         type='button'
                         onClick={() => handleCategoryListClick(item.rootId)}
-                        className='text-sm text-gray-600 hover:text-gray-900 pb-2 whitespace-nowrap'
+                        className='text-sm text-gray-600 hover:text-gray-900 whitespace-nowrap'
                       >
                         {item.name}
                       </button>

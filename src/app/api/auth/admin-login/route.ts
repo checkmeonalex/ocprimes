@@ -35,13 +35,13 @@ export async function POST(request: NextRequest) {
 
   const userId = data.user?.id
   if (!userId) {
-    return jsonError('Unable to sign in.', 401)
+    return jsonError('We could not sign you in. Please check your details and try again.', 401)
   }
 
   const roleInfo = await getUserRoleInfoSafe(supabase, userId, data.user?.email || '')
   if (!roleInfo.isAdmin) {
     await supabase.auth.signOut()
-    return jsonError('Admin access not approved.', 403)
+    return jsonError('You do not have access to this area yet.', 403)
   }
 
   const response = NextResponse.json({ role: 'admin' })

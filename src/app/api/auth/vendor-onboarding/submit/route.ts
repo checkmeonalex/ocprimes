@@ -21,7 +21,8 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
   const parsed = vendorOnboardingSubmitSchema.safeParse(body)
   if (!parsed.success) {
-    return jsonError('Invalid vendor request details.', 400)
+    console.error('vendorOnboardingSubmit validation failed:', JSON.stringify(parsed.error.issues))
+    return jsonError('Please check your details and try again.', 400)
   }
 
   const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
   const user = data.user
   const roleInfo = await getUserRoleInfoSafe(supabase, user.id, user.email || '')
   if (roleInfo.isAdmin || roleInfo.isVendor) {
-    return jsonError('Your account already has dashboard access.', 409)
+    return jsonError('You are already set up as a seller — just sign in.', 409)
   }
 
   const shippingCountry = parsed.data.shippingCountry.trim()
@@ -73,11 +74,11 @@ export async function POST(request: NextRequest) {
 
   if (existingByUserError) {
     console.error('Vendor request lookup failed:', existingByUserError.message)
-    return jsonError('Unable to submit vendor request.', 500)
+    return jsonError('Something went wrong. Please try again.', 500)
   }
 
   if (existingByUser?.status === 'approved') {
-    return jsonError('Your vendor request was already approved.', 409)
+    return jsonError('Your seller account is already active. Sign in to continue.', 409)
   }
 
   try {
@@ -111,6 +112,8 @@ export async function POST(request: NextRequest) {
     return jsonError('Vendor enabled but request history could not be saved.', 500)
   }
 
+  const productCategories = Array.isArray(parsed.data.categories) ? parsed.data.categories : []
+
   await supabase.auth.updateUser({
     data: {
       full_name: parsed.data.fullName.trim(),
@@ -119,8 +122,20 @@ export async function POST(request: NextRequest) {
       brand_name: brandName,
       vendor_request_status: 'approved',
       vendor_enabled_at: nowIso,
+      product_categories: productCategories,
     },
   })
+
+  // Persist categories on the brand record for recommendation queries
+  if (productCategories.length > 0) {
+    await adminClient
+      .from('admin_brands')
+      .update({ product_categories: productCategories })
+      .eq('slug', brandSlug)
+      .then(({ error }) => {
+        if (error) console.error('Failed to save product categories to brand:', error.message)
+      })
+  }
 
   const response = jsonOk({ submitted: true, status: 'approved', vendorEnabled: true })
   applyCookies(response)

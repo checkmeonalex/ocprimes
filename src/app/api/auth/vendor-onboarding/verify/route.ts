@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { vendorOnboardingVerifySchema } from '@/lib/auth/validation'
 import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
+import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 import { enforceRateLimit } from '@/lib/security/rate-limit'
 
 export async function POST(request: NextRequest) {
@@ -34,7 +35,18 @@ export async function POST(request: NextRequest) {
     return jsonError('Invalid or expired verification code.', 400)
   }
 
-  const response = jsonOk({ verified: true })
+  // Check immediately — don't make them complete 4 more steps to find out
+  const { data: userData } = await supabase.auth.getUser()
+  if (userData?.user) {
+    const roleInfo = await getUserRoleInfoSafe(supabase, userData.user.id, userData.user.email || '')
+    if (roleInfo.isVendor || roleInfo.isAdmin) {
+      const response = jsonOk({ verified: true, alreadyVendor: true })
+      applyCookies(response)
+      return response
+    }
+  }
+
+  const response = jsonOk({ verified: true, alreadyVendor: false })
   applyCookies(response)
   return response
 }

@@ -1,26 +1,28 @@
 import { BrandLogoFull } from '@/components/common/BrandLogo'
 import AuthBackButton from '@/components/auth/AuthBackButton'
 
-export default function SellerSignupShell({ children }) {
+export default function SellerSignupShell({ children, onBack = null }) {
   return (
-    <div className='relative min-h-screen bg-white px-4 py-8 text-slate-900'>
+    <div className="relative min-h-screen bg-white">
       <AuthBackButton
-        fallbackHref='/'
-        className='absolute left-4 top-6 inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-800 sm:left-6'
+        fallbackHref="/"
+        onBack={onBack}
+        className="absolute left-4 top-5 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 sm:left-6"
       />
 
-      <div className='mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center'>
-        <section className='w-full max-w-[27rem]'>
-          <div className='flex justify-center'>
-            <a href='/' className='inline-flex flex-col items-center justify-center gap-2 text-slate-950'>
+      <div className="flex min-h-screen flex-col items-center justify-center px-6 py-16">
+        <div className="w-full max-w-[23rem]">
+          <div className="mb-10 flex flex-col items-center gap-2">
+            <a href="/">
               <BrandLogoFull />
-              <span className='text-center text-[10px] font-medium uppercase leading-[1.45] tracking-[0.32em] text-slate-500'>
-                Build your brand. Sell on Alxora.
-              </span>
             </a>
+            <span className="text-[9px] font-medium uppercase tracking-[0.38em] text-slate-400">
+              Build your brand. Sell on Alxora.
+            </span>
           </div>
+
           {children}
-        </section>
+        </div>
       </div>
     </div>
   )

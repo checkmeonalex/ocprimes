@@ -42,7 +42,7 @@ export default function LoginForm({
       const payload = await response.json().catch(() => null)
 
       if (!response.ok) {
-        setError(payload?.error || 'Unable to sign in.')
+        setError(payload?.error || "We couldn't sign you in. Please try again.")
         return
       }
 
@@ -52,7 +52,7 @@ export default function LoginForm({
           : 'customer'
       if (adminOnly && role !== 'admin') {
         await fetch('/api/auth/signout', { method: 'POST' })
-        setError('This account is not approved for admin access.')
+        setError("You don't have access to this area yet.")
         return
       }
 
@@ -63,7 +63,7 @@ export default function LoginForm({
           : resolveCustomerRedirect(resolveClientCustomerDeviceType())
       router.push(resolvePostAuthRedirect(role, nextPath, fallback))
     } catch {
-      setError('Unable to sign in. Try again.')
+      setError("We couldn't sign you in. Please try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -171,15 +171,6 @@ export default function LoginForm({
             className='inline-flex items-center gap-2 text-sm font-medium text-slate-700 transition hover:text-slate-950'
           >
             <span>Need help?</span>
-            <svg aria-hidden='true' viewBox='0 0 20 20' fill='none' className='h-4 w-4'>
-              <path
-                d='M6.5 8 10 11.5 13.5 8'
-                stroke='currentColor'
-                strokeWidth='1.8'
-                strokeLinecap='round'
-                strokeLinejoin='round'
-              />
-            </svg>
           </Link>
 
           <div className='flex items-center gap-4'>

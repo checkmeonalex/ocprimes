@@ -41,7 +41,7 @@ export const authEmailLookupSchema = z.object({
 
 export const vendorOnboardingVerifySchema = z.object({
   email: emailSchema,
-  code: z.preprocess(sanitizePlainText, z.string().min(4).max(12)),
+  code: z.preprocess(sanitizePlainText, z.string().min(6).max(6)),
 })
 
 export const vendorOnboardingBrandSchema = z.object({
@@ -53,10 +53,11 @@ export const vendorOnboardingSubmitSchema = z.object({
   fullName: z.preprocess(sanitizePlainText, z.string().min(2).max(120)),
   brandName: z.preprocess(sanitizePlainText, z.string().min(2).max(120)),
   shippingCountry: z.enum(ACCEPTED_COUNTRIES),
+  categories: z.array(z.string().max(60)).max(20).optional().default([]),
 })
 
 export const emailCodeSchema = z.object({
-  code: z.preprocess(sanitizePlainText, z.string().min(4).max(12)),
+  code: z.preprocess(sanitizePlainText, z.string().min(6).max(6)),
 })
 
 export const recoveryAccessStartSchema = z.object({
