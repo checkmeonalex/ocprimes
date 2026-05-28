@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useUserI18n } from '@/lib/i18n/useUserI18n';
 import { useWishlist } from '@/context/WishlistContext';
@@ -72,7 +72,7 @@ function ProductCard({ product, formatMoney }) {
         {/* Wishlist */}
         <button
           type="button"
-          onClick={(e) => { e.preventDefault(); openSaveModal(product); }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); openSaveModal(product); }}
           className="absolute top-2 right-2 z-10 h-7 w-7 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center transition-colors shadow-sm"
           aria-label={wishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
         >
@@ -198,8 +198,10 @@ function VendorHeader({ vendor }) {
     ),
     (yearsOnPlatform > 0 || monthsOnPlatform > 0) && (
       <span>
-        <span className="font-medium text-gray-800">{yearsOnPlatform > 0 ? yearsOnPlatform : monthsOnPlatform}</span>
-        {' '}{yearsOnPlatform > 0 ? 'yr' : 'mo'} on platform
+        <span className="font-medium text-gray-800">
+          {yearsOnPlatform > 0 ? `${yearsOnPlatform}y+` : `${monthsOnPlatform}m+`}
+        </span>
+        {' '}on Alxora
       </span>
     ),
     followers > 0 && (
@@ -216,28 +218,37 @@ function VendorHeader({ vendor }) {
 
   return (
     <div className="flex items-center gap-4 sm:gap-5 px-1 py-4 sm:py-5 border-b border-gray-100">
-      {/* Logo */}
-      <div className="h-16 w-16 sm:h-[72px] sm:w-[72px] shrink-0 rounded-2xl overflow-hidden bg-gray-900 flex items-center justify-center">
+      {/* Logo — tappable on all screens */}
+      <Link href={vendorHref} className="h-16 w-16 sm:h-[72px] sm:w-[72px] shrink-0 rounded-2xl overflow-hidden bg-gray-900 flex items-center justify-center">
         {vendor.logo_url ? (
           <img src={vendor.logo_url} alt={vendor.name} className="w-full h-full object-cover" />
         ) : (
           <span style={{ ...serifStyle, fontStyle: 'italic', fontSize: 22, color: '#fff' }}>{initials}</span>
         )}
-      </div>
+      </Link>
 
       {/* Details */}
       <div className="flex-1 min-w-0">
-        {/* Name + verified badge */}
-        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-          <VendorName name={vendor.name} />
-          {vendor.is_trusted_vendor && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-emerald-600">
-              <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-              Verified
-            </span>
-          )}
+        {/* Name row — name+badge on left, Visit link on right (mobile only) */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <Link href={vendorHref} className="hover:opacity-70 transition-opacity leading-none">
+              <VendorName name={vendor.name} />
+            </Link>
+            {vendor.is_trusted_vendor && (
+              <img
+                src="/icons/verification/vendor-verified-badge.png"
+                alt="Verified"
+                className="h-6 w-6 shrink-0"
+              />
+            )}
+          </div>
+          <Link
+            href={vendorHref}
+            className="sm:hidden shrink-0 text-[11px] font-semibold text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            Visit →
+          </Link>
         </div>
 
         {/* Stats row */}
@@ -252,7 +263,7 @@ function VendorHeader({ vendor }) {
         )}
       </div>
 
-      {/* Buttons */}
+      {/* Buttons — desktop only */}
       <div className="hidden sm:flex shrink-0 items-center gap-2">
         <Link href={vendorHref} className="rounded-full border border-gray-300 px-5 py-2 text-[12px] font-semibold text-gray-700 hover:bg-gray-50 transition">
           Visit shop
@@ -360,8 +371,32 @@ export default function VendorBrowseSectionClient({ categories, vendorRows }) {
 
   const handleSort = useCallback((val) => {
     setSort(val);
-    fetchRows(activeSlug);
-  }, [activeSlug, fetchRows]);
+  }, []);
+
+  const sortedRows = useMemo(() => {
+    const arr = [...rows];
+    switch (sort) {
+      case 'trending':
+        return arr.sort((a, b) => b.totalCount - a.totalCount);
+      case 'top_rated':
+        return arr.sort((a, b) => (b.vendor.custom_profile_rating || 0) - (a.vendor.custom_profile_rating || 0));
+      case 'newest': {
+        // lowest time on platform = newest vendor
+        const age = (v) => v.vendor.years_on_platform * 12 + v.vendor.months_on_platform;
+        return arr.sort((a, b) => age(a) - age(b));
+      }
+      case 'price_asc': {
+        const minPrice = (r) => Math.min(...r.products.map((p) => Number(p.discount_price || p.price) || Infinity));
+        return arr.sort((a, b) => minPrice(a) - minPrice(b));
+      }
+      case 'price_desc': {
+        const maxPrice = (r) => Math.max(...r.products.map((p) => Number(p.discount_price || p.price) || 0));
+        return arr.sort((a, b) => maxPrice(b) - maxPrice(a));
+      }
+      default:
+        return arr;
+    }
+  }, [rows, sort]);
 
   const pillsRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -404,7 +439,7 @@ export default function VendorBrowseSectionClient({ categories, vendorRows }) {
   return (
     <section className="py-8">
       {/* Section heading + Sort on same row */}
-      <div className="mb-4 flex items-start justify-between gap-4 px-3 sm:px-4 md:px-5">
+      <div className="mb-4 flex items-start justify-between gap-4 px-3 sm:px-4 md:px-10 lg:px-16">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
             Shops you may{' '}
@@ -435,7 +470,7 @@ export default function VendorBrowseSectionClient({ categories, vendorRows }) {
       </div>
 
       {/* ── Pills row with hover scroll arrows ───────────────── */}
-      <div className="group relative mb-6 w-full px-3 sm:px-4 md:px-5">
+      <div className="group relative mb-6 w-full px-3 sm:px-4 md:px-10 lg:px-16">
         {/* Left arrow */}
         <button
           type="button"
@@ -494,7 +529,7 @@ export default function VendorBrowseSectionClient({ categories, vendorRows }) {
 
       {/* ── Vendor rows ──────────────────────────────────────── */}
       {loading ? (
-        <div className="space-y-6 px-1">
+        <div className="space-y-6 px-3 sm:px-4 md:px-10 lg:px-16">
           {[1, 2, 3].map((i) => (
             <div key={i} className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden animate-pulse">
               <div className="flex items-center gap-4 px-5 py-4 border-b border-gray-100">
@@ -512,13 +547,13 @@ export default function VendorBrowseSectionClient({ categories, vendorRows }) {
             </div>
           ))}
         </div>
-      ) : rows.length === 0 ? (
+      ) : sortedRows.length === 0 ? (
         <div className="py-16 text-center text-sm text-gray-400">
           No vendors found in this category
         </div>
       ) : (
-        <div className="space-y-6 px-1">
-          {rows.map(({ vendor, products, totalCount }) => (
+        <div className="space-y-6 px-3 sm:px-4 md:px-10 lg:px-16">
+          {sortedRows.map(({ vendor, products, totalCount }) => (
             <VendorRow
               key={vendor.id}
               vendor={vendor}

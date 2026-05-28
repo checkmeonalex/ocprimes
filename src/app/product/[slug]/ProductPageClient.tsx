@@ -2166,6 +2166,8 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
                     itemsCount={product.vendorItemsCount}
                     badge={product.vendorBadge}
                     avatarUrl={product.vendorLogoUrl}
+                    vendorIsTrusted={Boolean(product.vendorIsTrusted)}
+                    vendorTrustedBadgeUrl={String(product.vendorTrustedBadgeUrl || '')}
                   />
                   <ShippingInfoCard shippingEstimate={shippingEstimate} />
                 </div>
@@ -2991,6 +2993,8 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
                     itemsCount={product.vendorItemsCount}
                     badge={product.vendorBadge}
                     avatarUrl={product.vendorLogoUrl}
+                    vendorIsTrusted={Boolean(product.vendorIsTrusted)}
+                    vendorTrustedBadgeUrl={String(product.vendorTrustedBadgeUrl || '')}
                   />
                   <ShippingInfoCard shippingEstimate={shippingEstimate} />
                   </div>

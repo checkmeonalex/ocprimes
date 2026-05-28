@@ -55,7 +55,7 @@ export default async function VendorBrowseSection() {
         }
       })
     )
-  ).filter(Boolean);
+  ).filter(Boolean).sort((a, b) => b.totalCount - a.totalCount);
 
   return (
     <VendorBrowseSectionClient

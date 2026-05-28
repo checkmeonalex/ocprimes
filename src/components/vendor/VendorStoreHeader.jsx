@@ -94,9 +94,18 @@ export default function VendorStoreHeader({
                 )}
               </div>
               <div className="block">
-                <h1 className="text-sm font-bold tracking-tight text-gray-900 lg:text-xl line-clamp-1">
-                  {vendorProfile?.name}
-                </h1>
+                <div className="flex items-center gap-1.5">
+                  <h1 className="text-sm font-bold tracking-tight text-gray-900 lg:text-xl line-clamp-1">
+                    {vendorProfile?.name}
+                  </h1>
+                  {vendorProfile?.isTrusted && (
+                    <img
+                      src={vendorProfile.trustedBadgeUrl || '/icons/verification/vendor-verified-badge.png'}
+                      alt="Verified"
+                      className="h-4 w-4 lg:h-5 lg:w-5 shrink-0"
+                    />
+                  )}
+                </div>
                 <p className="text-[8px] font-medium uppercase tracking-widest text-gray-400 lg:text-[10px]">
                   Official Store
                 </p>

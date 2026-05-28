@@ -78,6 +78,13 @@ export default function PrestigeVendorHeader({
               <span className="max-w-[160px] truncate text-sm font-semibold tracking-tight text-white sm:max-w-[240px]">
                 {vendorProfile?.name}
               </span>
+              {vendorProfile?.isTrusted && (
+                <img
+                  src={vendorProfile.trustedBadgeUrl || '/icons/verification/vendor-verified-badge.png'}
+                  alt="Verified"
+                  className="h-4 w-4 shrink-0"
+                />
+              )}
             </Link>
 
             {/* RIGHT — Search + Edit / Follow */}

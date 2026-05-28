@@ -71,6 +71,13 @@ export default function BiadVendorHeader({
               <span className="text-sm font-black uppercase tracking-[0.15em] text-gray-900 group-hover:opacity-70 transition lg:text-base">
                 {storeName}
               </span>
+              {vendorProfile?.isTrusted && (
+                <img
+                  src={vendorProfile.trustedBadgeUrl || '/icons/verification/vendor-verified-badge.png'}
+                  alt="Verified"
+                  className="h-4 w-4 shrink-0"
+                />
+              )}
             </Link>
 
             {/* RIGHT — Actions */}

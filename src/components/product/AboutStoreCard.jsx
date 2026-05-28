@@ -13,6 +13,8 @@ const AboutStoreCard = ({
   itemsCount,
   badge,
   avatarUrl,
+  vendorIsTrusted = false,
+  vendorTrustedBadgeUrl = '',
 }) => {
   const displayVendor = String(vendor || '').trim() || 'Seller'
   const initials = displayVendor.slice(0, 2).toUpperCase()
@@ -136,6 +138,13 @@ const AboutStoreCard = ({
             <Link href={vendorHref} className='text-base font-semibold text-gray-900 hover:underline'>
               {displayVendor}
             </Link>
+            {vendorIsTrusted && (
+              <img
+                src={vendorTrustedBadgeUrl || '/icons/verification/vendor-verified-badge.png'}
+                alt="Verified"
+                className='h-5 w-5 shrink-0'
+              />
+            )}
             {badge && (
               <span className='inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 border border-violet-200'>
                 ★ {badge}

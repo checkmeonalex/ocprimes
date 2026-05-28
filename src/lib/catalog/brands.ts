@@ -236,31 +236,36 @@ function mapVendorRow(v: any) {
 }
 
 export const fetchAllVendors = async () => {
-  let supabase
   try {
-    supabase = createAdminSupabaseClient()
-  } catch (_error) {
-    supabase = await createServerSupabaseClient()
-  }
+    let supabase
+    try {
+      supabase = createAdminSupabaseClient()
+    } catch {
+      supabase = await createServerSupabaseClient()
+    }
 
-  let { data, error } = await supabase
-    .from('admin_brands')
-    .select(VENDOR_SELECT_FULL)
-    .order('name', { ascending: true })
-
-  if (isMissingColumnError(error)) {
-    const fallback = await supabase
+    let { data, error } = await supabase
       .from('admin_brands')
-      .select(VENDOR_SELECT_BASE)
+      .select(VENDOR_SELECT_FULL)
       .order('name', { ascending: true })
-    data = fallback.data
-    error = fallback.error
-  }
 
-  if (error) {
-    console.error('fetchAllVendors error:', error.message)
+    if (isMissingColumnError(error)) {
+      const fallback = await supabase
+        .from('admin_brands')
+        .select(VENDOR_SELECT_BASE)
+        .order('name', { ascending: true })
+      data = fallback.data
+      error = fallback.error
+    }
+
+    if (error) {
+      console.error('fetchAllVendors error:', error.message)
+      return []
+    }
+
+    return (data ?? []).map(mapVendorRow)
+  } catch (err) {
+    console.error('fetchAllVendors error:', err instanceof Error ? err.message : err)
     return []
   }
-
-  return (data ?? []).map(mapVendorRow)
 }
