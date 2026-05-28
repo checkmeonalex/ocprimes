@@ -17,6 +17,7 @@ import { getCachedTopCategories } from '../lib/catalog/top-categories-server'
 import { BRAND_NAME, BRAND_SEARCH_DESCRIPTION, BRAND_TAGLINE } from '../lib/brand'
 import { SITE_URL } from '../lib/seo'
 import PwaRegistration from '../components/pwa/PwaRegistration'
+import { VendorPageProvider } from '../context/VendorPageContext'
 
 export const dynamic = 'force-dynamic'
 
@@ -132,13 +133,15 @@ export default async function RootLayout({ children }) {
             <SidebarProvider>
               <CartProvider>
                 <WishlistProvider>
-                  <ClientLayout
-                    initialAuthUser={initialAuthUser}
-                    initialTopCategories={initialTopCategories}
-                  >
-                    {children}
-                  </ClientLayout>
-                  <WishlistSaveModal />
+                  <VendorPageProvider>
+                    <ClientLayout
+                      initialAuthUser={initialAuthUser}
+                      initialTopCategories={initialTopCategories}
+                    >
+                      {children}
+                    </ClientLayout>
+                    <WishlistSaveModal />
+                  </VendorPageProvider>
                 </WishlistProvider>
               </CartProvider>
             </SidebarProvider>

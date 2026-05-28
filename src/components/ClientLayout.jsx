@@ -11,6 +11,7 @@ import UserPresenceHeartbeat from './presence/UserPresenceHeartbeat'
 import { useScreenSize } from '../hooks/useScreenSize'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
+import { useVendorPage } from '../context/VendorPageContext'
 
 const NEXT_NAVIGATION_EXEMPT_PREFIXES = ['/cart', '/wishlist', '/UserBackend/wishlist', '/account/wishlist']
 
@@ -27,6 +28,7 @@ export default function ClientLayout({
   const { isMobile } = useScreenSize()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const { isVendorPage } = useVendorPage()
   const isEmbedPreview = searchParams?.get('embed_preview') === '1'
   const isAuthRoute =
     pathname?.startsWith('/login') ||
@@ -136,24 +138,29 @@ export default function ClientLayout({
     <>
       <UserPresenceHeartbeat />
       <ScrollHistoryRestoration />
-      {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute ? (
+
+      {/* Main Alxora navbar — hidden on vendor store pages */}
+      {!isVendorPage && !isUserBackendRoute && !isCartRoute && !isCheckoutRoute ? (
         <MobileNavbar
           initialAuthUser={initialAuthUser}
           initialTopCategories={initialTopCategories}
         />
       ) : null}
-      {!isMobile || isCheckoutFlowRoute ? (
+      {!isVendorPage && (!isMobile || isCheckoutFlowRoute) ? (
         <Navbar
           initialAuthUser={initialAuthUser}
           initialTopCategories={initialTopCategories}
         />
       ) : null}
+
       <div
         className={`flex ${
           isCheckoutFlowRoute
             ? 'pt-0 sm:pt-16'
             : isUserBackendRoute
               ? 'pt-0 lg:pt-[106px]'
+            : isVendorPage
+              ? 'pt-0'
             : isProductRoute
               ? 'pt-0 lg:pt-14 xl:pt-16'
               : 'pt-24 lg:pt-[106px]'

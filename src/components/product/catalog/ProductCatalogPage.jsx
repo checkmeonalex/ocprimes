@@ -21,6 +21,7 @@ import {
   extractDynamicAttributeRows,
 } from './productAttributeFilters.mjs'
 import { getTemplate } from '@/templates/index.mjs'
+import { useVendorPage } from '@/context/VendorPageContext'
 
 const normalizeKey = (value) => String(value || '').trim().toLowerCase()
 const buildFacetList = (values) => {
@@ -128,7 +129,15 @@ const ProductCatalogPage = ({
   const TemplateVendorHeader = template.VendorHeader
   const TemplateProductCard = template.ProductCard
   const { locale, formatMoney } = useUserI18n()
+  const { setIsVendorPage } = useVendorPage()
   const cart = useOptionalCart()
+
+  // Signal ClientLayout to hide the main Alxora navbar
+  useEffect(() => {
+    if (!vendorProfile) return
+    setIsVendorPage(true)
+    return () => setIsVendorPage(false)
+  }, [vendorProfile, setIsVendorPage])
   const addItem = cart?.addItem || (() => {})
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filterSheetOffset, setFilterSheetOffset] = useState(0)
@@ -1203,6 +1212,7 @@ const ProductCatalogPage = ({
           categoryTree={categoryTree}
           collectionsMenuMode={collectionsMenuMode}
           activeCategorySlug={activeCategorySlug}
+          initialAuthUser={null}
         />
       )}
       <div className={`mx-auto max-w-7xl px-3 pb-0 sm:pb-10 ${vendorProfile ? (isBiad ? 'pt-0 lg:pt-24' : 'pt-0 lg:pt-20') : 'pt-6'}`}>
