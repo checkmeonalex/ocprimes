@@ -1,19 +1,32 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { isSuperAdminEmail } from '@/lib/auth/superAdmin'
 
-const normalizeRole = (value) => {
+type KnownRole = 'admin' | 'vendor' | 'customer'
+
+export type RoleInfo = {
+  role: KnownRole
+  isAdmin: boolean
+  isVendor: boolean
+  roles: KnownRole[]
+}
+
+const normalizeRole = (value: unknown): KnownRole | '' => {
   const role = String(value || '').toLowerCase().trim()
   if (role === 'admin' || role === 'vendor' || role === 'customer') return role
   return ''
 }
 
-const pushRole = (roles, roleValue) => {
+const pushRole = (roles: Set<KnownRole>, roleValue: unknown): void => {
   const normalized = normalizeRole(roleValue)
   if (normalized) roles.add(normalized)
 }
 
-async function collectRolesFromClient(client, userId) {
-  const roles = new Set()
+async function collectRolesFromClient(
+  client: SupabaseClient,
+  userId: string,
+): Promise<{ roles: Set<KnownRole>; error: Error | null }> {
+  const roles = new Set<KnownRole>()
 
   const { data: roleRows, error: roleError } = await client
     .from('user_roles')
@@ -21,13 +34,13 @@ async function collectRolesFromClient(client, userId) {
     .eq('user_id', userId)
 
   if (roleError) {
-    return { roles, error: roleError }
+    return { roles, error: roleError as unknown as Error }
   }
 
   if (Array.isArray(roleRows)) {
     roleRows.forEach((row) => pushRole(roles, row?.role))
-  } else {
-    pushRole(roles, roleRows?.role)
+  } else if (roleRows) {
+    pushRole(roles, (roleRows as { role?: unknown })?.role)
   }
 
   const { data: profileRow } = await client
@@ -40,7 +53,7 @@ async function collectRolesFromClient(client, userId) {
   return { roles, error: null }
 }
 
-function resolveRoleInfo(roleSet, userEmail) {
+function resolveRoleInfo(roleSet: Set<KnownRole>, userEmail: string): RoleInfo {
   if (isSuperAdminEmail(userEmail)) {
     roleSet.add('admin')
   }
@@ -49,7 +62,7 @@ function resolveRoleInfo(roleSet, userEmail) {
   if (isAdmin || isVendor) {
     roleSet.add('customer')
   }
-  const role = isAdmin ? 'admin' : isVendor ? 'vendor' : 'customer'
+  const role: KnownRole = isAdmin ? 'admin' : isVendor ? 'vendor' : 'customer'
   return {
     role,
     isAdmin,
@@ -58,23 +71,35 @@ function resolveRoleInfo(roleSet, userEmail) {
   }
 }
 
-export async function getUserRoleInfo(supabase, userId, userEmail = '') {
+export async function getUserRoleInfo(
+  supabase: SupabaseClient,
+  userId: string,
+  userEmail = '',
+): Promise<RoleInfo> {
   const { roles, error } = await collectRolesFromClient(supabase, userId)
 
   if (error) {
-    console.error('Role lookup failed:', { userId, message: error.message })
-    return resolveRoleInfo(new Set(), userEmail)
+    console.error('Role lookup failed:', { userId, message: (error as Error).message })
+    return resolveRoleInfo(new Set<KnownRole>(), userEmail)
   }
 
   return resolveRoleInfo(roles, userEmail)
 }
 
-export async function getUserRole(supabase, userId, userEmail = '') {
+export async function getUserRole(
+  supabase: SupabaseClient,
+  userId: string,
+  userEmail = '',
+): Promise<KnownRole> {
   const info = await getUserRoleInfo(supabase, userId, userEmail)
   return info.role
 }
 
-export async function getUserRoleInfoSafe(supabase, userId, userEmail = '') {
+export async function getUserRoleInfoSafe(
+  supabase: SupabaseClient,
+  userId: string,
+  userEmail = '',
+): Promise<RoleInfo> {
   const info = await getUserRoleInfo(supabase, userId, userEmail)
   if (info.isAdmin || info.isVendor) return info
 
@@ -92,7 +117,11 @@ export async function getUserRoleInfoSafe(supabase, userId, userEmail = '') {
   }
 }
 
-export async function getUserRoleSafe(supabase, userId, userEmail = '') {
+export async function getUserRoleSafe(
+  supabase: SupabaseClient,
+  userId: string,
+  userEmail = '',
+): Promise<KnownRole> {
   const info = await getUserRoleInfoSafe(supabase, userId, userEmail)
   return info.role
 }

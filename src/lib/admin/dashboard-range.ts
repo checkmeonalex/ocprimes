@@ -137,22 +137,21 @@ export const resolveDashboardRange = (
         previousBuckets: buildHourBuckets(previousStart, 4, 6),
       }
     }
-    case '3d': {
-      const currentStart = shiftDays(todayStart, -2)
+    case 'all': {
+      // Fetch everything from epoch; show last ~12 months in 6 x 60-day buckets on the chart
       const currentEnd = shiftDays(todayStart, 1)
-      const previousEnd = currentStart
-      const previousStart = shiftDays(previousEnd, -3)
+      const chartStart = shiftDays(todayStart, -359)
       return {
         key,
         label: option.label,
-        windowLabel: 'Last 3 days',
-        comparisonLabel: 'previous 3 days',
-        currentStart,
+        windowLabel: 'All time',
+        comparisonLabel: 'no prior period',
+        currentStart: new Date(0),
         currentEnd,
-        previousStart,
-        previousEnd,
-        currentBuckets: buildDayBuckets(currentStart, 1, 3, 'range'),
-        previousBuckets: buildDayBuckets(previousStart, 1, 3, 'range'),
+        previousStart: new Date(0),
+        previousEnd: new Date(0),
+        currentBuckets: buildDayBuckets(chartStart, 60, 6, 'range'),
+        previousBuckets: [],
       }
     }
     case '7d': {

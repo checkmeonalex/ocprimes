@@ -56,13 +56,17 @@ export const readMediaFromStorage = async ({
   url?: string | null
   contentTypeFallback?: string
 }) => {
-  if (!r2Key) {
-    if (!url) {
-      throw Object.assign(new Error('Media source unavailable.'), { code: 'MEDIA_UNAVAILABLE' })
-    }
+  // When a public CDN url is available, proxy it directly — much faster than
+  // going through the R2 SDK and avoids SDK-level timeouts entirely.
+  if (url) {
     return proxyRemoteMedia(url, contentTypeFallback)
   }
 
+  if (!r2Key) {
+    throw Object.assign(new Error('Media source unavailable.'), { code: 'MEDIA_UNAVAILABLE' })
+  }
+
+  // No public url — fall back to R2 SDK (private/unattached objects).
   try {
     const { client, config } = await createR2Client()
     const objectResponse = await client.send(
@@ -85,19 +89,9 @@ export const readMediaFromStorage = async ({
       },
     })
   } catch (error) {
-    const storageCode =
-      (error as { Code?: string; code?: string; name?: string })?.Code ||
-      (error as { Code?: string; code?: string; name?: string })?.code ||
-      (error as { Code?: string; code?: string; name?: string })?.name
-
-    if (storageCode === 'NoSuchKey' && url) {
-      return proxyRemoteMedia(url, contentTypeFallback)
-    }
-
     if (isR2TimeoutError(error)) {
       throw Object.assign(new Error('Storage timed out while loading media.'), { code: 'R2_TIMEOUT' })
     }
-
     throw error
   }
 }

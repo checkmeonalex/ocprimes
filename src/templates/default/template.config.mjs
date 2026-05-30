@@ -14,6 +14,7 @@ const defaultTemplateConfig = {
   bgColor: 'bg-gray-50',
   accentBgColor: 'bg-white',
   isAvailable: true,
+  defaultBlocks: [],
 }
 
 export default defaultTemplateConfig

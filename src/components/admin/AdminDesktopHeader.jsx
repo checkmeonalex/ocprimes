@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import useAdminProfileIdentity from '@/components/admin/useAdminProfileIdentity';
 import { getProfileIdentityImageUrl, getProfileIdentityInitials } from '@/lib/user/profile-identity-cache';
+import { useAdminTheme } from '@/context/AdminThemeContext';
 
 const HEADER_META = [
   { match: '/backend/admin/dashboard', title: 'Dashboard', subtitle: 'Detailed information about your store' },
@@ -40,8 +41,8 @@ const HEADER_META = [
   { match: '/admin/pages/home', title: 'Homepage layout', subtitle: 'Design and arrange homepage blocks' },
   { match: '/backend/admin/pages', title: 'Pages', subtitle: 'Manage website page layouts' },
   { match: '/admin/pages', title: 'Pages', subtitle: 'Manage website page layouts' },
-  { match: '/backend/admin/templates', title: 'Templates', subtitle: 'Choose a design template for your storefront' },
-  { match: '/admin/templates', title: 'Templates', subtitle: 'Choose a design template for your storefront' },
+  { match: '/backend/admin/templates', title: 'Templates', subtitle: 'Pick the look and feel of your store.' },
+  { match: '/admin/templates', title: 'Templates', subtitle: 'Pick the look and feel of your store.' },
   { match: '/backend/admin/settings', title: 'Settings', subtitle: 'Configure store and admin preferences' },
   { match: '/admin/settings', title: 'Settings', subtitle: 'Configure store and admin preferences' },
   { match: '/backend/admin/admin/users', title: 'Admin Users', subtitle: 'Manage administrator access' },
@@ -60,7 +61,7 @@ function resolveHeaderMeta(pathname) {
   return { title: 'Admin', subtitle: 'Manage your workspace' };
 }
 
-export default function AdminDesktopHeader({ noMargin = false, noBleed = false }) {
+export default function AdminDesktopHeader({ noMargin = false }) {
   const pathname = usePathname();
   const router = useRouter();
   const meta = useMemo(() => resolveHeaderMeta(pathname), [pathname]);
@@ -68,6 +69,86 @@ export default function AdminDesktopHeader({ noMargin = false, noBleed = false }
   const profileIdentity = useAdminProfileIdentity()
   const profileInitials = getProfileIdentityInitials(profileIdentity?.displayName)
   const profileImageUrl = getProfileIdentityImageUrl(profileIdentity)
+  const { isDark, toggleTheme } = useAdminTheme()
+
+  // --- Global search ---
+  const ADMIN_PAGES = [
+    { label: 'Dashboard', path: '/admin/dashboard', description: 'Overview & analytics', keywords: 'home overview stats metrics' },
+    { label: 'Orders', path: '/admin/orders', description: 'Track sales & fulfillment', keywords: 'sales purchases transactions' },
+    { label: 'Products', path: '/admin/products', description: 'Manage products & stock', keywords: 'items catalog inventory sku' },
+    { label: 'Customers', path: '/admin/customers', description: 'Customer profiles', keywords: 'users buyers accounts' },
+    { label: 'Store Front', path: '/admin/store-front', description: 'Storefront structure', keywords: 'store homepage design layout' },
+    { label: 'Templates', path: '/admin/templates', description: 'Design templates', keywords: 'theme style appearance' },
+    { label: 'Pages', path: '/admin/pages', description: 'Manage page layouts', keywords: 'cms homepage content' },
+    { label: 'Library', path: '/admin/library', description: 'Uploaded media assets', keywords: 'images files media uploads' },
+    { label: 'Size Guides', path: '/admin/size-guides', description: 'Sizing charts', keywords: 'size measurement chart guide' },
+    { label: 'Reviews', path: '/admin/reviews', description: 'Product reviews', keywords: 'ratings feedback comments' },
+    { label: 'Messages', path: '/admin/messages', description: 'Buyer conversations', keywords: 'chat inbox support' },
+    { label: 'Notifications', path: '/admin/notifications', description: 'Alerts & updates', keywords: 'alerts updates inbox' },
+    { label: 'Categories', path: '/admin/categories', description: 'Product collections', keywords: 'groups taxonomy collection' },
+    { label: 'Brands', path: '/admin/brands', description: 'Brand directory', keywords: 'vendor seller manufacturer' },
+    { label: 'Attributes', path: '/admin/attributes', description: 'Product attributes', keywords: 'options variants specs' },
+    { label: 'Tags', path: '/admin/tags', description: 'Product tags', keywords: 'labels filter discovery' },
+    { label: 'Logistics', path: '/admin/logistics', description: 'Delivery & shipping fees', keywords: 'shipping delivery pickup zones' },
+    { label: 'Settings', path: '/admin/settings', description: 'Store preferences', keywords: 'config options profile' },
+    { label: 'Manage Sellers', path: '/backend/admin/admin/brands', description: 'Seller management', keywords: 'vendors sellers admins platform' },
+  ];
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState({ products: [], customers: [], pages: [] });
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchRef = useRef(null);
+  const debounceRef = useRef(null);
+
+  const matchPages = useCallback((q) => {
+    const lower = q.toLowerCase();
+    return ADMIN_PAGES.filter((page) =>
+      page.label.toLowerCase().includes(lower) ||
+      page.description.toLowerCase().includes(lower) ||
+      page.keywords.includes(lower)
+    ).slice(0, 4);
+  }, []);
+
+  const runSearch = useCallback(async (q) => {
+    if (!q.trim()) { setSearchResults({ products: [], customers: [], pages: [] }); setSearchLoading(false); return; }
+    setSearchLoading(true);
+    const matchedPages = matchPages(q);
+    try {
+      const [pRes, cRes] = await Promise.all([
+        fetch(`/api/admin/products?q=${encodeURIComponent(q)}&per_page=5`).then(r => r.json()).catch(() => null),
+        fetch(`/api/admin/customers?q=${encodeURIComponent(q)}&per_page=4`).then(r => r.json()).catch(() => null),
+      ]);
+      setSearchResults({
+        products: Array.isArray(pRes?.items) ? pRes.items : Array.isArray(pRes?.data) ? pRes.data : [],
+        customers: Array.isArray(cRes?.items) ? cRes.items : Array.isArray(cRes?.data) ? cRes.data : [],
+        pages: matchedPages,
+      });
+    } catch { setSearchResults({ products: [], customers: [], pages: matchedPages }); }
+    finally { setSearchLoading(false); }
+  }, [matchPages]);
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+    setSearchOpen(true);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => runSearch(val), 300);
+  };
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); }
+  };
+
+  useEffect(() => {
+    const handler = (e) => { if (searchRef.current && !searchRef.current.contains(e.target)) setSearchOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const hasResults = searchResults.products.length > 0 || searchResults.customers.length > 0 || searchResults.pages.length > 0;
+  const showDropdown = searchOpen && searchQuery.trim().length > 0;
+  // --- end search ---
 
   useEffect(() => {
     let cancelled = false;
@@ -92,45 +173,164 @@ export default function AdminDesktopHeader({ noMargin = false, noBleed = false }
 
   return (
     <header
-      className={`sticky top-0 z-20 hidden border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/75 sm:px-6 lg:flex lg:px-10 ${
-        noBleed ? '' : '-mx-4 sm:-mx-6 lg:-mx-10'
-      } ${
+      className={`sticky top-0 z-20 hidden border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/75 dark:border-zinc-700/60 dark:bg-[#242426]/95 dark:supports-[backdrop-filter]:bg-[#242426]/90 sm:px-6 lg:flex lg:px-10 ${
         noMargin ? 'mb-0' : 'mb-4'
       }`}
     >
       <div className="flex w-full items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold leading-tight text-slate-900">{meta.title}</h1>
-          <p className="text-xs text-slate-500">{meta.subtitle}</p>
+          <h1 className="text-xl font-semibold leading-tight text-slate-900 dark:text-white">{meta.title}</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">{meta.subtitle}</p>
         </div>
 
         <div className="flex min-w-[280px] flex-1 items-center justify-end gap-3">
-          <div className="flex h-10 w-full max-w-[360px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-3">
-            <svg viewBox="0 0 24 24" className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <circle cx="11" cy="11" r="6" />
-              <path d="m15.5 15.5 4 4" />
-            </svg>
-            <input
-              type="search"
-              placeholder="Search"
-              className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none"
-            />
+          <div ref={searchRef} className="relative w-full max-w-[360px]">
+            <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 dark:border-zinc-600/50 dark:bg-[#2c2c2e]">
+              {searchLoading ? (
+                <svg viewBox="0 0 24 24" className="h-4 w-4 animate-spin text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <circle cx="11" cy="11" r="6" />
+                  <path d="m15.5 15.5 4 4" />
+                </svg>
+              )}
+              <input
+                type="search"
+                placeholder="Search products, customers, pages…"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                onFocus={() => { if (searchQuery.trim()) setSearchOpen(true); }}
+                onKeyDown={handleSearchKeyDown}
+                className="w-full bg-transparent text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none dark:text-slate-200 dark:placeholder:text-slate-500"
+              />
+              {searchQuery && (
+                <button type="button" onClick={() => { setSearchQuery(''); setSearchOpen(false); }} className="text-slate-300 hover:text-slate-500">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M18 6 6 18M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {showDropdown && (
+              <div className="absolute left-0 right-0 top-full z-50 mt-1.5 rounded-2xl border border-slate-200 bg-white shadow-xl flex flex-col max-h-[420px] dark:border-zinc-600/50 dark:bg-[#2c2c2e]">
+                <div className="overflow-y-auto flex-1 min-h-0 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb:hover]:bg-slate-300">
+                {!hasResults && !searchLoading && (
+                  <p className="px-4 py-5 text-center text-xs text-slate-400">No results for "{searchQuery}"</p>
+                )}
+                {searchResults.products.length > 0 && (
+                  <div>
+                    <p className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Products</p>
+                    {searchResults.products.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => { router.push(`/backend/admin/products/${p.id}`); setSearchOpen(false); setSearchQuery(''); }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-[#3a3a3c]"
+                      >
+                        {p.images?.[0]?.src || p.thumbnail ? (
+                          <img src={p.images?.[0]?.src || p.thumbnail} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                        ) : (
+                          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
+                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 3 4 7.5l8 4.5 8-4.5L12 3Z" /><path d="M4 7.5V16.5L12 21l8-4.5V7.5" /></svg>
+                          </span>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-medium text-slate-800">{p.title || p.name || 'Untitled'}</p>
+                          <p className="text-[11px] text-slate-400">{p.sku || p.status || ''}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {searchResults.customers.length > 0 && (
+                  <div className={searchResults.products.length > 0 ? 'border-t border-slate-100' : ''}>
+                    <p className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Customers</p>
+                    {searchResults.customers.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => { router.push(`/backend/admin/customers/${c.id}`); setSearchOpen(false); setSearchQuery(''); }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-[#3a3a3c]"
+                      >
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
+                          {(c.name || c.email || '?').charAt(0).toUpperCase()}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-medium text-slate-800">{c.name || 'Customer'}</p>
+                          <p className="truncate text-[11px] text-slate-400">{c.email || ''}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {searchResults.pages.length > 0 && (
+                  <div className={(searchResults.products.length > 0 || searchResults.customers.length > 0) ? 'border-t border-slate-100' : ''}>
+                    <p className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Pages</p>
+                    {searchResults.pages.map((page) => (
+                      <button
+                        key={page.path}
+                        type="button"
+                        onClick={() => { router.push(page.path); setSearchOpen(false); setSearchQuery(''); }}
+                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-[#3a3a3c]"
+                      >
+                        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                            <path d="M6 4.5h9l3 3V19.5H6z" /><path d="M15 4.5V8h3" />
+                          </svg>
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-medium text-slate-800">{page.label}</p>
+                          <p className="truncate text-[11px] text-slate-400">{page.description}</p>
+                        </div>
+                        <span className="ml-auto shrink-0 font-mono text-[10px] text-slate-300">→</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                </div>
+                <div className="shrink-0 border-t border-slate-100 px-4 py-2.5">
+                  <p className="text-[10px] text-slate-300">Press Esc to close</p>
+                </div>
+              </div>
+            )}
           </div>
-          <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12 5v.01M12 12v.01M12 19v.01" />
-            </svg>
-          </button>
-          <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M12 3v1.5M12 19.5V21M4.9 4.9l1.1 1.1M18 18l1.1 1.1M3 12h1.5M19.5 12H21M4.9 19.1 6 18M18 6l1.1-1.1" />
-              <circle cx="12" cy="12" r="4" />
+          <button
+            type="button"
+            onClick={() => router.push('/admin/messages')}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+            aria-label="Messages"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M5.5 6.5h13a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H12l-4.5 3v-3H5.5A1.5 1.5 0 0 1 4 15V8a1.5 1.5 0 0 1 1.5-1.5Z" />
+              <path d="M8 10.5h8M8 13.5h5" strokeLinecap="round" />
             </svg>
           </button>
           <button
             type="button"
+            onClick={toggleTheme}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            {isDark ? (
+              /* Moon → currently dark, click to go light */
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            ) : (
+              /* Sun → currently light, click to go dark */
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M12 3v1.5M12 19.5V21M4.9 4.9l1.1 1.1M18 18l1.1 1.1M3 12h1.5M19.5 12H21M4.9 19.1 6 18M18 6l1.1-1.1" />
+                <circle cx="12" cy="12" r="4" />
+              </svg>
+            )}
+          </button>
+          <button
+            type="button"
             onClick={() => router.push('/admin/notifications')}
-            className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100"
+            className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
             aria-label="Open notifications"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -166,8 +366,8 @@ export default function AdminDesktopHeader({ noMargin = false, noBleed = false }
               profileInitials
             )}
           </div>
-          <button type="button" className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <button type="button" onClick={() => router.push('/admin/settings')} aria-label="Settings" className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path
                 fillRule="evenodd"
                 clipRule="evenodd"

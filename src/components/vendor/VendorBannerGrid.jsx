@@ -411,20 +411,16 @@ export default function VendorBannerGrid({ bannerGrid }) {
   if (!filled.length) return null;
 
   if (displayStyle === 'cards') {
-    return (
-      <div className="px-3 sm:px-4 md:px-5 py-5 mb-1">
-        <CardStrip slides={filled} title={title} />
-      </div>
-    );
+    return <CardStrip slides={filled} title={title} />;
   }
 
   return (
-    <div className="px-3 sm:px-4 md:px-5 py-5 mb-1">
+    <>
       {mode === 'slider' ? (
         <MultiSlider layout={layout} slides={slides} autoPlay={autoPlay} autoPlayMs={autoPlayMs} heightPreset={heightPreset} />
       ) : (
         <StaticGrid layout={layout} slides={slides} heightPreset={heightPreset} />
       )}
-    </div>
+    </>
   );
 }

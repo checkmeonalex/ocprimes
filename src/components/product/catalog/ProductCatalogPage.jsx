@@ -1215,7 +1215,7 @@ const ProductCatalogPage = ({
           initialAuthUser={null}
         />
       )}
-      <div className={`mx-auto max-w-7xl px-3 pb-0 sm:pb-10 ${vendorProfile ? (isBiad ? 'pt-0 lg:pt-24' : 'pt-0 lg:pt-20') : 'pt-6'}`}>
+      <div className={`mx-auto max-w-7xl px-3 pb-0 sm:pb-10 ${vendorProfile ? 'pt-2' : 'pt-6'}`}>
         {!vendorProfile && Array.isArray(childCategories) && childCategories.length > 0 && (
           <>
             {/* Mobile: horizontal strip */}
@@ -1344,44 +1344,49 @@ const ProductCatalogPage = ({
           </div>
         )}
 
-        {/* Vendor storefront banner sections */}
+        {/* Vendor storefront banner sections — all templates go through storefront_blocks */}
         {vendorProfile && !activeCategorySlug && (
-          isPrestige ? (
-            /* Prestige: full-width hero from the slider's first image */
-            vendorBannerSlides.length ? (
-              <div className='mobile-full-bleed mb-4 overflow-hidden md:rounded-2xl' style={{ aspectRatio: '21/9', maxHeight: 480 }}>
-                <img
-                  src={vendorBannerSlides[0].mobileUrl || vendorBannerSlides[0].desktopUrl}
-                  srcSet={vendorBannerSlides[0].desktopUrl ? `${vendorBannerSlides[0].desktopUrl} 1200w, ${vendorBannerSlides[0].mobileUrl || vendorBannerSlides[0].desktopUrl} 768w` : undefined}
-                  sizes='100vw'
-                  alt={vendorProfile.name}
-                  className='h-full w-full object-cover'
-                />
-              </div>
-            ) : null
-          ) : (
-            /* Default: configurable block-based banner grid */
-            storefrontSectionOrder.map((sectionKey) => {
-              if (sectionKey === 'banner_grid') {
-                const blocks = Array.isArray(storefrontBlocks) && storefrontBlocks.length > 0
-                  ? storefrontBlocks
-                  : bannerGrid
-                    ? [{ id: 'legacy_banner_grid', type: 'banner_grid', config: bannerGrid }]
-                    : []
-                if (!blocks.length) return null
-                return (
-                  <Fragment key='banner_grid'>
-                    {blocks.map((block) =>
-                      block.type === 'banner_grid' ? (
-                        <VendorBannerGrid key={block.id} bannerGrid={block.config} />
-                      ) : null
-                    )}
-                  </Fragment>
-                )
+          storefrontSectionOrder.map((sectionKey) => {
+            if (sectionKey === 'banner_grid') {
+              // storefront_blocks is the primary source for all templates.
+              // Prestige/Biad fall back to vendorBannerSlides when no blocks are configured.
+              // Default falls back to the legacy banner_grid field.
+              let blocks = Array.isArray(storefrontBlocks) && storefrontBlocks.length > 0
+                ? storefrontBlocks
+                : null
+
+              if (!blocks) {
+                if (isPrestige && vendorBannerSlides.length) {
+                  const slide = vendorBannerSlides[0]
+                  blocks = [{
+                    id: 'legacy_hero',
+                    type: 'banner_grid',
+                    config: {
+                      layout: 'single',
+                      mode: 'static',
+                      slides: [{ imageUrl: slide.desktopUrl || slide.mobileUrl || '', linkUrl: '' }],
+                    },
+                  }]
+                } else if (bannerGrid) {
+                  blocks = [{ id: 'legacy_banner_grid', type: 'banner_grid', config: bannerGrid }]
+                } else {
+                  blocks = []
+                }
               }
-              return null
-            })
-          )
+
+              if (!blocks.length) return null
+              return (
+                <Fragment key='banner_grid'>
+                  {blocks.map((block) =>
+                    block.type === 'banner_grid' ? (
+                      <VendorBannerGrid key={block.id} bannerGrid={block.config} />
+                    ) : null
+                  )}
+                </Fragment>
+              )
+            }
+            return null
+          })
         )}
 
         {activeChips.length > 0 && (
@@ -1784,7 +1789,7 @@ const ProductCatalogPage = ({
           vendorAvatarUrl={vendorProfile.logoUrl}
           vendorIsTrusted={vendorProfile.isTrusted}
           vendorTrustedBadgeUrl={vendorProfile.trustedBadgeUrl}
-          productId=""
+          vendorSlug={vendorProfile.slug}
         />
       )}
     </div>

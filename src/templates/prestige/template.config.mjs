@@ -14,6 +14,17 @@ const prestigeTemplateConfig = {
   bgColor: 'bg-[#f5f4f2]',
   accentBgColor: 'bg-[#ede9e3]',
   isAvailable: true,
+  // Blocks seeded into storefront_blocks when this template is first activated
+  defaultBlocks: [
+    {
+      type: 'banner_grid',
+      config: {
+        layout: 'single',
+        mode: 'static',
+        slides: [{ imageUrl: '', linkUrl: '' }],
+      },
+    },
+  ],
 }
 
 export default prestigeTemplateConfig

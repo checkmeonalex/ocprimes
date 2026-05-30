@@ -93,6 +93,11 @@ function CustomerDetailPage() {
   const mobileNavItems = useMemo(
     () => [
       {
+        label: 'Orders',
+        description: 'All orders placed',
+        path: `/backend/admin/customers/${customerId || ''}/orders`,
+      },
+      {
         label: 'Addresses',
         description: 'Billing & shipping',
         path: `/backend/admin/customers/${customerId || ''}/addresses`,
@@ -114,11 +119,12 @@ function CustomerDetailPage() {
   return (
     <AdminShell>
       <div className="mx-auto w-full max-w-6xl">
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            {/* Desktop header — hidden on mobile */}
+            <div className="hidden flex-wrap items-center justify-between gap-4 lg:flex">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Customers</p>
-                <h1 className="mt-2 text-2xl font-semibold text-slate-900">Customer onboarding</h1>
-                <p className="mt-2 text-sm text-slate-500">{customer?.name || 'Customer details'}</p>
+                <h1 className="mt-2 text-2xl font-semibold text-slate-900">{customer?.name || 'Customer'}</h1>
+                <p className="mt-1 text-sm text-slate-500">{customer?.email || 'Customer details'}</p>
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <Link
@@ -130,24 +136,41 @@ function CustomerDetailPage() {
               </div>
             </div>
 
-            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm lg:hidden">
-              <p className="text-sm font-semibold text-slate-900">Profile</p>
-              <p className="mt-1 text-xs text-slate-500">User details & preferences</p>
-              <div className="mt-5 space-y-3">
-                {mobileNavItems.map((item) => (
+            {/* Mobile nav — full-width blocks, no card radius */}
+            <section className="lg:hidden">
+              {/* Customer identity strip */}
+              <div className="flex items-center gap-3 border-b border-slate-100 bg-white px-4 py-4">
+                {customer?.avatar_url ? (
+                  <img src={customer.avatar_url} alt={customer.name} className="h-10 w-10 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-200 text-sm font-semibold text-slate-600">
+                    {buildInitials(customer?.name || '')}
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-bold text-slate-900">{customer?.name || 'Customer'}</p>
+                  <p className="truncate text-xs text-slate-400">{customer?.email || '--'}</p>
+                </div>
+              </div>
+
+              {/* Nav items — full-width, no radius */}
+              <div className="mt-2 bg-white">
+                {mobileNavItems.map((item, i) => (
                   <button
                     key={item.label}
                     type="button"
                     onClick={() => router.push(item.path)}
-                    className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-left transition hover:border-slate-300"
+                    className={`flex w-full items-center justify-between px-4 py-4 text-left transition active:bg-slate-50 ${
+                      i < mobileNavItems.length - 1 ? 'border-b border-slate-100' : ''
+                    }`}
                   >
                     <div>
-                      <p className="text-xs font-semibold text-slate-700">{item.label}</p>
-                      <p className="text-[11px] text-slate-400">{item.description}</p>
+                      <p className="text-sm font-semibold text-slate-800">{item.label}</p>
+                      <p className="text-xs text-slate-400">{item.description}</p>
                     </div>
-                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-500">
-                      Open
-                    </span>
+                    <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="m9 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </button>
                 ))}
               </div>

@@ -241,7 +241,7 @@ function CustomersPage() {
 
             <div className="mt-5">
               <div className="mobile-full-bleed mb-4 overflow-hidden rounded-none border-y border-slate-200 bg-white sm:rounded-2xl sm:border sm:border-slate-200">
-                <div className="grid sm:grid-cols-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3">
                   <div className="flex items-center gap-3 px-5 py-5">
                     <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[#4d9cff]">
                       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -329,59 +329,97 @@ function CustomersPage() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <div className="min-w-[860px]">
-                    <div className="grid grid-cols-[210px_230px_160px_130px_110px_60px] gap-4 border-t border-slate-100 px-5 py-3 text-[11px] text-slate-400">
-                      <span>Name</span>
-                      <span>Email</span>
-                      <span>Phone</span>
-                      <span>Location</span>
-                      <span>Total Order</span>
-                      <span>Action</span>
-                    </div>
-
-                    <div className="divide-y divide-slate-100">
-                      {!rows.length && isLoading &&
-                        Array.from({ length: 6 }).map((_, index) => (
-                          <CustomerRowSkeleton key={`customer-skeleton-${index}`} />
-                        ))}
-
-                      {rows.map((customer) => (
-                        <div
-                          key={customer.id}
-                          className="grid grid-cols-[210px_230px_160px_130px_110px_60px] items-center gap-4 px-5 py-4 text-sm transition hover:bg-slate-50"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/backend/admin/customers/${customer.id}`)}
-                            className="truncate text-left text-[13px] font-medium text-slate-800 hover:underline"
-                          >
-                            {customer.name || 'Unknown'}
-                          </button>
-
-                          <p className="truncate text-[13px] text-slate-700">{customer.email || '--'}</p>
-                          <p className="truncate text-[13px] text-slate-700">{customer.phone || '--'}</p>
-                          <p className="truncate text-[13px] text-slate-700">{customer.country || 'Unknown'}</p>
-                          <p className="text-[13px] font-medium text-slate-800">{Number(customer.total_orders || 0)}</p>
-                          <button
-                            type="button"
-                            onClick={() => router.push(`/backend/admin/customers/${customer.id}`)}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100"
-                            aria-label="Open customer"
-                          >
-                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
-                              <circle cx="6" cy="12" r="1.7" />
-                              <circle cx="12" cy="12" r="1.7" />
-                              <circle cx="18" cy="12" r="1.7" />
-                            </svg>
-                          </button>
+                {/* ── Mobile card list ── */}
+                <div className="divide-y divide-slate-100 sm:hidden">
+                  {!rows.length && isLoading &&
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex items-center gap-3 px-4 py-3.5">
+                        <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="h-3 w-32 animate-pulse rounded bg-slate-200" />
+                          <div className="h-2.5 w-44 animate-pulse rounded bg-slate-100" />
                         </div>
-                      ))}
+                      </div>
+                    ))
+                  }
+                  {rows.map((customer) => (
+                    <button
+                      key={customer.id}
+                      type="button"
+                      onClick={() => router.push(`/backend/admin/customers/${customer.id}`)}
+                      className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-slate-50 active:bg-slate-100"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600">
+                        {buildInitials(customer.name || '')}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-slate-800">{customer.name || 'Unknown'}</p>
+                        <p className="truncate text-xs text-slate-400">{customer.email || '--'}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-xs font-semibold text-slate-800">{Number(customer.total_orders || 0)} orders</p>
+                        <p className="text-[10px] text-slate-400">{customer.country || '--'}</p>
+                      </div>
+                      <svg viewBox="0 0 24 24" className="ml-1 h-4 w-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="m9 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  ))}
+                  {!rows.length && !isLoading && (
+                    <div className="px-6 py-10 text-center text-sm text-slate-400">No customers yet.</div>
+                  )}
+                </div>
 
-                      {!rows.length && !isLoading && (
-                        <div className="px-6 py-8 text-center text-sm text-slate-400">No customers yet.</div>
-                      )}
-                    </div>
+                {/* ── Desktop table ── */}
+                <div className="hidden sm:block">
+                  <div className="grid grid-cols-[1fr_1.1fr_0.8fr_0.7fr_0.5fr_40px] gap-3 border-t border-slate-100 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    <span>Name</span>
+                    <span>Email</span>
+                    <span>Phone</span>
+                    <span>Location</span>
+                    <span>Orders</span>
+                    <span />
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {!rows.length && isLoading &&
+                      Array.from({ length: 6 }).map((_, index) => (
+                        <CustomerRowSkeleton key={`customer-skeleton-${index}`} />
+                      ))
+                    }
+                    {rows.map((customer) => (
+                      <div
+                        key={customer.id}
+                        className="grid grid-cols-[1fr_1.1fr_0.8fr_0.7fr_0.5fr_40px] items-center gap-3 px-5 py-3.5 transition hover:bg-slate-50"
+                      >
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/backend/admin/customers/${customer.id}`)}
+                          className="flex items-center gap-2.5 truncate text-left"
+                        >
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-semibold text-slate-600">
+                            {buildInitials(customer.name || '')}
+                          </span>
+                          <span className="truncate text-[13px] font-medium text-slate-800 hover:underline">{customer.name || 'Unknown'}</span>
+                        </button>
+                        <p className="truncate text-[13px] text-slate-500">{customer.email || '--'}</p>
+                        <p className="truncate text-[13px] text-slate-500">{customer.phone || '--'}</p>
+                        <p className="truncate text-[13px] text-slate-500">{customer.country || '--'}</p>
+                        <p className="text-[13px] font-semibold text-slate-800">{Number(customer.total_orders || 0)}</p>
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/backend/admin/customers/${customer.id}`)}
+                          className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                          aria-label="Open"
+                        >
+                          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="m9 6 6 6-6 6" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                    {!rows.length && !isLoading && (
+                      <div className="px-6 py-10 text-center text-sm text-slate-400">No customers yet.</div>
+                    )}
                   </div>
                 </div>
 

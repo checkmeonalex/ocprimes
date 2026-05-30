@@ -68,7 +68,6 @@ const NAV_GROUPS = [
     label: 'Platform',
     adminOnly: true,
     items: [
-      { label: 'Vendor Users', href: '/backend/admin/admin/users', icon: 'adminUsers' },
       { label: 'Manage Sellers', href: '/backend/admin/admin/brands', icon: 'adminBrands' },
     ],
   },
@@ -321,18 +320,18 @@ const AdminSidebar = () => {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-[240px] flex-col bg-gray-900 px-3 py-4 lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-[240px] flex-col border-r border-slate-200 bg-white px-3 py-4 dark:border-zinc-700/40 dark:bg-[#242426] lg:flex">
         {/* Store identity */}
         <Link
           href="/"
-          className="mb-3 flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-white/[0.06]"
+          className="mb-3 flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-slate-100 dark:hover:bg-white/[0.06]"
         >
-          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/10">
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-900 dark:bg-white/10">
             <BrandLogoMark className="h-4 w-4 text-white" />
           </span>
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-white">Alxora</p>
-            <p className="text-[10px] font-medium text-white/35">Admin panel</p>
+            <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">Alxora</p>
+            <p className="text-[10px] font-medium text-slate-400 dark:text-white/35">Admin panel</p>
           </div>
         </Link>
 
@@ -341,7 +340,7 @@ const AdminSidebar = () => {
           {visibleGroups.map((group, groupIndex) => (
             <div key={group.id} className={groupIndex > 0 ? 'mt-4' : ''}>
               {group.label && (
-                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/30">
+                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/30">
                   {group.label}
                 </p>
               )}
@@ -355,8 +354,8 @@ const AdminSidebar = () => {
                           onClick={() => toggleExpand(item.href)}
                           className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition ${
                             isItemActive(item.href) || expandedItems.includes(item.href)
-                              ? 'bg-white/10 text-white'
-                              : 'text-white/50 hover:bg-white/[0.06] hover:text-white/90'
+                              ? 'bg-slate-900 text-white dark:bg-white/10 dark:text-white'
+                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-white/50 dark:hover:bg-white/[0.06] dark:hover:text-white/90'
                           }`}
                         >
                           <span className="flex items-center gap-3">
@@ -374,15 +373,15 @@ const AdminSidebar = () => {
                           </svg>
                         </button>
                         {expandedItems.includes(item.href) && (
-                          <div className="ml-[38px] mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-3">
+                          <div className="ml-[38px] mt-0.5 flex flex-col gap-0.5 border-l border-slate-200 pl-3 dark:border-white/10">
                             {item.subItems.map((subItem) => (
                               <a
                                 key={subItem.href}
                                 href={subItem.href}
                                 className={`block rounded-md px-2 py-1.5 text-xs font-medium transition ${
                                   isItemActive(subItem.href)
-                                    ? 'text-white'
-                                    : 'text-white/40 hover:text-white/80'
+                                    ? 'text-slate-900 dark:text-white'
+                                    : 'text-slate-500 hover:text-slate-900 dark:text-white/65 dark:hover:text-white'
                                 }`}
                               >
                                 {subItem.label}
@@ -396,8 +395,8 @@ const AdminSidebar = () => {
                         href={item.href}
                         className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                           isItemActive(item.href)
-                            ? 'bg-white/10 text-white'
-                            : 'text-white/50 hover:bg-white/[0.06] hover:text-white/90'
+                            ? 'bg-slate-900 text-white dark:bg-white/10 dark:text-white'
+                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-white/50 dark:hover:bg-white/[0.06] dark:hover:text-white/90'
                         }`}
                       >
                         <NavIcon icon={item.icon} />
@@ -412,9 +411,9 @@ const AdminSidebar = () => {
         </nav>
 
         {/* Bottom: profile + logout */}
-        <div className="mt-3 border-t border-white/[0.08] pt-3">
+        <div className="mt-3 border-t border-slate-200 pt-3 dark:border-white/[0.08]">
           <div className="flex items-center gap-2.5 rounded-lg px-3 py-2">
-            <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/15 text-xs font-semibold text-white">
+            <div className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200 text-xs font-semibold text-slate-700 dark:bg-white/15 dark:text-white">
               {profileImageUrl ? (
                 <img src={profileImageUrl} alt={profileIdentity?.displayName || 'Profile'} className="h-full w-full object-cover" />
               ) : (
@@ -422,13 +421,13 @@ const AdminSidebar = () => {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-white/80">{profileIdentity?.displayName || 'Admin'}</p>
-              <p className="text-[10px] text-white/35 capitalize">{role === 'unknown' ? 'user' : role}</p>
+              <p className="truncate text-xs font-semibold text-slate-700 dark:text-white/80">{profileIdentity?.displayName || 'Admin'}</p>
+              <p className="text-[10px] capitalize text-slate-400 dark:text-white/35">{role === 'unknown' ? 'user' : role}</p>
             </div>
             <button
               type="button"
               aria-label="Log out"
-              className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-lg text-white/30 transition hover:bg-white/10 hover:text-white/70"
+              className="ml-auto inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-white/30 dark:hover:bg-white/10 dark:hover:text-white/70"
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M16 17l5-5-5-5M21 12H9M12 19H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6" />
@@ -446,18 +445,25 @@ const AdminSidebar = () => {
       >
         <div className="mx-auto w-full max-w-[460px] px-3">
           <div
-            className={`grid grid-cols-5 items-end rounded-3xl bg-gray-900/98 px-2 py-1.5 shadow-[0_10px_40px_rgba(0,0,0,0.5)] ring-1 ring-white/10 transition-all duration-300 ${
+            className={`grid grid-cols-5 items-end rounded-3xl px-2 py-1.5 transition-all duration-300 ${
               isMobileDockVisible ? 'pointer-events-auto' : 'pointer-events-none'
             }`}
+            style={{
+              background: 'rgba(20, 20, 22, 0.78)',
+              backdropFilter: 'blur(28px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+              border: '1px solid rgba(255, 255, 255, 0.09)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.07)',
+            }}
           >
             <button
               type="button"
               onClick={() => router.push(MOBILE_NAV_ITEMS[0].href)}
-              className={`flex flex-col items-center gap-0.5 rounded-2xl py-1 text-[10px] font-semibold transition ${
-                activeKey === MOBILE_NAV_ITEMS[0].key ? 'text-white' : 'text-white/40'
+              className={`flex flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-semibold ${
+                activeKey === MOBILE_NAV_ITEMS[0].key ? 'text-white' : 'text-gray-400'
               }`}
             >
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M3 10.5 12 3l9 7.5" />
                 <path d="M5 9.5V21h14V9.5" />
               </svg>
@@ -466,11 +472,11 @@ const AdminSidebar = () => {
             <button
               type="button"
               onClick={() => router.push(MOBILE_NAV_ITEMS[1].href)}
-              className={`flex flex-col items-center gap-0.5 rounded-2xl py-1 text-[10px] font-semibold transition ${
-                activeKey === MOBILE_NAV_ITEMS[1].key ? 'text-white' : 'text-white/40'
+              className={`flex flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-semibold ${
+                activeKey === MOBILE_NAV_ITEMS[1].key ? 'text-white' : 'text-gray-400'
               }`}
             >
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
                 <rect x="4" y="4" width="16" height="16" rx="2.5" />
                 <path d="M8 9h8M8 13h8M8 17h5" />
               </svg>
@@ -491,11 +497,11 @@ const AdminSidebar = () => {
             <button
               type="button"
               onClick={() => router.push(MOBILE_NAV_ITEMS[2].href)}
-              className={`flex flex-col items-center gap-0.5 rounded-2xl py-1 text-[10px] font-semibold transition ${
-                activeKey === MOBILE_NAV_ITEMS[2].key ? 'text-white' : 'text-white/40'
+              className={`flex flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-semibold ${
+                activeKey === MOBILE_NAV_ITEMS[2].key ? 'text-white' : 'text-gray-400'
               }`}
             >
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 3 4 7.5l8 4.5 8-4.5L12 3Z" />
                 <path d="M4 7.5V16.5L12 21l8-4.5V7.5" />
               </svg>
@@ -504,11 +510,11 @@ const AdminSidebar = () => {
             <button
               type="button"
               onClick={() => router.push(MOBILE_NAV_ITEMS[3].href)}
-              className={`flex flex-col items-center gap-0.5 rounded-2xl py-1 text-[10px] font-semibold transition ${
-                activeKey === MOBILE_NAV_ITEMS[3].key ? 'text-white' : 'text-white/40'
+              className={`flex flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[10px] font-semibold ${
+                activeKey === MOBILE_NAV_ITEMS[3].key ? 'text-white' : 'text-gray-400'
               }`}
             >
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="6" cy="12" r="1.4" />
                 <circle cx="12" cy="12" r="1.4" />
                 <circle cx="18" cy="12" r="1.4" />

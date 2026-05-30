@@ -89,7 +89,7 @@ export default function StoreFrontSectionOrderSection({ isLoading, brand, onSave
       <div>
         <h3 className="text-base font-semibold text-slate-900">Section Order</h3>
         <p className="mt-0.5 text-xs text-slate-500">
-          Drag to reorder how sections appear on your storefront. The product grid is always last.
+          Choose what order your store sections show up in — just drag them around. Your products will always anchor the bottom, everything else is yours to arrange.
         </p>
       </div>
 

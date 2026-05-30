@@ -14,8 +14,8 @@ export default async function AdminHomePageRoute() {
     <div className='flex h-screen overflow-hidden bg-slate-50 text-slate-900'>
       <AdminSidebar />
       <main className='flex flex-1 flex-col overflow-hidden'>
-        <AdminDesktopHeader noBleed />
-        <div className='flex-1 overflow-y-auto px-4 pb-8 sm:px-6 lg:px-10'>
+        <AdminDesktopHeader />
+        <div className='flex-1 overflow-y-auto pb-8 sm:px-6 lg:px-10'>
           <HomePageEditorClient />
         </div>
       </main>

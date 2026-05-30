@@ -3,7 +3,11 @@
     "allow": [
       "Bash(npx tsc *)",
       "Bash(npm run *)",
-      "Bash(grep -v \"^$\")"
+      "Bash(grep -v \"^$\")",
+      "Bash(mkdir -p /home/alx/Documents/ocprimes/src/app/backend/admin/customers/[customerId]/orders)"
+    ],
+    "additionalDirectories": [
+      "/home/alx/Documents/ocprimes/src/app/backend/admin/customers/[customerId]"
     ]
   }
 }

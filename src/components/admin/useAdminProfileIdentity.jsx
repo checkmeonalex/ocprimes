@@ -1,6 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
+
+// On the server useLayoutEffect causes a warning — use useEffect instead.
+const useIsomorphicLayoutEffect =
+  typeof window !== 'undefined' ? useLayoutEffect : useEffect
 import {
   clearProfileIdentityCache,
   PROFILE_IDENTITY_CACHE_UPDATED_EVENT,
@@ -71,34 +75,36 @@ const loadAdminIdentity = async () => {
 }
 
 export default function useAdminProfileIdentity() {
-  // Keep first render deterministic between server and client to avoid hydration mismatch.
+  // Start with the fallback so server render and hydration match.
   const [identity, setIdentity] = useState(fallbackIdentity)
 
+  // Synchronous read from localStorage BEFORE first paint — eliminates the
+  // initials flash on hard reload when a cached image URL is already stored.
+  useIsomorphicLayoutEffect(() => {
+    const cached = cachedIdentity || readProfileIdentityCache()
+    if (cached) {
+      cachedIdentity = cached
+      setIdentity(cached)
+    }
+  }, [])
+
+  // Async: listen for cache updates + re-fetch from API.
   useEffect(() => {
     let cancelled = false
+
     const handleCacheUpdate = (event) => {
       const detail = event?.detail && typeof event.detail === 'object' ? event.detail : null
       if (!detail) return
-      setIdentity({
-        displayName: String(detail.displayName || '').trim() || 'Admin User',
-        email: String(detail.email || '').trim(),
-        storeLogoUrl: String(detail.storeLogoUrl || '').trim(),
-        avatarUrl: String(detail.avatarUrl || '').trim(),
-      })
-      cachedIdentity = {
+      const next = {
         displayName: String(detail.displayName || '').trim() || 'Admin User',
         email: String(detail.email || '').trim(),
         storeLogoUrl: String(detail.storeLogoUrl || '').trim(),
         avatarUrl: String(detail.avatarUrl || '').trim(),
       }
+      cachedIdentity = next
+      setIdentity(next)
     }
     window.addEventListener(PROFILE_IDENTITY_CACHE_UPDATED_EVENT, handleCacheUpdate)
-
-    const cached = readProfileIdentityCache()
-    if (cached && !cancelled) {
-      cachedIdentity = cached
-      setIdentity(cached)
-    }
 
     const run = async () => {
       try {
@@ -110,8 +116,8 @@ export default function useAdminProfileIdentity() {
         // keep cached value
       }
     }
-
     run()
+
     return () => {
       cancelled = true
       window.removeEventListener(PROFILE_IDENTITY_CACHE_UPDATED_EVENT, handleCacheUpdate)

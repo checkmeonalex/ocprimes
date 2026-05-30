@@ -2,23 +2,17 @@
 
 import AdminSidebar from '@/components/AdminSidebar'
 import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader'
+import { useAdminTheme } from '@/context/AdminThemeContext'
 
-/**
- * Shared shell for every admin page.
- * Sidebar is fixed; only the content area scrolls.
- *
- * Props:
- *   children    — page content
- *   noPad       — skip default px/pb on the scroll container (page handles its own spacing)
- *   noBleed     — pass noBleed to AdminDesktopHeader (removes negative-margin bleed)
- *   bg          — override background colour class (default: "bg-slate-50")
- */
-export default function AdminShell({ children, noPad = false, noBleed = false, bg = 'bg-slate-50' }) {
+export default function AdminShell({ children, noPad = false, bg }) {
+  const { isDark } = useAdminTheme()
+  const defaultBg = isDark ? 'bg-[#1c1c1e]' : (bg || 'bg-slate-50')
+
   return (
-    <div className={`flex h-screen overflow-hidden ${bg} text-slate-900`}>
+    <div className={`flex h-screen overflow-hidden ${defaultBg} text-slate-900 dark:text-zinc-100`}>
       <AdminSidebar />
       <main className="flex flex-1 flex-col overflow-hidden">
-        <AdminDesktopHeader noBleed={noBleed} />
+        <AdminDesktopHeader />
         <div className={`flex-1 overflow-y-auto${noPad ? '' : ' px-4 pb-10 sm:px-6 lg:px-10'}`}>
           {children}
         </div>

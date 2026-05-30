@@ -4,6 +4,17 @@ import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import {
   chatConversationInitSchema,
 } from '@/lib/chat/schema'
+
+// Throttle the purge so it runs at most once per hour per process instance.
+// This avoids a write operation on every chat request.
+const PURGE_INTERVAL_MS = 60 * 60 * 1000
+let lastPurgeAt = 0
+async function maybePurgeExpiredConversations() {
+  const now = Date.now()
+  if (now - lastPurgeAt < PURGE_INTERVAL_MS) return
+  lastPurgeAt = now
+  await purgeExpiredClosedConversations()
+}
 import {
   findOrCreateConversation,
   getConversationForUser,
@@ -12,6 +23,8 @@ import {
   listConversationsForUser,
   listMessagesForConversation,
   resolveVendorUserIdForProduct,
+  resolveVendorUserIdBySlug,
+  findRepresentativeProductForBrand,
   toChatConversationPayload,
   toChatMessagePayload,
 } from '@/lib/chat/chat-server'
@@ -34,7 +47,7 @@ export async function GET(request: NextRequest) {
       return jsonError('Unauthorized.', 401)
     }
 
-    await purgeExpiredClosedConversations()
+    await maybePurgeExpiredConversations()
 
     const listResult = await listConversationsForUser(supabase, auth.user.id)
     if (listResult.error) {
@@ -132,7 +145,7 @@ export async function POST(request: NextRequest) {
       return jsonError('Unauthorized.', 401)
     }
 
-    await purgeExpiredClosedConversations()
+    await maybePurgeExpiredConversations()
 
     const body = await request.json().catch(() => null)
     const parsed = chatConversationInitSchema.safeParse(body)
@@ -140,39 +153,61 @@ export async function POST(request: NextRequest) {
       return jsonError('Invalid chat payload.', 400)
     }
 
-    const { data: visibleProduct, error: visibleProductError } = await supabase
-      .from('products')
-      .select('id')
-      .eq('id', parsed.data.productId)
-      .eq('status', 'publish')
-      .maybeSingle()
+    let resolvedVendorUserId: string | null = null
+    let resolvedProductId: string | null = parsed.data.productId ?? null
 
-    if (visibleProductError) {
-      return jsonError('Unable to verify product.', 500)
+    if (resolvedProductId) {
+      const { data: visibleProduct, error: visibleProductError } = await supabase
+        .from('products')
+        .select('id')
+        .eq('id', resolvedProductId)
+        .eq('status', 'publish')
+        .maybeSingle()
+
+      if (visibleProductError) {
+        return jsonError('Unable to verify product.', 500)
+      }
+
+      if (!visibleProduct?.id) {
+        return jsonError('Product not found.', 404)
+      }
+
+      const vendorResult = await resolveVendorUserIdForProduct(resolvedProductId)
+      if (vendorResult.error) {
+        return jsonError('Unable to resolve seller.', 500)
+      }
+
+      resolvedVendorUserId = vendorResult.vendorUserId
+    } else if (parsed.data.vendorSlug) {
+      const vendorResult = await resolveVendorUserIdBySlug(parsed.data.vendorSlug)
+      if (vendorResult.error) {
+        return jsonError('Unable to resolve seller.', 500)
+      }
+      resolvedVendorUserId = vendorResult.vendorUserId
+
+      if (vendorResult.brandId) {
+        const productResult = await findRepresentativeProductForBrand(vendorResult.brandId)
+        if (productResult.productId) resolvedProductId = productResult.productId
+      }
     }
 
-    if (!visibleProduct?.id) {
-      return jsonError('Product not found.', 404)
+    if (!resolvedVendorUserId) {
+      return jsonError('Seller chat is unavailable.', 409)
     }
 
-    const vendorResult = await resolveVendorUserIdForProduct(parsed.data.productId)
-    if (vendorResult.error) {
-      return jsonError('Unable to resolve seller.', 500)
+    if (!resolvedProductId) {
+      return jsonError('No active products found for this seller.', 409)
     }
 
-    if (!vendorResult.vendorUserId) {
-      return jsonError('Seller chat is unavailable for this product.', 409)
-    }
-
-    if (vendorResult.vendorUserId === auth.user.id) {
+    if (resolvedVendorUserId === auth.user.id) {
       return jsonError('You cannot open a chat with yourself.', 400)
     }
 
     const conversationResult = await findOrCreateConversation(
       supabase,
       auth.user.id,
-      vendorResult.vendorUserId,
-      parsed.data.productId,
+      resolvedVendorUserId,
+      resolvedProductId,
     )
 
     if (conversationResult.error || !conversationResult.data?.id) {
@@ -204,7 +239,7 @@ export async function POST(request: NextRequest) {
     const sellerStatus = await resolveSellerStatusForConversation({
       conversationId: conversationResult.data.id,
       customerUserId: auth.user.id,
-      vendorUserId: vendorResult.vendorUserId,
+      vendorUserId: resolvedVendorUserId,
     })
     const roleInfo = await getUserRoleInfoSafe(supabase, auth.user.id, auth.user.email || '')
     const vendorNameMap = await loadVendorDisplayNameMap([

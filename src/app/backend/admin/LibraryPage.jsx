@@ -10,57 +10,43 @@ import { useAlerts } from '@/context/AlertContext';
 
 const MEDIA_PAGE_SIZE = 20;
 const STALE_DAYS = 180;
+const MAX_BATCH_UPLOADS = 8;
 
 const FILTERS = [
-  { label: 'All Images', value: 'all' },
+  { label: 'All', value: 'all' },
   { label: 'Unattached', value: 'unattached' },
   { label: 'Stale', value: 'stale' },
 ];
 const COMPONENT_FILTERS = [
-  { label: 'All Images', value: 'all' },
+  { label: 'All', value: 'all' },
   { label: 'Stale', value: 'stale' },
 ];
-const GRID_OPTIONS = [2, 4, 5, 7, 9];
-const MAX_BATCH_UPLOADS = 8;
-const GRID_CLASS_MAP = {
-  2: 'grid-cols-2',
-  4: 'grid-cols-4',
-  5: 'grid-cols-5',
-  7: 'grid-cols-7',
-  9: 'grid-cols-9',
-};
 
-const renderGridIcon = (cols) => {
-  const rows = 2;
-  const width = 18;
-  const height = 12;
-  const gap = cols >= 7 ? 1 : 1.5;
-  const cellWidth = Math.max(1, Math.floor((width - gap * (cols - 1)) / cols));
-  const cellHeight = Math.max(2, Math.floor((height - gap * (rows - 1)) / rows));
-  const actualWidth = cols * cellWidth + gap * (cols - 1);
-  const actualHeight = rows * cellHeight + gap * (rows - 1);
-  const offsetX = (24 - actualWidth) / 2;
-  const offsetY = (24 - actualHeight) / 2;
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-      {Array.from({ length: rows * cols }).map((_, index) => {
-        const row = Math.floor(index / cols);
-        const col = index % cols;
-        return (
-          <rect
-            key={`${cols}-${index}`}
-            x={offsetX + col * (cellWidth + gap)}
-            y={offsetY + row * (cellHeight + gap)}
-            width={cellWidth}
-            height={cellHeight}
-            rx="0.6"
-            fill="currentColor"
-          />
-        );
-      })}
-    </svg>
-  );
-};
+/* ── icons ── */
+const IcoUpload = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" strokeLinecap="round" />
+    <polyline points="17 8 12 3 7 8" strokeLinecap="round" strokeLinejoin="round" />
+    <line x1="12" y1="3" x2="12" y2="15" strokeLinecap="round" />
+  </svg>
+);
+const IcoTrash = () => (
+  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M5 7h14m-9 3v7m4-7v7M8 7l1-2h6l1 2m-1 0v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const IcoView = () => (
+  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" strokeLinecap="round" />
+    <polyline points="15 3 21 3 21 9" strokeLinecap="round" strokeLinejoin="round" />
+    <line x1="10" y1="14" x2="21" y2="3" strokeLinecap="round" />
+  </svg>
+);
+const IcoClose = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
+  </svg>
+);
 
 function WooCommerceLibraryPage({
   listEndpoint = '/api/admin/media',
@@ -72,7 +58,7 @@ function WooCommerceLibraryPage({
   const { confirmAlert } = useAlerts();
   const [mediaItems, setMediaItems] = useState([]);
   const [filter, setFilter] = useState(filterOptions[0]?.value || 'all');
-  const [columns, setColumns] = useState(4);
+  const [columns, setColumns] = useState(3);
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -92,11 +78,7 @@ function WooCommerceLibraryPage({
 
   useEffect(() => {
     if (!activeMedia) return;
-    const handleKey = (event) => {
-      if (event.key === 'Escape') {
-        setActiveMedia(null);
-      }
-    };
+    const handleKey = (e) => { if (e.key === 'Escape') setActiveMedia(null); };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
   }, [activeMedia]);
@@ -108,581 +90,427 @@ function WooCommerceLibraryPage({
     return () => document.removeEventListener('click', handleClick);
   }, [activeMenuId]);
 
-  useEffect(() => {
-    return () => {
-      uploadPreviews.forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [uploadPreviews]);
+  useEffect(() => () => { uploadPreviews.forEach((u) => URL.revokeObjectURL(u)); }, [uploadPreviews]);
 
   useEffect(() => {
-    setSelectedMediaIds((current) => {
-      if (!current.size) return current;
-      const next = new Set(mediaItems.map((item) => item.id));
-      const filtered = new Set([...current].filter((id) => next.has(id)));
-      return filtered.size === current.size ? current : filtered;
+    setSelectedMediaIds((cur) => {
+      if (!cur.size) return cur;
+      const valid = new Set(mediaItems.map((i) => i.id));
+      const next = new Set([...cur].filter((id) => valid.has(id)));
+      return next.size === cur.size ? cur : next;
     });
   }, [mediaItems]);
 
-  const handleUploadFiles = useCallback(
-    async (files) => {
-      const selectedFiles = Array.isArray(files) ? files : [];
-      if (!selectedFiles.length) return;
-      const queue = selectedFiles.slice(0, MAX_BATCH_UPLOADS);
-      setIsUploading(true);
-      setUploadError('');
-      setUploadStatus(`Uploading 0/${queue.length}...`);
-      try {
-        const uploadedItems = [];
-        const failedUploads = [];
-
-        for (let index = 0; index < queue.length; index += 1) {
-          const file = queue[index];
-          setUploadStatus(`Uploading ${index + 1}/${queue.length}...`);
-          try {
-            const { webpFile, filename } = await prepareWebpUpload(file);
-            const formData = new FormData();
-            formData.append('file', webpFile);
-            const response = await fetch(uploadEndpoint, {
-              method: 'POST',
-              body: formData,
-            });
-            const payload = await response.json().catch(() => null);
-            if (!response.ok) {
-              throw new Error(payload?.message || payload?.error || 'Unable to upload image.');
-            }
-            uploadedItems.push({
-              id: payload?.id || payload?.key || `${Date.now()}-${index}`,
-              url: payload?.url || '',
-              title: filename,
-              unattached: true,
-            });
-          } catch (fileError) {
-            failedUploads.push(file?.name || fileError?.message || `File ${index + 1}`);
-          }
-        }
-
-        if (uploadedItems.length) {
-          setMediaItems((prev) => [...uploadedItems, ...prev]);
-          setIsUploadOpen(false);
-          setUploadPreviews([]);
-        }
-
-        if (failedUploads.length) {
-          const preview = failedUploads.slice(0, 3).join(', ');
-          const suffix = failedUploads.length > 3 ? ` +${failedUploads.length - 3} more` : '';
-          setUploadError(`Failed: ${preview}${suffix}`);
-        }
-
-        if (uploadedItems.length && !failedUploads.length) {
-          setUploadStatus(`Uploaded ${uploadedItems.length} image${uploadedItems.length > 1 ? 's' : ''}.`);
-        } else if (uploadedItems.length) {
-          setUploadStatus(`Uploaded ${uploadedItems.length}/${queue.length}.`);
-        } else {
-          setUploadStatus('');
-        }
-      } catch (uploadErr) {
-        setUploadError(uploadErr?.message || 'Unable to upload image.');
-        setUploadStatus('');
-      } finally {
-        setIsUploading(false);
+  const handleUploadFiles = useCallback(async (files) => {
+    const queue = (Array.isArray(files) ? files : []).slice(0, MAX_BATCH_UPLOADS);
+    if (!queue.length) return;
+    setIsUploading(true);
+    setUploadError('');
+    setUploadStatus(`Uploading 0/${queue.length}…`);
+    try {
+      const uploaded = [];
+      const failed = [];
+      for (let i = 0; i < queue.length; i++) {
+        setUploadStatus(`Uploading ${i + 1}/${queue.length}…`);
+        try {
+          const { webpFile, filename } = await prepareWebpUpload(queue[i]);
+          const fd = new FormData();
+          fd.append('file', webpFile);
+          const res = await fetch(uploadEndpoint, { method: 'POST', body: fd });
+          const p = await res.json().catch(() => null);
+          if (!res.ok) throw new Error(p?.message || p?.error || 'Upload failed.');
+          uploaded.push({ id: p?.id || `${Date.now()}-${i}`, url: p?.url || '', title: filename, unattached: true });
+        } catch (e) { failed.push(queue[i]?.name || `File ${i + 1}`); }
       }
-    },
-    [uploadEndpoint],
-  );
+      if (uploaded.length) { setMediaItems((p) => [...uploaded, ...p]); setIsUploadOpen(false); setUploadPreviews([]); }
+      if (failed.length) setUploadError(`Failed: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? ` +${failed.length - 3} more` : ''}`);
+      setUploadStatus(uploaded.length ? `Uploaded ${uploaded.length}/${queue.length}.` : '');
+    } catch (e) { setUploadError(e?.message || 'Upload failed.'); setUploadStatus(''); }
+    finally { setIsUploading(false); }
+  }, [uploadEndpoint]);
 
-  const deleteMediaById = useCallback(
-    async (mediaId) => {
-      const response = await fetch(`${deleteEndpointBase}/${mediaId}`, { method: 'DELETE' });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Unable to delete image.');
-      }
-      setMediaItems((prev) => prev.filter((entry) => entry.id !== mediaId));
-      setSelectedMediaIds((prev) => {
-        if (!prev.has(mediaId)) return prev;
-        const next = new Set(prev);
-        next.delete(mediaId);
-        return next;
-      });
-      setActiveMedia((prev) => (prev?.id === mediaId ? null : prev));
-    },
-    [deleteEndpointBase],
-  );
+  const deleteMediaById = useCallback(async (id) => {
+    const res = await fetch(`${deleteEndpointBase}/${id}`, { method: 'DELETE' });
+    const p = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(p?.error || 'Unable to delete.');
+    setMediaItems((prev) => prev.filter((e) => e.id !== id));
+    setSelectedMediaIds((prev) => { if (!prev.has(id)) return prev; const n = new Set(prev); n.delete(id); return n; });
+    setActiveMedia((prev) => (prev?.id === id ? null : prev));
+  }, [deleteEndpointBase]);
 
-  const handleDelete = useCallback(
-    async (item) => {
-      if (!item?.id || isDeletingSelection) return;
-      const confirmed = await confirmAlert({
-        type: 'warning',
-        title: 'Delete image?',
-        message: 'Delete this image? This cannot be undone.',
-        confirmLabel: 'Allow',
-        cancelLabel: 'Deny',
-      });
-      if (!confirmed) return;
-      setError('');
-      try {
-        await deleteMediaById(item.id);
-        setActiveMenuId('');
-      } catch (err) {
-        setError(err?.message || 'Unable to delete image.');
-      }
-    },
-    [confirmAlert, deleteMediaById, isDeletingSelection],
-  );
+  const handleDelete = useCallback(async (item) => {
+    if (!item?.id || isDeletingSelection) return;
+    const ok = await confirmAlert({ type: 'warning', title: 'Delete image?', message: 'This cannot be undone.', confirmLabel: 'Delete', cancelLabel: 'Cancel' });
+    if (!ok) return;
+    setError('');
+    try { await deleteMediaById(item.id); setActiveMenuId(''); } catch (e) { setError(e?.message || 'Delete failed.'); }
+  }, [confirmAlert, deleteMediaById, isDeletingSelection]);
 
   const handleDeleteSelected = useCallback(async () => {
     if (!selectedMediaIds.size || isDeletingSelection) return;
-    const confirmed = await confirmAlert({
-      type: 'warning',
-      title: 'Delete selected images?',
-      message: `Delete ${selectedMediaIds.size} selected image${selectedMediaIds.size === 1 ? '' : 's'}? This cannot be undone.`,
-      confirmLabel: 'Allow',
-      cancelLabel: 'Deny',
-    });
-    if (!confirmed) return;
+    const ok = await confirmAlert({ type: 'warning', title: `Delete ${selectedMediaIds.size} image${selectedMediaIds.size > 1 ? 's' : ''}?`, message: 'This cannot be undone.', confirmLabel: 'Delete all', cancelLabel: 'Cancel' });
+    if (!ok) return;
     setError('');
     setIsDeletingSelection(true);
     setActiveMenuId('');
-    try {
-      for (const mediaId of selectedMediaIds) {
-        await deleteMediaById(mediaId);
-      }
-    } catch (err) {
-      setError(err?.message || 'Unable to delete selected images.');
-    } finally {
-      setIsDeletingSelection(false);
-    }
+    try { for (const id of selectedMediaIds) await deleteMediaById(id); }
+    catch (e) { setError(e?.message || 'Delete failed.'); }
+    finally { setIsDeletingSelection(false); }
   }, [confirmAlert, deleteMediaById, isDeletingSelection, selectedMediaIds]);
 
-  const loadMedia = useCallback(
-    async (requestedPage, replace = false) => {
-      setIsLoading(true);
-      setError('');
-      try {
-        const params = new URLSearchParams({
-          per_page: MEDIA_PAGE_SIZE.toString(),
-          page: requestedPage.toString(),
-          filter,
-          stale_days: STALE_DAYS.toString(),
-        });
-        const response = await fetch(`${listEndpoint}?${params.toString()}`);
-        const payload = await response.json().catch(() => null);
-        if (!response.ok) {
-          throw new Error(payload?.error || 'Unable to load the library.');
-        }
-        const items = Array.isArray(payload?.items) ? payload.items : [];
-        setMediaItems((prev) => (replace ? items : [...prev, ...items]));
-        setPage(requestedPage);
-        const nextPages = payload?.pages ? Number(payload.pages) : null;
-        if (Number.isFinite(nextPages)) {
-          setPages(nextPages);
-          setHasMore(requestedPage < nextPages);
-        } else {
-          setPages(1);
-          setHasMore(items.length === MEDIA_PAGE_SIZE);
-        }
-        if (payload?.total_count !== undefined && payload?.total_count !== null) {
-          setTotalSize(`${payload.total_count} items`);
-        } else {
-          setTotalSize('--');
-        }
-      } catch (err) {
-        setError(err?.message || 'Unable to load the library.');
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [filter],
-  );
+  const loadMedia = useCallback(async (reqPage, replace = false) => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const params = new URLSearchParams({ per_page: MEDIA_PAGE_SIZE, page: reqPage, filter, stale_days: STALE_DAYS });
+      const res = await fetch(`${listEndpoint}?${params}`);
+      const p = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(p?.error || 'Unable to load library.');
+      const items = Array.isArray(p?.items) ? p.items : [];
+      setMediaItems((prev) => replace ? items : [...prev, ...items]);
+      setPage(reqPage);
+      const np = p?.pages ? Number(p.pages) : null;
+      if (Number.isFinite(np)) { setPages(np); setHasMore(reqPage < np); }
+      else { setPages(1); setHasMore(items.length === MEDIA_PAGE_SIZE); }
+      setTotalSize(p?.total_count != null ? `${p.total_count}` : '--');
+    } catch (e) { setError(e?.message || 'Unable to load library.'); }
+    finally { setIsLoading(false); }
+  }, [filter, listEndpoint]);
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      setMediaItems([]);
-      setPage(1);
-      setPages(1);
-      setHasMore(true);
-      loadMedia(1, true);
-    }, 200);
-    return () => clearTimeout(handle);
+    const t = setTimeout(() => { setMediaItems([]); setPage(1); setPages(1); setHasMore(true); loadMedia(1, true); }, 200);
+    return () => clearTimeout(t);
   }, [filter, loadMedia]);
-
-  const canLoadMore = hasMore && !isLoading;
-  const gridClass = GRID_CLASS_MAP[columns] || GRID_CLASS_MAP[4];
-  const compactView = columns >= 7;
-  const gridGapClass = compactView ? 'gap-2' : columns >= 5 ? 'gap-3' : 'gap-4';
-  const visibleMediaIds = useMemo(() => mediaItems.map((item) => item.id).filter(Boolean), [mediaItems]);
-  const selectedMediaCount = selectedMediaIds.size;
-  const allVisibleSelected =
-    visibleMediaIds.length > 0 && visibleMediaIds.every((id) => selectedMediaIds.has(id));
-  const skeletonCount = useMemo(() => {
-    if (columns >= 7) return columns * 2;
-    if (columns >= 5) return columns * 2;
-    return 8;
-  }, [columns]);
-  const showInfiniteLoader = isLoading && mediaItems.length > 0;
 
   useEffect(() => {
     const node = loadMoreRef.current;
     if (!node) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (!entry?.isIntersecting) return;
-        if (!canLoadMore || isLoading) return;
-        loadMedia(page + 1);
-      },
-      { rootMargin: '200px' },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [canLoadMore, isLoading, loadMedia, page]);
+    const obs = new IntersectionObserver(([e]) => { if (e?.isIntersecting && hasMore && !isLoading) loadMedia(page + 1); }, { rootMargin: '200px' });
+    obs.observe(node);
+    return () => obs.disconnect();
+  }, [hasMore, isLoading, loadMedia, page]);
+
+  const visibleIds = useMemo(() => mediaItems.map((i) => i.id).filter(Boolean), [mediaItems]);
+  const selCount = selectedMediaIds.size;
+  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedMediaIds.has(id));
+  const hasSelection = selCount > 0;
+
+  /* grid: 2 on mobile, 3 on sm, then 4/5 on lg based on user choice */
+  const gridCols = { 3: 'grid-cols-3', 4: 'sm:grid-cols-4', 5: 'sm:grid-cols-5' };
+  const gridClass = `grid-cols-2 ${columns === 3 ? 'sm:grid-cols-3' : columns === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-5'}`;
 
   return (
-    <AdminShell>
-      <div className="mx-auto w-full max-w-6xl">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Library</p>
-                <h1 className="mt-2 text-2xl font-semibold text-slate-900">{title}</h1>
-                <p className="mt-2 text-sm text-slate-500">
-                  Review uploaded images, filter stale assets, and keep your library clean.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm">
-                  Total size {totalSize || '--'}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsUploadOpen(true)}
-                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm"
-                >
-                  Upload image
-                </button>
-              </div>
-            </div>
+    <AdminShell bg="bg-slate-50/60">
+      <div className="mx-auto w-full max-w-6xl space-y-4 pb-16 pt-4">
 
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                {(filterOptions || FILTERS).map((item) => (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setFilter(item.value)}
-                    className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
-                      filter === item.value
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'bg-white text-slate-500 border border-slate-200'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-                <span className="text-[11px] text-slate-400">
-                  Stale = older than {STALE_DAYS} days
+        {/* ── Header ── */}
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">Library</h1>
+            <p className="mt-0.5 text-xs text-slate-400">
+              {totalSize !== '--' && totalSize ? `${totalSize} images` : 'Your uploaded media'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsUploadOpen(true)}
+            className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-700"
+          >
+            <IcoUpload />
+            <span className="hidden sm:inline">Upload</span>
+          </button>
+        </div>
+
+        {/* ── Toolbar ── */}
+        <div className="flex items-center justify-between gap-3">
+          {/* Filters */}
+          <div className="flex items-center gap-1 overflow-x-auto rounded-full border border-slate-200 bg-white p-1">
+            {(filterOptions || FILTERS).map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => setFilter(f.value)}
+                className={`whitespace-nowrap rounded-full px-3 py-1 text-[11px] font-semibold transition ${
+                  filter === f.value ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Grid size — desktop only */}
+          <div className="hidden items-center gap-1 rounded-full border border-slate-200 bg-white p-1 sm:flex">
+            {[3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setColumns(n)}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                  columns === n ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Selection bar — only when items selected ── */}
+        {hasSelection && (
+          <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-slate-700">{selCount} selected</span>
+              <button
+                type="button"
+                onClick={() => setSelectedMediaIds(new Set())}
+                className="text-[11px] font-medium text-slate-400 hover:text-slate-700"
+              >
+                Clear
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={handleDeleteSelected}
+              disabled={isDeletingSelection}
+              className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-rose-500 disabled:opacity-50"
+            >
+              <IcoTrash />
+              {isDeletingSelection ? 'Deleting…' : `Delete ${selCount}`}
+            </button>
+          </div>
+        )}
+
+        {/* ── Select all row ── */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedMediaIds(allSelected ? new Set() : new Set(visibleIds))}
+            disabled={!visibleIds.length || isDeletingSelection}
+            className="text-[11px] font-medium text-slate-400 hover:text-slate-700 disabled:opacity-40 transition"
+          >
+            {allSelected ? 'Deselect all' : 'Select all'}
+          </button>
+          {totalSize && totalSize !== '--' && (
+            <span className="text-[11px] text-slate-300">· {totalSize} total</span>
+          )}
+        </div>
+
+        {error && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</div>
+        )}
+
+        {/* ── Grid ── */}
+        <div className={`grid gap-2 sm:gap-3 ${gridClass}`}>
+          {!mediaItems.length && isLoading &&
+            Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="aspect-square animate-pulse rounded-xl bg-slate-200" />
+            ))
+          }
+
+          {mediaItems.map((item) => (
+            <div
+              key={`${item.id}-${item.url || 'media'}`}
+              className={`group relative overflow-hidden rounded-xl border bg-white shadow-sm transition hover:shadow-md ${
+                selectedMediaIds.has(item.id) ? 'border-slate-900 ring-1 ring-slate-900/20' : 'border-slate-200'
+              }`}
+            >
+              {/* Checkbox */}
+              <label className="absolute left-2 top-2 z-10 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedMediaIds.has(item.id)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setSelectedMediaIds((prev) => {
+                      const next = new Set(prev);
+                      if (checked) next.add(item.id); else next.delete(item.id);
+                      return next;
+                    });
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-4 w-4 rounded border-white/80 bg-white/90 text-slate-900 shadow-sm"
+                  aria-label={`Select ${item.title || 'image'}`}
+                />
+              </label>
+
+              {/* Image */}
+              <button
+                type="button"
+                onClick={() => setActiveMedia(item)}
+                className="block w-full"
+              >
+                <div className="aspect-square overflow-hidden bg-slate-100">
+                  <LazyImage src={item.url} alt={item.title || 'Media'} />
+                </div>
+              </button>
+
+              {/* Badges */}
+              {item.unattached && (
+                <span className="absolute right-2 top-2 rounded-full bg-slate-900/75 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                  Free
                 </span>
-              </div>
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
-                <span className="text-[11px] text-slate-400">View</span>
-                {GRID_OPTIONS.map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => setColumns(option)}
-                    aria-label={`Grid view ${option} columns`}
-                    className={`rounded-full p-2 text-[11px] font-semibold transition ${
-                      columns === option
-                        ? 'bg-slate-900 text-white'
-                        : 'text-slate-500 hover:text-slate-700'
-                    }`}
-                  >
-                    {renderGridIcon(option)}
-                  </button>
-                ))}
-              </div>
-            </div>
+              )}
+              {item.is_stale && (
+                <span className="absolute right-2 top-2 rounded-full bg-amber-500/90 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                  Stale
+                </span>
+              )}
 
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white px-4 py-3 text-xs">
-              <div className="flex flex-wrap items-center gap-2 text-slate-500">
+              {/* Hover actions */}
+              <div className="absolute bottom-0 inset-x-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-2 py-2 opacity-0 transition group-hover:opacity-100">
                 <button
                   type="button"
-                  onClick={() =>
-                    setSelectedMediaIds((prev) =>
-                      allVisibleSelected ? new Set() : new Set(visibleMediaIds),
-                    )
-                  }
-                  disabled={!visibleMediaIds.length || isDeletingSelection}
-                  className="rounded-full border border-slate-200 px-3 py-1.5 font-semibold text-slate-600 disabled:opacity-50"
+                  onClick={() => setActiveMedia(item)}
+                  className="text-[10px] font-semibold text-white/90 hover:text-white"
                 >
-                  {allVisibleSelected ? 'Clear visible' : 'Select visible'}
+                  Edit
                 </button>
-                <span>{selectedMediaCount} selected</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedMediaIds(new Set())}
-                  disabled={!selectedMediaCount || isDeletingSelection}
-                  className="rounded-full border border-slate-200 px-3 py-1.5 font-semibold text-slate-500 disabled:opacity-50"
-                >
-                  Clear selection
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteSelected}
-                  disabled={!selectedMediaCount || isDeletingSelection}
-                  className="rounded-full bg-rose-600 px-3 py-1.5 font-semibold text-white disabled:opacity-50"
-                >
-                  {isDeletingSelection ? 'Deleting...' : 'Delete selected'}
-                </button>
-              </div>
-            </div>
-
-            <div className={`mt-6 grid ${gridGapClass} ${gridClass}`}>
-              {!mediaItems.length && isLoading &&
-                Array.from({ length: skeletonCount }).map((_, index) => (
-                  <LibrarySkeletonCard key={`skeleton-${index}`} compact={compactView} />
-                ))}
-              {mediaItems.map((item) => (
-                <div
-                  key={`${item.id}-${item.url || item.source_url || item.date || 'media'}`}
-                  className={`group relative overflow-visible border border-slate-200 bg-white shadow-sm ${
-                    compactView ? 'rounded-2xl' : 'rounded-3xl'
-                  }`}
-                >
-                  <label className="absolute left-3 top-3 z-[1] inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/95 shadow-sm">
-                    <input
-                      type="checkbox"
-                      checked={selectedMediaIds.has(item.id)}
-                      onChange={(event) => {
-                        const checked = event.target.checked;
-                        setSelectedMediaIds((prev) => {
-                          const next = new Set(prev);
-                          if (checked) next.add(item.id);
-                          else next.delete(item.id);
-                          return next;
-                        });
-                      }}
-                      onClick={(event) => event.stopPropagation()}
-                      className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
-                      aria-label={`Select ${item.title || 'image'}`}
-                    />
-                  </label>
+                <div className="flex gap-1">
                   <button
                     type="button"
-                    onClick={() => setActiveMedia(item)}
-                    className="relative block w-full text-left"
+                    onClick={(e) => { e.stopPropagation(); if (item?.url) window.open(item.url, '_blank', 'noopener'); }}
+                    className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/20 text-white hover:bg-white/40"
+                    aria-label="View"
                   >
-                    <div
-                      className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-slate-100"
-                    >
-                      <LazyImage src={item.url} alt={item.title || 'Media'} />
-                      {item.unattached && (
-                        <span className="absolute left-3 top-3 rounded-full bg-white/90 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600">
-                          Unattached
-                        </span>
-                      )}
-                      {item.is_stale && (
-                        <span className="absolute right-3 top-3 rounded-full bg-amber-100/90 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">
-                          Stale
-                        </span>
-                      )}
-                      <span className="absolute bottom-3 left-3 rounded-full bg-slate-900/80 px-2 py-1 text-[10px] font-semibold text-white opacity-0 transition group-hover:opacity-100">
-                        Edit image
-                      </span>
-                    </div>
+                    <IcoView />
                   </button>
-                  <div className="absolute bottom-3 right-3">
-                    <div className="relative">
-                      <button
-                        type="button"
-                        aria-label="Open menu"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setActiveMenuId(String(item.id));
-                        }}
-                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-sm opacity-0 transition hover:bg-white group-hover:opacity-100"
-                      >
-                        <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-                          <circle cx="6" cy="12" r="1.6" fill="currentColor" />
-                          <circle cx="12" cy="12" r="1.6" fill="currentColor" />
-                          <circle cx="18" cy="12" r="1.6" fill="currentColor" />
-                        </svg>
-                      </button>
-                      {activeMenuId === String(item.id) && (
-                        <div
-                          className="absolute right-0 z-10 mt-2 w-40 overflow-hidden rounded-2xl border border-slate-200 bg-white text-xs shadow-lg"
-                          onClick={(event) => event.stopPropagation()}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveMenuId('');
-                              if (item?.url) {
-                                window.open(item.url, '_blank', 'noopener,noreferrer');
-                              }
-                            }}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-slate-600 hover:bg-slate-50"
-                          >
-                            <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-                              <path
-                                d="M14 5h5v5m-9 9h9V10"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.6"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                              <path
-                                d="M5 19h7"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.6"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                              <path
-                                d="M5 19V7h7"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.6"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                            View
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(item)}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-rose-600 hover:bg-rose-50"
-                          >
-                            <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-                              <path
-                                d="M5 7h14m-9 3v7m4-7v7M8 7l1-2h6l1 2m-1 0v11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V7"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.6"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleDelete(item); }}
+                    className="flex h-6 w-6 items-center justify-center rounded-lg bg-rose-500/80 text-white hover:bg-rose-500"
+                    aria-label="Delete"
+                  >
+                    <IcoTrash />
+                  </button>
                 </div>
-              ))}
-              {!mediaItems.length && !isLoading && (
-                <div className="col-span-full rounded-3xl border border-dashed border-slate-200 bg-white p-10 text-center text-sm text-slate-400">
-                  No images found for this filter.
-                </div>
-              )}
+              </div>
             </div>
+          ))}
 
-            {error && <p className="mt-4 text-xs text-rose-500">{error}</p>}
-
-            <div className="mt-6 flex items-center justify-center">
-              {showInfiniteLoader && (
-                <BouncingDotsLoader className="text-slate-400" dotClassName="bg-slate-400" />
-              )}
-              {canLoadMore && (
-                <LoadingButton
-                  type="button"
-                  onClick={() => loadMedia(page + 1)}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-500"
-                  isLoading={isLoading}
-                >
-                  Load next
-                </LoadingButton>
-              )}
+          {!mediaItems.length && !isLoading && (
+            <div className="col-span-full flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-white py-16">
+              <svg viewBox="0 0 24 24" className="h-8 w-8 text-slate-300" fill="none" stroke="currentColor" strokeWidth="1.4">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <path d="M3 16l5-5 4 4 3-3 6 6" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+              </svg>
+              <p className="text-sm font-medium text-slate-400">No images found</p>
+              <button
+                type="button"
+                onClick={() => setIsUploadOpen(true)}
+                className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+              >
+                Upload your first image
+              </button>
             </div>
-            <div ref={loadMoreRef} className="h-1 w-full" />
-            <ImageEditorModal
-              media={activeMedia}
-              onClose={() => setActiveMedia(null)}
-              onSaved={(savedItem) => {
-                if (!savedItem?.url) return;
-                setMediaItems((prev) => {
-                  const next = prev.filter((entry) => entry.id !== savedItem.id);
-                  return [savedItem, ...next];
-                });
-                setActiveMedia(null);
-              }}
-            />
+          )}
+        </div>
+
+        {/* ── Load more ── */}
+        <div className="flex justify-center pt-2">
+          {isLoading && mediaItems.length > 0 && (
+            <BouncingDotsLoader className="text-slate-400" dotClassName="bg-slate-400" />
+          )}
+          {hasMore && !isLoading && (
+            <LoadingButton
+              type="button"
+              onClick={() => loadMedia(page + 1)}
+              isLoading={isLoading}
+              className="rounded-full border border-slate-200 bg-white px-5 py-2 text-xs font-semibold text-slate-500 hover:border-slate-300"
+            >
+              Load more
+            </LoadingButton>
+          )}
+        </div>
+        <div ref={loadMoreRef} className="h-1" />
+
+        <ImageEditorModal
+          media={activeMedia}
+          onClose={() => setActiveMedia(null)}
+          onSaved={(saved) => {
+            if (!saved?.url) return;
+            setMediaItems((prev) => [saved, ...prev.filter((e) => e.id !== saved.id)]);
+            setActiveMedia(null);
+          }}
+        />
       </div>
 
+      {/* ── Upload modal ── */}
       {isUploadOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
           <button
             type="button"
             onClick={() => setIsUploadOpen(false)}
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-            aria-label="Close upload"
+            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
+            aria-label="Close"
           />
-          <div className="relative z-10 w-full max-w-lg max-h-[calc(100vh-48px)] overflow-y-auto rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-3">
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl sm:rounded-3xl">
+            {/* Modal header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Upload</p>
-                <p className="mt-2 text-lg font-semibold text-slate-900">Add image to library</p>
-                <p className="mt-1 text-xs text-slate-500">Upload a new image to your store library.</p>
+                <p className="text-sm font-bold text-slate-900">Upload Images</p>
+                <p className="text-[11px] text-slate-400">Up to {MAX_BATCH_UPLOADS} files · JPG, PNG, WEBP</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsUploadOpen(false)}
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200"
               >
-                Close
+                <IcoClose />
               </button>
             </div>
 
-            <label className="mt-5 flex cursor-pointer flex-col items-center justify-center rounded-3xl border border-dashed border-slate-200 bg-slate-50 px-6 py-8 text-center text-xs text-slate-500">
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(event) => {
-                  const files = Array.from(event.target.files || []);
-                  if (!files.length) return;
-                  setUploadError('');
-                  setUploadStatus('');
-                  setUploadPreviews((prev) => {
-                    prev.forEach((url) => URL.revokeObjectURL(url));
-                    return files.slice(0, 4).map((file) => URL.createObjectURL(file));
-                  });
-                  handleUploadFiles(files);
-                  event.target.value = '';
-                }}
-              />
-              <span className="text-sm font-semibold text-slate-700">Drop images or click to upload</span>
-              <span className="mt-1 text-[11px] text-slate-400">
-                JPG, PNG, WEBP up to 10MB each • Up to {MAX_BATCH_UPLOADS} files per batch
-              </span>
-            </label>
+            {/* Drop zone */}
+            <div className="p-5">
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center transition hover:border-slate-400 hover:bg-slate-100">
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (!files.length) return;
+                    setUploadError('');
+                    setUploadStatus('');
+                    setUploadPreviews((prev) => { prev.forEach((u) => URL.revokeObjectURL(u)); return files.slice(0, 4).map((f) => URL.createObjectURL(f)); });
+                    handleUploadFiles(files);
+                    e.target.value = '';
+                  }}
+                />
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-200 text-slate-500">
+                  <IcoUpload />
+                </span>
+                <span className="text-sm font-semibold text-slate-700">Tap to pick images</span>
+                <span className="text-[11px] text-slate-400">or drag and drop here</span>
+              </label>
 
-            {uploadPreviews.length > 0 && (
-              <div className="mt-4 grid grid-cols-2 gap-2 overflow-hidden rounded-2xl border border-slate-200 p-2 sm:grid-cols-4">
-                {uploadPreviews.map((url, index) => (
-                  <img
-                    key={`${url}-${index}`}
-                    src={url}
-                    alt="Upload preview"
-                    className="h-24 w-full rounded-lg object-cover"
-                  />
-                ))}
-              </div>
-            )}
+              {/* Previews */}
+              {uploadPreviews.length > 0 && (
+                <div className="mt-4 grid grid-cols-4 gap-2">
+                  {uploadPreviews.map((url, i) => (
+                    <img key={i} src={url} alt="Preview" className="aspect-square w-full rounded-xl object-cover" />
+                  ))}
+                </div>
+              )}
 
-            {uploadError && <p className="mt-3 text-xs text-rose-500">{uploadError}</p>}
-            {uploadStatus && <p className="mt-3 text-xs text-slate-500">{uploadStatus}</p>}
+              {/* Status */}
+              {(uploadStatus || uploadError) && (
+                <div className={`mt-3 rounded-xl px-3 py-2 text-xs font-medium ${uploadError ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-700'}`}>
+                  {uploadError || uploadStatus}
+                </div>
+              )}
 
-            <div className="mt-4 flex items-center justify-between text-[11px] text-slate-400">
-              <span>{isUploading ? 'Uploading...' : 'Ready when you are.'}</span>
-              <span>{isUploading ? 'Please wait' : 'Auto-uploads on select'}</span>
+              {isUploading && (
+                <div className="mt-3 flex items-center gap-2 text-xs text-slate-400">
+                  <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  {uploadStatus || 'Uploading…'}
+                </div>
+              )}
             </div>
           </div>
         </div>

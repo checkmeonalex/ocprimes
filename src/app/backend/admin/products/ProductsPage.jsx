@@ -790,7 +790,7 @@ function WooCommerceProductsPage() {
     'rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm';
 
   return (
-    <AdminShell bg="bg-white">
+    <AdminShell bg="bg-white" noPad>
       <div className="mx-auto w-full max-w-6xl space-y-6">
             <div className="relative w-full md:hidden">
               <div className="flex items-center gap-2 bg-white p-2 shadow-sm ring-1 ring-slate-200/80">

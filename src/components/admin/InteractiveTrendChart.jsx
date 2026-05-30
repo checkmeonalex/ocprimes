@@ -1,53 +1,39 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
-const CHART_WIDTH = 860;
-const CHART_HEIGHT = 280;
-const GRID_ROWS = 5;
+const CHART_WIDTH = 800;
+const CHART_HEIGHT = 200;
+const GRID_ROWS = 4;
+const PAD_TOP = 8;
+const PAD_BOTTOM = 8;
 
-const toSafeSeries = (series = []) => {
+const toSafe = (series = []) => {
   if (!Array.isArray(series) || !series.length) return [0, 0, 0, 0, 0, 0, 0];
-  return series.map((value) => {
-    const amount = Number(value || 0);
-    return Number.isFinite(amount) ? amount : 0;
-  });
+  return series.map((v) => { const n = Number(v ?? 0); return Number.isFinite(n) ? n : 0; });
 };
 
-const clampIndex = (index, length) => {
-  if (!Number.isFinite(index)) return 0;
-  if (length <= 1) return 0;
-  return Math.max(0, Math.min(length - 1, index));
-};
-
-const buildSeriesGeometry = (currentSeries = [], previousSeries = []) => {
-  const current = toSafeSeries(currentSeries);
-  const previous = toSafeSeries(previousSeries);
-  const pointCount = Math.max(current.length, previous.length, 2);
-  const mergedCurrent = Array.from({ length: pointCount }, (_, index) => current[index] ?? 0);
-  const mergedPrevious = Array.from({ length: pointCount }, (_, index) => previous[index] ?? 0);
-  const max = Math.max(...mergedCurrent, ...mergedPrevious, 1);
-  const min = Math.min(...mergedCurrent, ...mergedPrevious, 0);
+const buildGeometry = (cur = [], prev = []) => {
+  const current = toSafe(cur);
+  const previous = toSafe(prev);
+  const count = Math.max(current.length, previous.length, 2);
+  const c = Array.from({ length: count }, (_, i) => current[i] ?? 0);
+  const p = Array.from({ length: count }, (_, i) => previous[i] ?? 0);
+  const max = Math.max(...c, ...p, 1);
+  const min = Math.min(...c, ...p, 0);
   const range = Math.max(1, max - min);
-  const step = pointCount > 1 ? CHART_WIDTH / (pointCount - 1) : CHART_WIDTH;
+  const plotH = CHART_HEIGHT - PAD_TOP - PAD_BOTTOM;
+  const step = count > 1 ? CHART_WIDTH / (count - 1) : CHART_WIDTH;
 
-  const toPoint = (value, index) => ({
-    x: step * index,
-    y: CHART_HEIGHT - ((value - min) / range) * CHART_HEIGHT,
-    value,
-  });
+  const toY = (v) => PAD_TOP + plotH - ((v - min) / range) * plotH;
+  const pt = (v, i) => ({ x: step * i, y: toY(v), value: v });
 
-  const currentPoints = mergedCurrent.map(toPoint);
-  const previousPoints = mergedPrevious.map(toPoint);
+  const cp = c.map(pt);
+  const pp = p.map(pt);
 
-  return {
-    currentValues: mergedCurrent,
-    previousValues: mergedPrevious,
-    currentPoints,
-    previousPoints,
-    currentPolyline: currentPoints.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' '),
-    previousPolyline: previousPoints.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' '),
-  };
+  const polyline = (pts) => pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+
+  return { c, p, cp, pp, cLine: polyline(cp), pLine: polyline(pp), count, step };
 };
 
 export default function InteractiveTrendChart({
@@ -56,115 +42,149 @@ export default function InteractiveTrendChart({
   previousSeries = [],
   currentLabel = 'Current',
   previousLabel = 'Previous',
-  formatValue = (value) => String(value ?? 0),
+  formatValue = (v) => String(v ?? 0),
+  height = 200,
 }) {
-  const [activeIndex, setActiveIndex] = useState(-1);
+  const [hoverIdx, setHoverIdx] = useState(-1);
+  const svgRef = useRef(null);
 
-  const geometry = useMemo(
-    () => buildSeriesGeometry(currentSeries, previousSeries),
-    [currentSeries, previousSeries],
-  );
+  const geo = useMemo(() => buildGeometry(currentSeries, previousSeries), [currentSeries, previousSeries]);
 
-  const pointCount = geometry.currentPoints.length;
-  const safeLabels =
-    Array.isArray(labels) && labels.length === pointCount
-      ? labels
-      : Array.from({ length: pointCount }, (_, index) => `Point ${index + 1}`);
+  const safeLabels = Array.isArray(labels) && labels.length === geo.count
+    ? labels
+    : Array.from({ length: geo.count }, (_, i) => `${i + 1}`);
 
-  const hoverIndex = clampIndex(activeIndex >= 0 ? activeIndex : pointCount - 1, pointCount);
-  const currentPoint = geometry.currentPoints[hoverIndex];
-  const previousPoint = geometry.previousPoints[hoverIndex];
-  const currentValue = geometry.currentValues[hoverIndex] ?? 0;
-  const previousValue = geometry.previousValues[hoverIndex] ?? 0;
-  const tooltipLeftPercent = pointCount > 1 ? (hoverIndex / (pointCount - 1)) * 100 : 50;
-  const tooltipTop = currentPoint
-    ? Math.max(12, Math.min(CHART_HEIGHT - 116, currentPoint.y - 92))
-    : 12;
+  const isHovering = hoverIdx >= 0;
+  const activeIdx = isHovering ? Math.max(0, Math.min(geo.count - 1, hoverIdx)) : -1;
+  const cp = activeIdx >= 0 ? geo.cp[activeIdx] : null;
+  const pp = activeIdx >= 0 ? geo.pp[activeIdx] : null;
+  const cv = activeIdx >= 0 ? (geo.c[activeIdx] ?? 0) : 0;
+  const pv = activeIdx >= 0 ? (geo.p[activeIdx] ?? 0) : 0;
+
+  const tooltipXPct = activeIdx >= 0 && geo.count > 1 ? (activeIdx / (geo.count - 1)) * 100 : 50;
+  const isLeft = tooltipXPct > 60;
+
+  const handleMouseMove = useCallback((e) => {
+    const svg = svgRef.current;
+    if (!svg || geo.count < 2) return;
+    const rect = svg.getBoundingClientRect();
+    const relX = e.clientX - rect.left;
+    const pct = relX / rect.width;
+    const raw = pct * (geo.count - 1);
+    setHoverIdx(Math.round(Math.max(0, Math.min(geo.count - 1, raw))));
+  }, [geo.count]);
+
+  const handleLeave = useCallback(() => setHoverIdx(-1), []);
+
+  const chartH = Math.max(100, height);
 
   return (
-    <div className="space-y-3">
-      <div className="relative">
-        <div
-          className="pointer-events-none absolute z-10 w-[220px] max-w-[calc(100%-1rem)] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur-sm transition-[top,left] duration-150"
-          style={{ left: `${tooltipLeftPercent}%`, top: `${tooltipTop}px` }}
-        >
-          <p className="text-xs font-medium text-slate-500">{safeLabels[hoverIndex] || '—'}</p>
-          <div className="mt-2 space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-medium text-slate-500">{currentLabel}</span>
-              <span className="text-sm font-semibold text-slate-900">{formatValue(currentValue)}</span>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-medium text-slate-500">{previousLabel}</span>
-              <span className="text-sm font-semibold text-slate-700">{formatValue(previousValue)}</span>
+    <div className="space-y-1.5">
+      <div className="relative select-none">
+        {/* Tooltip — only while hovering */}
+        {isHovering && activeIdx >= 0 && (
+          <div
+            className="pointer-events-none absolute z-20 min-w-[140px] rounded-xl border border-slate-100 bg-white px-2.5 py-2 shadow-lg"
+            style={{
+              top: 0,
+              ...(isLeft
+                ? { right: `${100 - tooltipXPct}%`, transform: 'translateX(40%)' }
+                : { left: `${tooltipXPct}%`, transform: 'translateX(-40%)' }),
+            }}
+          >
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+              {safeLabels[activeIdx] || '—'}
+            </p>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-4">
+                <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-900" />
+                  {currentLabel}
+                </span>
+                <span className="text-xs font-bold text-slate-900">{formatValue(cv)}</span>
+              </div>
+              {previousLabel !== 'no prior period' && (
+                <div className="flex items-center justify-between gap-4">
+                  <span className="flex items-center gap-1 text-[11px] text-slate-400">
+                    <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+                    {previousLabel}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-400">{formatValue(pv)}</span>
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        )}
 
-        <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="h-[280px] w-full">
-          {Array.from({ length: GRID_ROWS }).map((_, index) => {
-            const y = 40 + ((CHART_HEIGHT - 60) / (GRID_ROWS - 1)) * index;
+        {/* SVG Chart */}
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+          className="w-full cursor-crosshair"
+          style={{ height: `${chartH}px` }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleLeave}
+        >
+          {/* Grid lines */}
+          {Array.from({ length: GRID_ROWS + 1 }).map((_, i) => {
+            const y = PAD_TOP + ((CHART_HEIGHT - PAD_TOP - PAD_BOTTOM) / GRID_ROWS) * i;
             return (
-              <path
-                key={`grid-${index}`}
-                d={`M0 ${y}h${CHART_WIDTH}`}
-                stroke="#eef2f7"
-                strokeWidth="1"
-              />
+              <line key={i} x1="0" y1={y.toFixed(1)} x2={CHART_WIDTH} y2={y.toFixed(1)}
+                stroke="#f1f5f9" strokeWidth="1" />
             );
           })}
 
-          {activeIndex >= 0 && currentPoint ? (
-            <path
-              d={`M${currentPoint.x} 0v${CHART_HEIGHT}`}
-              stroke="#d4d4d8"
-              strokeWidth="1.5"
-              strokeDasharray="6 6"
+          {/* Vertical cursor line */}
+          {hoverIdx >= 0 && cp && (
+            <line
+              x1={cp.x.toFixed(1)} y1="0" x2={cp.x.toFixed(1)} y2={CHART_HEIGHT}
+              stroke="#cbd5e1" strokeWidth="1" strokeDasharray="4 4"
             />
-          ) : null}
+          )}
 
-          <polyline fill="none" stroke="#111111" strokeWidth="3" points={geometry.currentPolyline} />
-          <polyline fill="none" stroke="#cbd5e1" strokeWidth="3" points={geometry.previousPolyline} />
+          {/* Area fill under current line */}
+          {geo.cp.length > 1 && (
+            <polygon
+              points={`${geo.cp[0].x},${CHART_HEIGHT} ${geo.cLine} ${geo.cp[geo.cp.length - 1].x},${CHART_HEIGHT}`}
+              fill="url(#areaGrad)"
+              opacity="0.35"
+            />
+          )}
 
-          {activeIndex >= 0 && currentPoint ? (
+          <defs>
+            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#0f172a" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#0f172a" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          {/* Previous line */}
+          <polyline fill="none" stroke="#e2e8f0" strokeWidth="2" strokeDasharray="6 4" points={geo.pLine} />
+
+          {/* Current line */}
+          <polyline fill="none" stroke="#0f172a" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" points={geo.cLine} />
+
+          {/* Hover dots */}
+          {hoverIdx >= 0 && cp && (
             <>
-              <circle cx={currentPoint.x} cy={currentPoint.y} r="5.5" fill="#111111" />
-              <circle cx={currentPoint.x} cy={currentPoint.y} r="10" fill="none" stroke="#111111" strokeOpacity="0.15" strokeWidth="6" />
+              <circle cx={cp.x.toFixed(1)} cy={cp.y.toFixed(1)} r="7" fill="#0f172a" fillOpacity="0.08" />
+              <circle cx={cp.x.toFixed(1)} cy={cp.y.toFixed(1)} r="4" fill="#0f172a" />
+              <circle cx={cp.x.toFixed(1)} cy={cp.y.toFixed(1)} r="2" fill="white" />
             </>
-          ) : null}
-
-          {activeIndex >= 0 && previousPoint ? (
-            <circle cx={previousPoint.x} cy={previousPoint.y} r="4.5" fill="#cbd5e1" />
-          ) : null}
+          )}
+          {hoverIdx >= 0 && pp && (
+            <circle cx={pp.x.toFixed(1)} cy={pp.y.toFixed(1)} r="3" fill="#cbd5e1" />
+          )}
         </svg>
-
-        <div className="absolute inset-0 z-20 grid" style={{ gridTemplateColumns: `repeat(${pointCount}, minmax(0, 1fr))` }}>
-          {safeLabels.map((label, index) => (
-            <button
-              key={`${label}-${index}`}
-              type="button"
-              className="h-full w-full cursor-pointer bg-transparent"
-              aria-label={`Inspect ${label}`}
-              onMouseEnter={() => setActiveIndex(index)}
-              onFocus={() => setActiveIndex(index)}
-              onTouchStart={() => setActiveIndex(index)}
-            />
-          ))}
-        </div>
       </div>
 
-      <div
-        className="grid gap-2"
-        style={{ gridTemplateColumns: `repeat(${Math.max(safeLabels.length, 1)}, minmax(0, 1fr))` }}
-      >
-        {safeLabels.map((label, index) => (
-          <span
-            key={label}
-            className={`text-center text-[11px] font-medium ${
-              index === hoverIndex ? 'text-slate-700' : 'text-slate-400'
-            }`}
-          >
-            {label}
+      {/* X-axis labels */}
+      <div className="grid" style={{ gridTemplateColumns: `repeat(${geo.count}, minmax(0, 1fr))` }}>
+        {safeLabels.map((lbl, i) => (
+          <span key={i} className={`text-center text-[10px] font-medium transition-colors ${
+            isHovering && i === activeIdx ? 'text-slate-700' : 'text-slate-400'
+          }`}>
+            {lbl}
           </span>
         ))}
       </div>

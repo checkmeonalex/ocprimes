@@ -285,7 +285,11 @@ export default function TemplatesPage() {
       const payload = await res.json().catch(() => null);
       if (!res.ok) throw new Error(payload?.error || 'Failed to apply template.');
       setActiveTemplate(templateId);
-      setSuccess(`"${VENDOR_TEMPLATES.find((t) => t.id === templateId)?.name}" template is now active. Refresh your storefront to see the changes.`);
+      const templateName = VENDOR_TEMPLATES.find((t) => t.id === templateId)?.name ?? templateId;
+      const blocksNote = payload?.blocks_added
+        ? ' New layout blocks were added to your Storefront — go there to add images and customise them.'
+        : '';
+      setSuccess(`"${templateName}" template is now active.${blocksNote} Refresh your storefront to see the changes.`);
     } catch (err) {
       setError(err?.message || 'Something went wrong. Please try again.');
     } finally {
@@ -299,9 +303,15 @@ export default function TemplatesPage() {
 
             {/* Page header */}
             <div className="mb-8">
-              <h1 className="text-2xl font-semibold text-slate-900">Templates</h1>
-              <p className="mt-1 text-sm text-slate-500">
-                Choose a design template for your storefront. The active template controls how your store header, product grid, and product cards look to shoppers.
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-2xl font-bold text-slate-900">Store Templates</h1>
+                <span className="inline-flex items-center rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white"
+                  style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)' }}>
+                  Beta
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-slate-500">
+                Switch your store's look in one click. Changes go live instantly for all your visitors.
               </p>
             </div>
 
@@ -350,23 +360,23 @@ export default function TemplatesPage() {
 
             {/* Info section */}
             <div className="mt-10 rounded-2xl border border-slate-100 bg-slate-50/60 p-5">
-              <h2 className="text-sm font-semibold text-slate-700">What does a template change?</h2>
+              <h2 className="text-sm font-semibold text-slate-700">What gets a new look?</h2>
               <ul className="mt-3 space-y-2 text-sm text-slate-500">
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
-                  <span><strong className="text-slate-700">Storefront page</strong> — header style, hero/banner layout, and overall page background.</span>
+                  <span><strong className="text-slate-700">Your store header</strong> — the top of your page, including the banner and background.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
-                  <span><strong className="text-slate-700">Catalog layout</strong> — sidebar vs. full-width grid, number of product columns.</span>
+                  <span><strong className="text-slate-700">Product listing layout</strong> — how your products are arranged when customers browse.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
-                  <span><strong className="text-slate-700">Product cards</strong> — card shape, info layout, and hover interactions.</span>
+                  <span><strong className="text-slate-700">Product cards</strong> — how each product looks in the grid.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-slate-400" />
-                  <span><strong className="text-slate-700">Only your store</strong> — changes are scoped to your storefront only and do not affect other vendors or the main OCPRIMES site.</span>
+                  <span><strong className="text-slate-700">Storefront layout blocks</strong> — templates that include a hero banner or custom sections will automatically add those blocks to your <a href="/backend/admin/store-front" className="font-semibold text-slate-700 underline underline-offset-2">Storefront</a> so you can add images and adjust them. Each store's blocks are independent — changes only affect your own store.</span>
                 </li>
               </ul>
             </div>

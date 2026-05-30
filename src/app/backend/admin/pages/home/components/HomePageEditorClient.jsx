@@ -53,12 +53,26 @@ export default function HomePageEditorClient() {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 py-12 text-sm text-slate-400">
-        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-        </svg>
-        Loading…
+      <div className="space-y-4 pt-2">
+        {/* Header skeleton */}
+        <div className="flex items-center justify-between">
+          <div className="h-5 w-44 animate-pulse rounded-lg bg-slate-200" />
+          <div className="h-4 w-16 animate-pulse rounded-lg bg-slate-100" />
+        </div>
+        {/* Section card skeletons */}
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <div className="h-4 w-32 animate-pulse rounded bg-slate-200" />
+              <div className="h-4 w-10 animate-pulse rounded bg-slate-100" />
+            </div>
+            <div className="space-y-3 px-4 py-4">
+              <div className="h-3 w-full animate-pulse rounded bg-slate-100" />
+              <div className="h-3 w-3/4 animate-pulse rounded bg-slate-100" />
+              <div className="h-8 w-24 animate-pulse rounded-xl bg-slate-100" />
+            </div>
+          </div>
+        ))}
       </div>
     )
   }

@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error('Admin signup failed:', error.message)
-    return jsonError(error.message || 'Unable to sign up.', 400)
+    return jsonError('Unable to sign up. Please check your details and try again.', 400)
   }
 
   const response = NextResponse.json({

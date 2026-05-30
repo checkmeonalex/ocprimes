@@ -14,6 +14,8 @@ import { UserLocaleProvider } from '../context/UserLocaleContext'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { createServerSupabaseClient } from '../lib/supabase/server'
 import { getCachedTopCategories } from '../lib/catalog/top-categories-server'
+import { cookies } from 'next/headers'
+import { ADMIN_THEME_COOKIE } from '../context/AdminThemeContext'
 import { BRAND_NAME, BRAND_SEARCH_DESCRIPTION, BRAND_TAGLINE } from '../lib/brand'
 import { SITE_URL } from '../lib/seo'
 import PwaRegistration from '../components/pwa/PwaRegistration'
@@ -111,6 +113,8 @@ const geistMono = Geist_Mono({
 export default async function RootLayout({ children }) {
   let initialAuthUser = null
   let initialTopCategories = []
+  let initialAdminTheme = 'light'
+
   try {
     const supabase = await createServerSupabaseClient()
     const { data } = await supabase.auth.getUser()
@@ -123,6 +127,11 @@ export default async function RootLayout({ children }) {
   } catch {
     initialTopCategories = []
   }
+  try {
+    const cookieStore = await cookies()
+    const themeCookie = cookieStore.get(ADMIN_THEME_COOKIE)
+    if (themeCookie?.value === 'dark') initialAdminTheme = 'dark'
+  } catch {}
 
   return (
     <html lang='en'>
@@ -137,6 +146,7 @@ export default async function RootLayout({ children }) {
                     <ClientLayout
                       initialAuthUser={initialAuthUser}
                       initialTopCategories={initialTopCategories}
+                      initialAdminTheme={initialAdminTheme}
                     >
                       {children}
                     </ClientLayout>

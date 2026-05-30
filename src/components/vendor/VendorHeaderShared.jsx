@@ -7,18 +7,31 @@ import { useAuthUser } from '@/lib/auth/useAuthUser';
 import VendorMiniCart from './VendorMiniCart';
 import VendorMiniWishlist from './VendorMiniWishlist';
 
-// ── 10 logo font options ──────────────────────────────────────────────────────
+// ── 20 logo font options ──────────────────────────────────────────────────────
 export const VENDOR_LOGO_FONTS = {
-  playfair:    { label: 'Playfair Display',   family: '"Playfair Display", serif',    google: 'Playfair+Display:wght@700',         cls: 'font-bold' },
-  cormorant:   { label: 'Cormorant Garamond', family: '"Cormorant Garamond", serif',   google: 'Cormorant+Garamond:wght@700',        cls: 'font-bold' },
-  montserrat:  { label: 'Montserrat',         family: '"Montserrat", sans-serif',      google: 'Montserrat:wght@700',               cls: 'font-bold tracking-wide' },
-  josefin:     { label: 'Josefin Sans',       family: '"Josefin Sans", sans-serif',    google: 'Josefin+Sans:wght@600',             cls: 'font-semibold tracking-[0.18em] uppercase' },
-  raleway:     { label: 'Raleway',            family: '"Raleway", sans-serif',         google: 'Raleway:wght@700',                  cls: 'font-bold' },
-  dm_serif:    { label: 'DM Serif Display',   family: '"DM Serif Display", serif',     google: 'DM+Serif+Display',                  cls: '' },
-  bebas:       { label: 'Bebas Neue',         family: '"Bebas Neue", sans-serif',      google: 'Bebas+Neue',                        cls: 'tracking-widest' },
-  baskerville: { label: 'Libre Baskerville',  family: '"Libre Baskerville", serif',    google: 'Libre+Baskerville:ital,wght@0,700', cls: 'font-bold' },
-  cinzel:      { label: 'Cinzel',             family: '"Cinzel", serif',               google: 'Cinzel:wght@600',                   cls: 'tracking-[0.12em]' },
-  italiana:    { label: 'Italiana',           family: '"Italiana", serif',             google: 'Italiana',                          cls: '' },
+  // — Classic serifs —
+  playfair:      { label: 'Playfair Display',     family: '"Playfair Display", serif',      google: 'Playfair+Display:wght@700',              cls: 'font-bold' },
+  cormorant:     { label: 'Cormorant Garamond',   family: '"Cormorant Garamond", serif',     google: 'Cormorant+Garamond:wght@700',             cls: 'font-bold' },
+  dm_serif:      { label: 'DM Serif Display',     family: '"DM Serif Display", serif',       google: 'DM+Serif+Display',                        cls: '' },
+  baskerville:   { label: 'Libre Baskerville',    family: '"Libre Baskerville", serif',      google: 'Libre+Baskerville:wght@700',              cls: 'font-bold' },
+  cinzel:        { label: 'Cinzel',               family: '"Cinzel", serif',                 google: 'Cinzel:wght@600',                         cls: 'tracking-[0.12em]' },
+  italiana:      { label: 'Italiana',             family: '"Italiana", serif',               google: 'Italiana',                                cls: '' },
+  eb_garamond:   { label: 'EB Garamond',          family: '"EB Garamond", serif',            google: 'EB+Garamond:wght@700',                    cls: 'font-bold' },
+  lora:          { label: 'Lora',                 family: '"Lora", serif',                   google: 'Lora:wght@700',                           cls: 'font-bold' },
+  marcellus:     { label: 'Marcellus',            family: '"Marcellus", serif',              google: 'Marcellus',                               cls: 'tracking-[0.06em]' },
+  spectral:      { label: 'Spectral',             family: '"Spectral", serif',               google: 'Spectral:wght@700',                       cls: 'font-bold' },
+  // — Modern & geometric sans —
+  montserrat:    { label: 'Montserrat',           family: '"Montserrat", sans-serif',        google: 'Montserrat:wght@700',                     cls: 'font-bold tracking-wide' },
+  josefin:       { label: 'Josefin Sans',         family: '"Josefin Sans", sans-serif',      google: 'Josefin+Sans:wght@600',                   cls: 'font-semibold tracking-[0.18em] uppercase' },
+  raleway:       { label: 'Raleway',              family: '"Raleway", sans-serif',           google: 'Raleway:wght@700',                        cls: 'font-bold' },
+  poiret:        { label: 'Poiret One',           family: '"Poiret One", sans-serif',        google: 'Poiret+One',                              cls: 'tracking-[0.1em]' },
+  forum:         { label: 'Forum',                family: '"Forum", serif',                  google: 'Forum',                                   cls: 'tracking-[0.06em]' },
+  // — Display & editorial —
+  bebas:         { label: 'Bebas Neue',           family: '"Bebas Neue", sans-serif',        google: 'Bebas+Neue',                              cls: 'tracking-widest' },
+  abril:         { label: 'Abril Fatface',        family: '"Abril Fatface", serif',          google: 'Abril+Fatface',                           cls: '' },
+  bodoni:        { label: 'Bodoni Moda',          family: '"Bodoni Moda", serif',            google: 'Bodoni+Moda:opsz,wght@6..96,700',         cls: 'font-bold' },
+  cormorant_sc:  { label: 'Cormorant SC',         family: '"Cormorant SC", serif',           google: 'Cormorant+SC:wght@600',                   cls: 'font-semibold tracking-[0.08em]' },
+  yeseva:        { label: 'Yeseva One',           family: '"Yeseva One", serif',             google: 'Yeseva+One',                              cls: 'tracking-[0.02em]' },
 }
 
 export function useLoadGoogleFont(fontKey) {
@@ -61,20 +74,12 @@ export function VendorLogo({ name, logoUrl, logoFullUrl, logoFont, isLight = fal
     )
   }
 
-  const initials = (name || '').trim().split(/\s+/).slice(0, 2).map(w => w[0] || '').join('').toUpperCase()
   return (
-    <div className="flex items-center gap-2.5">
-      {logoUrl ? (
-        <img src={logoUrl} alt={name} className="h-8 w-8 rounded-full object-cover border border-white/10" />
-      ) : (
-        <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold ${isLight ? 'bg-white/20 text-white' : 'bg-gray-900 text-white'}`}>
-          {initials}
-        </div>
-      )}
-      <span className={`text-sm lg:text-base font-bold tracking-tight ${isLight ? 'text-white' : 'text-gray-900'}`}>
-        {name}
-      </span>
-    </div>
+    <span
+      className={`text-base lg:text-lg font-bold tracking-[0.04em] uppercase ${isLight ? 'text-white' : 'text-gray-900'}`}
+    >
+      {name}
+    </span>
   )
 }
 

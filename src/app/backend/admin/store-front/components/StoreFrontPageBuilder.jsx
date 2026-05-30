@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MediaLibraryModal from './MediaLibraryModal';
+import { VENDOR_TEMPLATES } from '@/lib/vendor/templateConfig.mjs';
+
+const resolveTemplateName = (templateId) => {
+  if (!templateId) return null;
+  return VENDOR_TEMPLATES.find((t) => t.id === templateId)?.name ?? templateId;
+};
 
 // ─── Layout definitions ────────────────────────────────────────────────────
 
@@ -266,6 +272,7 @@ function BlockItem({ block, isExpanded, onToggle, onDelete, onConfigChange, onDr
     ? LAYOUTS.find((l) => l.key === block.config?.layout)?.label || 'Single'
     : '';
   const modeLabel = block.config?.mode === 'slider' ? 'Slider' : 'Static';
+  const templateName = resolveTemplateName(block.template);
 
   return (
     <div
@@ -306,6 +313,13 @@ function BlockItem({ block, isExpanded, onToggle, onDelete, onConfigChange, onDr
             </p>
           )}
         </button>
+
+        {/* Template source label */}
+        {templateName && (
+          <span className="shrink-0 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-500 ring-1 ring-violet-200">
+            {templateName}
+          </span>
+        )}
 
         {/* Expand toggle */}
         <button
@@ -479,44 +493,79 @@ export default function StoreFrontPageBuilder({ isLoading, brand, onSave }) {
     }
   };
 
+  // Split blocks into template-seeded vs manually added
+  const templateBlocks = blocks.filter((b) => Boolean(b.template));
+  const customBlocks = blocks.filter((b) => !b.template);
+
+  const renderBlockItem = (block) => (
+    <BlockItem
+      key={block.id}
+      block={block}
+      isExpanded={expandedId === block.id}
+      onToggle={() => toggleExpand(block.id)}
+      onDelete={() => removeBlock(block.id)}
+      onConfigChange={updateConfig}
+      onDragStart={(e) => handleDragStart(e, block.id)}
+      onDragOver={handleDragOver}
+      onDrop={(e) => handleDrop(e, block.id)}
+    />
+  );
+
   return (
     <>
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h3 className="text-base font-semibold text-slate-900">Storefront Layout</h3>
-            <p className="mt-0.5 text-xs text-slate-500">
-              Add and arrange components that appear at the top of your storefront. Drag to reorder.
-            </p>
-          </div>
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+        <div>
+          <h3 className="text-base font-semibold text-slate-900">Storefront Layout</h3>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Build the top of your store page. Grab any block and drag it to rearrange.
+          </p>
         </div>
 
-        {/* Block list */}
-        {blocks.length > 0 ? (
+        {/* ── Template blocks ─────────────────────────────────────────── */}
+        {templateBlocks.length > 0 && (
           <div className="space-y-2">
-            {blocks.map((block) => (
-              <BlockItem
-                key={block.id}
-                block={block}
-                isExpanded={expandedId === block.id}
-                onToggle={() => toggleExpand(block.id)}
-                onDelete={() => removeBlock(block.id)}
-                onConfigChange={updateConfig}
-                onDragStart={(e) => handleDragStart(e, block.id)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, block.id)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-2xl border-2 border-dashed border-slate-200 py-10 text-center">
-            <svg className="mx-auto h-8 w-8 text-slate-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            <p className="mt-2 text-sm font-medium text-slate-400">No components yet</p>
-            <p className="text-xs text-slate-400">Click + Add Component below to get started.</p>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-500">
+                {resolveTemplateName(templateBlocks[0].template)} Template
+              </span>
+              <div className="h-px flex-1 bg-violet-100" />
+              <span className="text-[10px] text-slate-400">Built-in layout</span>
+            </div>
+            <div className="space-y-2">
+              {templateBlocks.map(renderBlockItem)}
+            </div>
           </div>
         )}
+
+        {/* ── Custom blocks ────────────────────────────────────────────── */}
+        <div className="space-y-2">
+          {(templateBlocks.length > 0 || customBlocks.length > 0) && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                Your Blocks
+              </span>
+              <div className="h-px flex-1 bg-slate-100" />
+            </div>
+          )}
+
+          {customBlocks.length > 0 ? (
+            <div className="space-y-2">
+              {customBlocks.map(renderBlockItem)}
+            </div>
+          ) : (
+            blocks.length === 0 ? (
+              <div className="rounded-2xl border-2 border-dashed border-slate-200 py-10 text-center">
+                <svg className="mx-auto h-8 w-8 text-slate-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                <p className="mt-2 text-sm font-medium text-slate-400">No components yet</p>
+                <p className="text-xs text-slate-400">Click + Add Component below to get started.</p>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No custom blocks added yet.</p>
+            )
+          )}
+        </div>
 
         {/* Add component button */}
         <button

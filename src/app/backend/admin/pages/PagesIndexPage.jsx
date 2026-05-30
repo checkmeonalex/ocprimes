@@ -6,7 +6,9 @@ import HomePageAdminCard from './components/HomePageAdminCard'
 export default function PagesIndexPage() {
   return (
     <AdminShell>
-      <HomePageAdminCard />
+      <div className="px-4 pt-5 pb-12 sm:px-0">
+        <HomePageAdminCard />
+      </div>
     </AdminShell>
   )
 }

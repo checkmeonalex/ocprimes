@@ -22,13 +22,19 @@ export default function StoreFrontPage() {
   const { pushAlert } = useAlerts();
   const [isLoading, setIsLoading] = useState(true);
   const [isLogoSaving, setIsLogoSaving] = useState(false);
+  const [isLogoFullSaving, setIsLogoFullSaving] = useState(false);
+  const [isFontSaving, setIsFontSaving] = useState(false);
   const [isSavingCollectionsMode, setIsSavingCollectionsMode] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
+  const [logoFullFailed, setLogoFullFailed] = useState(false);
   const [brand, setBrand] = useState(null);
   const [isLogoMediaOpen, setIsLogoMediaOpen] = useState(false);
+  const [isLogoFullMediaOpen, setIsLogoFullMediaOpen] = useState(false);
 
   const brandName = String(brand?.name || 'Store');
   const logoUrl = String(brand?.logo_url || '').trim();
+  const logoFullUrl = String(brand?.logo_full_url || '').trim();
+  const logoFont = String(brand?.logo_font || '').trim();
   const initials = useMemo(() => toInitials(brandName), [brandName]);
 
   const notifyError = useCallback(
@@ -127,6 +133,45 @@ export default function StoreFrontPage() {
     }
   }, [brand, notifyError, notifySuccess, saveStoreFront]);
 
+  const handleLogoFullSelect = useCallback(async (url) => {
+    setIsLogoFullSaving(true);
+    try {
+      await saveStoreFront({ logo_full_url: url });
+      notifySuccess('Header logo updated.');
+    } catch (err) {
+      notifyError(err?.message || 'Unable to save header logo.');
+    } finally {
+      setIsLogoFullSaving(false);
+    }
+  }, [saveStoreFront, notifySuccess, notifyError]);
+
+  const handleRemoveLogoFull = useCallback(async () => {
+    if (!brand) return;
+    setIsLogoFullSaving(true);
+    try {
+      await saveStoreFront({ logo_full_url: null });
+      setLogoFullFailed(false);
+      notifySuccess('Header logo removed.');
+    } catch (err) {
+      notifyError(err?.message || 'Unable to remove header logo.');
+    } finally {
+      setIsLogoFullSaving(false);
+    }
+  }, [brand, notifyError, notifySuccess, saveStoreFront]);
+
+  const handleFontSelect = useCallback(async (fontKey) => {
+    if (!brand) return;
+    setIsFontSaving(true);
+    try {
+      await saveStoreFront({ logo_font: fontKey || null });
+      notifySuccess('Logo font updated.');
+    } catch (err) {
+      notifyError(err?.message || 'Unable to save font.');
+    } finally {
+      setIsFontSaving(false);
+    }
+  }, [brand, notifyError, notifySuccess, saveStoreFront]);
+
   const handleChangeCollectionsMenuMode = useCallback(
     async (nextMode) => {
       if (!brand || (nextMode !== 'grouped' && nextMode !== 'flat')) return;
@@ -173,7 +218,7 @@ export default function StoreFrontPage() {
               </div>
               <h2 className="mt-2 text-2xl font-semibold text-slate-900">Shop Branding</h2>
               <p className="mt-2 text-sm text-slate-500">
-                Upload your store logo and banner images to customize your storefront.
+                Add your logo and make your store feel like yours.
               </p>
             </section>
 
@@ -188,6 +233,15 @@ export default function StoreFrontPage() {
               isLogoUploading={isLogoSaving}
               onOpenMediaLibrary={() => setIsLogoMediaOpen(true)}
               onRemoveLogo={handleRemoveLogo}
+              logoFullUrl={logoFullUrl}
+              logoFullFailed={logoFullFailed}
+              onLogoFullError={() => setLogoFullFailed(true)}
+              isLogoFullUploading={isLogoFullSaving}
+              onOpenLogoFullMediaLibrary={() => setIsLogoFullMediaOpen(true)}
+              onRemoveLogoFull={handleRemoveLogoFull}
+              logoFont={logoFont}
+              isFontSaving={isFontSaving}
+              onFontSelect={handleFontSelect}
             />
 
             <StoreFrontCollectionsMenuSection
@@ -209,6 +263,11 @@ export default function StoreFrontPage() {
         isOpen={isLogoMediaOpen}
         onClose={() => setIsLogoMediaOpen(false)}
         onSelect={handleLogoSelect}
+      />
+      <MediaLibraryModal
+        isOpen={isLogoFullMediaOpen}
+        onClose={() => setIsLogoFullMediaOpen(false)}
+        onSelect={handleLogoFullSelect}
       />
     </AdminShell>
   );

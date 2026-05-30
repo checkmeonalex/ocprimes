@@ -3,12 +3,17 @@ import { jsonError, jsonOk } from '@/lib/http/response'
 import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { createNotifications } from '@/lib/admin/notifications'
+import { notifyVendorsOrderStatusChanged } from '@/lib/notifications/vendor-order-notify'
 import type { EmailOrderBreakdown } from '@/lib/email/order-breakdown'
 import { sendOrderStatusEmail } from '@/lib/email/send-order-status-email'
 import { loadVendorOrderIds, loadVendorProductIds } from '@/lib/orders/vendor-scope'
 
 const DEFAULT_PER_PAGE = 10
 const MAX_PER_PAGE = 50
+// Hard cap on rows fetched for vendor-scoped in-memory pagination.
+// Status derivation requires JS logic that cannot be pushed to the DB without
+// a migration. This cap prevents unbounded memory allocation in the meantime.
+const VENDOR_ORDERS_FETCH_LIMIT = 2000
 const PAYMENT_WINDOW_MINUTES = 2
 const PAYMENT_WINDOW_MS = PAYMENT_WINDOW_MINUTES * 60 * 1000
 const VALID_STATUSES = new Set([
@@ -28,6 +33,11 @@ const parsePositiveInt = (value: unknown, fallback: number) => {
   if (!Number.isFinite(next) || next <= 0) return fallback
   return Math.floor(next)
 }
+
+// Strip characters that have special meaning in PostgREST filter expressions
+// to prevent filter injection while still allowing meaningful search terms.
+const sanitizeSearchTerm = (term: string) =>
+  term.replace(/[(),"'\\]/g, '').substring(0, 100)
 
 const parseAddressJson = (value: unknown) => {
   if (value && typeof value === 'object') return value as Record<string, unknown>
@@ -165,7 +175,8 @@ export async function GET(request: NextRequest) {
   const page = parsePositiveInt(params.get('page'), 1)
   const perPage = Math.min(parsePositiveInt(params.get('perPage'), DEFAULT_PER_PAGE), MAX_PER_PAGE)
   const statusFilter = String(params.get('status') || 'all').trim().toLowerCase()
-  const searchTerm = String(params.get('search') || '').trim().toLowerCase()
+  const searchTerm = sanitizeSearchTerm(String(params.get('search') || '').trim().toLowerCase())
+  const customerIdFilter = String(params.get('customerId') || '').trim()
   const isSellerScoped = actor.isVendor && !actor.isAdmin
 
   if (isSellerScoped) {
@@ -209,6 +220,7 @@ export async function GET(request: NextRequest) {
         .select('id, order_number, payment_status, currency, created_at, shipping_address')
         .in('id', vendorOrderIds)
         .order('created_at', { ascending: false })
+        .limit(VENDOR_ORDERS_FETCH_LIMIT)
 
       if (searchTerm) {
         scopedOrdersQuery = scopedOrdersQuery.or(
@@ -325,6 +337,9 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false })
     .range((page - 1) * perPage, page * perPage - 1)
 
+  if (customerIdFilter) {
+    query = query.eq('user_id', customerIdFilter)
+  }
   if (searchTerm) {
     query = query.or(`order_number.ilike.%${searchTerm}%,paystack_reference.ilike.%${searchTerm}%`)
   }
@@ -528,6 +543,18 @@ export async function PATCH(request: NextRequest) {
       }
     } catch (emailError) {
       console.error('order status email failed:', emailError)
+    }
+
+    // Notify vendor(s) of the status change
+    try {
+      await notifyVendorsOrderStatusChanged(adminDb, {
+        orderId: String(existingOrder.id),
+        orderNumber: orderNumberLabel,
+        nextStatus,
+        updatedBy: actor.user?.id || null,
+      })
+    } catch (vendorNotifyError) {
+      console.error('vendor order status notification failed:', vendorNotifyError)
     }
   }
 

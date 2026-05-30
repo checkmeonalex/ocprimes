@@ -100,24 +100,28 @@ const BiadProductCard = ({ product, onAddToCart }) => {
 
           {imageLoaded && (
             <>
-              {/* Discount badge */}
+              {/* Discount badge — top left */}
               {discountPercentage && (
                 <div className="absolute left-2.5 top-2.5 z-10 bg-black px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">
                   -{discountPercentage}%
                 </div>
               )}
 
-              {/* Wishlist */}
+              {/* Wishlist — top right */}
               <button
                 type="button"
                 onClick={handleWishlist}
                 aria-pressed={isFavorite}
-                className={`absolute right-2.5 top-2.5 z-10 flex h-7 w-7 items-center justify-center transition ${
-                  isFavorite ? 'text-black' : 'text-gray-400 hover:text-black'
+                style={{ position: 'absolute', top: 10, right: 10, zIndex: 20 }}
+                className={`flex h-8 w-8 items-center justify-center rounded-full transition active:scale-90 ${
+                  isFavorite
+                    ? 'bg-white text-black shadow'
+                    : 'bg-black/50 text-white hover:bg-white hover:text-black'
                 }`}
               >
-                <Heart size={16} className={isFavorite ? 'fill-current' : ''} />
+                <Heart size={15} className={isFavorite ? 'fill-current' : ''} />
               </button>
+
 
               {/* Sold out overlay */}
               {isOutOfStock && (
@@ -130,14 +134,14 @@ const BiadProductCard = ({ product, onAddToCart }) => {
 
               {/* Quick add — desktop hover */}
               {!isOutOfStock && (
-                <div className="absolute inset-x-0 bottom-0 z-20 hidden translate-y-full transition-transform duration-300 ease-out group-hover:translate-y-0 sm:block">
+                <div className="absolute inset-x-0 bottom-0 z-10 hidden translate-y-full transition-transform duration-300 ease-out group-hover:translate-y-0 sm:block">
                   <button
                     type="button"
                     onClick={handleAddToCart}
                     className={`w-full py-3 text-[11px] font-black uppercase tracking-widest transition ${
                       inCart
-                        ? 'bg-gray-200 text-gray-600'
-                        : 'bg-gray-900 text-white hover:bg-black'
+                        ? 'bg-white/20 text-white/60'
+                        : 'bg-white text-black hover:bg-white/90'
                     }`}
                   >
                     {inCart ? 'Added ✓' : 'Quick Add'}
@@ -150,13 +154,13 @@ const BiadProductCard = ({ product, onAddToCart }) => {
 
         {/* Info below image */}
         <div className="mt-2.5 px-0.5">
-          <p className="line-clamp-1 text-xs font-bold uppercase tracking-wide text-gray-900 sm:text-[13px]">
+          <p className="line-clamp-1 text-xs font-bold uppercase tracking-wide text-white sm:text-[13px]">
             {product.name}
           </p>
           <div className="mt-1 flex items-center gap-2">
-            <span className="text-sm font-black text-gray-900">{formatMoney(priceValue)}</span>
+            <span className="text-sm font-black text-white">{formatMoney(priceValue)}</span>
             {hasDiscount && (
-              <span className="text-xs text-gray-400 line-through">{formatMoney(originalPriceValue)}</span>
+              <span className="text-xs text-white/40 line-through">{formatMoney(originalPriceValue)}</span>
             )}
           </div>
         </div>
@@ -167,7 +171,7 @@ const BiadProductCard = ({ product, onAddToCart }) => {
             type="button"
             onClick={handleAddToCart}
             className={`mt-2 w-full py-2 text-[10px] font-black uppercase tracking-widest transition sm:hidden ${
-              inCart ? 'bg-gray-200 text-gray-600' : 'bg-gray-900 text-white'
+              inCart ? 'bg-white/10 text-white/60' : 'bg-white text-black'
             }`}
           >
             {inCart ? 'Added ✓' : 'Add to Cart'}

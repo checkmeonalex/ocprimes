@@ -5,6 +5,7 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { fetchCartSnapshot, getCartForUser } from '@/lib/cart/cart-server'
 import { filterItemsByCheckoutSelection, parseCheckoutSelectionParam } from '@/lib/cart/checkout-selection'
 import { notifyAllAdmins } from '@/lib/admin/notifications'
+import { notifyVendorsForOrder } from '@/lib/notifications/vendor-order-notify'
 import { sendAdminTeamAlertToAll } from '@/lib/email/send-admin-team-alert-to-all'
 import { mergeOrderLifecycleStatus } from '@/lib/orders/lifecycle-status'
 import { deductConfirmedOrderInventory } from '@/lib/payments/order-inventory'
@@ -153,15 +154,27 @@ export async function POST(request: NextRequest) {
       const orderNumber =
         toString(orderQuery.data.order_number) ||
         `#${toString(orderQuery.data.id).replace(/-/g, '').toUpperCase()}`
-      await deductConfirmedOrderInventory(adminDb, toString(orderQuery.data.id), {
-        orderNumber,
-        userId: toString(orderQuery.data.user_id),
-      })
-      await clearPurchasedItemsFromCart(
-        adminDb,
-        toString(orderQuery.data.user_id),
-        toString(orderQuery.data.checkout_selection),
-      )
+
+      // If inventory or cart operations fail, revert payment_status so that
+      // Paystack's webhook retry can re-trigger the full fulfillment flow.
+      try {
+        await deductConfirmedOrderInventory(adminDb, toString(orderQuery.data.id), {
+          orderNumber,
+          userId: toString(orderQuery.data.user_id),
+        })
+        await clearPurchasedItemsFromCart(
+          adminDb,
+          toString(orderQuery.data.user_id),
+          toString(orderQuery.data.checkout_selection),
+        )
+      } catch (fulfillmentError) {
+        console.error('webhook fulfillment failed — reverting payment_status for retry:', fulfillmentError)
+        await adminDb
+          .from('checkout_orders')
+          .update({ payment_status: 'pending', updated_at: new Date().toISOString() })
+          .eq('id', orderQuery.data.id)
+        return jsonError('Fulfillment error — webhook will be retried.', 500)
+      }
 
       try {
         await notifyAllAdmins(adminDb, {
@@ -194,6 +207,18 @@ export async function POST(request: NextRequest) {
           bodyText: 'Payment has been confirmed. Review the order and move it through fulfillment manually.',
           actionLabel: 'Open order',
           actionPath: `/backend/admin/orders/${toString(orderQuery.data.id)}`,
+        })
+        // Notify vendor(s) whose products are in this order
+        const { data: orderItemsForVendor } = await adminDb
+          .from('checkout_order_items')
+          .select('product_id, name, image, quantity, line_total')
+          .eq('order_id', toString(orderQuery.data.id))
+
+        await notifyVendorsForOrder(adminDb, {
+          orderId: toString(orderQuery.data.id),
+          orderNumber,
+          currency: 'NGN',
+          orderItems: Array.isArray(orderItemsForVendor) ? orderItemsForVendor : [],
         })
       } catch (notificationError) {
         console.error('admin paid order alert failed:', notificationError)

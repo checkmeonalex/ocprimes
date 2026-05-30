@@ -9,6 +9,7 @@ export const buildInitials = (name) => {
 
 export const getCustomerDetailTabs = (customerId) => [
   { label: 'Profile', path: `/backend/admin/customers/${customerId || ''}` },
+  { label: 'Orders', path: `/backend/admin/customers/${customerId || ''}/orders` },
   { label: 'Addresses', path: `/backend/admin/customers/${customerId || ''}/addresses` },
   { label: 'About the user', path: `/backend/admin/customers/${customerId || ''}/about` },
   { label: 'Security', path: `/backend/admin/customers/${customerId || ''}/security` },

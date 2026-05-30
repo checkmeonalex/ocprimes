@@ -8,10 +8,28 @@ import AdminMobileHeader from './admin/AdminMobileHeader'
 import AddToCartSuccessPopup from './cart/AddToCartSuccessPopup'
 import ProductNavigationOverlay from './product/ProductNavigationOverlay'
 import UserPresenceHeartbeat from './presence/UserPresenceHeartbeat'
+import { AdminThemeProvider, useAdminTheme } from '../context/AdminThemeContext'
 import { useScreenSize } from '../hooks/useScreenSize'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
 import { useVendorPage } from '../context/VendorPageContext'
+
+// Applies the `dark` class to the entire admin section so dark: variants
+// work on both AdminMobileHeader and every page rendered inside AdminShell.
+function AdminDarkWrapper({ children }) {
+  const { isDark } = useAdminTheme()
+  // suppressHydrationWarning because server renders 'light' but client may read
+  // 'dark' from localStorage synchronously — a known intentional mismatch.
+  return (
+    <div
+      suppressHydrationWarning
+      className={isDark ? 'dark' : ''}
+      style={isDark ? { backgroundColor: '#1c1c1e', colorScheme: 'dark' } : undefined}
+    >
+      {children}
+    </div>
+  )
+}
 
 const NEXT_NAVIGATION_EXEMPT_PREFIXES = ['/cart', '/wishlist', '/UserBackend/wishlist', '/account/wishlist']
 
@@ -24,6 +42,7 @@ export default function ClientLayout({
   children,
   initialAuthUser = null,
   initialTopCategories = [],
+  initialAdminTheme = 'light',
 }) {
   const { isMobile } = useScreenSize()
   const pathname = usePathname()
@@ -108,17 +127,22 @@ export default function ClientLayout({
   }, [])
 
   if (isAuthRoute || isBackendAdmin) {
+    if (isBackendAdmin) {
+      return (
+        <AdminThemeProvider initialTheme={initialAdminTheme}>
+          <AdminDarkWrapper>
+            <UserPresenceHeartbeat />
+            <AdminMobileHeader />
+            <main className="min-h-screen pt-16 lg:pt-0">{children}</main>
+            <AddToCartSuccessPopup />
+          </AdminDarkWrapper>
+        </AdminThemeProvider>
+      )
+    }
     return (
       <>
         <UserPresenceHeartbeat />
-        {isBackendAdmin ? <AdminMobileHeader /> : null}
-        <main
-          className={`min-h-screen ${
-            isBackendAdmin ? 'pt-16 lg:pt-0' : ''
-          }`}
-        >
-          {children}
-        </main>
+        <main className="min-h-screen">{children}</main>
         <AddToCartSuccessPopup />
       </>
     )
@@ -139,14 +163,13 @@ export default function ClientLayout({
       <UserPresenceHeartbeat />
       <ScrollHistoryRestoration />
 
-      {/* Main Alxora navbar — hidden on vendor store pages */}
-      {!isVendorPage && !isUserBackendRoute && !isCartRoute && !isCheckoutRoute ? (
+      {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute ? (
         <MobileNavbar
           initialAuthUser={initialAuthUser}
           initialTopCategories={initialTopCategories}
         />
       ) : null}
-      {!isVendorPage && (!isMobile || isCheckoutFlowRoute) ? (
+      {(!isMobile || isCheckoutFlowRoute) ? (
         <Navbar
           initialAuthUser={initialAuthUser}
           initialTopCategories={initialTopCategories}

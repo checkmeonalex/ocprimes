@@ -20,9 +20,14 @@ const clampDimension = (value, fallback) => {
 
 export const buildCanvasFilter = (filters = {}) => {
   const brightness = Number(filters?.brightness ?? 100);
-  const contrast = Number(filters?.contrast ?? 100);
-  const saturate = Number(filters?.saturate ?? 100);
-  return `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturate}%)`;
+  const contrast   = Number(filters?.contrast   ?? 100);
+  const saturate   = Number(filters?.saturate   ?? 100);
+  const sepia      = Number(filters?.sepia      ?? 0);
+  const hueRotate  = Number(filters?.hueRotate  ?? 0);
+  let f = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturate}%)`;
+  if (sepia   > 0) f += ` sepia(${sepia}%)`;
+  if (hueRotate !== 0) f += ` hue-rotate(${hueRotate}deg)`;
+  return f;
 };
 
 export const renderEditedImageToCanvas = ({

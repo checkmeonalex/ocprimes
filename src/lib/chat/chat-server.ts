@@ -175,6 +175,34 @@ export const resolveVendorUserIdForProduct = async (productId: string) => {
   }
 }
 
+export const resolveVendorUserIdBySlug = async (vendorSlug: string) => {
+  const admin = createAdminSupabaseClient()
+  const { data: brand, error } = await admin
+    .from('admin_brands')
+    .select('id, created_by')
+    .eq('slug', vendorSlug)
+    .maybeSingle()
+  if (error) return { vendorUserId: null, brandId: null, error }
+  return {
+    vendorUserId: String(brand?.created_by || '').trim() || null,
+    brandId: String(brand?.id || '').trim() || null,
+    error: null,
+  }
+}
+
+export const findRepresentativeProductForBrand = async (brandId: string) => {
+  const admin = createAdminSupabaseClient()
+  const { data, error } = await admin
+    .from('product_brand_links')
+    .select('product_id, products!inner(id, status)')
+    .eq('brand_id', brandId)
+    .eq('products.status', 'publish')
+    .limit(1)
+    .maybeSingle()
+  if (error || !data?.product_id) return { productId: null, error: error ?? null }
+  return { productId: String(data.product_id), error: null }
+}
+
 export const findOrCreateConversation = async (
   supabase: any,
   customerUserId: string,

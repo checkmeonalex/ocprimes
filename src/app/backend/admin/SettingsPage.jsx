@@ -33,6 +33,7 @@ const mobileMenuSections = [
     title: 'Catalog',
     items: [
       { label: 'Pages', href: '/admin/pages' },
+      { label: 'Templates', href: '/admin/templates' },
       { label: 'Categories', href: '/admin/categories' },
       { label: 'Brands', href: '/admin/brands' },
       { label: 'Tags', href: '/admin/tags' },
@@ -55,8 +56,7 @@ const mobileMenuSections = [
     id: 'vendors',
     title: 'Vendor Admin',
     items: [
-      { label: 'Vendor Users', href: '/backend/admin/admin/users' },
-      { label: 'Vendor Brands', href: '/backend/admin/admin/brands' },
+      { label: 'Manage Sellers', href: '/backend/admin/admin/brands' },
     ],
   },
 ]
@@ -470,27 +470,16 @@ export default function SettingsPage() {
   }
 
   return (
-    <AdminShell bg="bg-[#f6f7f9]">
+    <AdminShell bg="bg-[#f6f7f9]" noPad>
       <div className='mx-auto w-full max-w-6xl'>
             <section className='mb-6 space-y-4 lg:hidden'>
               {mobileSection === 'menu' ? (
                 <>
-                  <div className='flex items-center justify-between'>
+                  <div className='px-4'>
                     <h1 className='text-xl font-semibold text-slate-900'>Profile</h1>
-                    <button
-                      type='button'
-                      className='inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-500'
-                      aria-label='More'
-                    >
-                      <svg viewBox='0 0 24 24' className='h-4 w-4' fill='currentColor'>
-                        <circle cx='6' cy='12' r='1.7' />
-                        <circle cx='12' cy='12' r='1.7' />
-                        <circle cx='18' cy='12' r='1.7' />
-                      </svg>
-                    </button>
                   </div>
 
-                  <div className='flex items-center justify-between rounded-2xl bg-white px-3 py-3'>
+                  <div className='flex items-center justify-between bg-white px-3 py-3'>
                     <div className='flex min-w-0 items-center gap-3'>
                       {isLoading ? (
                         <>
@@ -526,7 +515,7 @@ export default function SettingsPage() {
                     </button>
                   </div>
 
-                  <div className='overflow-hidden rounded-2xl bg-white'>
+                  <div className='overflow-hidden bg-white'>
                     {mobileMenuItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
                       const rowClass = `flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 ${
@@ -553,7 +542,7 @@ export default function SettingsPage() {
                     const hasMoreItems = section.items.length > 3
 
                     return (
-                      <div key={section.id} className='overflow-hidden rounded-2xl bg-white'>
+                      <div key={section.id} className='overflow-hidden bg-white'>
                         <div className='flex items-center justify-between border-b border-slate-100 px-4 py-3'>
                           <span className='text-xs font-semibold uppercase tracking-[0.18em] text-slate-400'>
                             {section.title}

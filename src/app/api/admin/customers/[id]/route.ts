@@ -105,6 +105,10 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   await adminDb.from('admin_notifications').delete().eq('created_by', customerId)
   await adminDb.from('user_roles').delete().eq('user_id', customerId)
   await adminDb.from('profiles').delete().eq('id', customerId)
+  // nullify non-cascading reviewed_by reference
+  await adminDb.from('admin_requests').update({ reviewed_by: null }).eq('reviewed_by', customerId)
+  // remove vendor ownership row (ON DELETE RESTRICT + NOT NULL)
+  await adminDb.from('vendors').delete().eq('user_id', customerId)
 
   const { error: deleteError } = await adminDb.auth.admin.deleteUser(customerId)
   if (deleteError) {

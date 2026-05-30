@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
 import MakeOfferModal from './MakeOfferModal'
 import { useAlerts } from '@/context/AlertContext'
@@ -10,7 +11,8 @@ type SellerChatPopupProps = {
   isOpen: boolean
   onClose: () => void
   onSend?: (message: string) => void
-  productId: string
+  productId?: string
+  vendorSlug?: string
   vendorName: string
   vendorAvatarUrl?: string
   vendorBadge?: string
@@ -39,11 +41,18 @@ type ApiMessage = {
   vendorReadAt?: string | null
 }
 
-const QUICK_START_MESSAGES = [
+const PRODUCT_QUICK_STARTERS = [
   'Make an Offer',
   "What's your best offer?",
   'Is this in stock?',
   "What's your return policy?",
+]
+
+const STORE_QUICK_STARTERS = [
+  'Where is your store located?',
+  "What's your return policy?",
+  'Do you restock sold out items?',
+  'Can I get a bulk discount?',
 ]
 const REPORT_REASONS = [
   { value: 'fraudulent_activity', label: 'Fraudulent activity' },
@@ -156,7 +165,8 @@ export default function SellerChatPopup({
   isOpen,
   onClose,
   onSend,
-  productId,
+  productId = '',
+  vendorSlug = '',
   vendorName,
   vendorAvatarUrl,
   vendorBadge = '',
@@ -185,10 +195,13 @@ export default function SellerChatPopup({
   const [isConversationClosed, setIsConversationClosed] = useState(false)
   const [closedConversationNotice, setClosedConversationNotice] = useState('')
   const [isClosingConversation, setIsClosingConversation] = useState(false)
+  const [isReopeningConversation, setIsReopeningConversation] = useState(false)
   const [hasAcceptedSafetyNotice, setHasAcceptedSafetyNotice] = useState(false)
   const [safetyChecked, setSafetyChecked] = useState(false)
   const [isSafetyDecisionReady, setIsSafetyDecisionReady] = useState(false)
   const [isSafetyNoticeOpen, setIsSafetyNoticeOpen] = useState(false)
+  const [authRequired, setAuthRequired] = useState(false)
+  const [pendingMessage, setPendingMessage] = useState('')
   const [sellerStatusLabel, setSellerStatusLabel] = useState('')
   const [sellerStatusAnimationKey, setSellerStatusAnimationKey] = useState(0)
   const [isConversationMenuOpen, setIsConversationMenuOpen] = useState(false)
@@ -247,14 +260,19 @@ export default function SellerChatPopup({
       setSafetyChecked(false)
       setIsSafetyDecisionReady(false)
       setIsSafetyNoticeOpen(false)
+      setAuthRequired(false)
+      setPendingMessage('')
       updateSellerStatusLabel('')
       setIsReportModalOpen(false)
       setSelectedReportReason('fraudulent_activity')
       setReportOtherDetails('')
       setIsSubmittingReport(false)
 
-      if (!String(productId || '').trim()) {
-        setChatError('Chat is unavailable for this product.')
+      const cleanProductId = String(productId || '').trim()
+      const cleanVendorSlug = String(vendorSlug || '').trim()
+
+      if (!cleanProductId && !cleanVendorSlug) {
+        setChatError('Unable to start chat.')
         setIsInitializing(false)
         return
       }
@@ -264,14 +282,22 @@ export default function SellerChatPopup({
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          productId,
-        }),
+        body: JSON.stringify(
+          cleanProductId ? { productId: cleanProductId } : { vendorSlug: cleanVendorSlug },
+        ),
       }).catch(() => null)
 
       if (!response) {
         if (!cancelled) {
           setChatError('Unable to connect to chat right now.')
+          setIsInitializing(false)
+        }
+        return
+      }
+
+      if (response.status === 401) {
+        if (!cancelled) {
+          setAuthRequired(true)
           setIsInitializing(false)
         }
         return
@@ -335,7 +361,7 @@ export default function SellerChatPopup({
     return () => {
       cancelled = true
     }
-  }, [isOpen, productId])
+  }, [isOpen, productId, vendorSlug])
 
   useEffect(() => {
     if (!isOpen || !conversationId) return
@@ -554,20 +580,8 @@ export default function SellerChatPopup({
   const popupDesktopBottomClass = hasBottomOffset ? 'sm:bottom-6' : 'sm:bottom-4'
   const offerPresets = buildThoughtfulOfferPresets(productPrice)
 
-  const sendMessage = async (rawMessage: string) => {
-    const body = String(rawMessage || '').trim()
-    if (!hasAcceptedSafetyNotice) {
-      setChatError('Please accept the chat safety notice before sending messages.')
-      setIsSafetyNoticeOpen(true)
-      return
-    }
-    if (isConversationClosed) {
-      setChatError(
-        closedConversationNotice || 'This chat is closed. You can no longer send messages.',
-      )
-      return
-    }
-    if (!body || !conversationId || isSending || isInitializing) return
+  const performSend = async (body: string) => {
+    if (!body || !conversationId || isSending) return
 
     const optimisticId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const optimisticMessage: ChatMessage = {
@@ -583,13 +597,8 @@ export default function SellerChatPopup({
     setChatNotice('')
     onSend?.(body)
 
-    if (!hasUserSentMessage) {
-      setHasUserSentMessage(true)
-    }
-
-    if (showQuickStarters) {
-      setShowQuickStarters(false)
-    }
+    if (!hasUserSentMessage) setHasUserSentMessage(true)
+    if (showQuickStarters) setShowQuickStarters(false)
 
     setIsSending(true)
     setChatError('')
@@ -598,9 +607,7 @@ export default function SellerChatPopup({
       `/api/chat/conversations/${encodeURIComponent(conversationId)}/messages`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ body }),
       },
     ).catch(() => null)
@@ -627,15 +634,10 @@ export default function SellerChatPopup({
     if (inserted) {
       setMessages((previous) => {
         const hasServerMessage = previous.some((message) => message.id === inserted.id)
-        if (hasServerMessage) {
-          return previous.filter((message) => message.id !== optimisticId)
-        }
+        if (hasServerMessage) return previous.filter((message) => message.id !== optimisticId)
         return previous.map((message) =>
           message.id === optimisticId
-            ? {
-                ...inserted,
-                status: inserted.sender === 'buyer' ? 'sent' : inserted.status,
-              }
+            ? { ...inserted, status: inserted.sender === 'buyer' ? 'sent' : inserted.status }
             : message,
         )
       })
@@ -647,47 +649,68 @@ export default function SellerChatPopup({
     setIsSending(false)
   }
 
+  const sendMessage = async (rawMessage: string) => {
+    const body = String(rawMessage || '').trim()
+    if (!body || isSending) return
+
+    if (isConversationClosed) {
+      setChatError(closedConversationNotice || 'This chat is closed. You can no longer send messages.')
+      return
+    }
+
+    if (!conversationId) {
+      if (isInitializing) {
+        setChatError('__connecting__')
+      } else if (authRequired) {
+        setChatError('__auth__')
+      } else {
+        setChatError('Unable to connect to chat. Please try again.')
+      }
+      return
+    }
+
+    if (authRequired) {
+      setChatError('__auth__')
+      return
+    }
+
+    if (!hasAcceptedSafetyNotice) {
+      setPendingMessage(body)
+      setDraft('')
+      setIsSafetyNoticeOpen(true)
+      return
+    }
+
+    await performSend(body)
+  }
+
   const handleSend = () => {
     void sendMessage(draft)
   }
 
   const handleQuickStartClick = (message: string) => {
-    if (!hasAcceptedSafetyNotice) {
-      setChatError('Please accept the chat safety notice before sending messages.')
-      setIsSafetyNoticeOpen(true)
-      return
-    }
-    if (isConversationClosed) {
-      setChatError(
-        closedConversationNotice || 'This chat is closed. You can no longer send messages.',
-      )
-      return
-    }
     if (message === 'Make an Offer') {
       setShowOfferModal(true)
       return
     }
-    setDraft(message)
+    void sendMessage(message)
   }
 
   const acceptSafetyNotice = () => {
     if (!safetyChecked || hasAcceptedSafetyNotice) return
-    setHasAcceptedSafetyNotice((previous) => (previous ? previous : true))
+    setHasAcceptedSafetyNotice(true)
+    setIsSafetyDecisionReady(true)
     setIsSafetyNoticeOpen(false)
     writeSafetyAcceptance(conversationId, true)
-    if (chatError) {
-      setChatError('')
+    if (chatError) setChatError('')
+    if (pendingMessage) {
+      const toSend = pendingMessage
+      setPendingMessage('')
+      void performSend(toSend)
     }
   }
 
-  const sendDisabled =
-    !isSafetyDecisionReady ||
-    !hasAcceptedSafetyNotice ||
-    isConversationClosed ||
-    draft.trim().length === 0 ||
-    !conversationId ||
-    isSending ||
-    isInitializing
+  const sendDisabled = draft.trim().length === 0 || isSending
 
   const handleOpenGuide = () => {
     setIsConversationMenuOpen(false)
@@ -760,6 +783,31 @@ export default function SellerChatPopup({
       message: 'Your report has been sent to Help Center.',
     })
     setIsSubmittingReport(false)
+  }
+
+  const handleReopenConversation = async () => {
+    if (!conversationId || isReopeningConversation) {
+      setIsConversationMenuOpen(false)
+      return
+    }
+    setIsConversationMenuOpen(false)
+    setIsReopeningConversation(true)
+    const response = await fetch(
+      `/api/chat/conversations/${encodeURIComponent(conversationId)}/reopen`,
+      { method: 'POST' },
+    ).catch(() => null)
+    if (response?.ok) {
+      setIsConversationClosed(false)
+      setClosedConversationNotice('')
+      setMessages([])
+      setHasUserSentMessage(false)
+      setShowQuickStarters(true)
+      setChatError('')
+      setChatNotice('')
+    } else {
+      setChatError('Unable to reopen chat right now.')
+    }
+    setIsReopeningConversation(false)
   }
 
   const handleCloseConversation = async () => {
@@ -950,6 +998,16 @@ export default function SellerChatPopup({
               </button>
               {isConversationMenuOpen ? (
                 <div className='absolute right-0 top-8 z-20 min-w-[150px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg'>
+                  {isConversationClosed && (
+                    <button
+                      type='button'
+                      onClick={handleReopenConversation}
+                      disabled={isReopeningConversation}
+                      className='block w-full px-3 py-2 text-left text-xs font-medium text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60'
+                    >
+                      {isReopeningConversation ? 'Opening…' : 'New chat'}
+                    </button>
+                  )}
                   <button
                     type='button'
                     onClick={handleOpenGuide}
@@ -980,9 +1038,7 @@ export default function SellerChatPopup({
 
         <div
           ref={messageBodyRef}
-          className={`seller-chat-scrollbar relative min-h-[42dvh] max-h-[48dvh] px-3 pb-3 pt-2 [@media(max-height:760px)]:min-h-[34dvh] [@media(max-height:760px)]:max-h-[38dvh] sm:min-h-[31rem] sm:max-h-[31rem] ${
-            hasAcceptedSafetyNotice ? 'overflow-y-auto' : 'overflow-hidden'
-          }`}
+          className='seller-chat-scrollbar overflow-y-auto relative min-h-[42dvh] max-h-[48dvh] px-3 pb-3 pt-2 [@media(max-height:760px)]:min-h-[34dvh] [@media(max-height:760px)]:max-h-[38dvh] sm:min-h-[31rem] sm:max-h-[31rem]'
         >
           <div className='mb-2 flex justify-center'>
             <span className='rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-gray-500 shadow-sm'>
@@ -990,7 +1046,23 @@ export default function SellerChatPopup({
             </span>
           </div>
 
-          {chatError ? (
+          {chatError === '__connecting__' ? (
+            <div className='mb-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500 flex items-center gap-2'>
+              <span className="flex items-center gap-[3px]">
+                <span className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.3s]" />
+                <span className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce [animation-delay:-0.15s]" />
+                <span className="h-1.5 w-1.5 rounded-full bg-gray-400 animate-bounce" />
+              </span>
+              <span>Please wait, connecting…</span>
+            </div>
+          ) : chatError === '__auth__' ? (
+            <div className='mb-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800'>
+              <p className='font-medium'>You need to be signed in to send a message.</p>
+              <Link href='/login' className='mt-1 inline-block font-semibold underline hover:text-blue-900'>
+                Sign in →
+              </Link>
+            </div>
+          ) : chatError ? (
             <div className='mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800'>
               {chatError}
             </div>
@@ -1006,7 +1078,7 @@ export default function SellerChatPopup({
             <div className='space-y-2.5'>
               {messages.length === 0 ? (
                 <div className='flex min-h-[28dvh] items-center justify-center px-4 text-center sm:min-h-[12rem]'>
-                  <p className='text-base font-medium text-slate-500'>Ask question about this product</p>
+                  <p className='text-base font-medium text-slate-500'>{productId ? 'Ask question about this product' : `Send ${vendorName} a message`}</p>
                 </div>
               ) : null}
               {messages.map((message) => {
@@ -1059,82 +1131,23 @@ export default function SellerChatPopup({
               ) : null}
             </div>
           )}
-          {isSafetyDecisionReady && !hasAcceptedSafetyNotice && isSafetyNoticeOpen ? (
-            <div className='absolute inset-0 z-20 p-2'>
-              <div className='h-full rounded-xl bg-black/15 p-1'>
-                <div className='modal-thin-scrollbar h-full overflow-y-auto rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-sm'>
-                  <div className='mb-1 flex items-start justify-between gap-3'>
-                    <p className='text-sm font-semibold text-amber-950'>Chat Safety Notice</p>
-                    <button
-                      type='button'
-                      onClick={() => setIsSafetyNoticeOpen(false)}
-                      aria-label='Close safety notice'
-                      className='inline-flex h-6 w-6 items-center justify-center rounded-full text-amber-800 transition hover:bg-amber-100'
-                    >
-                      <svg viewBox='0 0 20 20' className='h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
-                        <path d='M6 6l8 8M14 6l-8 8' strokeLinecap='round' />
-                      </svg>
-                    </button>
-                  </div>
-                  <p className='mb-2 text-[11px] text-amber-900'>Before continuing, please note:</p>
-                  <ul className='mb-2 list-disc space-y-1 pl-4 text-[11px] leading-relaxed'>
-                    {CHAT_SAFETY_RULES.map((rule) => (
-                      <li key={rule}>{rule}</li>
-                    ))}
-                  </ul>
-                  <p className='mb-2 text-[11px] text-amber-900'>
-                    By continuing, you agree to follow these safety guidelines.
-                  </p>
-                  <label className='mb-2 flex items-start gap-2 text-[11px] text-amber-900'>
-                    <input
-                      type='checkbox'
-                      checked={safetyChecked}
-                      onChange={(event) => setSafetyChecked(event.target.checked)}
-                      className='mt-0.5 h-3.5 w-3.5 rounded border-amber-400 text-amber-700 focus:ring-amber-500'
-                    />
-                    <span>I understand and agree to these safety guidelines.</span>
-                  </label>
-                  <button
-                    type='button'
-                    onClick={acceptSafetyNotice}
-                    disabled={!safetyChecked || hasAcceptedSafetyNotice}
-                    className='inline-flex items-center rounded-md bg-amber-700 px-2.5 py-1 text-[11px] font-semibold text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-amber-300'
-                  >
-                    Accept and Continue
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : null}
         </div>
 
           <div className='border-t border-gray-200 bg-transparent p-2.5'>
-            {isSafetyDecisionReady && !hasAcceptedSafetyNotice && !isSafetyNoticeOpen ? (
-              <div className='mb-2 flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-800'>
-                <span>Accept safety notice to start chat.</span>
-                <button
-                  type='button'
-                  onClick={() => setIsSafetyNoticeOpen(true)}
-                  className='shrink-0 rounded-md bg-amber-700 px-2 py-1 text-[10px] font-semibold text-white transition hover:bg-amber-800'
-                >
-                  Open Safety Notice
-                </button>
-              </div>
-            ) : null}
-            <div
+              <div
               className={`overflow-hidden transition-all duration-300 ease-out ${
-                hasAcceptedSafetyNotice && showQuickStarters
+                showQuickStarters
                   ? 'mb-2 max-h-20 translate-y-0 opacity-100'
                   : 'mb-0 max-h-0 -translate-y-2 opacity-0 pointer-events-none'
               }`}
             >
               <div className='seller-chip-scrollbar flex gap-2 overflow-x-auto pb-0.5'>
-                {QUICK_START_MESSAGES.map((message) => (
+                {(productId ? PRODUCT_QUICK_STARTERS : STORE_QUICK_STARTERS).map((message) => (
                   <button
                     key={message}
                     type='button'
                     onClick={() => handleQuickStartClick(message)}
-                    disabled={!hasAcceptedSafetyNotice || isConversationClosed}
+                    disabled={isConversationClosed}
                     className='shrink-0 rounded-[10px] border border-green-500 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 transition hover:bg-green-100'
                   >
                     {message}
@@ -1166,16 +1179,8 @@ export default function SellerChatPopup({
               <input
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                placeholder={
-                  hasAcceptedSafetyNotice
-                    ? conversationId
-                      ? isConversationClosed
-                        ? 'This chat is closed'
-                        : `Message ${vendorName}...`
-                      : 'Sign in to start chat'
-                    : 'Accept safety notice to start chat'
-                }
-                disabled={!hasAcceptedSafetyNotice || !conversationId || isInitializing || isConversationClosed}
+                placeholder={isConversationClosed ? 'This chat is closed' : `Message ${vendorName}...`}
+                disabled={isConversationClosed || isSending}
                 className='min-w-0 flex-1 appearance-none border-0 bg-white text-sm text-gray-800 shadow-none outline-none ring-0 placeholder:text-gray-500 focus:border-0 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-60'
                 aria-label='Type a message'
                 onKeyDown={(event) => {
@@ -1289,6 +1294,53 @@ export default function SellerChatPopup({
           }
         `}</style>
       </div>
+      {isSafetyNoticeOpen ? (
+        <div
+          className='fixed inset-0 z-[90] flex items-end justify-center bg-black/50 sm:items-center sm:px-4'
+          role='dialog'
+          aria-modal='true'
+        >
+          <div className='modal-thin-scrollbar w-full max-w-none rounded-t-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-2xl max-h-[80dvh] overflow-y-auto sm:max-w-md sm:rounded-2xl'>
+            <div className='mb-2 flex items-start justify-between gap-3'>
+              <p className='text-sm font-semibold text-amber-950'>Chat Safety Notice</p>
+              <button
+                type='button'
+                onClick={() => { setIsSafetyNoticeOpen(false); setPendingMessage('') }}
+                aria-label='Close'
+                className='inline-flex h-6 w-6 items-center justify-center rounded-full text-amber-800 transition hover:bg-amber-100'
+              >
+                <svg viewBox='0 0 20 20' className='h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                  <path d='M6 6l8 8M14 6l-8 8' strokeLinecap='round' />
+                </svg>
+              </button>
+            </div>
+            <p className='mb-2 text-[11px]'>Before continuing, please note:</p>
+            <ul className='mb-3 list-disc space-y-1 pl-4 text-[11px] leading-relaxed'>
+              {CHAT_SAFETY_RULES.map((rule) => (
+                <li key={rule}>{rule}</li>
+              ))}
+            </ul>
+            <label className='mb-3 flex items-start gap-2 text-[11px]'>
+              <input
+                type='checkbox'
+                checked={safetyChecked}
+                onChange={(event) => setSafetyChecked(event.target.checked)}
+                className='mt-0.5 h-3.5 w-3.5 rounded border-amber-400 text-amber-700 focus:ring-amber-500'
+              />
+              <span>I understand and agree to these safety guidelines.</span>
+            </label>
+            <button
+              type='button'
+              onClick={acceptSafetyNotice}
+              disabled={!safetyChecked}
+              className='w-full rounded-lg bg-amber-700 py-2 text-sm font-semibold text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-amber-300'
+            >
+              {pendingMessage ? 'Accept and Send Message' : 'Accept and Continue'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <MakeOfferModal
         isOpen={showOfferModal}
         onClose={() => setShowOfferModal(false)}

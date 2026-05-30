@@ -2,8 +2,12 @@ import { z } from 'zod'
 import { sanitizeMultilineText, sanitizePlainText } from '@/lib/security/input'
 
 export const chatConversationInitSchema = z.object({
-  productId: z.string().uuid(),
-})
+  productId: z.string().uuid().optional(),
+  vendorSlug: z.string().trim().min(1).max(120).optional(),
+}).refine(
+  (data) => data.productId || data.vendorSlug,
+  { message: 'Either productId or vendorSlug is required.' },
+)
 
 export const chatMessageCreateSchema = z.object({
   body: z.preprocess(sanitizeMultilineText, z.string().min(1).max(2000)),

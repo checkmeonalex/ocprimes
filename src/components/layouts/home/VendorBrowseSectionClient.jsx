@@ -172,6 +172,22 @@ function VendorName({ name }) {
 function VendorHeader({ vendor }) {
   const words = (vendor.name || '').trim().split(/\s+/);
   const initials = words.slice(0, 2).map((w) => w[0] || '').join('').toUpperCase();
+  const [isFollowing, setIsFollowing] = useState(Boolean(vendor.is_following));
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+
+  const handleFollow = useCallback(async () => {
+    if (isFollowLoading || !vendor.slug) return;
+    setIsFollowLoading(true);
+    try {
+      const res = await fetch(`/api/vendors/${encodeURIComponent(vendor.slug)}/follow`, {
+        method: isFollowing ? 'DELETE' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (res.ok) setIsFollowing((prev) => !prev);
+    } finally {
+      setIsFollowLoading(false);
+    }
+  }, [isFollowLoading, isFollowing, vendor.slug]);
 
   const followers         = Number(vendor.custom_profile_followers) || 0;
   const sold              = Number(vendor.custom_profile_sold) || 0;
@@ -268,8 +284,23 @@ function VendorHeader({ vendor }) {
         <Link href={vendorHref} className="rounded-full border border-gray-300 px-5 py-2 text-[12px] font-semibold text-gray-700 hover:bg-gray-50 transition">
           Visit shop
         </Link>
-        <button type="button" className="rounded-full bg-gray-900 px-5 py-2 text-[12px] font-bold text-white hover:bg-gray-700 transition">
-          + Follow
+        <button
+          type="button"
+          onClick={handleFollow}
+          disabled={isFollowLoading}
+          className={`rounded-full px-5 py-2 text-[12px] font-bold transition disabled:opacity-60 ${
+            isFollowing
+              ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              : 'bg-gray-900 text-white hover:bg-gray-700'
+          }`}
+        >
+          {isFollowLoading ? (
+            <span className="flex items-center gap-[3px]">
+              <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.3s]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce [animation-delay:-0.15s]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-current animate-bounce" />
+            </span>
+          ) : isFollowing ? 'Following' : '+ Follow'}
         </button>
       </div>
     </div>

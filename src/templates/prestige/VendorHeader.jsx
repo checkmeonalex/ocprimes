@@ -1,14 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useScrollDirection } from '@/hooks/useScrollDirection';
 import VendorCollectionsMenu from '@/components/vendor/VendorCollectionsMenu';
-import { PoweredByBar, HeaderIcons, VendorLogo } from '@/components/vendor/VendorHeaderShared';
+import { VendorLogo } from '@/components/vendor/VendorHeaderShared';
 import VendorFloatingFollow from '@/components/vendor/VendorFloatingFollow';
 
-const POWERED_H = 32;
-const HEADER_H  = 56;
+const HEADER_H = 56;
+const MAIN_NAV_H = 56; // matches top-14 (3.5rem)
 
 export default function PrestigeVendorHeader({
   vendorProfile,
@@ -17,33 +16,29 @@ export default function PrestigeVendorHeader({
   isFollowLoading,
   canFollow,
   canEditStorefront = false,
+  onMessage,
   categoryTree = [],
   collectionsMenuMode = 'grouped',
   activeCategorySlug = '',
   searchValue = '',
   setSearchValue,
-  initialAuthUser = null,
 }) {
-  const { isAtTop } = useScrollDirection();
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [mainNavGone, setMainNavGone] = useState(false);
 
-  const vendorTop = isAtTop ? `${POWERED_H}px` : '0px';
+  useEffect(() => {
+    const onScroll = () => setMainNavGone(window.scrollY >= MAIN_NAV_H);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <>
-      {/* ── Powered by bar ───────────────────── */}
-      <div
-        className={`fixed left-0 right-0 z-[41] transition-transform duration-300 ${isAtTop ? 'translate-y-0' : '-translate-y-8'}`}
-        style={{ top: 0 }}
-      >
-        <PoweredByBar />
-      </div>
-
-      {/* ── Prestige vendor header ───────────── */}
+      {/* ── Prestige vendor sub-header — sticks to top once main nav scrolls away ─── */}
       <header
-        className="fixed left-0 right-0 z-[40] bg-[#0a0a0a] border-b border-white/[0.07] transition-all duration-300"
-        style={{ top: vendorTop }}
+        className={`fixed left-0 right-0 z-[39] bg-[#0a0a0a] border-b border-white/[0.07] transition-[top] duration-200 ${mainNavGone ? 'top-0' : 'top-14 xl:top-16'}`}
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="relative flex items-center" style={{ height: HEADER_H }}>
@@ -62,7 +57,7 @@ export default function PrestigeVendorHeader({
             </div>
 
             {/* CENTER — Logo */}
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+            <div className={`absolute left-1/2 -translate-x-1/2 flex items-center gap-2 transition-opacity duration-150 ${isSearchOpen ? 'invisible opacity-0' : 'opacity-100'}`}>
               <Link href={`/${vendorProfile?.slug}`} className="flex items-center gap-2.5 transition">
                 <VendorLogo
                   name={vendorProfile?.name || ''}
@@ -73,12 +68,12 @@ export default function PrestigeVendorHeader({
                 />
                 {vendorProfile?.isTrusted && (
                   <img src={vendorProfile.trustedBadgeUrl || '/icons/verification/vendor-verified-badge.png'}
-                    alt="Verified" className="h-4 w-4 shrink-0" />
+                    alt="Verified" className="h-6 w-6 shrink-0" />
                 )}
               </Link>
             </div>
 
-            {/* RIGHT — Search + Icons + Follow */}
+            {/* RIGHT — Search + Follow */}
             <div className="flex flex-1 items-center justify-end gap-1">
               {isSearchOpen ? (
                 <div className="flex items-center gap-1.5">
@@ -98,16 +93,25 @@ export default function PrestigeVendorHeader({
               ) : (
                 <button type="button" onClick={() => setIsSearchOpen(true)}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/40 transition hover:text-white/80" aria-label="Search">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
                     <circle cx="11" cy="11" r="6" /><path d="m15.5 15.5 4 4" strokeLinecap="round" />
                   </svg>
                 </button>
               )}
 
-              {!isSearchOpen && <HeaderIcons initialAuthUser={initialAuthUser} isLight />}
-
-              {!isSearchOpen && (canFollow || canEditStorefront) && (
-                <div className="mx-1 h-4 w-px bg-white/20" />
+              {!isSearchOpen && !canEditStorefront && onMessage && (
+                <>
+                  <button type="button" onClick={onMessage}
+                    className="hidden sm:flex rounded-full border border-white/25 px-3.5 py-1.5 text-xs font-semibold text-white/70 transition hover:border-white/50 hover:text-white">
+                    Message
+                  </button>
+                  <button type="button" onClick={onMessage}
+                    className="sm:hidden inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/40 transition hover:text-white/80" aria-label="Message">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 0 1 .778-.332 48.294 48.294 0 0 0 5.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+                    </svg>
+                  </button>
+                </>
               )}
 
               {!isSearchOpen && canEditStorefront && (
@@ -127,7 +131,8 @@ export default function PrestigeVendorHeader({
         </div>
       </header>
 
-      <div style={{ height: isAtTop ? POWERED_H + HEADER_H : HEADER_H }} />
+      {/* spacer: main navbar (14/16) + vendor sub-header */}
+      <div className="mt-14 xl:mt-16" style={{ height: HEADER_H }} />
 
       <VendorCollectionsMenu isOpen={isCollectionsOpen} onClose={() => setIsCollectionsOpen(false)}
         categoryTree={categoryTree} vendorSlug={vendorProfile?.slug}

@@ -26,31 +26,54 @@ const getR2Config = () => {
   return { accountId, accessKeyId, secretAccessKey, bucketName, endpoint, publicBaseUrl }
 }
 
-const createR2Client = (config: ReturnType<typeof getR2Config>) =>
-  new S3Client({
+// Cached client — recreated only when credentials change (e.g., env reload in dev).
+let _r2Client: S3Client | null = null
+let _r2ClientKey = ''
+
+const createR2Client = (config: ReturnType<typeof getR2Config>) => {
+  const cacheKey = `${config.endpoint}::${config.accessKeyId}::${config.bucketName}`
+  if (_r2Client && _r2ClientKey === cacheKey) return _r2Client
+  _r2Client = new S3Client({
     region: 'auto',
     endpoint: config.endpoint,
     forcePathStyle: true,
-    maxAttempts: 3,
+    maxAttempts: 1, // we handle retries manually with backoff
     requestHandler: new NodeHttpHandler({
       httpsAgent: new HttpsAgent({
-        keepAlive: true,
+        keepAlive: false, // avoid stale connections on ECONNRESET
         family: 4,
+        timeout: 30000,
       }),
-      connectionTimeout: 5000,
-      socketTimeout: 20000,
+      connectionTimeout: 15000,
+      socketTimeout: 45000,
     }),
     credentials: {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey,
     },
   })
+  _r2ClientKey = cacheKey
+  return _r2Client
+}
 
-export const isR2TimeoutError = (error: unknown) => {
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+export const isR2RetryableError = (error: unknown) => {
   const code = (error as { code?: string })?.code
   const name = (error as { name?: string })?.name
-  return code === 'ETIMEDOUT' || name === 'TimeoutError'
+  return (
+    code === 'ETIMEDOUT' ||
+    code === 'ECONNRESET' ||
+    code === 'ECONNREFUSED' ||
+    code === 'EPIPE' ||
+    code === 'ENOTFOUND' ||
+    name === 'TimeoutError' ||
+    name === 'NetworkingError'
+  )
 }
+
+// keep old export name for any existing callers
+export const isR2TimeoutError = isR2RetryableError
 
 export const buildObjectKey = (file: File, prefix: string) => {
   const ext = file.name.includes('.') ? file.name.split('.').pop() : 'bin'
@@ -78,15 +101,23 @@ export const uploadToR2 = async (file: File, key: string, options: UploadOptions
     ContentType: file.type,
     CacheControl: options.cacheControl || 'public, max-age=31536000, immutable',
   })
-  try {
-    await client.send(command)
-  } catch (error) {
-    if (!isR2TimeoutError(error)) {
+  let lastError: unknown
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      await client.send(command)
+      lastError = undefined
+      break
+    } catch (error) {
+      lastError = error
+      if (attempt < 4 && isR2RetryableError(error)) {
+        console.warn(`R2 upload attempt ${attempt} failed (${(error as { code?: string })?.code}), retrying in ${attempt}s…`)
+        await sleep(attempt * 1000)
+        continue
+      }
       throw error
     }
-    // One more attempt for transient network timeouts.
-    await client.send(command)
   }
+  if (lastError) throw lastError
 
   const publicBase = options.publicBaseUrl || r2Config.publicBaseUrl
   const url = publicBase

@@ -1,15 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useScrollDirection } from '@/hooks/useScrollDirection';
 import VendorCollectionsMenu from './VendorCollectionsMenu';
 import VendorMobileCollectionsDropdown from './VendorMobileCollectionsDropdown';
-import { PoweredByBar, HeaderIcons, VendorLogo } from './VendorHeaderShared';
+import { VendorLogo } from './VendorHeaderShared';
 import VendorFloatingFollow from './VendorFloatingFollow';
 
-const POWERED_H = 32;
-const HEADER_H  = 60;
+const HEADER_H = 60;
+const MAIN_NAV_H = 56; // matches top-14 (3.5rem)
 
 export default function VendorStoreHeader({
   vendorProfile,
@@ -24,29 +23,24 @@ export default function VendorStoreHeader({
   categoryTree = [],
   collectionsMenuMode = 'grouped',
   activeCategorySlug = '',
-  initialAuthUser = null,
 }) {
-  const { isAtTop } = useScrollDirection();
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
+  const [mainNavGone, setMainNavGone] = useState(false);
 
-  const vendorTop = isAtTop ? `${POWERED_H}px` : '0px';
+  useEffect(() => {
+    const onScroll = () => setMainNavGone(window.scrollY >= MAIN_NAV_H);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
     <>
-      {/* ── Powered by bar ───────────────────── */}
-      <div
-        className={`fixed left-0 right-0 z-[41] transition-transform duration-300 ${isAtTop ? 'translate-y-0' : '-translate-y-8'}`}
-        style={{ top: 0 }}
-      >
-        <PoweredByBar />
-      </div>
-
-      {/* ── Main vendor header ───────────────── */}
+      {/* ── Vendor sub-header — sticks to top once main nav scrolls away ─── */}
       <header
-        className="fixed left-0 right-0 z-[40] bg-white border-b border-gray-100 shadow-sm transition-all duration-300"
-        style={{ top: vendorTop }}
+        className={`fixed left-0 right-0 z-[39] bg-white border-b border-gray-100 shadow-sm transition-[top] duration-200 ${mainNavGone ? 'top-0' : 'top-14 xl:top-16'}`}
       >
         <div className="mx-auto max-w-7xl px-3 sm:px-5 lg:px-8">
           <div className="flex items-center justify-between gap-2" style={{ height: HEADER_H }}>
@@ -72,7 +66,7 @@ export default function VendorStoreHeader({
             </div>
 
             {/* CENTER — logo */}
-            <div className="absolute left-1/2 -translate-x-1/2">
+            <div className={`absolute left-1/2 -translate-x-1/2 transition-opacity duration-150 ${isSearchExpanded ? 'invisible opacity-0' : 'opacity-100'}`}>
               <Link href={`/${vendorProfile?.slug}`} className="flex items-center gap-2">
                 <VendorLogo
                   name={vendorProfile?.name || ''}
@@ -82,12 +76,12 @@ export default function VendorStoreHeader({
                 />
                 {vendorProfile?.isTrusted && (
                   <img src={vendorProfile.trustedBadgeUrl || '/icons/verification/vendor-verified-badge.png'}
-                    alt="Verified" className="h-4 w-4 lg:h-5 lg:w-5 shrink-0" />
+                    alt="Verified" className="h-6 w-6 lg:h-7 lg:w-7 shrink-0" />
                 )}
               </Link>
             </div>
 
-            {/* RIGHT */}
+            {/* RIGHT — search + follow/edit */}
             <div className="flex items-center gap-1 shrink-0">
               {isSearchExpanded ? (
                 <div className="flex items-center gap-1.5">
@@ -107,16 +101,25 @@ export default function VendorStoreHeader({
               ) : (
                 <button type="button" onClick={() => setIsSearchExpanded(true)}
                   className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 transition-colors" aria-label="Search">
-                  <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
                     <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" strokeLinecap="round" />
                   </svg>
                 </button>
               )}
 
-              {!isSearchExpanded && <HeaderIcons initialAuthUser={initialAuthUser} />}
-
-              {!isSearchExpanded && (canFollow || canEditStorefront) && (
-                <div className="mx-1 h-5 w-px bg-gray-200" />
+              {!isSearchExpanded && !canEditStorefront && onMessage && (
+                <>
+                  <button type="button" onClick={onMessage}
+                    className="hidden sm:flex h-8 items-center gap-1.5 rounded-full border border-gray-200 px-3.5 text-[11px] font-bold uppercase tracking-widest text-gray-700 hover:bg-gray-50 transition-colors">
+                    Message
+                  </button>
+                  <button type="button" onClick={onMessage}
+                    className="sm:hidden flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 transition-colors" aria-label="Message">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 0 1 .778-.332 48.294 48.294 0 0 0 5.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z" />
+                    </svg>
+                  </button>
+                </>
               )}
 
               {!isSearchExpanded && canEditStorefront && (
@@ -136,7 +139,8 @@ export default function VendorStoreHeader({
         </div>
       </header>
 
-      <div style={{ height: isAtTop ? POWERED_H + HEADER_H : HEADER_H }} />
+      {/* spacer: main navbar (14/16) + vendor sub-header */}
+      <div className="mt-14 xl:mt-16" style={{ height: HEADER_H }} />
 
       <VendorCollectionsMenu isOpen={isCollectionsOpen} onClose={() => setIsCollectionsOpen(false)}
         categoryTree={categoryTree} vendorSlug={vendorProfile?.slug}
