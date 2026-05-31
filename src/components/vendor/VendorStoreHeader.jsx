@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import VendorCollectionsMenu from './VendorCollectionsMenu';
 import VendorMobileCollectionsDropdown from './VendorMobileCollectionsDropdown';
@@ -28,9 +28,27 @@ export default function VendorStoreHeader({
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
   const [mainNavGone, setMainNavGone] = useState(false);
+  const lastScrollYRef = useRef(0);
 
   useEffect(() => {
-    const onScroll = () => setMainNavGone(window.scrollY >= MAIN_NAV_H);
+    const onScroll = () => {
+      const currentY = Math.max(0, window.scrollY || 0);
+
+      if (window.innerWidth < 1024) {
+        // Mobile: mirror MobileNavbar's direction-aware logic exactly.
+        // Hide main nav (vendor header → top-0) when scrolling down past 80 px;
+        // restore (vendor header → top-14) when near top or scrolling back up.
+        const nearTop = currentY < 80;
+        const scrollingUp = currentY < lastScrollYRef.current;
+        setMainNavGone(!nearTop && !scrollingUp);
+      } else {
+        // Desktop: main nav is always fixed — vendor header sits below it until
+        // the page scrolls past its height, then locks to top-0.
+        setMainNavGone(currentY >= MAIN_NAV_H);
+      }
+
+      lastScrollYRef.current = currentY;
+    };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);

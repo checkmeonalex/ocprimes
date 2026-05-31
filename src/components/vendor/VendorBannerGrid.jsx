@@ -342,7 +342,7 @@ function CardStrip({ slides, title }) {
   if (!filled.length) return null;
 
   return (
-    <div>
+    <div className="px-3 pt-3 sm:px-5 sm:pt-4 lg:px-6 lg:pt-5">
       <style>{`
         .vbg-card-item { width: calc(100% / 3.3 - 8px); flex-shrink: 0; scroll-snap-align: start; }
         @media (min-width: 480px)  { .vbg-card-item { width: calc(100% / 4.3 - 8px); } }

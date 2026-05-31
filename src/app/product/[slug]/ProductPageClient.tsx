@@ -1729,6 +1729,9 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
         stockTextClass={stockTextClass}
         discountPercentage={discountPercentage}
         selectionMap={selectionMap}
+        relatedProducts={relatedProducts}
+        isRelatedLoading={isRelatedLoading}
+        categorySlug={categorySlug}
       />
     )
   }
@@ -3017,9 +3020,10 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
                   <RelatedProductsSection
                     items={relatedProducts}
                     seeAllHref={categorySlug ? `/products/${categorySlug}` : undefined}
+                    theme='prestige'
                   />
                 ) : null}
-                <RecentlyViewedSection currentSlug={product.slug} />
+                <RecentlyViewedSection currentSlug={product.slug} theme='prestige' />
               </div>
             </div>
         </main>

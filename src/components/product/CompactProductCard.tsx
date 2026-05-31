@@ -23,12 +23,16 @@ type CompactProductCardProps = {
     stock?: number | null
   }
   variant?: 'fixed' | 'fluid'
+  theme?: 'default' | 'dark' | 'prestige'
 }
 
 export const CompactProductCard = ({
   product,
   variant = 'fixed',
+  theme = 'default',
 }: CompactProductCardProps) => {
+  const dark = theme === 'dark'
+  const prestige = theme === 'prestige'
   const router = useRouter()
   const { isMobile } = useScreenSize()
   const { formatMoney } = useUserI18n()
@@ -47,13 +51,19 @@ export const CompactProductCard = ({
       data-next-navigation='true'
       className={`group block ${isFluid ? 'w-full' : fixedCardWidthClass}`}
     >
-      <div className='bg-white shadow-sm transition hover:shadow-md'>
-        <div
-          className={`border border-gray-200/80 flex flex-col ${
-            isFluid ? 'w-full aspect-[3/4]' : fixedCardFrameClass
-          }`}
-        >
-          <div className='relative basis-[75%] flex-shrink-0 overflow-hidden rounded-none border-b border-gray-200 bg-white'>
+      <div className={
+        dark ? 'transition' :
+        prestige ? 'bg-white border border-stone-100 transition hover:border-stone-300' :
+        'bg-white shadow-sm transition hover:shadow-md'
+      }>
+        <div className={`flex flex-col ${isFluid ? 'w-full aspect-[3/4]' : fixedCardFrameClass} ${
+          dark ? 'border border-white/10' : prestige ? '' : 'border border-gray-200/80'
+        }`}>
+          <div className={`relative basis-[75%] flex-shrink-0 overflow-hidden rounded-none border-b ${
+            dark ? 'border-white/10 bg-white/5' :
+            prestige ? 'border-stone-100 bg-[#ede9e3]' :
+            'border-gray-200 bg-white'
+          }`}>
             {product.image ? (
               <Image
                 src={product.image}
@@ -67,7 +77,9 @@ export const CompactProductCard = ({
                 className='object-cover rounded-none'
               />
             ) : (
-              <div className='flex h-full w-full items-center justify-center text-xs text-gray-400'>
+              <div className={`flex h-full w-full items-center justify-center text-xs ${
+                dark ? 'text-white/30' : prestige ? 'text-stone-400' : 'text-gray-400'
+              }`}>
                 No image
               </div>
             )}
@@ -79,34 +91,48 @@ export const CompactProductCard = ({
                     event.stopPropagation()
                     router.push(buildVendorHref(product.vendor || '', product.vendorSlug || ''))
                   }}
-                  className='text-black/80 font-light tracking-wide drop-shadow'
-                  style={{
-                    fontFamily: product.vendorFont || 'serif',
-                    fontSize: '12px',
-                    cursor: 'pointer',
-                  }}
+                  className={
+                    dark ? 'text-white/60 font-light tracking-wide' :
+                    prestige ? 'text-stone-500 font-light tracking-widest' :
+                    'text-black/80 font-light tracking-wide drop-shadow'
+                  }
+                  style={{ fontFamily: product.vendorFont || 'serif', fontSize: '12px', cursor: 'pointer' }}
                 >
                   {product.vendor}
                 </span>
               </div>
             ) : null}
           </div>
-          <div className='flex-1 px-3 pb-2 pt-2'>
-            <div className='text-xs font-semibold text-gray-900 line-clamp-1'>
+          <div className={`flex-1 px-3 pb-2 pt-2 ${
+            dark ? 'bg-white/[0.04]' : prestige ? 'bg-white' : ''
+          }`}>
+            <div className={`text-xs line-clamp-1 ${
+              dark ? 'font-semibold text-white' :
+              prestige ? 'font-light tracking-wide text-stone-800' :
+              'font-semibold text-gray-900'
+            }`}>
               {product.name}
             </div>
             <div className='mt-1 flex items-baseline gap-2'>
-              <span className='text-sm font-semibold text-gray-900'>
+              <span className={`text-sm ${
+                dark ? 'font-semibold text-white' :
+                prestige ? 'font-light text-stone-900' :
+                'font-semibold text-gray-900'
+              }`}>
                 {formatMoney(product.price)}
               </span>
               {product.originalPrice ? (
-                <span className='text-xs text-gray-400 line-through'>
+                <span className={`text-xs line-through ${
+                  dark ? 'text-white/30' : prestige ? 'text-stone-400' : 'text-gray-400'
+                }`}>
                   {formatMoney(product.originalPrice)}
                 </span>
               ) : null}
             </div>
             {lowStockLabel ? (
-              <div className='mt-1 text-[11px] font-semibold text-orange-600'>
+              <div className={`mt-1 text-[11px] font-semibold ${
+                dark ? 'text-orange-400' : prestige ? 'text-amber-700' : 'text-orange-600'
+              }`}>
                 {lowStockLabel}
               </div>
             ) : null}

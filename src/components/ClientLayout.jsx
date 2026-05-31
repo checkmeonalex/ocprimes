@@ -195,7 +195,7 @@ export default function ClientLayout({
         </main>
       </div>
       <ProductNavigationOverlay />
-      {showStorefrontFooter ? <Footer showBackToTop={!isProductRoute} /> : null}
+      {showStorefrontFooter ? <Footer showBackToTop={!isProductRoute} topMargin={!isProductRoute} /> : null}
       <AddToCartSuccessPopup />
     </>
   )

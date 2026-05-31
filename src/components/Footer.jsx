@@ -98,7 +98,7 @@ const footerGroups = [
   },
 ]
 
-export default function Footer({ showBackToTop = true }) {
+export default function Footer({ showBackToTop = true, topMargin = true }) {
   const { locale, setLocale } = useUserI18n()
   const year = new Date().getFullYear()
   const isInternational = locale.country === INTERNATIONAL_COUNTRY
@@ -130,7 +130,7 @@ export default function Footer({ showBackToTop = true }) {
   }, [])
 
   return (
-    <footer className='mt-16 border-t border-gray-200 bg-[#121212] text-white'>
+    <footer className={`${topMargin ? 'mt-16' : ''} border-t border-gray-200 bg-[#121212] text-white`}>
       <div className='mx-auto max-w-[1320px] px-4 py-10 sm:px-6 lg:px-8'>
         <div className='grid gap-10 border-b border-white/10 pb-10 lg:grid-cols-[1.1fr,1.9fr]'>
           <div className='max-w-md'>

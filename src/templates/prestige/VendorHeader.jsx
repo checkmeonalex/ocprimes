@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import VendorCollectionsMenu from '@/components/vendor/VendorCollectionsMenu';
 import { VendorLogo } from '@/components/vendor/VendorHeaderShared';
@@ -26,9 +26,20 @@ export default function PrestigeVendorHeader({
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [mainNavGone, setMainNavGone] = useState(false);
+  const lastScrollYRef = useRef(0);
 
   useEffect(() => {
-    const onScroll = () => setMainNavGone(window.scrollY >= MAIN_NAV_H);
+    const onScroll = () => {
+      const currentY = Math.max(0, window.scrollY || 0);
+      if (window.innerWidth < 1024) {
+        const nearTop = currentY < 80;
+        const scrollingUp = currentY < lastScrollYRef.current;
+        setMainNavGone(!nearTop && !scrollingUp);
+      } else {
+        setMainNavGone(currentY >= MAIN_NAV_H);
+      }
+      lastScrollYRef.current = currentY;
+    };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);

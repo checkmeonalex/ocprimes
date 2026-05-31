@@ -322,9 +322,9 @@ function MobileNavbar({
     const SHOW_AT_Y = 80
     const HIDE_AFTER_Y = 140
 
-    if (isVendorStore) {
+    // Categories bar never shows on vendor store or product pages
+    if (isVendorStore || isProductPage) {
       setIsSecondBarVisible(false)
-      return undefined
     }
 
     const handleScroll = () => {
@@ -337,20 +337,19 @@ function MobileNavbar({
       const nearTop = currentY < 80
       const scrollingUp = currentY < lastScrollYRef.current
 
-      // Handle Category/Second Bar
-      if (currentY <= SHOW_AT_Y || scrollingUp) {
-        setIsSecondBarVisible(true)
-      } else if (currentY >= HIDE_AFTER_Y) {
-        setIsSecondBarVisible(false)
+      // Categories bar — only on regular pages (not vendor, not product)
+      if (!isVendorStore && !isProductPage) {
+        if (currentY <= SHOW_AT_Y || scrollingUp) {
+          setIsSecondBarVisible(true)
+        } else if (currentY >= HIDE_AFTER_Y) {
+          setIsSecondBarVisible(false)
+        }
       }
 
-      // Handle Main Bar (Vendor Store isolation)
-      if (isVendorStore) {
-        if (nearTop || scrollingUp) {
-          setIsMainBarVisible(true)
-        } else {
-          setIsMainBarVisible(false)
-        }
+      // Main bar: hide on scroll-down on vendor/product pages so the
+      // vendor sub-header can take over the top slot; reveal on scroll-up.
+      if (isVendorStore || isProductPage) {
+        setIsMainBarVisible(nearTop || scrollingUp)
       } else {
         setIsMainBarVisible(true)
       }
@@ -363,7 +362,7 @@ function MobileNavbar({
     return () => {
       window.removeEventListener('scroll', handleScroll)
     }
-  }, [isVendorStore])
+  }, [isVendorStore, isProductPage])
 
   useEffect(() => {
     const navEl = navRef.current
