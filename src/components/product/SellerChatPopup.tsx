@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { createBrowserSupabaseClient } from '@/lib/supabase/browser'
@@ -184,7 +184,11 @@ export default function SellerChatPopup({
   const [hasUserSentMessage, setHasUserSentMessage] = useState(false)
   const [showQuickStarters, setShowQuickStarters] = useState(true)
   const [shouldRender, setShouldRender] = useState(isOpen)
-  const [isVisible, setIsVisible] = useState(isOpen)
+  const [isVisible, setIsVisible] = useState(false)
+  const [dragOffset, setDragOffset] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartYRef = useRef(0)
+  const dragStartOffsetRef = useRef(0)
   const [isInitializing, setIsInitializing] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [chatError, setChatError] = useState('')
@@ -230,11 +234,24 @@ export default function SellerChatPopup({
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true)
-      const raf = window.requestAnimationFrame(() => setIsVisible(true))
-      return () => window.cancelAnimationFrame(raf)
+      setDragOffset(0)
+      setIsDragging(false)
+      // Double-RAF guarantees the browser paints the hidden (translated/opacity-0)
+      // state on the first frame before we flip to visible — otherwise the very
+      // first open can skip straight to the end state with no visible transition.
+      let raf2 = 0
+      const raf1 = window.requestAnimationFrame(() => {
+        raf2 = window.requestAnimationFrame(() => setIsVisible(true))
+      })
+      return () => {
+        window.cancelAnimationFrame(raf1)
+        window.cancelAnimationFrame(raf2)
+      }
     }
     setIsVisible(false)
-    const timeoutId = window.setTimeout(() => setShouldRender(false), 240)
+    setDragOffset(0)
+    setIsDragging(false)
+    const timeoutId = window.setTimeout(() => setShouldRender(false), 300)
     return () => window.clearTimeout(timeoutId)
   }, [isOpen])
 
@@ -577,6 +594,46 @@ export default function SellerChatPopup({
 
   if (!shouldRender) return null
 
+  const DRAG_DISMISS_THRESHOLD = 90
+
+  const handleDragStart = (clientY: number) => {
+    dragStartYRef.current = clientY
+    dragStartOffsetRef.current = dragOffset
+    setIsDragging(true)
+  }
+
+  const handleDragMove = (clientY: number) => {
+    const delta = clientY - dragStartYRef.current
+    const next = Math.max(0, dragStartOffsetRef.current + delta)
+    setDragOffset(next)
+  }
+
+  const handleDragEnd = () => {
+    setIsDragging(false)
+    if (dragOffset > DRAG_DISMISS_THRESHOLD) {
+      onClose()
+      return
+    }
+    setDragOffset(0)
+  }
+
+  const handleHandlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    handleDragStart(event.clientY)
+  }
+
+  const handleHandlePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!isDragging) return
+    handleDragMove(event.clientY)
+  }
+
+  const handleHandlePointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    handleDragEnd()
+  }
+
   const popupDesktopBottomClass = hasBottomOffset ? 'sm:bottom-6' : 'sm:bottom-4'
   const offerPresets = buildThoughtfulOfferPresets(productPrice)
 
@@ -862,17 +919,24 @@ export default function SellerChatPopup({
   return (
     <>
       <div
-        className={`fixed inset-x-0 bottom-0 z-[60] w-full transition-[opacity,transform] duration-300 ease-out sm:inset-x-auto sm:right-4 sm:w-[25rem] ${popupDesktopBottomClass} ${
-          isVisible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'
-        }`}
+        className={`fixed inset-x-0 bottom-0 z-[60] w-full sm:inset-x-auto sm:right-4 sm:w-[25rem] ${popupDesktopBottomClass} ${
+          isVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
+        } ${isDragging ? '' : 'transition-[opacity,transform] duration-300 ease-out'}`}
+        style={{
+          transform: `translateY(${isVisible ? dragOffset : 16}px)`,
+        }}
       >
         <div className='relative max-h-[calc(100dvh-4.25rem)] overflow-hidden rounded-t-2xl rounded-b-none border border-gray-200 bg-[#f3f4f6] shadow-[0_12px_32px_rgba(15,23,42,0.18)] [@media(max-height:760px)]:max-h-[calc(100dvh-5rem)] sm:max-h-none sm:rounded-2xl'>
-        <div className='bg-white pt-2 sm:hidden'>
+        <div className='bg-white pt-2 sm:hidden touch-none' style={{ touchAction: 'none' }}>
           <button
             type='button'
             onClick={onClose}
-            aria-label='Close chat popup'
-            className='mx-auto block h-1.5 w-14 rounded-full bg-gray-500/80 transition hover:bg-gray-500'
+            onPointerDown={handleHandlePointerDown}
+            onPointerMove={handleHandlePointerMove}
+            onPointerUp={handleHandlePointerUp}
+            onPointerCancel={handleHandlePointerUp}
+            aria-label='Drag down or tap to close chat popup'
+            className='mx-auto block h-1.5 w-14 cursor-grab touch-none rounded-full bg-gray-500/80 transition hover:bg-gray-500 active:cursor-grabbing'
           />
         </div>
         <div className='border-b border-gray-200 bg-white'>
@@ -1073,7 +1137,10 @@ export default function SellerChatPopup({
             </div>
           ) : null}
           {isInitializing ? (
-            <div className='py-6 text-center text-sm text-gray-500'>Connecting to chat...</div>
+            <div className='flex items-center justify-center gap-2 py-6 text-sm text-gray-500'>
+              <span className='h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-500' />
+              <span>Connecting to chat...</span>
+            </div>
           ) : (
             <div className='space-y-2.5'>
               {messages.length === 0 ? (

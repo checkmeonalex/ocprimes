@@ -16,6 +16,7 @@ import PopularRightNowSection from '@/components/search/PopularRightNowSection'
 import { usePopularSearchItems } from '@/components/search/usePopularSearchItems'
 import { useSearchSuggestions } from '@/components/search/useSearchSuggestions'
 import { reportSearchQuery } from '@/components/search/reportSearchQuery'
+import { useVendorPage } from '@/context/VendorPageContext'
 
 // Lazy load CategoriesMenu since it's not immediately visible
 const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
@@ -91,6 +92,7 @@ function MobileNavbar({
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const [isMainBarVisible, setIsMainBarVisible] = useState(true)
+  const { setIsMainNavVisible } = useVendorPage()
 
   const isVendorStore = useMemo(() => {
     const segments = pathname?.split('/').filter(Boolean) || []
@@ -348,11 +350,9 @@ function MobileNavbar({
 
       // Main bar: hide on scroll-down on vendor/product pages so the
       // vendor sub-header can take over the top slot; reveal on scroll-up.
-      if (isVendorStore || isProductPage) {
-        setIsMainBarVisible(nearTop || scrollingUp)
-      } else {
-        setIsMainBarVisible(true)
-      }
+      const nextMainBarVisible = isVendorStore || isProductPage ? nearTop || scrollingUp : true
+      setIsMainBarVisible(nextMainBarVisible)
+      setIsMainNavVisible(nextMainBarVisible)
 
       lastScrollYRef.current = currentY
     }
@@ -362,7 +362,7 @@ function MobileNavbar({
     return () => {
       window.removeEventListener('scroll', handleScroll)
     }
-  }, [isVendorStore, isProductPage])
+  }, [isVendorStore, isProductPage, setIsMainNavVisible])
 
   useEffect(() => {
     const navEl = navRef.current
@@ -612,7 +612,7 @@ function MobileNavbar({
                 aria-label='Toggle sidebar'
               >
                 <svg
-                  className='h-6 w-6'
+                  className='h-5 w-5'
                   fill='none'
                   stroke='currentColor'
                   viewBox='0 0 24 24'
@@ -923,7 +923,7 @@ function MobileNavbar({
                         cy='8'
                         r='2.2'
                         fill='none'
-                        stroke='#520000'
+                        stroke='#000000'
                         strokeWidth='1.4'
                         opacity='0.25'
                       />
@@ -931,7 +931,7 @@ function MobileNavbar({
                         <path
                           d='M14 5.8a2.2 2.2 0 0 1 2.2 2.2'
                           fill='none'
-                          stroke='#520000'
+                          stroke='#000000'
                           strokeWidth='1.4'
                           strokeLinecap='round'
                         />
@@ -948,12 +948,12 @@ function MobileNavbar({
                   ) : cartCount > 0 ? null : (
                     <path
                       d='M14,12a1,1,0,0,1-1-1V9H11a1,1,0,0,1,0-2h2V5a1,1,0,0,1,2,0V7h2a1,1,0,0,1,0,2H15v2A1,1,0,0,1,14,12Z'
-                      fill='#520000'
+                      fill='#000000'
                     />
                   )}
                   <path
                     d='M17,19a1.5,1.5,0,1,0,1.5,1.5A1.5,1.5,0,0,0,17,19Zm-6,0a1.5,1.5,0,1,0,1.5,1.5A1.5,1.5,0,0,0,11,19Z'
-                    fill='#520000'
+                    fill='#000000'
                   />
                   <path
                     d='M18.22,17H9.8a2,2,0,0,1-2-1.55L5.2,4H3A1,1,0,0,1,3,2H5.2a2,2,0,0,1,2,1.55L9.8,15h8.42L20,7.76A1,1,0,0,1,22,8.24l-1.81,7.25A2,2,0,0,1,18.22,17Z'

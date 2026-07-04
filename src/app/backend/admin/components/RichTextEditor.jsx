@@ -15,7 +15,9 @@ const stripUnsafeHtml = (html) => {
     .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')
     .replace(/\son\w+="[^"]*"/gi, '')
     .replace(/\son\w+='[^']*'/gi, '')
-    .replace(/javascript:/gi, '');
+    .replace(/javascript:/gi, '')
+    .replace(/\sstyle="[^"]*"/gi, '')
+    .replace(/\sstyle='[^']*'/gi, '');
 };
 
 const normalizeUrl = (value) => {

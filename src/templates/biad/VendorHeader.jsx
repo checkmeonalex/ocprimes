@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import VendorCollectionsMenu from '@/components/vendor/VendorCollectionsMenu';
 import { VendorLogo } from '@/components/vendor/VendorHeaderShared';
 import VendorFloatingFollow from '@/components/vendor/VendorFloatingFollow';
+import { useVendorPage } from '@/context/VendorPageContext';
 
 const HEADER_H = 56;
 const MARQUEE_H = 24;
-const MAIN_NAV_H = 56; // matches top-14 (3.5rem)
 
 export default function BiadVendorHeader({
   vendorProfile,
@@ -26,43 +26,40 @@ export default function BiadVendorHeader({
 }) {
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [mainNavGone, setMainNavGone] = useState(false);
   const storeName = vendorProfile?.name || '';
-  const lastScrollYRef = useRef(0);
+  const { isMainNavVisible } = useVendorPage();
 
-  useEffect(() => {
-    const onScroll = () => {
-      const currentY = Math.max(0, window.scrollY || 0);
-      if (window.innerWidth < 1024) {
-        const nearTop = currentY < 80;
-        const scrollingUp = currentY < lastScrollYRef.current;
-        setMainNavGone(!nearTop && !scrollingUp);
-      } else {
-        setMainNavGone(currentY >= MAIN_NAV_H);
-      }
-      lastScrollYRef.current = currentY;
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+  // Hard swap with the main nav bar on both mobile and desktop — exactly one of the
+  // two is ever visible. When shown, the vendor header always sits at the very top.
+  const hiddenClass = isMainNavVisible ? 'hidden' : 'block';
 
   return (
     <>
-      {/* ── Biad vendor sub-header — sticks to top once main nav scrolls away ─── */}
+      {/* ── Biad vendor sub-header — hard swap with main nav, never both visible ─── */}
       <header
-        className={`fixed left-0 right-0 z-[39] bg-[#0a0a0a] border-b border-white/[0.07] transition-[top] duration-200 ${mainNavGone ? 'top-0' : 'top-14 xl:top-16'}`}
+        className={`fixed left-0 right-0 top-0 z-[39] bg-[#0a0a0a] border-b border-white/[0.07] ${hiddenClass}`}
       >
         <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
 
           {/* ── MOBILE layout ─── */}
           <div className="flex sm:hidden items-center" style={{ height: HEADER_H }}>
-            {/* Left: hamburger */}
-            <div className="flex-1 flex items-center">
+            {/* Left: store + hamburger */}
+            <div className="flex-1 flex items-center gap-1">
+              <Link href={`/${vendorProfile?.slug}`}
+                className="flex items-center justify-center h-9 w-9 text-white/70 hover:text-white transition-colors"
+                aria-label="Visit store">
+                <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
+                  <path d="M22 22H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path opacity="0.5" d="M20 22V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path opacity="0.5" d="M4 22V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M16.5278 2H7.47214C6.26932 2 5.66791 2 5.18461 2.2987C4.7013 2.5974 4.43234 3.13531 3.89443 4.21114L2.49081 7.75929C2.16652 8.57905 1.88279 9.54525 2.42867 10.2375C2.79489 10.7019 3.36257 11 3.99991 11C5.10448 11 5.99991 10.1046 5.99991 9C5.99991 10.1046 6.89534 11 7.99991 11C9.10448 11 9.99991 10.1046 9.99991 9C9.99991 10.1046 10.8953 11 11.9999 11C13.1045 11 13.9999 10.1046 13.9999 9C13.9999 10.1046 14.8953 11 15.9999 11C17.1045 11 17.9999 10.1046 17.9999 9C17.9999 10.1046 18.8953 11 19.9999 11C20.6373 11 21.205 10.7019 21.5712 10.2375C22.1171 9.54525 21.8334 8.57905 21.5091 7.75929L20.1055 4.21114C19.5676 3.13531 19.2986 2.5974 18.8153 2.2987C18.332 2 17.7306 2 16.5278 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                  <path opacity="0.5" d="M9.5 21.5V18.5C9.5 17.5654 9.5 17.0981 9.70096 16.75C9.83261 16.522 10.022 16.3326 10.25 16.201C10.5981 16 11.0654 16 12 16C12.9346 16 13.4019 16 13.75 16.201C13.978 16.3326 14.1674 16.522 14.299 16.75C14.5 17.0981 14.5 17.5654 14.5 18.5V21.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </Link>
               <button type="button" onClick={() => setIsCollectionsOpen(true)}
                 className="flex items-center justify-center h-9 w-9 text-white/60 hover:text-white transition-colors"
                 aria-label="Menu">
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <path d="M4 6h16M4 12h16M4 18h7" strokeLinecap="round" />
                 </svg>
               </button>
@@ -102,10 +99,21 @@ export default function BiadVendorHeader({
           <div className="hidden sm:flex relative items-center justify-between" style={{ height: HEADER_H }}>
             {/* Left */}
             <div className="flex items-center gap-3 flex-1">
+              <Link href={`/${vendorProfile?.slug}`}
+                className="flex items-center justify-center h-8 w-8 text-white/70 hover:text-white transition-colors"
+                aria-label="Visit store">
+                <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6 shrink-0">
+                  <path d="M22 22H2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path opacity="0.5" d="M20 22V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path opacity="0.5" d="M4 22V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M16.5278 2H7.47214C6.26932 2 5.66791 2 5.18461 2.2987C4.7013 2.5974 4.43234 3.13531 3.89443 4.21114L2.49081 7.75929C2.16652 8.57905 1.88279 9.54525 2.42867 10.2375C2.79489 10.7019 3.36257 11 3.99991 11C5.10448 11 5.99991 10.1046 5.99991 9C5.99991 10.1046 6.89534 11 7.99991 11C9.10448 11 9.99991 10.1046 9.99991 9C9.99991 10.1046 10.8953 11 11.9999 11C13.1045 11 13.9999 10.1046 13.9999 9C13.9999 10.1046 14.8953 11 15.9999 11C17.1045 11 17.9999 10.1046 17.9999 9C17.9999 10.1046 18.8953 11 19.9999 11C20.6373 11 21.205 10.7019 21.5712 10.2375C22.1171 9.54525 21.8334 8.57905 21.5091 7.75929L20.1055 4.21114C19.5676 3.13531 19.2986 2.5974 18.8153 2.2987C18.332 2 17.7306 2 16.5278 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+                  <path opacity="0.5" d="M9.5 21.5V18.5C9.5 17.5654 9.5 17.0981 9.70096 16.75C9.83261 16.522 10.022 16.3326 10.25 16.201C10.5981 16 11.0654 16 12 16C12.9346 16 13.4019 16 13.75 16.201C13.978 16.3326 14.1674 16.522 14.299 16.75C14.5 17.0981 14.5 17.5654 14.5 18.5V21.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </Link>
               {categoryTree.length > 0 && (
                 <button type="button" onClick={() => setIsCollectionsOpen(true)}
                   className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-white/50 hover:text-white transition-colors">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M4 6h16M4 12h16M4 18h7" strokeLinecap="round" />
                   </svg>
                   <span>Shop</span>
@@ -184,8 +192,9 @@ export default function BiadVendorHeader({
         </div>
       </header>
 
-      {/* spacer: main navbar (14/16) + vendor sub-header + marquee */}
-      <div className="mt-14 xl:mt-16" style={{ height: HEADER_H + MARQUEE_H }} />
+      {/* spacer: only one bar (main nav or vendor header) is ever visible at a time,
+          so reserve exactly HEADER_H + MARQUEE_H regardless of viewport size */}
+      <div style={{ height: HEADER_H + MARQUEE_H }} />
 
       <VendorCollectionsMenu isOpen={isCollectionsOpen} onClose={() => setIsCollectionsOpen(false)}
         categoryTree={categoryTree} vendorSlug={vendorProfile?.slug}

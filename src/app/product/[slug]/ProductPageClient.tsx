@@ -456,7 +456,6 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showSeeMore, setShowSeeMore] = useState(false)
-  const [showAllTags, setShowAllTags] = useState(false)
   const [showConditionInfo, setShowConditionInfo] = useState(false)
   const [showReturnInfo, setShowReturnInfo] = useState(false)
   const [pendingQuantity, setPendingQuantity] = useState(1)
@@ -969,10 +968,6 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
       isActive = false
     }
   }, [product])
-
-  useEffect(() => {
-    setShowAllTags(false)
-  }, [product?.id])
 
   useEffect(() => {
     if (!product) return
@@ -1488,9 +1483,6 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
   const stockRemaining = product.stockRemaining ?? product.stock ?? 0
   const sku = product.sku || 'N/A'
   const shippingEstimate = product.shippingEstimate || 'Ships in 3-5 business days'
-  const tags = Array.isArray(product.tagLinks) ? product.tagLinks : []
-  const visibleTags = showAllTags ? tags : tags.slice(0, 6)
-  const hasMoreTags = tags.length > 6
   const activePrice = selectedVariation?.price ?? product.price
   const activeOriginalPrice =
     selectedVariation?.originalPrice ?? product.originalPrice
@@ -1747,7 +1739,7 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
               <TemplateVendorHeader
                 vendorProfile={vendorHeaderProfile}
                 onFollow={handleFollowVendor}
-                onMessage={() => {}}
+                onMessage={handleOpenSellerChat}
                 isFollowing={vendorFollowState.isFollowing}
                 isFollowLoading={vendorFollowState.isSaving}
                 canFollow={vendorFollowState.canFollow}
@@ -1759,9 +1751,6 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
                 setSearchValue={() => {}}
               />
             )}
-
-            {/* Spacer to push content below the fixed vendor header */}
-            {vendorHeaderProfile && <div className='h-14 lg:h-16' />}
 
             {/* Mobile gallery */}
             <div ref={mobileGallerySectionRef} className='w-full md:hidden overflow-hidden'>
@@ -2043,26 +2032,6 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
                     {isWishlisted ? 'Saved to Wishlist' : 'Save to Wishlist'}
                   </button>
 
-                  {/* Tags */}
-                  {tags.length > 0 && (
-                    <div className='flex flex-wrap gap-1.5'>
-                      {visibleTags.map((tag: any) => (
-                        <Link
-                          key={`${tag.slug}-${tag.name}`}
-                          href={`/products?tag=${encodeURIComponent(tag.slug)}`}
-                          className='text-[10px] px-2 py-0.5 border border-stone-300 text-stone-400 hover:text-stone-700 hover:border-stone-500 transition rounded-full'
-                        >
-                          #{tag.name}
-                        </Link>
-                      ))}
-                      {hasMoreTags && (
-                        <button type='button' onClick={() => setShowAllTags((p) => !p)} className='text-[10px] text-stone-400 hover:text-stone-700 transition underline underline-offset-2'>
-                          {showAllTags ? 'See less' : `+${tags.length - 6} more`}
-                        </button>
-                      )}
-                    </div>
-                  )}
-
                   {/* Add to cart — full-width, square, dark */}
                   <div ref={addToCartRef} className='space-y-2'>
                     <div className='flex items-center gap-3'>
@@ -2302,7 +2271,6 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
           />
         )}
         <main className={`min-h-screen overflow-x-hidden w-full md:overflow-x-visible ${isBiad ? 'bg-[#0a0a0a]' : 'bg-white'}`}>
-          {vendorHeaderProfile && <div className='h-14 lg:h-16' />}
           {isMobile && !isBiad ? (
             <div className='main-container px-2 pt-2 md:hidden'>
               <Breadcrumb
@@ -2512,28 +2480,6 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
                     </svg>
                     <span>{isWishlisted ? 'Saved to Wishlist' : 'Add to Wishlist'}</span>
                   </button>
-                  {tags.length > 0 && (
-                    <div className='flex flex-wrap gap-1.5 -mt-0.5'>
-                      {visibleTags.map((tag: any) => (
-                        <Link
-                          key={`${tag.slug}-${tag.name}`}
-                          href={`/products?tag=${encodeURIComponent(tag.slug)}`}
-                          className='text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 hover:text-gray-800 transition underline underline-offset-2 decoration-gray-300 hover:decoration-gray-500'
-                        >
-                          #{tag.name}
-                        </Link>
-                      ))}
-                      {hasMoreTags && (
-                        <button
-                          type='button'
-                          onClick={() => setShowAllTags((prev) => !prev)}
-                          className='text-[10px] text-gray-700 hover:text-gray-900 transition underline underline-offset-2 decoration-gray-300 hover:decoration-gray-500'
-                        >
-                          {showAllTags ? 'See less' : `See more (${tags.length - 6})`}
-                        </button>
-                      )}
-                    </div>
-                  )}
 
                   <div
                     ref={variationSectionRef}

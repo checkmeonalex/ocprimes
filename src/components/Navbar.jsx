@@ -20,6 +20,7 @@ import { usePopularSearchItems } from '@/components/search/usePopularSearchItems
 import { useSearchSuggestions } from '@/components/search/useSearchSuggestions'
 import { reportSearchQuery } from '@/components/search/reportSearchQuery'
 import { useAuthUser } from '@/lib/auth/useAuthUser'
+import { useVendorPage } from '@/context/VendorPageContext'
 
 const hiddenHorizontalScrollbarClass =
   '[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
@@ -40,6 +41,7 @@ export default function Navbar({
   const searchParams = useSearchParams()
   const { summary, isReady, isServerReady } = useCart()
   const { user } = useAuthUser(initialAuthUser, Boolean(initialAuthUser))
+  const { setIsMainNavVisible } = useVendorPage()
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false)
   const [isCategoryMenuModalOpen, setIsCategoryMenuModalOpen] = useState(false)
   const [isSearchOpen, setIsSearchOpen] = useState(false)
@@ -87,6 +89,7 @@ export default function Navbar({
     ]
     return !platformRoutes.includes(firstSegment)
   }, [pathname])
+  const isProductPage = pathname?.startsWith('/product/')
 
   const {
     suggestions: liveSearchSuggestions,
@@ -563,22 +566,21 @@ export default function Navbar({
       const currentY = window.scrollY
       const nearTop = currentY < 20
       const scrollingUp = currentY < lastScrollY
-      
-      let shouldShow = nearTop || scrollingUp
-      
-      // On vendor stores, we want to hide the main header when scrolling up
-      // to let the VendorStoreHeader be the main focus.
-      if (isVendorStore && scrollingUp && !nearTop) {
-        shouldShow = false
-      }
+
+      const shouldShow = nearTop || scrollingUp
 
       setIsDesktopHeaderVisible(shouldShow)
+      if (isVendorStore || isProductPage) {
+        setIsMainNavVisible(shouldShow)
+      } else {
+        setIsMainNavVisible(true)
+      }
       setLastScrollY(currentY)
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [lastScrollY])
+  }, [lastScrollY, isVendorStore, isProductPage, setIsMainNavVisible])
 
   useEffect(() => {
     if (!isLogoutConfirmOpen) return undefined
@@ -671,7 +673,6 @@ export default function Navbar({
   const isCartRoute = pathname?.startsWith('/cart')
   const isCheckoutRoute = pathname?.startsWith('/checkout')
   const isCheckoutFlow = isCartRoute || isCheckoutRoute
-  const isProductPage = pathname?.startsWith('/product/')
   const isHomePage = pathname === '/'
   const isUserDashboard = pathname?.startsWith('/UserBackend') || pathname === '/account' || pathname?.startsWith('/account/')
   const hasAccountSearchQuery = accountSearchValue.trim().length > 0
@@ -1234,7 +1235,7 @@ export default function Navbar({
                     cy='8'
                     r='2.2'
                     fill='none'
-                    stroke='#520000'
+                    stroke='#000000'
                     strokeWidth='1.4'
                     opacity='0.25'
                   />
@@ -1242,7 +1243,7 @@ export default function Navbar({
                     <path
                       d='M14 5.8a2.2 2.2 0 0 1 2.2 2.2'
                       fill='none'
-                      stroke='#520000'
+                      stroke='#000000'
                       strokeWidth='1.4'
                       strokeLinecap='round'
                     />
@@ -1259,12 +1260,12 @@ export default function Navbar({
               ) : cartCount <= 0 ? (
                 <path
                   d='M14,12a1,1,0,0,1-1-1V9H11a1,1,0,0,1,0-2h2V5a1,1,0,0,1,2,0V7h2a1,1,0,0,1,0,2H15v2A1,1,0,0,1,14,12Z'
-                  fill='#520000'
+                  fill='#000000'
                 />
               ) : null}
               <path
                 d='M17,19a1.5,1.5,0,1,0,1.5,1.5A1.5,1.5,0,0,0,17,19Zm-6,0a1.5,1.5,0,1,0,1.5,1.5A1.5,1.5,0,0,0,11,19Z'
-                fill='#520000'
+                fill='#000000'
               />
               <path
                 d='M18.22,17H9.8a2,2,0,0,1-2-1.55L5.2,4H3A1,1,0,0,1,3,2H5.2a2,2,0,0,1,2,1.55L9.8,15h8.42L20,7.76A1,1,0,0,1,22,8.24l-1.81,7.25A2,2,0,0,1,18.22,17Z'

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 
 type MakeOfferModalProps = {
   isOpen: boolean
@@ -57,6 +57,12 @@ export default function MakeOfferModal({
   const [selectedAmount, setSelectedAmount] = useState<number>(0)
   const [customAmount, setCustomAmount] = useState<string>('')
   const [submitError, setSubmitError] = useState('')
+  const [shouldRender, setShouldRender] = useState(isOpen)
+  const [isVisible, setIsVisible] = useState(false)
+  const [dragOffset, setDragOffset] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStartYRef = useRef(0)
+  const dragStartOffsetRef = useRef(0)
 
   useEffect(() => {
     if (!isOpen) return
@@ -74,7 +80,68 @@ export default function MakeOfferModal({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [isOpen, onClose])
 
-  if (!isOpen) return null
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true)
+      setDragOffset(0)
+      setIsDragging(false)
+      let raf2 = 0
+      const raf1 = window.requestAnimationFrame(() => {
+        raf2 = window.requestAnimationFrame(() => setIsVisible(true))
+      })
+      return () => {
+        window.cancelAnimationFrame(raf1)
+        window.cancelAnimationFrame(raf2)
+      }
+    }
+    setIsVisible(false)
+    setDragOffset(0)
+    setIsDragging(false)
+    const timeoutId = window.setTimeout(() => setShouldRender(false), 300)
+    return () => window.clearTimeout(timeoutId)
+  }, [isOpen])
+
+  if (!shouldRender) return null
+
+  const DRAG_DISMISS_THRESHOLD = 90
+
+  const handleDragStart = (clientY: number) => {
+    dragStartYRef.current = clientY
+    dragStartOffsetRef.current = dragOffset
+    setIsDragging(true)
+  }
+
+  const handleDragMove = (clientY: number) => {
+    const delta = clientY - dragStartYRef.current
+    const next = Math.max(0, dragStartOffsetRef.current + delta)
+    setDragOffset(next)
+  }
+
+  const handleDragEnd = () => {
+    setIsDragging(false)
+    if (dragOffset > DRAG_DISMISS_THRESHOLD) {
+      onClose()
+      return
+    }
+    setDragOffset(0)
+  }
+
+  const handleHandlePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    handleDragStart(event.clientY)
+  }
+
+  const handleHandlePointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (!isDragging) return
+    handleDragMove(event.clientY)
+  }
+
+  const handleHandlePointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    handleDragEnd()
+  }
 
   const parsedCustomAmount = parseAmount(customAmount)
   const effectiveAmount = parsedCustomAmount || selectedAmount
@@ -137,8 +204,31 @@ export default function MakeOfferModal({
   }
 
   return (
-    <div className='fixed inset-0 z-[90] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4'>
-      <div className='max-h-[85vh] w-full overflow-y-auto rounded-none border border-gray-200 bg-white shadow-[0_18px_44px_rgba(0,0,0,0.22)] sm:max-h-none sm:max-w-[24rem] sm:overflow-hidden'>
+    <div
+      className={`fixed inset-0 z-[90] flex items-end justify-center bg-black/40 p-0 transition-opacity duration-300 ease-out sm:items-center sm:p-4 ${
+        isVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
+      }`}
+    >
+      <div
+        className={`max-h-[85vh] w-full overflow-y-auto rounded-none border border-gray-200 bg-white shadow-[0_18px_44px_rgba(0,0,0,0.22)] sm:max-h-none sm:max-w-[24rem] sm:overflow-hidden ${
+          isDragging ? '' : 'transition-transform duration-300 ease-out'
+        }`}
+        style={{
+          transform: `translateY(${isVisible ? dragOffset : 16}px)`,
+        }}
+      >
+        <div className='flex justify-center bg-white pt-2 sm:hidden' style={{ touchAction: 'none' }}>
+          <button
+            type='button'
+            onClick={onClose}
+            onPointerDown={handleHandlePointerDown}
+            onPointerMove={handleHandlePointerMove}
+            onPointerUp={handleHandlePointerUp}
+            onPointerCancel={handleHandlePointerUp}
+            aria-label='Drag down or tap to close make offer modal'
+            className='mx-auto block h-1.5 w-14 cursor-grab touch-none rounded-full bg-gray-500/80 transition hover:bg-gray-500 active:cursor-grabbing'
+          />
+        </div>
         <div className='border-b border-gray-200 bg-white px-4 pb-4 pt-3'>
           <div className='flex items-center justify-between'>
             <span className='inline-flex rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-600'>
