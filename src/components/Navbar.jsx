@@ -81,10 +81,10 @@ export default function Navbar({
     const firstSegment = pathname?.split('/')[1]
     if (!firstSegment) return false
     const platformRoutes = [
-      'about', 'admin', 'api', 'auth', 'cart', 'checkout', 
-      'forgot-password', 'help-center', 'legal', 'login', 
-      'offline', 'privacy-policy', 'product', 'products', 
-      'reset-password', 'sellersignup', 'signup', 'vendors', 
+      'about', 'admin', 'api', 'auth', 'cart', 'checkout',
+      'forgot-password', 'help-center', 'legal', 'login',
+      'offline', 'privacy-policy', 'product', 'products',
+      'reset-password', 'sellersignup', 'signup', 'stores', 'vendors',
       'wishlist', 'w', 'UserBackend', 'account', 'recently-viewed'
     ]
     return !platformRoutes.includes(firstSegment)
@@ -1443,11 +1443,11 @@ export default function Navbar({
           </div>
         ) : (
           <div
-            className='mx-auto flex h-9 w-full max-w-[1400px] items-center gap-2 px-4 sm:px-6 lg:px-8 xl:h-10 xl:gap-4'
+            className='mx-auto flex h-9 w-full max-w-[1400px] items-stretch gap-2 pl-4 sm:pl-6 lg:pl-8 xl:h-10 xl:gap-4'
             onMouseLeave={handleCategoriesMouseLeave}
           >
 
-          <div className='min-w-0 flex-1 overflow-hidden'>
+          <div className='min-w-0 flex-1 self-center overflow-hidden'>
             <div className={`flex min-w-0 items-center gap-4 overflow-x-auto whitespace-nowrap pr-2 xl:gap-6 ${hiddenHorizontalScrollbarClass}`}>
               {topBarCategoryItems.map((category) => (
                 <Link
@@ -1466,12 +1466,12 @@ export default function Navbar({
             </div>
           </div>
 
-          <div className='flex shrink-0 items-center border-l border-gray-200 pl-3'>
+          <div className='flex shrink-0 items-stretch bg-gray-900 pl-4 pr-4 sm:pr-6 lg:pr-8 xl:pl-5'>
             <Link
               href='/sellersignup'
-              className='inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-gray-900 px-3.5 py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-75 xl:px-4 xl:text-xs'
+              className='inline-flex shrink-0 items-center whitespace-nowrap text-xs font-bold tracking-wide text-white transition hover:text-white/70 xl:text-sm'
             >
-              Sell on Alxora
+              Join Alxora
             </Link>
           </div>
           </div>

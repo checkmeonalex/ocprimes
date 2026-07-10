@@ -42,16 +42,14 @@ const DiscountPriceDisplay = ({
   }, [price, originalPrice, quantity])
 
   if (!details.hasDiscount) {
-    const plainPriceClass = size === 'compact' ? 'text-[20px]' : 'text-[24px]'
     const plainAlignClass = align === 'left' ? 'text-left' : 'text-right'
     return (
-      <p className={`${plainPriceClass} ${plainAlignClass} whitespace-nowrap leading-none font-bold text-slate-900`}>
+      <p className={`font-mono text-sm font-semibold text-gray-900 ${plainAlignClass} whitespace-nowrap`}>
         {formatMoney(details.current)}
       </p>
     )
   }
 
-  const priceSizeClass = size === 'compact' ? 'text-[20px]' : 'text-[26px]'
   const stackAlignClass = align === 'left' ? 'items-start text-left' : 'items-end text-right'
 
   return (
@@ -62,11 +60,11 @@ const DiscountPriceDisplay = ({
         className={`inline-flex flex-col gap-1.5 whitespace-nowrap ${stackAlignClass}`}
         aria-label='View discount details'
       >
-        <span className={`${priceSizeClass} whitespace-nowrap leading-none font-bold text-[#ff4d1f]`}>
+        <span className='font-mono text-sm font-semibold text-gray-900 whitespace-nowrap'>
           {formatMoney(details.current)}
         </span>
         <span className='inline-flex items-center gap-1.5'>
-          <span className='text-xs leading-none text-slate-400 line-through'>
+          <span className='font-mono text-xs font-normal text-gray-400 line-through'>
             {formatMoney(details.original)}
           </span>
           <span className='inline-flex items-center gap-0.5 rounded-sm bg-[#fff2ec] px-1.5 py-0.5 text-[11px] font-semibold text-[#ff4d1f]'>

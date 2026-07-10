@@ -99,10 +99,10 @@ function MobileNavbar({
     if (segments.length !== 1) return false
     
     const platformRoutes = [
-      'about', 'admin', 'api', 'auth', 'cart', 'checkout', 
-      'forgot-password', 'help-center', 'legal', 'login', 
-      'offline', 'privacy-policy', 'product', 'products', 
-      'reset-password', 'sellersignup', 'signup', 'vendors', 
+      'about', 'admin', 'api', 'auth', 'cart', 'checkout',
+      'forgot-password', 'help-center', 'legal', 'login',
+      'offline', 'privacy-policy', 'product', 'products',
+      'reset-password', 'sellersignup', 'signup', 'stores', 'vendors',
       'wishlist', 'w', 'UserBackend', 'account', 'recently-viewed'
     ]
     return !platformRoutes.includes(segments[0])
@@ -817,19 +817,22 @@ function MobileNavbar({
                               strokeLinejoin='round'
                             />
                           </svg>
+                          Notifications
+                        </Link>
+                        <Link
+                          href='/help-center'
+                          onClick={closeAccountMenu}
+                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
+                        >
+                          <svg className='h-4 w-4' viewBox='0 0 18 18' role='img' xmlns='http://www.w3.org/2000/svg' aria-hidden='true' fill='currentColor' color='currentColor'>
+                            <path
+                              d='M16 7.184C16 3.14 12.86 0 9 0S2 3.14 2 7c-1.163.597-2 1.696-2 3v2a3 3 0 0 0 3 3h1a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1 5 5 0 0 1 10 0 1 1 0 0 0-1 1v6a1 1 0 0 0 1 1v1h-2.592c-.206-.581-.756-1-1.408-1H8a1.5 1.5 0 0 0 0 3h6a2 2 0 0 0 2-2v-1.183A2.992 2.992 0 0 0 18 12v-2a2.99 2.99 0 0 0-2-2.816Z'
+                              fillRule='evenodd'
+                            />
+                          </svg>
                           Help center
                         </Link>
                         <div className='my-1 h-px bg-gray-100' />
-                        <Link
-                          href='/sellersignup'
-                          onClick={closeAccountMenu}
-                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50'
-                        >
-                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
-                            <path strokeLinecap='round' strokeLinejoin='round' d='M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25' />
-                          </svg>
-                          Sell on Alxora
-                        </Link>
                         <button
                           type='button'
                           onClick={handleAccountSignOut}
@@ -864,24 +867,14 @@ function MobileNavbar({
                           New customer
                         </Link>
                         <Link
-                          href='/account/notifications'
+                          href='/help-center'
                           onClick={closeAccountMenu}
                           className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-gray-700 hover:bg-gray-50'
                         >
-                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg' aria-hidden='true'>
+                          <svg className='h-4 w-4' viewBox='0 0 18 18' role='img' xmlns='http://www.w3.org/2000/svg' aria-hidden='true' fill='currentColor' color='currentColor'>
                             <path
-                              d='M15 19.25C15 20.0456 14.6839 20.8087 14.1213 21.3713C13.5587 21.9339 12.7956 22.25 12 22.25C11.2044 22.25 10.4413 21.9339 9.87869 21.3713C9.31608 20.8087 9 20.0456 9 19.25'
-                              stroke='currentColor'
-                              strokeWidth='1.5'
-                              strokeLinecap='round'
-                              strokeLinejoin='round'
-                            />
-                            <path
-                              d='M5.58096 18.25C5.09151 18.1461 4.65878 17.8626 4.36813 17.4553C4.07748 17.048 3.95005 16.5466 4.01098 16.05L5.01098 7.93998C5.2663 6.27263 6.11508 4.75352 7.40121 3.66215C8.68734 2.57077 10.3243 1.98054 12.011 1.99998V1.99998C13.6977 1.98054 15.3346 2.57077 16.6207 3.66215C17.9069 4.75352 18.7557 6.27263 19.011 7.93998L20.011 16.05C20.0723 16.5452 19.9462 17.0454 19.6576 17.4525C19.369 17.8595 18.9386 18.144 18.451 18.25C14.2186 19.2445 9.81332 19.2445 5.58096 18.25V18.25Z'
-                              stroke='currentColor'
-                              strokeWidth='1.5'
-                              strokeLinecap='round'
-                              strokeLinejoin='round'
+                              d='M16 7.184C16 3.14 12.86 0 9 0S2 3.14 2 7c-1.163.597-2 1.696-2 3v2a3 3 0 0 0 3 3h1a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1 5 5 0 0 1 10 0 1 1 0 0 0-1 1v6a1 1 0 0 0 1 1v1h-2.592c-.206-.581-.756-1-1.408-1H8a1.5 1.5 0 0 0 0 3h6a2 2 0 0 0 2-2v-1.183A2.992 2.992 0 0 0 18 12v-2a2.99 2.99 0 0 0-2-2.816Z'
+                              fillRule='evenodd'
                             />
                           </svg>
                           Help center
@@ -893,7 +886,7 @@ function MobileNavbar({
                           className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50'
                         >
                           <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
-                            <path strokeLinecap='round' strokeLinejoin='round' d='M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25' />
+                            <path strokeLinecap='round' strokeLinejoin='round' d='M3 9.75 12 3l9 6.75V19.5a1.5 1.5 0 0 1-1.5 1.5h-3.75a.75.75 0 0 1-.75-.75V15a2.25 2.25 0 0 0-4.5 0v5.25a.75.75 0 0 1-.75.75H4.5A1.5 1.5 0 0 1 3 19.5Z' />
                           </svg>
                           Sell on Alxora
                         </Link>
@@ -1027,10 +1020,25 @@ function MobileNavbar({
                   </div>
                 </div>
                 <Link
-                  href='/sellersignup'
-                  className='inline-flex shrink-0 items-center whitespace-nowrap rounded-full bg-gray-900 px-3 py-0.5 text-[11px] font-semibold text-white transition-opacity hover:opacity-75'
+                  href='/help-center'
+                  className='inline-flex flex-col items-center justify-center gap-0.5 rounded-md px-1.5 py-1 text-gray-900 hover:bg-gray-100'
+                  aria-label='Support'
                 >
-                  Sell on Alxora
+                  <svg
+                    className='h-5 w-5'
+                    viewBox='0 0 18 18'
+                    role='img'
+                    xmlns='http://www.w3.org/2000/svg'
+                    aria-hidden='true'
+                    fill='currentColor'
+                    color='currentColor'
+                  >
+                    <path
+                      d='M16 7.184C16 3.14 12.86 0 9 0S2 3.14 2 7c-1.163.597-2 1.696-2 3v2a3 3 0 0 0 3 3h1a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1 5 5 0 0 1 10 0 1 1 0 0 0-1 1v6a1 1 0 0 0 1 1v1h-2.592c-.206-.581-.756-1-1.408-1H8a1.5 1.5 0 0 0 0 3h6a2 2 0 0 0 2-2v-1.183A2.992 2.992 0 0 0 18 12v-2a2.99 2.99 0 0 0-2-2.816Z'
+                      fillRule='evenodd'
+                    />
+                  </svg>
+                  <span className='text-[9px] font-medium leading-none text-gray-500'>Help</span>
                 </Link>
               </div>
             </div>

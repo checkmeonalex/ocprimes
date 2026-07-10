@@ -134,8 +134,8 @@ export default async function RootLayout({ children }) {
   } catch {}
 
   return (
-    <html lang='en'>
-      <body className={`${outfit.variable} ${instrumentSerif.variable} ${geist.variable} ${geistMono.variable}`}>
+    <html lang='en' className={`${outfit.variable} ${instrumentSerif.variable} ${geist.variable} ${geistMono.variable}`}>
+      <body>
         <PwaRegistration />
         <UserLocaleProvider>
           <AlertProvider>

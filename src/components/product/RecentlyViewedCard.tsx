@@ -42,7 +42,7 @@ const RecentlyViewedCard = ({ item }: RecentlyViewedCardProps) => {
         <div className='mt-2 text-xs font-semibold text-gray-900 line-clamp-2'>
           {item.name}
         </div>
-        <div className='mt-1 text-sm font-semibold text-gray-900'>
+        <div className='mt-1 font-mono text-sm font-semibold text-gray-900'>
           {formatMoney(item.price)}
         </div>
       </div>

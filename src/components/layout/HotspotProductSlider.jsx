@@ -40,11 +40,11 @@ const HotspotCard = ({ product }) => {
         <div className="min-w-0">
           <div className="text-xs font-semibold text-gray-900 line-clamp-2">{product.name}</div>
           <div className="mt-1 flex items-baseline gap-2">
-            <span className="text-sm font-semibold text-gray-900">
+            <span className="font-mono text-sm font-semibold text-gray-900">
               {formatMoney(displayPrice)}
             </span>
             {originalPrice ? (
-              <span className="text-[11px] text-gray-400 line-through">
+              <span className="font-mono text-xs font-normal text-gray-400 line-through">
                 {formatMoney(originalPrice)}
               </span>
             ) : null}

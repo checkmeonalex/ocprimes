@@ -473,9 +473,9 @@ export default function VendorBrowseSectionClient({ categories, vendorRows }) {
       <div className="mb-4 flex items-start justify-between gap-4 px-3 sm:px-4 md:px-10 lg:px-16">
         <div>
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
-            Shops you may{' '}
+            All{' '}
             <em style={{ fontFamily: 'var(--font-instrument-serif), "Cormorant Garamond", Georgia, serif', color: '#e05c3a', fontStyle: 'italic', fontWeight: 400 }}>
-              also like
+              stores
             </em>
           </h2>
         </div>

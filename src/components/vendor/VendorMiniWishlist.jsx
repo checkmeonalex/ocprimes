@@ -135,7 +135,7 @@ export default function VendorMiniWishlist({ open, onClose }) {
                         {name}
                       </Link>
                       {price > 0 && (
-                        <span className="mt-1 text-sm font-bold text-gray-900 font-mono">
+                        <span className="mt-1 font-mono text-sm font-semibold text-gray-900">
                           {formatMoney(price)}
                         </span>
                       )}

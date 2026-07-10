@@ -1,5 +1,5 @@
 import HomeLayoutSections from '../components/layouts/home/HomeLayoutSections'
-import VendorBrowseSection from '../components/layouts/home/VendorBrowseSection'
+import SelectedForYouSectionClient from '../components/layouts/home/SelectedForYouSectionClient'
 import { BRAND_NAME, BRAND_SEARCH_DESCRIPTION, BRAND_TAGLINE } from '../lib/brand'
 import { SITE_URL } from '../lib/seo'
 
@@ -59,7 +59,7 @@ export default function HomePage() {
           />
           <div className='main-container pt-0 pb-2 mb-4 md:mb-2'>
             <HomeLayoutSections />
-            <VendorBrowseSection />
+            <SelectedForYouSectionClient />
           </div>
         </main>
       </div>

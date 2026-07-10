@@ -387,11 +387,11 @@ const ProductCard = ({
             <div className='space-y-1'>
               <div className='flex flex-col'>
                 <div className='flex flex-wrap items-baseline gap-x-2 gap-y-0.5'>
-                  <span className='font-mono text-[14px] sm:text-[14px] font-medium text-gray-900' style={{ fontFeatureSettings: '"tnum"' }}>
+                  <span className='font-mono text-sm font-semibold text-gray-900' style={{ fontFeatureSettings: '"tnum"' }}>
                     {formatMoney(priceValue)}
                   </span>
                   {hasDiscount ? (
-                    <span className='font-mono text-[11px] font-normal text-gray-400 line-through' style={{ fontFeatureSettings: '"tnum"' }}>
+                    <span className='font-mono text-xs font-normal text-gray-400 line-through' style={{ fontFeatureSettings: '"tnum"' }}>
                       {formatMoney(originalPriceValue)}
                     </span>
                   ) : null}

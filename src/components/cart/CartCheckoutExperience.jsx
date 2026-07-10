@@ -326,7 +326,7 @@ const CartCheckoutExperience = ({
                           <p className='line-clamp-1 text-xs text-slate-500'>{getSelectionSummary(item)}</p>
                         </div>
                       </div>
-                      <p className='text-sm font-semibold text-slate-900 sm:text-right'>
+                      <p className='font-mono text-sm font-semibold text-gray-900 sm:text-right'>
                         {formatMoney(item.price)}
                       </p>
                       <div className='flex items-center gap-3 sm:justify-end'>
@@ -411,9 +411,9 @@ const CartCheckoutExperience = ({
                       </div>
 
                       <div className='sm:text-right'>
-                        <p className='text-sm font-semibold text-slate-900'>{formatMoney(item.price)}</p>
+                        <p className='font-mono text-sm font-semibold text-gray-900'>{formatMoney(item.price)}</p>
                         {item.originalPrice ? (
-                          <p className='text-xs text-slate-400 line-through'>{formatMoney(item.originalPrice)}</p>
+                          <p className='font-mono text-xs font-normal text-gray-400 line-through'>{formatMoney(item.originalPrice)}</p>
                         ) : null}
                       </div>
 

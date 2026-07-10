@@ -861,9 +861,9 @@ const ProductVariantQuickAddModal = ({
               </div>
 
               <div className='mt-3 flex items-end gap-2'>
-                <span className='text-2xl font-semibold text-gray-900'>{formatMoney(pricing.price)}</span>
+                <span className='font-mono text-sm font-semibold text-gray-900'>{formatMoney(pricing.price)}</span>
                 {pricing.originalPrice ? (
-                  <span className='text-sm text-gray-400 line-through'>{formatMoney(pricing.originalPrice)}</span>
+                  <span className='font-mono text-xs font-normal text-gray-400 line-through'>{formatMoney(pricing.originalPrice)}</span>
                 ) : null}
               </div>
               {discountAmount > 0 ? (

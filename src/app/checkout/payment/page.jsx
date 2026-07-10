@@ -1572,11 +1572,11 @@ function CheckoutPaymentPageContent() {
                       <div className='min-w-0 flex-1'>
                         <p className='truncate text-sm font-semibold text-slate-900'>{item.name}</p>
                         <div className='mt-0.5 flex items-center gap-2'>
-                          <p className={`text-sm font-semibold ${hasDiscountPrice ? 'text-[#ff4d1f]' : 'text-slate-700'}`}>
+                          <p className='font-mono text-sm font-semibold text-gray-900'>
                             {formatMoney(item.price)}
                           </p>
                           {hasDiscountPrice ? (
-                            <p className='text-xs text-slate-400 line-through'>{formatMoney(regularPrice)}</p>
+                            <p className='font-mono text-xs font-normal text-gray-400 line-through'>{formatMoney(regularPrice)}</p>
                           ) : null}
                         </div>
                         <button

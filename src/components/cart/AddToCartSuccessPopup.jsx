@@ -352,9 +352,9 @@ export default function AddToCartSuccessPopup() {
                 {shortenText(addedProduct.name, 44)}
               </p>
               <div className='mt-1 flex items-center gap-2'>
-                <span className='text-base font-semibold text-gray-900'>{formatMoney(addedProduct.price)}</span>
+                <span className='font-mono text-sm font-semibold text-gray-900'>{formatMoney(addedProduct.price)}</span>
                 {addedProduct.originalPrice ? (
-                  <span className='text-sm text-gray-400 line-through'>{formatMoney(addedProduct.originalPrice)}</span>
+                  <span className='font-mono text-xs font-normal text-gray-400 line-through'>{formatMoney(addedProduct.originalPrice)}</span>
                 ) : null}
               </div>
               {savings > 0 ? (

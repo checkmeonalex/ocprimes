@@ -4,7 +4,6 @@ import VendorBannerGrid from '@/components/vendor/VendorBannerGrid'
 import BrowseCategoriesClient from '@/components/layouts/BrowseCategoriesClient'
 import HomeHeroSlider from '@/components/layouts/home/HomeHeroSlider'
 import ProductCardList from '@/components/product/ProductCardList'
-import VendorBrowseSection from '@/components/layouts/home/VendorBrowseSection'
 import { fetchProductListing } from '@/lib/catalog/product-listing'
 import { getCachedHomePageSettings } from '@/lib/home/settings'
 
@@ -134,9 +133,6 @@ async function renderBlock(block) {
       if (!hasAny) return null
       return <BrowseCategoriesClient title={cfg.title || ''} tabs={tabs} />
     }
-
-    case 'vendor_browse':
-      return <VendorBrowseSection config={cfg} />
 
     default:
       return null

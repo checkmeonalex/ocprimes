@@ -239,9 +239,9 @@ export default function CheckoutReviewPage() {
                           ) : null}
                         </div>
                         <div className='text-right'>
-                          <p className='text-xs font-semibold text-slate-900'>{formatMoney(item.lineTotal)}</p>
+                          <p className='font-mono text-sm font-semibold text-gray-900'>{formatMoney(item.lineTotal)}</p>
                           {Number(item?.originalUnitPrice ?? 0) > Number(item?.unitPrice ?? 0) ? (
-                            <p className='mt-0.5 text-[10px] text-slate-400 line-through'>
+                            <p className='mt-0.5 font-mono text-xs font-normal text-gray-400 line-through'>
                               {formatMoney(Number(item.originalUnitPrice || 0) * Number(item.quantity || 0))}
                             </p>
                           ) : null}
@@ -302,9 +302,9 @@ export default function CheckoutReviewPage() {
                             ) : null}
                           </div>
                           <div className='text-right'>
-                            <p className='text-xs font-semibold text-slate-900'>{formatMoney(item.lineTotal)}</p>
+                            <p className='font-mono text-sm font-semibold text-gray-900'>{formatMoney(item.lineTotal)}</p>
                             {Number(item?.originalUnitPrice ?? 0) > Number(item?.unitPrice ?? 0) ? (
-                              <p className='mt-0.5 text-[10px] text-slate-400 line-through'>
+                              <p className='mt-0.5 font-mono text-xs font-normal text-gray-400 line-through'>
                                 {formatMoney(Number(item.originalUnitPrice || 0) * Number(item.quantity || 0))}
                               </p>
                             ) : null}
@@ -423,9 +423,9 @@ export default function CheckoutReviewPage() {
                       ) : null}
                     </div>
                     <div className='text-right'>
-                      <p className='text-sm font-semibold text-slate-900'>{formatMoney(item.lineTotal)}</p>
+                      <p className='font-mono text-sm font-semibold text-gray-900'>{formatMoney(item.lineTotal)}</p>
                       {Number(item?.originalUnitPrice ?? 0) > Number(item?.unitPrice ?? 0) ? (
-                        <p className='mt-0.5 text-xs text-slate-400 line-through'>
+                        <p className='mt-0.5 font-mono text-xs font-normal text-gray-400 line-through'>
                           {formatMoney(Number(item.originalUnitPrice || 0) * Number(item.quantity || 0))}
                         </p>
                       ) : null}

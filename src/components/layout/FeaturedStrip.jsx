@@ -108,11 +108,11 @@ const DesktopProductCard = ({ product }) => {
             {product.name}
           </div>
           <div className='mt-2 flex items-baseline gap-2'>
-            <span className='text-sm font-semibold text-gray-900'>
+            <span className='font-mono text-sm font-semibold text-gray-900'>
               {formatMoney(product.price)}
             </span>
             {product.originalPrice ? (
-              <span className='text-xs text-gray-400 line-through'>
+              <span className='font-mono text-xs font-normal text-gray-400 line-through'>
                 {formatMoney(product.originalPrice)}
               </span>
             ) : null}
@@ -195,11 +195,11 @@ const MobileProductCard = ({ product, onAddToCart }) => {
             {product.name}
           </Link>
           <div className='mt-1 flex items-baseline gap-2'>
-            <span className='text-sm font-semibold text-gray-900'>
+            <span className='font-mono text-sm font-semibold text-gray-900'>
               {formatMoney(product.price)}
             </span>
             {product.originalPrice ? (
-              <span className='text-xs text-gray-400 line-through'>
+              <span className='font-mono text-xs font-normal text-gray-400 line-through'>
                 {formatMoney(product.originalPrice)}
               </span>
             ) : null}

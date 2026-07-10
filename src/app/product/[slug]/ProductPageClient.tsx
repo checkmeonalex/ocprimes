@@ -1841,9 +1841,9 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
                   {/* Price */}
                   <div>
                     <div className='flex items-baseline gap-3'>
-                      <span className='text-2xl font-medium text-stone-900'>{formatMoney(activePrice)}</span>
+                      <span className='font-mono text-xl sm:text-2xl font-bold text-gray-900'>{formatMoney(activePrice)}</span>
                       {activeOriginalPrice && (
-                        <span className='text-base text-stone-400 line-through'>{formatMoney(activeOriginalPrice)}</span>
+                        <span className='font-mono text-sm font-normal text-gray-400 line-through'>{formatMoney(activeOriginalPrice)}</span>
                       )}
                     </div>
                     {savingsAmount > 0 && (
@@ -2432,11 +2432,11 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
 
                   <div>
                     <div className='flex items-center gap-4'>
-                      <span className={`leading-none ${isBiad ? 'text-[22px] font-black text-white sm:text-[26px]' : 'text-[18px] font-medium text-gray-900 sm:text-[24px] lg:text-[26px]'}`}>
+                      <span className={`font-mono text-xl sm:text-2xl font-bold ${isBiad ? 'text-white' : 'text-gray-900'}`}>
                         {formatMoney(activePrice)}
                       </span>
                       {activeOriginalPrice && (
-                        <span className={`text-base line-through ${isBiad ? 'text-white/30' : 'text-gray-400'}`}>
+                        <span className={`font-mono text-sm font-normal line-through ${isBiad ? 'text-white/40' : 'text-gray-400'}`}>
                           {formatMoney(activeOriginalPrice)}
                         </span>
                       )}

@@ -427,7 +427,7 @@ const CartMobileExperience = ({
                 <div className='min-w-0'>
                   <p className='line-clamp-2 text-sm font-semibold text-slate-900'>{item.name}</p>
                   <p className='line-clamp-1 text-xs text-slate-500'>{getSelectionSummary(item)}</p>
-                  <p className='mt-1 text-sm font-semibold text-slate-900'>{formatMoney(item.price)}</p>
+                  <p className='mt-1 font-mono text-sm font-semibold text-gray-900'>{formatMoney(item.price)}</p>
                   <div className='mt-2 flex items-center gap-3'>
                     <button
                       type='button'

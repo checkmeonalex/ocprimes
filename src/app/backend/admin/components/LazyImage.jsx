@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { fetchAndCacheImage, getCachedImage } from '../../../../performace/asset/imagecaching';
+import { fetchAndCacheImage, getCachedImage } from '../../../../performance/asset/imagecaching';
 
 const inFlightRequests = new Map();
 
@@ -48,7 +48,7 @@ function LazyImage({ src, alt, className = '' }) {
       try {
         const target = new URL(src, window.location.href);
         if (target.origin === window.location.origin) {
-          dataUrl = await fetchAndCacheImage(src);
+          dataUrl = await fetchAndCacheImage(src, src);
         }
       } catch (_error) {}
       return dataUrl;

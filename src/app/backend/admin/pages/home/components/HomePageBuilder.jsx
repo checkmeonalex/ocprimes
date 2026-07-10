@@ -101,17 +101,6 @@ const BLOCK_TYPES = [
     ),
     defaultConfig: () => ({ title: '', subtitle: '', filterMode: 'none', categoryId: '', tagId: '', limit: 12 }),
   },
-  {
-    key: 'vendor_browse',
-    label: 'Vendor Browse',
-    description: 'Category tabs + featured vendor card + product grid.',
-    icon: (
-      <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016 2.993 2.993 0 0 0 2.25-1.016 3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
-      </svg>
-    ),
-    defaultConfig: () => ({ title: '', vendorSlug: '', limit: 10 }),
-  },
 ];
 
 const genId = () => `block_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
@@ -882,53 +871,11 @@ function LogoGridEditor({ config, onChange }) {
   );
 }
 
-// ─── Vendor Browse editor ─────────────────────────────────────────────────
-
-function VendorBrowseEditor({ config, onChange }) {
-  const update = (patch) => onChange({ ...config, ...patch });
-  return (
-    <div className="space-y-4 pt-1">
-      <label className="block">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Section title</span>
-        <input
-          value={config?.title || ''}
-          onChange={(e) => update({ title: e.target.value })}
-          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
-          placeholder="Browse our collection"
-        />
-      </label>
-      <label className="block">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Featured vendor slug</span>
-        <input
-          value={config?.vendorSlug || ''}
-          onChange={(e) => update({ vendorSlug: e.target.value.trim() })}
-          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400 font-mono"
-          placeholder="e.g. my-vendor-name"
-        />
-        <p className="mt-1 text-[10px] text-slate-400">The vendor's URL slug. Leave empty to hide the vendor card.</p>
-      </label>
-      <label className="block">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Products per view</span>
-        <input
-          type="number"
-          min={5}
-          max={20}
-          value={config?.limit || 10}
-          onChange={(e) => update({ limit: Math.max(5, Math.min(20, Number(e.target.value) || 10)) })}
-          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
-        />
-      </label>
-    </div>
-  );
-}
-
 // ─── Block subtitle helper ─────────────────────────────────────────────────
 
 function blockSubtitle(block) {
   const cfg = block.config || {};
   switch (block.type) {
-    case 'vendor_browse':
-      return cfg.vendorSlug ? `Vendor: ${cfg.vendorSlug}` : 'No vendor set';
     case 'banner_grid': {
       const layoutLabel = LAYOUTS.find((l) => l.key === cfg.layout)?.label || 'Single';
       return `${layoutLabel} · ${cfg.mode === 'slider' ? 'Slider' : 'Static'}`;
@@ -1001,7 +948,6 @@ function BlockItem({ block, isExpanded, onToggle, onDelete, onConfigChange, onDr
           {block.type === 'product_catalog'&& <ProductCatalogEditor config={block.config} onChange={onConfigChange} categoryOptions={categoryOptions} tags={tags} />}
           {block.type === 'browse_cards'   && <BrowseCardsEditor   config={block.config} onChange={onConfigChange} />}
           {block.type === 'logo_grid'      && <LogoGridEditor      config={block.config} onChange={onConfigChange} />}
-          {block.type === 'vendor_browse'  && <VendorBrowseEditor  config={block.config} onChange={onConfigChange} />}
         </div>
       )}
     </div>

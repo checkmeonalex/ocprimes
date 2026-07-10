@@ -4,7 +4,7 @@
 :root {
   /* ── Type system ──────────────────────────────────────── */
   --serif: "Instrument Serif", "Cormorant Garamond", Georgia, serif;
-  --sans:  var(--font-geist), "Söhne", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --sans:  var(--font-outfit), Arial, sans-serif;
   --mono:  var(--font-geist-mono), ui-monospace, "JetBrains Mono", monospace;
 
   --glass-spinner-border: rgba(0, 0, 0, 0.35);

@@ -416,7 +416,7 @@ export default function AwaitingPaymentPage() {
                     <p className='line-clamp-2 text-[13px] font-semibold text-slate-900'>{item.name}</p>
                     <p className='text-[11px] text-slate-500'>Qty {item.quantity}</p>
                   </div>
-                  <p className='text-[13px] font-bold text-slate-900'>{formatMoney(item.lineTotal)}</p>
+                  <p className='font-mono text-sm font-semibold text-gray-900'>{formatMoney(item.lineTotal)}</p>
                 </div>
               ))}
             </div>

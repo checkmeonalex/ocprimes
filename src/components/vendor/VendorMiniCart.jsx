@@ -116,7 +116,7 @@ export default function VendorMiniCart({ open, onClose, isLight = false }) {
                       </div>
 
                       {/* Price */}
-                      <span className="text-sm font-bold text-gray-900 font-mono">
+                      <span className="font-mono text-sm font-semibold text-gray-900">
                         {formatMoney(item.price * item.quantity)}
                       </span>
                     </div>
