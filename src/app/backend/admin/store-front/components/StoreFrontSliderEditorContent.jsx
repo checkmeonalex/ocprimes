@@ -1,4 +1,4 @@
-import BannerSlider from '@/components/layout/BannerSlider';
+import BannerSlider from '@/components/layouts/BannerSlider';
 
 export default function StoreFrontSliderEditorContent({
   inputPrefix,

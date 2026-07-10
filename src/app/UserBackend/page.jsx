@@ -73,6 +73,7 @@ export default async function UserBackendHome() {
         isSignedIn={Boolean(user)}
         shopHref={shopHref}
         showShopAction={canAccessShopDashboard}
+        bimojiCharacterId={String(user?.user_metadata?.bimoji_character || '')}
       />
     </div>
   )

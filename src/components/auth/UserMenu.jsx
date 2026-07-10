@@ -19,6 +19,8 @@ import {
   loadUserProfileBootstrap,
   primeUserProfileBootstrap,
 } from '@/lib/user/profile-bootstrap-client'
+import BimojiAvatar from '@/components/mobile/Bimojis/BimojiAvatar'
+import { getBimojiCharacter } from '@/components/mobile/Bimojis/characters.mjs'
 
 const getDisplayName = (email) => {
   if (!email) return 'Guest'
@@ -259,6 +261,8 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
   const avatarUrl = typeof user?.user_metadata?.avatar_url === 'string'
     ? user.user_metadata.avatar_url.trim()
     : ''
+  const bimojiCharacterId = String(user?.user_metadata?.bimoji_character || '')
+  const hasBimoji = Boolean(getBimojiCharacter(bimojiCharacterId))
   const isInternational = localeCountry === INTERNATIONAL_COUNTRY
   const accountLocale = isInternational ? 'International' : 'Nigeria'
 
@@ -378,13 +382,18 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
     >
       <button
         type='button'
-        onClick={() =>
+        onClick={() => {
+          if (isSignedIn) {
+            closeMenus()
+            router.push('/account')
+            return
+          }
           setIsOpen((prev) => {
             const next = !prev
             if (!next) setIsLocaleMenuOpen(false)
             return next
           })
-        }
+        }}
         className={
           isSignedIn
             ? isCompactChip
@@ -399,7 +408,9 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
           isCompactChip ? (
             <>
               <span className='inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-200'>
-                {avatarUrl ? (
+                {hasBimoji ? (
+                  <BimojiAvatar characterId={bimojiCharacterId} size={32} />
+                ) : avatarUrl ? (
                   <img
                     src={avatarUrl}
                     alt={displayName}
@@ -429,7 +440,9 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
           ) : (
             <>
               <div className='w-8 h-8 bg-pink-400 rounded-full flex items-center justify-center overflow-hidden'>
-                {avatarUrl ? (
+                {hasBimoji ? (
+                  <BimojiAvatar characterId={bimojiCharacterId} size={32} />
+                ) : avatarUrl ? (
                   <img
                     src={avatarUrl}
                     alt={displayName}
@@ -496,7 +509,9 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
               <div className='-mx-3 flex items-center justify-between gap-3 border-b border-gray-100 bg-white px-5 py-2'>
                 <div className='flex min-w-0 items-center gap-3'>
                   <div className='w-9 h-9 bg-pink-400 rounded-full flex items-center justify-center overflow-hidden'>
-                    {avatarUrl ? (
+                    {hasBimoji ? (
+                      <BimojiAvatar characterId={bimojiCharacterId} size={36} />
+                    ) : avatarUrl ? (
                       <img
                         src={avatarUrl}
                         alt={displayName}

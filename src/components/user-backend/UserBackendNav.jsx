@@ -6,19 +6,24 @@ import { USER_MENU_ITEMS } from '@/lib/user/menu-items'
 import UserNavIcon from '@/components/user-backend/UserNavIcon'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { translateMenuLabel } from '@/lib/i18n/messages'
+import BimojiAvatar from '@/components/mobile/Bimojis/BimojiAvatar'
+import { getBimojiCharacter } from '@/components/mobile/Bimojis/characters.mjs'
 
-export default function UserBackendNav({ displayName, email, avatarUrl }) {
+export default function UserBackendNav({ displayName, email, avatarUrl, bimojiCharacterId = '' }) {
   const pathname = usePathname()
   const { locale } = useUserI18n()
   const initial = (displayName?.trim()?.[0] || 'U').toUpperCase()
   const normalizedAvatarUrl = typeof avatarUrl === 'string' ? avatarUrl.trim() : ''
+  const hasBimoji = Boolean(getBimojiCharacter(bimojiCharacterId))
 
   return (
     <div className='no-scrollbar rounded-xl bg-white p-3 shadow-sm lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto'>
       <div className='border-b border-slate-200 pb-3'>
         <div className='flex items-center gap-3'>
           <span className='inline-flex h-11 w-11 items-center justify-center overflow-hidden rounded-lg bg-slate-900 text-sm font-semibold text-white'>
-            {normalizedAvatarUrl ? (
+            {hasBimoji ? (
+              <BimojiAvatar characterId={bimojiCharacterId} size={44} />
+            ) : normalizedAvatarUrl ? (
               <img
                 src={normalizedAvatarUrl}
                 alt={displayName || 'User avatar'}

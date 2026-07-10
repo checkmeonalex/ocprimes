@@ -8,6 +8,7 @@ import { USER_MENU_ITEMS } from '@/lib/user/menu-items'
 import UserNavIcon from '@/components/user-backend/UserNavIcon'
 import { useUserI18n } from '@/lib/i18n/useUserI18n'
 import { translateMenuLabel } from '@/lib/i18n/messages'
+import BimojiAccountDashboard from '@/components/mobile/Bimojis/BimojiAccountDashboard'
 
 const getPrimaryActions = ({ shopHref, showShopAction }) => {
   const actions = [
@@ -42,6 +43,7 @@ export default function AccountLandingPage({
   isSignedIn = true,
   shopHref = '/admin/dashboard',
   showShopAction = false,
+  bimojiCharacterId = '',
 }) {
   const router = useRouter()
   const { locale, t } = useUserI18n()
@@ -80,6 +82,19 @@ export default function AccountLandingPage({
     setIsAvatarMenuOpen(false)
     router.refresh()
     router.push('/login')
+  }
+
+  if (isSignedIn) {
+    return (
+      <BimojiAccountDashboard
+        displayName={displayName}
+        email={email}
+        location={location}
+        shopHref={shopHref}
+        showShopAction={showShopAction}
+        bimojiCharacterId={bimojiCharacterId}
+      />
+    )
   }
 
   return (

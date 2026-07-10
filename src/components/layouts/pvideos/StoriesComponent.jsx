@@ -1,7 +1,7 @@
 'use client'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import useWindowWidth from '../../hooks/useWindowWidth'
+import useWindowWidth from '@/hooks/useWindowWidth'
 import StoryVideoPlayerModal from './StoryVideoPlayerModal'
 
 const STORY_PREVIEW_LOOP_SECONDS = 10

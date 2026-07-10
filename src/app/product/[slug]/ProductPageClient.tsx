@@ -32,6 +32,38 @@ import { useWishlist } from '../../../context/WishlistContext'
 import { getTemplate } from '@/templates/index.mjs'
 import BiadProductLayout from '@/templates/biad/ProductLayout'
 
+const RICH_HTML_CLASS_GRAY =
+  'text-sm text-gray-600 leading-relaxed [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-gray-900 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:mt-0 [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_img]:!max-w-full [&_img]:!h-auto [&_.packaging-preview-image]:-mt-8'
+
+const TabHtmlPanel = ({
+  isShipping,
+  shippingEstimate,
+  html,
+  className,
+  innerRef,
+  shippingWrapperClassName,
+}: {
+  isShipping: boolean
+  shippingEstimate: any
+  html: string
+  className: string
+  innerRef?: React.Ref<HTMLDivElement>
+  shippingWrapperClassName?: string
+}) => {
+  if (isShipping) {
+    const details = <ShippingTabDetails shippingEstimate={shippingEstimate} />
+    if (innerRef || shippingWrapperClassName) {
+      return (
+        <div ref={innerRef} className={shippingWrapperClassName}>
+          {details}
+        </div>
+      )
+    }
+    return details
+  }
+  return <div ref={innerRef} className={className} dangerouslySetInnerHTML={{ __html: html }} />
+}
+
 const normalizeVariationAttributeKey = (key: string) => {
   const normalized = String(key || '').trim().toLowerCase().replace(/^pa_/, '')
   return normalized === 'colour' ? 'color' : normalized
@@ -2085,14 +2117,12 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
                       ))}
                     </div>
                     <div ref={descriptionRef} className='mt-4 relative'>
-                      {isPrestigeShippingTab ? (
-                        <ShippingTabDetails shippingEstimate={shippingEstimate} />
-                      ) : (
-                        <div
-                          className={`text-sm text-stone-600 leading-relaxed [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-stone-900 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-stone-900 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-stone-900 [&_h4]:text-sm [&_h4]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto [&_.packaging-preview-image]:-mt-8 ${activeTab === 'details' ? 'max-h-28 overflow-hidden' : ''}`}
-                          dangerouslySetInnerHTML={{ __html: activeTabHtml }}
-                        />
-                      )}
+                      <TabHtmlPanel
+                        isShipping={isPrestigeShippingTab}
+                        shippingEstimate={shippingEstimate}
+                        html={activeTabHtml}
+                        className={`text-sm text-stone-600 leading-relaxed [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-stone-900 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-stone-900 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-stone-900 [&_h4]:text-sm [&_h4]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto [&_.packaging-preview-image]:-mt-8 ${activeTab === 'details' ? 'max-h-28 overflow-hidden' : ''}`}
+                      />
                       {showSeeMore && (
                         <>
                           <div className='pointer-events-none absolute inset-0 z-10 bg-gradient-to-b from-[#f5f4f2]/0 via-[#f5f4f2]/70 to-[#f5f4f2]' />
@@ -2228,14 +2258,12 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
                 <button onClick={() => setShowDetailsModal(false)} className='p-2 text-stone-400 hover:text-stone-700 transition' aria-label='Close'>✕</button>
               </div>
               <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain' style={{ WebkitOverflowScrolling: 'touch' }}>
-                {activeTab === 'shipping' ? (
-                  <ShippingTabDetails shippingEstimate={shippingEstimate} />
-                ) : (
-                  <div
-                    className='text-sm text-stone-600 leading-relaxed [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:text-lg [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto'
-                    dangerouslySetInnerHTML={{ __html: activeTabHtml }}
-                  />
-                )}
+                <TabHtmlPanel
+                  isShipping={activeTab === 'shipping'}
+                  shippingEstimate={shippingEstimate}
+                  html={activeTabHtml}
+                  className='text-sm text-stone-600 leading-relaxed [&_h1]:text-2xl [&_h1]:font-semibold [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:text-lg [&_h3]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto'
+                />
               </div>
             </div>
           </div>
@@ -2811,19 +2839,16 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
                   </div>
 
                   <div className='relative'>
-                    {isShippingTab ? (
-                      <div ref={descriptionRef} className='overflow-x-hidden'>
-                        <ShippingTabDetails shippingEstimate={shippingEstimate} />
-                      </div>
-                    ) : (
-                      <div
-                        ref={descriptionRef}
-                        className={`overflow-x-hidden text-sm text-gray-600 leading-relaxed [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-gray-900 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:mt-0 [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_img]:!max-w-full [&_img]:!h-auto [&_.packaging-preview-image]:-mt-8 ${
-                          activeTab === 'details' ? 'max-h-28 overflow-hidden' : ''
-                        }`}
-                        dangerouslySetInnerHTML={{ __html: activeTabHtml }}
-                      />
-                    )}
+                    <TabHtmlPanel
+                      isShipping={isShippingTab}
+                      shippingEstimate={shippingEstimate}
+                      html={activeTabHtml}
+                      innerRef={descriptionRef}
+                      shippingWrapperClassName='overflow-x-hidden'
+                      className={`overflow-x-hidden ${RICH_HTML_CLASS_GRAY} ${
+                        activeTab === 'details' ? 'max-h-28 overflow-hidden' : ''
+                      }`}
+                    />
                     {showSeeMore && (
                       <>
                         <div className='pointer-events-none absolute inset-0 z-10 backdrop-blur-[0.6px] bg-gradient-to-b from-white/0 via-white/65 to-white' />
@@ -3060,14 +3085,12 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
               className='mt-4 min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain pr-0 sm:pr-1'
               style={{ WebkitOverflowScrolling: 'touch' }}
             >
-              {isShippingTab ? (
-                <ShippingTabDetails shippingEstimate={shippingEstimate} />
-              ) : (
-                <div
-                  className='text-sm text-gray-600 leading-relaxed whitespace-pre-line [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-gray-900 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:mt-0 [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_img]:!max-w-full [&_img]:!h-auto [&_.packaging-preview-image]:-mt-8'
-                  dangerouslySetInnerHTML={{ __html: activeTabHtml }}
-                />
-              )}
+              <TabHtmlPanel
+                isShipping={isShippingTab}
+                shippingEstimate={shippingEstimate}
+                html={activeTabHtml}
+                className={`whitespace-pre-line ${RICH_HTML_CLASS_GRAY}`}
+              />
             </div>
           </div>
         </div>

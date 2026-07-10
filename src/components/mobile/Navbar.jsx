@@ -10,6 +10,8 @@ import BrandLogo from '@/components/common/BrandLogo'
 import { useCart } from '../../context/CartContext'
 import { fetchCategoriesData } from '@/lib/catalog/categories-menu'
 import { useAuthUser } from '../../lib/auth/useAuthUser.ts'
+import BimojiAvatar from './Bimojis/BimojiAvatar'
+import { getBimojiCharacter } from './Bimojis/characters.mjs'
 import { formatSuggestionLabel } from '@/components/search/formatSuggestionLabel'
 import { openPopularSearchTarget } from '@/components/search/openPopularSearchTarget'
 import PopularRightNowSection from '@/components/search/PopularRightNowSection'
@@ -19,7 +21,7 @@ import { reportSearchQuery } from '@/components/search/reportSearchQuery'
 import { useVendorPage } from '@/context/VendorPageContext'
 
 // Lazy load CategoriesMenu since it's not immediately visible
-const CategoriesMenu = dynamic(() => import('../Catergories/CategoriesMenu'), {
+const CategoriesMenu = dynamic(() => import('../Categories/CategoriesMenu'), {
   loading: () => null, // No loading spinner needed
 })
 
@@ -593,6 +595,8 @@ function MobileNavbar({
   const mobileAvatarUrl = String(
     user?.user_metadata?.avatar_url || user?.user_metadata?.picture || '',
   ).trim()
+  const mobileBimojiCharacterId = String(user?.user_metadata?.bimoji_character || '')
+  const hasMobileBimoji = Boolean(getBimojiCharacter(mobileBimojiCharacterId))
 
   return (
     <>
@@ -704,7 +708,14 @@ function MobileNavbar({
               <div className='relative' ref={accountMenuRef}>
                 <button
                   type='button'
-                  onClick={() => setIsAccountMenuOpen((prev) => !prev)}
+                  onClick={() => {
+                    if (user) {
+                      closeAccountMenu()
+                      router.push('/account')
+                      return
+                    }
+                    setIsAccountMenuOpen((prev) => !prev)
+                  }}
                   className='p-1.5 text-gray-700 hover:text-gray-900 transition-colors'
                   aria-label='Account'
                   aria-haspopup='menu'
@@ -712,7 +723,9 @@ function MobileNavbar({
                 >
                   {user ? (
                     <span className='inline-flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-slate-200 align-middle shadow-sm ring-1 ring-slate-200'>
-                      {mobileAvatarUrl ? (
+                      {hasMobileBimoji ? (
+                        <BimojiAvatar characterId={mobileBimojiCharacterId} size={32} />
+                      ) : mobileAvatarUrl ? (
                         <img
                           src={mobileAvatarUrl}
                           alt={mobileProfileDisplayName}

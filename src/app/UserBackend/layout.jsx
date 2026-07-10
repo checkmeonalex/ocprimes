@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import UserBackendNav from '@/components/user-backend/UserBackendNav'
 import StickySidebar from '@/components/user-backend/StickySidebar'
 import UserBackendMobileHeader from '@/components/user-backend/UserBackendMobileHeader'
+import AccountShell from '@/components/user-backend/AccountShell'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,21 +30,23 @@ export default async function UserBackendLayout({ children }) {
   ).trim()
 
   return (
-    <div className='min-h-screen w-full overflow-x-hidden bg-white pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-2'>
+    <div className='min-h-screen w-full overflow-x-clip bg-white pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pt-2'>
       <UserBackendMobileHeader />
       <div className='w-full lg:pt-2'>
-        <div className='grid grid-cols-1 gap-4 overflow-visible lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-0'>
-          <div className='hidden lg:block'>
+        <AccountShell
+          sidebar={
             <StickySidebar topOffset={120} collapsedTopOffset={56} collapseAfter={20}>
               <UserBackendNav
                 displayName={displayName}
                 email={user?.email || 'guest@alxora.com'}
                 avatarUrl={avatarUrl}
+                bimojiCharacterId={String(user?.user_metadata?.bimoji_character || '')}
               />
             </StickySidebar>
-          </div>
-          <main className='min-w-0 overflow-x-hidden bg-transparent'>{children}</main>
-        </div>
+          }
+        >
+          {children}
+        </AccountShell>
       </div>
     </div>
   )

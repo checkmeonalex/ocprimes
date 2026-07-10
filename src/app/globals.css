@@ -160,6 +160,14 @@ main {
       overflow-x: visible;
     }
   }
+
+  /* Account landing: sticky notifications rail needs no scroll-container ancestors */
+  @media (min-width: 1024px) {
+    .account-sticky-shell,
+    .account-sticky-shell main {
+      overflow-x: visible;
+    }
+  }
   
   /* ADDED: Mobile-specific container */
   @media (max-width: 640px) {

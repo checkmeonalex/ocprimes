@@ -1,5 +1,5 @@
-import FeaturedStrip from '@/components/layout/FeaturedStrip'
-import LogoGrid from '@/components/layout/LogoGrid'
+import FeaturedStrip from '@/components/layouts/FeaturedStrip'
+import LogoGrid from '@/components/layouts/LogoGrid'
 import VendorBannerGrid from '@/components/vendor/VendorBannerGrid'
 import BrowseCategoriesClient from '@/components/layouts/BrowseCategoriesClient'
 import HomeHeroSlider from '@/components/layouts/home/HomeHeroSlider'
