@@ -20,6 +20,7 @@ const loadGrid = async (supabase, categoryId) => {
 
   if (error) {
     const errorCode = (error as { code?: string })?.code
+    console.error('logo-grid load failed:', error)
     if (errorCode === '42P01') {
       return { errorMessage: 'Missing logo grid tables. Run migration 026_admin_category_logo_grid.sql.' }
     }
@@ -91,6 +92,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
 
   if (error || !grid?.id) {
     const errorCode = (error as { code?: string })?.code
+    console.error('logo-grid upsert failed:', error)
     if (errorCode === '42P01') {
       return jsonError('Missing logo grid tables. Run migration 026_admin_category_logo_grid.sql.', 500)
     }
@@ -102,7 +104,10 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     .delete()
     .eq('grid_id', grid.id)
 
-  if (deleteError) return jsonError('Unable to update logo grid.', 500)
+  if (deleteError) {
+    console.error('logo-grid item delete failed:', deleteError)
+    return jsonError('Unable to update logo grid.', 500)
+  }
 
   if (items.length) {
     const payload = items.map((item, index) => ({
@@ -113,7 +118,10 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
       sort_order: index,
     }))
     const { error: insertError } = await supabase.from(ITEM_TABLE).insert(payload)
-    if (insertError) return jsonError('Unable to save logo items.', 500)
+    if (insertError) {
+      console.error('logo-grid item insert failed:', insertError)
+      return jsonError('Unable to save logo items.', 500)
+    }
   }
 
   const result = await loadGrid(supabase, categoryId)

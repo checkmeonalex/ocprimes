@@ -293,9 +293,21 @@ export default function SelectedForYouSectionClient() {
         </div>
       ) : (
         <>
-          <div className='mb-5 px-3 sm:px-4 md:px-10 lg:px-16'>
-            <h2 className='text-center text-lg font-extrabold uppercase tracking-wide text-gray-900 sm:text-xl'>
-              {title}
+          <div className='mb-2 px-3 sm:px-4 md:px-10 lg:px-16'>
+            <h2 className='flex items-center justify-center gap-3 text-center'>
+              <span className='h-px flex-1 max-w-10 bg-gradient-to-r from-transparent to-rose-300 sm:max-w-16' />
+              <span className='flex items-center gap-1.5'>
+                <svg className='h-3 w-3 text-rose-300' viewBox='0 0 24 24' fill='currentColor' aria-hidden='true'>
+                  <path d='M12 2c.6 3.2 2.2 4.8 5.4 5.4-3.2.6-4.8 2.2-5.4 5.4-.6-3.2-2.2-4.8-5.4-5.4C9.8 6.8 11.4 5.2 12 2Z' />
+                </svg>
+                <span className='text-lg font-extrabold uppercase tracking-wide text-gray-900 sm:text-xl'>
+                  {title}
+                </span>
+                <svg className='h-3 w-3 text-rose-300' viewBox='0 0 24 24' fill='currentColor' aria-hidden='true'>
+                  <path d='M12 2c.6 3.2 2.2 4.8 5.4 5.4-3.2.6-4.8 2.2-5.4 5.4-.6-3.2-2.2-4.8-5.4-5.4C9.8 6.8 11.4 5.2 12 2Z' />
+                </svg>
+              </span>
+              <span className='h-px flex-1 max-w-10 bg-gradient-to-l from-transparent to-rose-300 sm:max-w-16' />
             </h2>
           </div>
 

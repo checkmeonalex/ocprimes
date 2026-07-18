@@ -892,17 +892,6 @@ function MobileNavbar({
                           </svg>
                           Help center
                         </Link>
-                        <div className='my-1 h-px bg-gray-100' />
-                        <Link
-                          href='/sellersignup'
-                          onClick={closeAccountMenu}
-                          className='flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-gray-900 hover:bg-gray-50'
-                        >
-                          <svg className='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
-                            <path strokeLinecap='round' strokeLinejoin='round' d='M3 9.75 12 3l9 6.75V19.5a1.5 1.5 0 0 1-1.5 1.5h-3.75a.75.75 0 0 1-.75-.75V15a2.25 2.25 0 0 0-4.5 0v5.25a.75.75 0 0 1-.75.75H4.5A1.5 1.5 0 0 1 3 19.5Z' />
-                          </svg>
-                          Sell on Alxora
-                        </Link>
                       </>
                     )}
                   </div>
