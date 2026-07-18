@@ -1333,6 +1333,13 @@ export default function CustomerMessagesPage() {
 
   const showThreadOnMobile = Boolean(isMobileThreadOpen && selectedConversation)
 
+  useEffect(() => {
+    document.body.toggleAttribute('data-hide-mobile-header', showThreadOnMobile)
+    return () => {
+      document.body.removeAttribute('data-hide-mobile-header')
+    }
+  }, [showThreadOnMobile])
+
   return (
     <div
       ref={pageContainerRef}

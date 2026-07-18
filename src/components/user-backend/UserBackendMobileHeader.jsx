@@ -42,7 +42,7 @@ export default function UserBackendMobileHeader() {
       <div className='mx-auto grid h-14 w-full max-w-3xl grid-cols-[2.5rem_1fr_2.5rem] items-center px-2'>
         <Link
           href={isRootPage ? '/' : '/account'}
-          className='inline-flex h-10 w-10 items-center justify-center text-slate-600 transition hover:text-slate-900'
+          className='inline-flex h-10 w-10 items-center justify-center text-slate-600 transition hover:text-slate-900 [body[data-hide-mobile-header]_&]:invisible'
           aria-label={isRootPage ? 'Back to home' : 'Back to account'}
         >
           <svg
