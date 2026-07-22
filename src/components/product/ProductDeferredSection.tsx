@@ -46,7 +46,7 @@ export const RelatedProductsSkeleton = () => {
         {Array.from({ length: 10 }).map((_, index) => (
           <div key={`related-skeleton-${index}`} className='group min-w-0'>
             <div className='relative h-full min-w-0 overflow-hidden bg-white p-2 shadow-sm sm:p-3'>
-              <div className='relative aspect-square overflow-hidden border border-gray-200 bg-gray-100 animate-pulse'>
+              <div className='relative aspect-[3/4] overflow-hidden border border-gray-200 bg-gray-100 animate-pulse'>
                 <div className='absolute left-2 top-2 z-10 h-6 w-14 rounded-full bg-gray-200' />
                 <div className='absolute bottom-2 right-2 h-9 w-9 rounded-full bg-gray-200' />
               </div>

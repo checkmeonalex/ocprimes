@@ -567,7 +567,7 @@ export default function OrdersPage() {
                       href={`/product/${item.slug}`}
                       className='relative w-32 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm'
                     >
-                      <div className='relative aspect-square w-full overflow-hidden bg-slate-100'>
+                      <div className='relative aspect-[3/4] w-full overflow-hidden bg-slate-100'>
                         {item.image ? (
                           <Image src={item.image} alt={item.name || 'Product'} fill sizes='128px' className='object-cover' />
                         ) : null}

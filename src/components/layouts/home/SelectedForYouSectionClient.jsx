@@ -41,7 +41,7 @@ function FeedProductCard({ product }) {
 
   return (
     <Link href={href} className='group block'>
-      <div className='relative overflow-hidden rounded-xl aspect-square bg-gray-100'>
+      <div className='relative overflow-hidden rounded-xl aspect-[3/4] bg-gray-100'>
         {img ? (
           <img src={img} alt={product.name || ''} className='absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]' loading='lazy' />
         ) : (
@@ -90,7 +90,7 @@ function FeedProductCard({ product }) {
 function ProductCardSkeleton() {
   return (
     <div>
-      <div className='aspect-square animate-pulse rounded-xl bg-gray-100' />
+      <div className='aspect-[3/4] animate-pulse rounded-xl bg-gray-100' />
       <div className='mt-2.5 space-y-1.5'>
         <div className='h-3.5 w-4/5 animate-pulse rounded bg-gray-100' />
         <div className='h-3.5 w-1/3 animate-pulse rounded bg-gray-100' />

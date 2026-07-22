@@ -180,7 +180,7 @@ const RelatedProductsSection = ({
                 prestige ? 'bg-white border border-stone-100 hover:border-stone-300' :
                 'bg-white shadow-sm hover:shadow-md'
               }`}>
-                <div className={`relative aspect-square overflow-hidden border ${
+                <div className={`relative aspect-[3/4] overflow-hidden border ${
                   dark ? 'border-white/10 bg-white/10' :
                   prestige ? 'border-stone-100 bg-[#ede9e3]' :
                   'border-gray-200 bg-gray-100'

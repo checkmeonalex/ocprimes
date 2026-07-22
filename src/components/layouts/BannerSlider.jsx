@@ -10,7 +10,11 @@ const isSafeSlideLink = (value = '') =>
 
 function BannerSlider({
   images = [],
+  imageTypes = [],
+  imagePosters = [],
   mobileImages = [],
+  mobileImageTypes = [],
+  mobileImagePosters = [],
   links = [],
   title = 'Banner',
   autoMs = 5000,
@@ -29,14 +33,38 @@ function BannerSlider({
   indicatorPosition = 'bottom-center',
   indicatorVariant = 'dots',
   showPlayPause = false,
+  hoverToReveal = false,
+  fitMode = 'cover',
 }) {
   const slides = useMemo(() => clampImages(images), [images])
+  const slideTypes = useMemo(
+    () => slides.map((_slide, idx) => (imageTypes?.[idx] === 'video' ? 'video' : 'image')),
+    [imageTypes, slides],
+  )
+  const slidePosters = useMemo(
+    () =>
+      slides.map((_slide, idx) =>
+        typeof imagePosters?.[idx] === 'string' ? imagePosters[idx].trim() : '',
+      ),
+    [imagePosters, slides],
+  )
   const mobileSlides = useMemo(
     () =>
       slides.map((_slide, idx) =>
         typeof mobileImages?.[idx] === 'string' ? mobileImages[idx].trim() : '',
       ),
     [mobileImages, slides],
+  )
+  const mobileSlideTypes = useMemo(
+    () => slides.map((_slide, idx) => (mobileImageTypes?.[idx] === 'video' ? 'video' : 'image')),
+    [mobileImageTypes, slides],
+  )
+  const mobileSlidePosters = useMemo(
+    () =>
+      slides.map((_slide, idx) =>
+        typeof mobileImagePosters?.[idx] === 'string' ? mobileImagePosters[idx].trim() : '',
+      ),
+    [mobileImagePosters, slides],
   )
   const slideLinks = useMemo(
     () =>
@@ -48,9 +76,10 @@ function BannerSlider({
   const [index, setIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true)
   const timerRef = useRef(null)
-  const isFadeMode = transitionMode === 'fade'
+  const isNatural = fitMode === 'natural'
+  const isFadeMode = transitionMode === 'fade' && !isNatural
 
-  const shapeClass = enforceAspect ? 'aspect-[16/9]' : heightClass
+  const shapeClass = isNatural ? '' : enforceAspect ? 'aspect-[16/9]' : heightClass
 
   useEffect(() => {
     if (timerRef.current) clearInterval(timerRef.current)
@@ -82,25 +111,77 @@ function BannerSlider({
   }
 
   const renderSlide = (slideIndex) => {
-    const content = (
-      <picture className='block h-full w-full'>
-        {mobileSlides[slideIndex] ? (
-          <source media='(max-width: 767px)' srcSet={mobileSlides[slideIndex]} />
-        ) : null}
+    const hasMobileOverride = Boolean(mobileSlides[slideIndex])
+    const desktopIsVideo = slideTypes[slideIndex] === 'video'
+    const mobileIsVideo = hasMobileOverride && mobileSlideTypes[slideIndex] === 'video'
+    const mediaClass = isNatural ? 'block w-full' : 'h-full w-full object-cover'
+
+    const videoProps = {
+      muted: true,
+      autoPlay: true,
+      loop: true,
+      playsInline: true,
+      controls: false,
+      preload: 'metadata',
+    }
+
+    let content
+    if (!hasMobileOverride) {
+      content = desktopIsVideo ? (
+        <video
+          {...videoProps}
+          src={slides[slideIndex]}
+          poster={slidePosters[slideIndex] || undefined}
+          className={mediaClass}
+        />
+      ) : (
         <img
           src={slides[slideIndex]}
           alt={`${title} - slide ${slideIndex + 1}`}
-          className='h-full w-full object-cover'
+          className={mediaClass}
         />
-      </picture>
-    )
+      )
+    } else if (desktopIsVideo || mobileIsVideo) {
+      // Mixed image/video across breakpoints can't share a <picture>, so
+      // render both variants and toggle visibility at the same 768px
+      // breakpoint the <picture><source> path uses.
+      content = (
+        <>
+          <div className={`hidden md:block ${mediaClass}`}>
+            {desktopIsVideo ? (
+              <video {...videoProps} src={slides[slideIndex]} poster={slidePosters[slideIndex] || undefined} className={mediaClass} />
+            ) : (
+              <img src={slides[slideIndex]} alt={`${title} - slide ${slideIndex + 1}`} className={mediaClass} />
+            )}
+          </div>
+          <div className={`block md:hidden ${mediaClass}`}>
+            {mobileIsVideo ? (
+              <video {...videoProps} src={mobileSlides[slideIndex]} poster={mobileSlidePosters[slideIndex] || undefined} className={mediaClass} />
+            ) : (
+              <img src={mobileSlides[slideIndex]} alt={`${title} - slide ${slideIndex + 1}`} className={mediaClass} />
+            )}
+          </div>
+        </>
+      )
+    } else {
+      content = (
+        <picture className={isNatural ? 'block w-full' : 'block h-full w-full'}>
+          <source media='(max-width: 767px)' srcSet={mobileSlides[slideIndex]} />
+          <img
+            src={slides[slideIndex]}
+            alt={`${title} - slide ${slideIndex + 1}`}
+            className={mediaClass}
+          />
+        </picture>
+      )
+    }
 
     if (!slideLinks[slideIndex]) return content
 
     return (
       <a
         href={slideLinks[slideIndex]}
-        className='block h-full w-full'
+        className={isNatural ? 'block w-full' : 'block h-full w-full'}
         aria-label={`${title} - slide ${slideIndex + 1} link`}
         tabIndex={slideIndex === index ? 0 : -1}
       >
@@ -124,9 +205,13 @@ function BannerSlider({
     </svg>
   )
 
+  const revealClass = hoverToReveal
+    ? 'opacity-0 transition-opacity duration-200 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100 hidden lg:flex'
+    : ''
+
   return (
-    <div className={`relative w-full overflow-hidden ${shapeClass} ${className}`}>
-      <div className='absolute inset-0'>
+    <div className={`group relative w-full overflow-hidden ${shapeClass} ${className}`}>
+      <div className={isNatural ? 'relative w-full' : 'absolute inset-0'}>
         {isFadeMode
           ? slides.map((_slide, slideIndex) => {
               const isActive = slideIndex === index
@@ -161,7 +246,9 @@ function BannerSlider({
               controlsVariant === 'rect'
                 ? 'h-20 w-12 rounded-md bg-transparent text-white border border-transparent hover:border-white/80'
                 : 'h-12 w-12 rounded-full bg-transparent text-gray-700 drop-shadow'
-            } flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-800/70 focus-visible:outline-offset-2 active:outline active:outline-2 active:outline-gray-800/70 active:outline-offset-2`}
+            } items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-800/70 focus-visible:outline-offset-2 active:outline active:outline-2 active:outline-gray-800/70 active:outline-offset-2 ${
+              hoverToReveal ? revealClass : 'flex'
+            }`}
             aria-label='Previous banner'
           >
             <Arrow
@@ -178,7 +265,9 @@ function BannerSlider({
               controlsVariant === 'rect'
                 ? 'h-20 w-12 rounded-md bg-transparent text-white border border-transparent hover:border-white/80'
                 : 'h-12 w-12 rounded-full bg-transparent text-gray-700 drop-shadow'
-            } flex items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-800/70 focus-visible:outline-offset-2 active:outline active:outline-2 active:outline-gray-800/70 active:outline-offset-2`}
+            } items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-gray-800/70 focus-visible:outline-offset-2 active:outline active:outline-2 active:outline-gray-800/70 active:outline-offset-2 ${
+              hoverToReveal ? revealClass : 'flex'
+            }`}
             aria-label='Next banner'
           >
             <Arrow
@@ -189,11 +278,11 @@ function BannerSlider({
           </button>
           {(showIndicators || showPlayPause) && slides.length > 1 && (
             <div
-              className={`absolute z-20 flex items-center gap-2 ${
+              className={`absolute z-20 items-center gap-2 ${
                 indicatorPosition === 'top-right'
                   ? 'top-4 right-4'
                   : 'bottom-4 left-1/2 -translate-x-1/2'
-              }`}
+              } ${hoverToReveal ? revealClass : 'flex'}`}
             >
               {showIndicators &&
                 slides.map((_, i) => {

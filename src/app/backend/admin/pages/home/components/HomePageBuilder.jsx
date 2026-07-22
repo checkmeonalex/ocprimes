@@ -110,10 +110,28 @@ const isSafeUrl = (v) => v === '' || v.startsWith('/') || v.startsWith('http://'
 
 // ─── Image slot helper ─────────────────────────────────────────────────────
 
-function ImageSlot({ url, onPick, onClear, label, heightClass = 'h-28' }) {
+function ImageSlot({ url, mediaType = 'image', onPick, onClear, label, heightClass = 'h-28' }) {
   return url ? (
     <div className={`relative group rounded-xl overflow-hidden ${heightClass}`}>
-      <img src={url} alt="" className="w-full h-full object-cover" />
+      {mediaType === 'video' ? (
+        <video
+          src={url}
+          muted
+          loop
+          playsInline
+          autoPlay
+          preload="metadata"
+          controls={false}
+          className="h-full w-full object-cover pointer-events-none"
+        />
+      ) : (
+        <img src={url} alt="" className="w-full h-full object-cover" />
+      )}
+      {mediaType === 'video' && (
+        <span className="absolute left-1.5 top-1.5 rounded-full bg-black/70 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white">
+          Video
+        </span>
+      )}
       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
         <button type="button" onClick={onPick} className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-slate-900">Replace</button>
         <button type="button" onClick={onClear} className="rounded-full bg-white px-3 py-1 text-[11px] font-bold text-red-600">Remove</button>
@@ -528,19 +546,36 @@ function BannerGridEditor({ config, onChange }) {
 
 function HeroSliderEditor({ config, onChange }) {
   const [picker, setPicker] = useState(null); // { slot: number, target: 'desktop'|'mobile' }
+  const [posterPicker, setPosterPicker] = useState(null); // { slot: number, target: 'desktop'|'mobile' }
   const MAX_SLIDES = 5;
   const rawSlides = Array.isArray(config?.slides) ? config.slides : [];
-  const slides = Array.from({ length: MAX_SLIDES }, (_, i) => rawSlides[i] || { desktopUrl: '', mobileUrl: '', linkUrl: '' });
+  const slides = Array.from({ length: MAX_SLIDES }, (_, i) => rawSlides[i] || {
+    desktopUrl: '', desktopType: 'image', desktopPoster: '',
+    mobileUrl: '', mobileType: 'image', mobilePoster: '',
+    linkUrl: '',
+  });
 
   const updateSlide = useCallback((i, field, value) => {
     const next = slides.map((s, idx) => idx === i ? { ...s, [field]: value } : s);
     onChange({ ...config, slides: next });
   }, [slides, config, onChange]);
 
-  const handleMediaSelect = useCallback((url) => {
+  const handleMediaSelect = useCallback((url, type = 'image') => {
     if (!picker) return;
-    updateSlide(picker.slot, picker.target === 'desktop' ? 'desktopUrl' : 'mobileUrl', url);
-  }, [picker, updateSlide]);
+    const next = slides.map((s, idx) => {
+      if (idx !== picker.slot) return s;
+      return picker.target === 'desktop'
+        ? { ...s, desktopUrl: url, desktopType: type }
+        : { ...s, mobileUrl: url, mobileType: type };
+    });
+    onChange({ ...config, slides: next });
+  }, [picker, slides, config, onChange]);
+
+  const handlePosterSelect = useCallback((url) => {
+    if (!posterPicker) return;
+    const field = posterPicker.target === 'desktop' ? 'desktopPoster' : 'mobilePoster';
+    updateSlide(posterPicker.slot, field, url);
+  }, [posterPicker, updateSlide]);
 
   return (
     <div className="space-y-3 pt-1">
@@ -550,24 +585,50 @@ function HeroSliderEditor({ config, onChange }) {
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Slide {i + 1}</p>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 mb-1.5">Desktop</p>
+              <p className="text-[10px] font-semibold text-slate-400 mb-1.5">Desktop <span className="font-normal normal-case">(image or video)</span></p>
               <ImageSlot
                 url={slide.desktopUrl}
+                mediaType={slide.desktopType || 'image'}
                 onPick={() => setPicker({ slot: i, target: 'desktop' })}
                 onClear={() => updateSlide(i, 'desktopUrl', '')}
-                label="Choose desktop image"
+                label="Choose desktop image or video"
                 heightClass="h-20"
               />
+              {slide.desktopType === 'video' && (
+                <div className="mt-1.5">
+                  <p className="text-[9px] font-semibold text-slate-400 mb-1">Thumbnail shown while video loads</p>
+                  <ImageSlot
+                    url={slide.desktopPoster}
+                    onPick={() => setPosterPicker({ slot: i, target: 'desktop' })}
+                    onClear={() => updateSlide(i, 'desktopPoster', '')}
+                    label="Choose thumbnail"
+                    heightClass="h-14"
+                  />
+                </div>
+              )}
             </div>
             <div>
               <p className="text-[10px] font-semibold text-slate-400 mb-1.5">Mobile <span className="font-normal normal-case">(optional)</span></p>
               <ImageSlot
                 url={slide.mobileUrl}
+                mediaType={slide.mobileType || 'image'}
                 onPick={() => setPicker({ slot: i, target: 'mobile' })}
                 onClear={() => updateSlide(i, 'mobileUrl', '')}
-                label="Choose mobile image"
+                label="Choose mobile image or video"
                 heightClass="h-20"
               />
+              {slide.mobileType === 'video' && (
+                <div className="mt-1.5">
+                  <p className="text-[9px] font-semibold text-slate-400 mb-1">Thumbnail shown while video loads</p>
+                  <ImageSlot
+                    url={slide.mobilePoster}
+                    onPick={() => setPosterPicker({ slot: i, target: 'mobile' })}
+                    onClear={() => updateSlide(i, 'mobilePoster', '')}
+                    label="Choose thumbnail"
+                    heightClass="h-14"
+                  />
+                </div>
+              )}
             </div>
           </div>
           <input type="text" placeholder="Link URL (optional)"
@@ -581,6 +642,12 @@ function HeroSliderEditor({ config, onChange }) {
         isOpen={picker !== null}
         onClose={() => setPicker(null)}
         onSelect={handleMediaSelect}
+        acceptVideo
+      />
+      <MediaLibraryModal
+        isOpen={posterPicker !== null}
+        onClose={() => setPosterPicker(null)}
+        onSelect={handlePosterSelect}
       />
     </div>
   );

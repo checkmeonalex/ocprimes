@@ -213,9 +213,7 @@ const ProductCard = ({
         >
         {/* Image Container */}
         <div
-          className={`relative ${
-            product.isPortrait ? 'aspect-[3/4]' : 'aspect-square'
-          } overflow-hidden bg-gray-50`}
+          className='relative aspect-[3/4] overflow-hidden bg-gray-50'
           style={{ borderRadius: 0 }}
         >
           <div className='relative w-full h-full'>

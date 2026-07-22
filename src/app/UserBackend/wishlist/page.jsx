@@ -40,7 +40,7 @@ const WishlistSkeleton = () => (
             key={`wishlist-skeleton-card-${index}`}
             className='overflow-hidden rounded-md border border-slate-200 bg-white'
           >
-            <div className='aspect-square animate-pulse bg-slate-200' />
+            <div className='aspect-[3/4] animate-pulse bg-slate-200' />
             <div className='space-y-2 p-3'>
               <div className='h-3.5 w-3/4 animate-pulse rounded bg-slate-200' />
               <div className='h-3.5 w-1/2 animate-pulse rounded bg-slate-200' />

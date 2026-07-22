@@ -354,7 +354,9 @@ function MobileNavbar({
       // vendor sub-header can take over the top slot; reveal on scroll-up.
       const nextMainBarVisible = isVendorStore || isProductPage ? nearTop || scrollingUp : true
       setIsMainBarVisible(nextMainBarVisible)
-      setIsMainNavVisible(nextMainBarVisible)
+      if (isVendorStore || isProductPage) {
+        setIsMainNavVisible(nextMainBarVisible)
+      }
 
       lastScrollYRef.current = currentY
     }

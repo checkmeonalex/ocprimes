@@ -4,18 +4,21 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { prepareWebpUpload } from '../../image/utils/webpUtils.mjs';
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_VIDEO_UPLOAD_BYTES = 100 * 1024 * 1024;
 
-export default function MediaLibraryModal({ isOpen, onClose, onSelect }) {
+export default function MediaLibraryModal({ isOpen, onClose, onSelect, acceptVideo = false }) {
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlValue, setUrlValue] = useState('');
   const [urlError, setUrlError] = useState('');
   const fileInputRef = useRef(null);
+  const videoInputRef = useRef(null);
   const urlInputRef = useRef(null);
 
   const fetchPage = useCallback(async (pageNum, replace = false) => {
@@ -50,7 +53,7 @@ export default function MediaLibraryModal({ isOpen, onClose, onSelect }) {
     const url = urlValue.trim();
     if (!url) { setUrlError('Paste an image URL first.'); return; }
     try { new URL(url); } catch { setUrlError("That doesn't look like a valid URL."); return; }
-    onSelect(url);
+    onSelect(url, 'image');
     onClose();
   };
 
@@ -85,13 +88,37 @@ export default function MediaLibraryModal({ isOpen, onClose, onSelect }) {
       if (!res.ok) throw new Error(data?.error || 'Upload failed.');
       const url = String(data?.url || '').trim();
       if (url) {
-        onSelect(url);
+        onSelect(url, 'image');
         onClose();
       }
     } catch {
       // silent — user can retry
     } finally {
       setIsUploading(false);
+    }
+  }, [onSelect, onClose]);
+
+  const handleUploadVideo = useCallback(async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !String(file.type).startsWith('video/')) return;
+    if (file.size > MAX_VIDEO_UPLOAD_BYTES) return;
+    setIsUploadingVideo(true);
+    try {
+      const form = new FormData();
+      form.set('file', file);
+      const res = await fetch('/api/admin/media/video/upload', { method: 'POST', body: form });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || 'Upload failed.');
+      const url = String(data?.url || '').trim();
+      if (url) {
+        onSelect(url, 'video');
+        onClose();
+      }
+    } catch {
+      // silent — user can retry
+    } finally {
+      setIsUploadingVideo(false);
     }
   }, [onSelect, onClose]);
 
@@ -139,6 +166,23 @@ export default function MediaLibraryModal({ isOpen, onClose, onSelect }) {
               )}
               Upload New
             </button>
+            {acceptVideo ? (
+              <button
+                type="button"
+                onClick={() => videoInputRef.current?.click()}
+                disabled={isUploadingVideo}
+                className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-slate-300 disabled:opacity-60"
+              >
+                {isUploadingVideo ? (
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
+                ) : (
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m15.75 10.5 4.72-2.36a.75.75 0 0 1 1.08.67v9.38a.75.75 0 0 1-1.08.67L15.75 16.5m-9-9h6a2.25 2.25 0 0 1 2.25 2.25v8.25a2.25 2.25 0 0 1-2.25 2.25h-6a2.25 2.25 0 0 1-2.25-2.25v-8.25A2.25 2.25 0 0 1 6.75 7.5Z" />
+                  </svg>
+                )}
+                Upload video
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onClose}
@@ -200,7 +244,7 @@ export default function MediaLibraryModal({ isOpen, onClose, onSelect }) {
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => { onSelect(item.url); onClose(); }}
+                    onClick={() => { onSelect(item.url, 'image'); onClose(); }}
                     className="group relative aspect-square overflow-hidden rounded-xl border-2 border-transparent transition hover:border-slate-900 focus:border-slate-900 focus:outline-none"
                     title={item.alt_text || item.title || ''}
                   >
@@ -235,6 +279,9 @@ export default function MediaLibraryModal({ isOpen, onClose, onSelect }) {
       </div>
 
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadFile} />
+      {acceptVideo ? (
+        <input ref={videoInputRef} type="file" accept="video/*" className="hidden" onChange={handleUploadVideo} />
+      ) : null}
     </div>
   );
 }

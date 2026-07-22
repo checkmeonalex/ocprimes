@@ -45,21 +45,36 @@ async function renderBlock(block) {
     case 'hero_slider': {
       const slides = Array.isArray(cfg.slides) ? cfg.slides : []
       const desktopUrls = []
+      const desktopTypes = []
+      const desktopPosters = []
       const mobileUrls = []
+      const mobileTypes = []
+      const mobilePosters = []
       const links = []
       slides.forEach((s) => {
         if (s.desktopUrl) {
           desktopUrls.push(s.desktopUrl)
+          desktopTypes.push(s.desktopType === 'video' ? 'video' : 'image')
+          desktopPosters.push(s.desktopPoster || '')
           mobileUrls.push(s.mobileUrl || '')
+          mobileTypes.push(s.mobileType === 'video' ? 'video' : 'image')
+          mobilePosters.push(s.mobilePoster || '')
           links.push(s.linkUrl || '')
         }
       })
       if (!desktopUrls.length) return null
       return (
-        <section className='w-full px-3 sm:px-4 md:px-5'>
-          <div className='relative isolate overflow-hidden rounded-2xl md:rounded-3xl bg-gray-900 h-[44vw] max-h-[460px] min-h-[200px] sm:min-h-[260px]'>
-            <HomeHeroSlider images={desktopUrls} mobileImages={mobileUrls} links={links} autoMs={5000} />
-          </div>
+        <section className='relative isolate w-[calc(100%+0.2rem)] -mx-[0.10rem] overflow-hidden sm:w-full sm:mx-0'>
+          <HomeHeroSlider
+            images={desktopUrls}
+            imageTypes={desktopTypes}
+            imagePosters={desktopPosters}
+            mobileImages={mobileUrls}
+            mobileImageTypes={mobileTypes}
+            mobileImagePosters={mobilePosters}
+            links={links}
+            autoMs={5000}
+          />
         </section>
       )
     }

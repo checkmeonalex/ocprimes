@@ -6,7 +6,7 @@ const ProductCardLoadingState = ({ className = '' }) => {
       className={`relative rounded-none bg-white shadow-sm ${className}`.trim()}
       style={{ borderRadius: 0 }}
     >
-      <div className='relative aspect-square overflow-hidden bg-gray-50' style={{ borderRadius: 0 }}>
+      <div className='relative aspect-[3/4] overflow-hidden bg-gray-50' style={{ borderRadius: 0 }}>
         <Skeleton className='h-full w-full rounded-none bg-gray-200' />
         <Skeleton className='absolute left-3 top-4 h-4 w-12 rounded-sm bg-gray-100' />
         <Skeleton className='absolute right-3 top-3 h-10 w-10 rounded-full bg-gray-100' />
