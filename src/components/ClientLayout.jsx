@@ -12,7 +12,6 @@ import { AdminThemeProvider, useAdminTheme } from '../context/AdminThemeContext'
 import { useScreenSize } from '../hooks/useScreenSize'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
-import { useVendorPage } from '../context/VendorPageContext'
 
 // Applies the `dark` class to the entire admin section so dark: variants
 // work on both AdminMobileHeader and every page rendered inside AdminShell.
@@ -33,6 +32,26 @@ function AdminDarkWrapper({ children }) {
 
 const NEXT_NAVIGATION_EXEMPT_PREFIXES = ['/cart', '/wishlist', '/UserBackend/wishlist', '/account/wishlist']
 
+// Every top-level path segment that is NOT a vendor storefront slug. Anything
+// else matching /{segment} (no further sub-path) is routed through the
+// [vendorSlug] catch-all and is therefore a vendor store — computed
+// synchronously from the URL so the main header never mounts for vendor
+// pages in the first place (no client-side flash, no extra data fetch).
+const RESERVED_TOP_LEVEL_SEGMENTS = new Set([
+  'about', 'admin', 'agentic', 'auth', 'backend', 'cart', 'checkout',
+  'forgot-password', 'help-center', 'legal', 'login', 'offline',
+  'order-protection', 'privacy-policy', 'product', 'products',
+  'recently-viewed', 'reset-password', 'sellersignup', 'signup', 'storage',
+  'stores', 'UserBackend', 'vendor', 'vendors', 'verify-login', 'w',
+  'wishlist', 'api', 'account',
+])
+
+const isVendorStoreRoute = (pathname = '') => {
+  const segments = String(pathname || '').split('/').filter(Boolean)
+  if (segments.length !== 1) return false
+  return !RESERVED_TOP_LEVEL_SEGMENTS.has(segments[0])
+}
+
 const isNextNavigationExemptPath = (pathname = '') =>
   NEXT_NAVIGATION_EXEMPT_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
@@ -47,7 +66,7 @@ export default function ClientLayout({
   const { isMobile } = useScreenSize()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { isVendorPage } = useVendorPage()
+  const isVendorPage = isVendorStoreRoute(pathname)
   const isEmbedPreview = searchParams?.get('embed_preview') === '1'
   const isAuthRoute =
     pathname?.startsWith('/login') ||
@@ -163,13 +182,13 @@ export default function ClientLayout({
       <UserPresenceHeartbeat />
       <ScrollHistoryRestoration />
 
-      {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute && !isVendorPage ? (
+      {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute && !isVendorPage && !isProductRoute ? (
         <MobileNavbar
           initialAuthUser={initialAuthUser}
           initialTopCategories={initialTopCategories}
         />
       ) : null}
-      {(!isMobile || isCheckoutFlowRoute) && !isVendorPage ? (
+      {(!isMobile || isCheckoutFlowRoute) && !isVendorPage && !isProductRoute ? (
         <Navbar
           initialAuthUser={initialAuthUser}
           initialTopCategories={initialTopCategories}

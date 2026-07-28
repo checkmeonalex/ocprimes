@@ -5,7 +5,6 @@ import Link from 'next/link';
 import VendorCollectionsMenu from '@/components/vendor/VendorCollectionsMenu';
 import { VendorLogo } from '@/components/vendor/VendorHeaderShared';
 import VendorFloatingFollow from '@/components/vendor/VendorFloatingFollow';
-import { useVendorPage } from '@/context/VendorPageContext';
 
 const HEADER_H = 56;
 
@@ -25,17 +24,13 @@ export default function PrestigeVendorHeader({
 }) {
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const { isMainNavVisible } = useVendorPage();
-
-  // Hard swap with the main nav bar on both mobile and desktop — exactly one of the
-  // two is ever visible. When shown, the vendor header always sits at the very top.
-  const hiddenClass = isMainNavVisible ? 'hidden' : 'block';
 
   return (
     <>
-      {/* ── Prestige vendor sub-header — hard swap with main nav, never both visible ─── */}
+      {/* ── Prestige vendor sub-header — the main site navbar is fully unmounted on
+          vendor pages, so this header is always the only header shown. ─── */}
       <header
-        className={`fixed left-0 right-0 top-0 z-[39] bg-[#0a0a0a] border-b border-white/[0.07] ${hiddenClass}`}
+        className="fixed left-0 right-0 top-0 z-[39] bg-[#0a0a0a] border-b border-white/[0.07] block"
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="relative flex items-center" style={{ height: HEADER_H }}>

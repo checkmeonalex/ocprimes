@@ -99,10 +99,21 @@ const buildCombinedOrFilter = ({
 
 const withOptionalBrandColumns = async (supabase: any, brandId: string) => {
   const preferredSelect =
-    'id, name, slug, logo_url, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor'
+    'id, name, slug, logo_url, logo_full_url, logo_font, logo_size_desktop, logo_size_mobile, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor'
   const fallbackSelect = 'id, name, slug, logo_url'
 
-  const preferred = await supabase
+  // admin_brands is admin-only under RLS, but brand name/logo/metrics are
+  // public-facing storefront data — read it with the admin client so
+  // anonymous visitors on the public product page see the vendor's actual
+  // branding instead of a silently RLS-filtered empty row.
+  let readDb = supabase
+  try {
+    readDb = createAdminSupabaseClient()
+  } catch {
+    readDb = supabase
+  }
+
+  const preferred = await readDb
     .from(BRAND_TABLE)
     .select(preferredSelect)
     .eq('id', brandId)
@@ -112,7 +123,7 @@ const withOptionalBrandColumns = async (supabase: any, brandId: string) => {
     return preferred
   }
 
-  return supabase
+  return readDb
     .from(BRAND_TABLE)
     .select(fallbackSelect)
     .eq('id', brandId)
@@ -134,7 +145,7 @@ const attachVendorProfile = async (supabase: any, item: any) => {
       }
       const { data: brandByCreator, error: brandByCreatorError } = await creatorLookupDb
         .from(BRAND_TABLE)
-        .select('id, name, slug, logo_url')
+        .select('id, name, slug, logo_url, logo_full_url, logo_font, logo_size_desktop, logo_size_mobile')
         .eq('created_by', creatorId)
         .limit(1)
         .maybeSingle()
@@ -188,6 +199,10 @@ const attachVendorProfile = async (supabase: any, item: any) => {
       name: String(brandData?.name || '').trim(),
       slug: String(brandData?.slug || '').trim(),
       logo_url: String(brandData?.logo_url || '').trim(),
+      logo_full_url: String(brandData?.logo_full_url || '').trim(),
+      logo_font: String(brandData?.logo_font || '').trim(),
+      logo_size_desktop: Number(brandData?.logo_size_desktop) || null,
+      logo_size_mobile: Number(brandData?.logo_size_mobile) || null,
       badge: Boolean(brandData?.is_trusted_vendor) ? 'Trusted seller' : '',
     },
   }

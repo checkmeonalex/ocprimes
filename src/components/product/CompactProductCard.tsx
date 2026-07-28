@@ -114,11 +114,11 @@ export const CompactProductCard = ({
               {product.name}
             </div>
             <div className='mt-1 flex items-baseline gap-2'>
-              <span className='font-mono text-sm font-semibold text-gray-900'>
+              <span className={`font-mono text-sm font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
                 {formatMoney(product.price)}
               </span>
               {product.originalPrice ? (
-                <span className='font-mono text-xs font-normal text-gray-400 line-through'>
+                <span className={`font-mono text-xs font-normal line-through ${dark ? 'text-white/60' : 'text-gray-400'}`}>
                   {formatMoney(product.originalPrice)}
                 </span>
               ) : null}

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { buildCanonicalProductSlug, loadPublicProductItem } from '@/lib/catalog/product-route'
 import { DEFAULT_VENDOR_VERIFIED_BADGE_PATH } from '@/lib/catalog/vendor-verification'
+import { getCachedTopCategories } from '@/lib/catalog/top-categories-server'
 import { BRAND_NAME } from '@/lib/brand'
 import { SITE_URL } from '@/lib/seo'
 import ProductContent from './ProductPageClient'
@@ -124,6 +125,20 @@ export default async function ProductPage({
   const result = await loadPublicProductItem(supabase, slug, {
     previewRequested: Boolean(preview),
   })
+
+  let initialAuthUser = null
+  let initialTopCategories: any[] = []
+  try {
+    const { data } = await supabase.auth.getUser()
+    initialAuthUser = data?.user ?? null
+  } catch {
+    initialAuthUser = null
+  }
+  try {
+    initialTopCategories = await getCachedTopCategories()
+  } catch {
+    initialTopCategories = []
+  }
   const initialItem = result.item
 
   if (!initialItem) {
@@ -143,6 +158,10 @@ export default async function ProductPage({
     vendorHeaderProfile = {
       name: String(vendorBrand.name || vp?.name || '').trim(),
       logoUrl: String(vp?.logo_url || '').trim(),
+      logoFullUrl: String(vp?.logo_full_url || '').trim(),
+      logoFont: String(vp?.logo_font || '').trim(),
+      logoSizeDesktop: Number(vp?.logo_size_desktop) || null,
+      logoSizeMobile: Number(vp?.logo_size_mobile) || null,
       slug: String(vendorBrand.slug || '').trim(),
       brandId: String(vendorBrand.id || '').trim(),
       brandCreatedBy: String(vendorBrand.created_by || '').trim(),
@@ -159,6 +178,7 @@ export default async function ProductPage({
         DEFAULT_VENDOR_VERIFIED_BADGE_PATH,
     }
   }
+
   const productName = String(initialItem?.name || 'Product').trim()
   const description = buildProductDescription(initialItem)
   const vendorName = String(
@@ -236,7 +256,14 @@ export default async function ProductPage({
         type='application/ld+json'
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
       />
-      <ProductContent slug={slug} initialItem={initialItem} vendorTemplate={vendorTemplate} vendorHeaderProfile={vendorHeaderProfile} />
+      <ProductContent
+        slug={slug}
+        initialItem={initialItem}
+        vendorTemplate={vendorTemplate}
+        vendorHeaderProfile={vendorHeaderProfile}
+        initialAuthUser={initialAuthUser}
+        initialTopCategories={initialTopCategories}
+      />
     </>
   )
 }

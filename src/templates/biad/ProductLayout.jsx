@@ -177,6 +177,7 @@ export default function BiadProductLayout({
           canFollow={vendorFollowState.canFollow}
           canEditStorefront={vendorFollowState.canEditStorefront}
           categoryTree={[]}
+          showCollectionsMenu={false}
           collectionsMenuMode='grouped'
           activeCategorySlug=''
           searchValue=''

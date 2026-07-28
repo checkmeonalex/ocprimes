@@ -14,7 +14,12 @@ export default function ProductImagePlaceholder({ className = '', name = '', log
       <div className='absolute inset-x-0 top-0 h-24 bg-[linear-gradient(120deg,transparent,rgba(255,255,255,0.58),transparent)] opacity-70 animate-[pulse_2.4s_ease-in-out_infinite]' />
       <div className='relative flex items-center justify-center text-center'>
         {cleanLogoUrl ? (
-          <img src={cleanLogoUrl} alt='' className='max-h-12 w-auto max-w-[70%] object-contain opacity-90' />
+          <img
+            src={cleanLogoUrl}
+            alt=''
+            className='w-auto max-w-[70%] object-contain opacity-90'
+            style={{ maxHeight: '48px', height: 'auto' }}
+          />
         ) : (
           <span
             className={`px-5 font-medium text-[#6f4f35] [font-family:Georgia,serif] [word-spacing:0.2em] ${

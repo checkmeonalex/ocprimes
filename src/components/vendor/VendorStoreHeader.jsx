@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import VendorCollectionsMenu from './VendorCollectionsMenu';
 import VendorMobileCollectionsDropdown from './VendorMobileCollectionsDropdown';
@@ -8,7 +8,6 @@ import { VendorLogo } from './VendorHeaderShared';
 import VendorFloatingFollow from './VendorFloatingFollow';
 
 const HEADER_H = 60;
-const MAIN_NAV_H = 56; // matches top-14 (3.5rem)
 
 export default function VendorStoreHeader({
   vendorProfile,
@@ -27,38 +26,13 @@ export default function VendorStoreHeader({
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
-  const [mainNavGone, setMainNavGone] = useState(false);
-  const lastScrollYRef = useRef(0);
-
-  useEffect(() => {
-    const onScroll = () => {
-      const currentY = Math.max(0, window.scrollY || 0);
-
-      if (window.innerWidth < 1024) {
-        // Mobile: mirror MobileNavbar's direction-aware logic exactly.
-        // Hide main nav (vendor header → top-0) when scrolling down past 80 px;
-        // restore (vendor header → top-14) when near top or scrolling back up.
-        const nearTop = currentY < 80;
-        const scrollingUp = currentY < lastScrollYRef.current;
-        setMainNavGone(!nearTop && !scrollingUp);
-      } else {
-        // Desktop: main nav is always fixed — vendor header sits below it until
-        // the page scrolls past its height, then locks to top-0.
-        setMainNavGone(currentY >= MAIN_NAV_H);
-      }
-
-      lastScrollYRef.current = currentY;
-    };
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   return (
     <>
-      {/* ── Vendor sub-header — sticks to top once main nav scrolls away ─── */}
+      {/* ── Vendor sub-header — the main site navbar is fully unmounted on
+          vendor pages, so this header always sits at the very top. ─── */}
       <header
-        className={`fixed left-0 right-0 z-[39] bg-white border-b border-gray-100 shadow-sm transition-[top] duration-200 ${mainNavGone ? 'top-0' : 'top-14 xl:top-16'}`}
+        className="fixed left-0 right-0 top-0 z-[39] bg-white border-b border-gray-100 shadow-sm"
       >
         <div className="mx-auto max-w-7xl px-3 sm:px-5 lg:px-8">
           <div className="flex items-center justify-between gap-2" style={{ height: HEADER_H }}>
@@ -159,8 +133,8 @@ export default function VendorStoreHeader({
         </div>
       </header>
 
-      {/* spacer: main navbar (14/16) + vendor sub-header */}
-      <div className="mt-14 xl:mt-16" style={{ height: HEADER_H }} />
+      {/* spacer: reserves space for the fixed vendor sub-header above */}
+      <div style={{ height: HEADER_H }} />
 
       <VendorCollectionsMenu isOpen={isCollectionsOpen} onClose={() => setIsCollectionsOpen(false)}
         categoryTree={categoryTree} vendorSlug={vendorProfile?.slug}

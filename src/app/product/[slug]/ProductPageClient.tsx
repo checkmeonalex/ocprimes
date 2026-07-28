@@ -31,6 +31,9 @@ import { formatVariationToken } from '@/lib/product/variation-label.mjs'
 import { useWishlist } from '../../../context/WishlistContext'
 import { getTemplate } from '@/templates/index.mjs'
 import BiadProductLayout from '@/templates/biad/ProductLayout'
+import { useVendorPage } from '@/context/VendorPageContext'
+import Navbar from '@/components/Navbar'
+import MobileNavbar from '@/components/mobile/Navbar'
 
 const RICH_HTML_CLASS_GRAY =
   'text-sm text-gray-600 leading-relaxed [&_h1]:text-2xl [&_h1]:font-semibold [&_h1]:text-gray-900 [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-gray-900 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:text-gray-900 [&_h4]:text-sm [&_h4]:font-semibold [&_h4]:text-gray-800 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1 [&_figure]:max-w-full [&_figure]:overflow-hidden [&_img]:mt-0 [&_img]:block [&_img]:mx-auto [&_img]:max-w-full [&_img]:h-auto [&_img]:object-contain [&_img]:!max-w-full [&_img]:!h-auto [&_.packaging-preview-image]:-mt-8'
@@ -460,14 +463,30 @@ type ProductPageClientProps = {
   initialItem: any
   vendorTemplate?: string
   vendorHeaderProfile?: Record<string, any> | null
+  initialAuthUser?: any
+  initialTopCategories?: any[]
 }
 
-function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorHeaderProfile = null }: ProductPageClientProps) {
+function ProductContent({
+  slug,
+  initialItem,
+  vendorTemplate = 'default',
+  vendorHeaderProfile = null,
+  initialAuthUser = null,
+  initialTopCategories = [],
+}: ProductPageClientProps) {
   const template = getTemplate(vendorTemplate)
   const isPrestige = template.config.id !== 'default'
   const isBiad = template.config.id === 'biad'
   const TemplateVendorHeader = template.VendorHeader as unknown as React.ComponentType<any>
   const product: any = useMemo(() => mapApiProduct(initialItem), [initialItem])
+
+  const { setIsVendorPage } = useVendorPage()
+  useEffect(() => {
+    if (!vendorHeaderProfile) return
+    setIsVendorPage(true)
+    return () => setIsVendorPage(false)
+  }, [vendorHeaderProfile, setIsVendorPage])
 
   const [relatedProducts, setRelatedProducts] = useState<any[]>([])
   const [selectedColor, setSelectedColor] = useState('')
@@ -1708,9 +1727,22 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
   const isShippingTab = activeTabData?.id === 'shipping'
   const activeTabHtml = sanitizeRichHtml(String(activeTabData?.content || ''))
 
+  // Non-vendor products render the main site header here (synchronously,
+  // from server-known data) instead of via the root layout — this route
+  // never shows the root layout's header at all, so it must self-provide
+  // one for the platform (non-vendor) case with zero flash/delay.
+  const mainHeaderFallback = !vendorHeaderProfile ? (
+    <>
+      <MobileNavbar initialAuthUser={initialAuthUser} initialTopCategories={initialTopCategories} />
+      <Navbar initialAuthUser={initialAuthUser} initialTopCategories={initialTopCategories} />
+    </>
+  ) : null
+
   if (isBiad) {
     return (
-      <BiadProductLayout
+      <>
+        {mainHeaderFallback}
+        <BiadProductLayout
         product={product}
         activeImage={activeImage}
         setCurrentImage={setCurrentImage}
@@ -1757,11 +1789,14 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
         isRelatedLoading={isRelatedLoading}
         categorySlug={categorySlug}
       />
+      </>
     )
   }
 
   if (isPrestige) {
     return (
+      <>
+      {mainHeaderFallback}
       <div className='product-page-sticky-shell min-h-screen flex overflow-x-hidden'>
         <div className='flex-1 min-w-0 overflow-x-hidden'>
           <main className='min-h-screen bg-[#f5f4f2] overflow-x-hidden w-full max-w-full'>
@@ -1777,6 +1812,7 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
                 canFollow={vendorFollowState.canFollow}
                 canEditStorefront={vendorFollowState.canEditStorefront}
                 categoryTree={[]}
+                showCollectionsMenu={false}
                 collectionsMenuMode='grouped'
                 activeCategorySlug=''
                 searchValue=''
@@ -2276,10 +2312,13 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
           productName={product.name}
         />
       </div>
+      </>
     )
   }
 
   return (
+    <>
+    {mainHeaderFallback}
     <div className='product-page-sticky-shell min-h-screen flex overflow-x-hidden md:overflow-x-visible'>
       <div className='flex-1 min-w-0'>
         {vendorHeaderProfile && (
@@ -2292,6 +2331,7 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
             canFollow={vendorFollowState.canFollow}
             canEditStorefront={vendorFollowState.canEditStorefront}
             categoryTree={[]}
+            showCollectionsMenu={false}
             collectionsMenuMode='grouped'
             activeCategorySlug=''
             searchValue=''
@@ -3103,6 +3143,7 @@ function ProductContent({ slug, initialItem, vendorTemplate = 'default', vendorH
         productName={product.name}
       />
     </div>
+    </>
   )
 }
 

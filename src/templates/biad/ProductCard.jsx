@@ -162,7 +162,7 @@ const BiadProductCard = ({ product, onAddToCart, placeholderLogoUrl = '' }) => {
           <div className="mt-1 flex items-center gap-2">
             <span className="text-sm font-black text-white">{formatMoney(priceValue)}</span>
             {hasDiscount && (
-              <span className="text-xs text-white/40 line-through">{formatMoney(originalPriceValue)}</span>
+              <span className="text-xs text-white/60 line-through">{formatMoney(originalPriceValue)}</span>
             )}
           </div>
         </div>
