@@ -150,7 +150,7 @@ export const fetchBrandBySlugOrId = async (value: string) => {
     supabase
       .from('admin_brands')
       .select(
-        'id, name, slug, description, logo_url, created_by, created_at, banner_slider_urls, banner_slider_mobile_urls, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor, trusted_badge_url, collections_menu_mode, banner_grid, storefront_section_order, storefront_blocks, template, use_custom_rating, custom_profile_rating, custom_profile_reviews, use_custom_orders, custom_profile_sold_display, use_custom_followers_growth, followers_growth_pct',
+        'id, name, slug, description, logo_url, logo_full_url, logo_font, logo_size_desktop, logo_size_mobile, created_by, created_at, banner_slider_urls, banner_slider_mobile_urls, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor, trusted_badge_url, collections_menu_mode, banner_grid, storefront_section_order, storefront_blocks, template, use_custom_rating, custom_profile_rating, custom_profile_reviews, use_custom_orders, custom_profile_sold_display, use_custom_followers_growth, followers_growth_pct',
       )
       .limit(1)
   const baseQueryLegacy = () =>

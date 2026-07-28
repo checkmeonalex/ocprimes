@@ -27,6 +27,7 @@ const ProductCard = ({
   onRemove,
   showTopAddToCart = false,
   isRemoving = false,
+  placeholderLogoUrl = '',
 }) => {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [selectedColor, setSelectedColor] = useState(product.colors?.[0] || '')
@@ -228,6 +229,8 @@ const ProductCard = ({
                 imageLoaded ? 'group-hover:scale-105' : ''
               }`}
               placeholderClassName='absolute inset-0'
+              placeholderName={product.vendor}
+              placeholderLogoUrl={placeholderLogoUrl}
               observerClassName='absolute inset-0'
               imgStyle={{ borderRadius: 0 }}
               onReady={() => {

@@ -45,16 +45,51 @@ function Accordion({ title, hint, children, defaultOpen = false }) {
   );
 }
 
+const DEFAULT_LOGO_SIZE_DESKTOP = 40;
+const DEFAULT_LOGO_SIZE_MOBILE = 32;
+
 export default function StoreFrontLogoSection({
   isLoading, brand, brandName,
   logoUrl, logoFailed, onLogoError, initials, isLogoUploading, onOpenMediaLibrary, onRemoveLogo,
   logoFullUrl, logoFullFailed, onLogoFullError, isLogoFullUploading, onOpenLogoFullMediaLibrary, onRemoveLogoFull,
   logoFont, isFontSaving, onFontSelect,
+  logoSizeDesktop, logoSizeMobile, isSizeSaving, onSizeChange,
 }) {
   usePreloadFonts();
   const [hovered, setHovered] = useState(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef(null);
+
+  const [desktopSizeDraft, setDesktopSizeDraft] = useState(
+    String(logoSizeDesktop || DEFAULT_LOGO_SIZE_DESKTOP),
+  );
+  const [mobileSizeDraft, setMobileSizeDraft] = useState(
+    String(logoSizeMobile || DEFAULT_LOGO_SIZE_MOBILE),
+  );
+
+  useEffect(() => {
+    setDesktopSizeDraft(String(logoSizeDesktop || DEFAULT_LOGO_SIZE_DESKTOP));
+  }, [logoSizeDesktop]);
+
+  useEffect(() => {
+    setMobileSizeDraft(String(logoSizeMobile || DEFAULT_LOGO_SIZE_MOBILE));
+  }, [logoSizeMobile]);
+
+  const commitDesktopSize = () => {
+    const next = Math.min(160, Math.max(16, Number(desktopSizeDraft) || DEFAULT_LOGO_SIZE_DESKTOP));
+    setDesktopSizeDraft(String(next));
+    if (next !== (logoSizeDesktop || DEFAULT_LOGO_SIZE_DESKTOP)) {
+      onSizeChange({ logo_size_desktop: next });
+    }
+  };
+
+  const commitMobileSize = () => {
+    const next = Math.min(160, Math.max(16, Number(mobileSizeDraft) || DEFAULT_LOGO_SIZE_MOBILE));
+    setMobileSizeDraft(String(next));
+    if (next !== (logoSizeMobile || DEFAULT_LOGO_SIZE_MOBILE)) {
+      onSizeChange({ logo_size_mobile: next });
+    }
+  };
 
   const DEFAULT_FONT = 'playfair';
   const activeKey = logoFont || DEFAULT_FONT;
@@ -145,6 +180,46 @@ export default function StoreFrontLogoSection({
           <p className="text-[11px] text-slate-400">Transparent PNG · Max 5 MB</p>
         </div>
       </Accordion>
+
+      {/* ── Header Logo Size (only once a header logo is set) ─ */}
+      {logoFullUrl && (
+        <Accordion
+          title="Header Logo Size"
+          hint={`Set how big your header logo looks on desktop and mobile.${isSizeSaving ? ' Saving…' : ''}`}
+        >
+          <div className="grid grid-cols-2 gap-4">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-slate-600">Desktop height (px)</span>
+              <input
+                type="number"
+                min={16}
+                max={160}
+                value={desktopSizeDraft}
+                onChange={(e) => setDesktopSizeDraft(e.target.value)}
+                onBlur={commitDesktopSize}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                disabled={isSizeSaving}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 disabled:opacity-50"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-slate-600">Mobile height (px)</span>
+              <input
+                type="number"
+                min={16}
+                max={160}
+                value={mobileSizeDraft}
+                onChange={(e) => setMobileSizeDraft(e.target.value)}
+                onBlur={commitMobileSize}
+                onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                disabled={isSizeSaving}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 disabled:opacity-50"
+              />
+            </label>
+          </div>
+          <p className="mt-2 text-[11px] text-slate-400">Range 16–160px. Applies to your Header Logo image in the storefront header.</p>
+        </Accordion>
+      )}
 
       {/* ── Store Name Font ────────────────────────────────── */}
       <Accordion

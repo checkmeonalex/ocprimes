@@ -72,9 +72,11 @@ export default function PrestigeVendorHeader({
                   logoUrl={vendorProfile?.logoUrl}
                   logoFullUrl={vendorProfile?.logoFullUrl}
                   logoFont={vendorProfile?.logoFont}
+                  logoSizeDesktop={vendorProfile?.logoSizeDesktop}
+                  logoSizeMobile={vendorProfile?.logoSizeMobile}
                   isLight
                 />
-                {vendorProfile?.isTrusted && (
+                {vendorProfile?.isTrusted && !vendorProfile?.logoFullUrl && (
                   <img src={vendorProfile.trustedBadgeUrl || '/icons/verification/vendor-verified-badge.png'}
                     alt="Verified" className="h-6 w-6 shrink-0" />
                 )}

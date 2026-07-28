@@ -135,6 +135,8 @@ export async function renderVendorPage(vendorSlug, searchParams = {}) {
           String(vendorMeta?.trusted_badge_url || '').trim() || DEFAULT_VENDOR_VERIFIED_BADGE_PATH,
         logoFont: String(vendorMeta?.logo_font || '').trim(),
         logoFullUrl: String(vendorMeta?.logo_full_url || '').trim(),
+        logoSizeDesktop: Number(vendorMeta?.logo_size_desktop) || null,
+        logoSizeMobile: Number(vendorMeta?.logo_size_mobile) || null,
       }}
       vendorTemplate={String(vendorMeta?.template || 'default').trim() || 'default'}
       vendorSlider={{

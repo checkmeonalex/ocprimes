@@ -9,6 +9,7 @@ const ProductGrid = ({
   onAddToCart,
   className = '',
   masonry = false,
+  placeholderLogoUrl = '',
 }) => {
   if (!products || !Array.isArray(products)) {
     return <div>No products available</div>
@@ -31,6 +32,7 @@ const ProductGrid = ({
             product={product}
             onAddToCart={onAddToCart}
             className='mb-0 break-inside-avoid'
+            placeholderLogoUrl={placeholderLogoUrl}
           />
         ))}
       </MasonryGrid>
@@ -44,6 +46,7 @@ const ProductGrid = ({
           key={product.id}
           product={product}
           onAddToCart={onAddToCart}
+          placeholderLogoUrl={placeholderLogoUrl}
         />
       ))}
     </div>

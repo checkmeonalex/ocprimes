@@ -49,16 +49,19 @@ export function useLoadGoogleFont(fontKey) {
 }
 
 // ── Vendor logo renderer ──────────────────────────────────────────────────────
-export function VendorLogo({ name, logoUrl, logoFullUrl, logoFont, isLight = false }) {
+export function VendorLogo({ name, logoUrl, logoFullUrl, logoFont, logoSizeDesktop, logoSizeMobile, isLight = false }) {
   useLoadGoogleFont(logoFont)
   const font = VENDOR_LOGO_FONTS[logoFont]
 
   if (logoFullUrl) {
+    const mobileHeight = Number(logoSizeMobile) || 32
+    const desktopHeight = Number(logoSizeDesktop) || 40
     return (
       <img
         src={logoFullUrl}
         alt={name}
-        className={`h-8 lg:h-10 w-auto max-w-[180px] object-contain ${isLight ? 'brightness-0 invert' : ''}`}
+        className={`vendor-logo-img w-auto max-w-[220px] object-contain ${isLight ? 'brightness-0 invert' : ''}`}
+        style={{ '--logo-h-mobile': `${mobileHeight}px`, '--logo-h-desktop': `${desktopHeight}px` }}
       />
     )
   }

@@ -163,13 +163,13 @@ export default function ClientLayout({
       <UserPresenceHeartbeat />
       <ScrollHistoryRestoration />
 
-      {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute ? (
+      {!isUserBackendRoute && !isCartRoute && !isCheckoutRoute && !isVendorPage ? (
         <MobileNavbar
           initialAuthUser={initialAuthUser}
           initialTopCategories={initialTopCategories}
         />
       ) : null}
-      {(!isMobile || isCheckoutFlowRoute) ? (
+      {(!isMobile || isCheckoutFlowRoute) && !isVendorPage ? (
         <Navbar
           initialAuthUser={initialAuthUser}
           initialTopCategories={initialTopCategories}

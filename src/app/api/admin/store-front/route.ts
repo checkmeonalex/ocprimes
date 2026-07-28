@@ -53,6 +53,12 @@ const bannerGridSchema = z
   .nullable()
 
 const updateSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, 'Store name must be at least 2 characters.')
+    .max(80, 'Store name is too long.')
+    .optional(),
   logo_url: z
     .preprocess((value) => {
       if (value === null || value === undefined) return value
@@ -71,6 +77,18 @@ const updateSchema = z.object({
       const normalized = String(value).trim()
       return normalized.length ? normalized : null
     }, z.string().max(60).nullable().optional()),
+  logo_size_desktop: z
+    .preprocess((value) => {
+      if (value === null || value === undefined || value === '') return null
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? parsed : value
+    }, z.number().int().min(16).max(160).nullable().optional()),
+  logo_size_mobile: z
+    .preprocess((value) => {
+      if (value === null || value === undefined || value === '') return null
+      const parsed = Number(value)
+      return Number.isFinite(parsed) ? parsed : value
+    }, z.number().int().min(16).max(160).nullable().optional()),
   banner_slider_urls: z.array(z.string().url().max(500)).max(5).optional(),
   banner_slider_keys: z.array(z.string().max(500)).max(5).optional(),
   banner_slider_mobile_urls: z.array(z.string().url().max(500)).max(5).optional(),
@@ -93,9 +111,13 @@ const updateSchema = z.object({
 })
 
 type StoreFrontUpdates = {
+  name?: string
+  slug?: string
   logo_url?: string | null
   logo_full_url?: string | null
   logo_font?: string | null
+  logo_size_desktop?: number | null
+  logo_size_mobile?: number | null
   banner_slider_urls?: string[]
   banner_slider_keys?: string[]
   banner_slider_mobile_urls?: string[]
@@ -112,10 +134,10 @@ type StoreFrontUpdates = {
   storefront_blocks?: Array<{ id: string; type: string; template?: string; config: Record<string, unknown> }>
 }
 
-const LEGACY_UPDATE_FIELDS = new Set(['logo_url'])
+const LEGACY_UPDATE_FIELDS = new Set(['name', 'slug', 'logo_url'])
 
 const selectColumns =
-  'id, name, slug, description, logo_url, logo_full_url, logo_font, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, collections_menu_mode, banner_grid, storefront_section_order, storefront_blocks, template'
+  'id, name, slug, description, logo_url, logo_full_url, logo_font, logo_size_desktop, logo_size_mobile, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, collections_menu_mode, banner_grid, storefront_section_order, storefront_blocks, template'
 const selectColumnsLegacy = 'id, name, slug, description, logo_url'
 const MISSING_COLUMN_CODE = '42703'
 
@@ -437,9 +459,16 @@ export async function PATCH(request: NextRequest) {
   }
 
   const updates: StoreFrontUpdates = {}
+  if (parsed.data.name !== undefined) updates.name = parsed.data.name
   if (parsed.data.logo_url !== undefined) updates.logo_url = parsed.data.logo_url
   if (parsed.data.logo_full_url !== undefined) updates.logo_full_url = parsed.data.logo_full_url
   if (parsed.data.logo_font !== undefined) updates.logo_font = parsed.data.logo_font
+  if (parsed.data.logo_size_desktop !== undefined) {
+    updates.logo_size_desktop = parsed.data.logo_size_desktop
+  }
+  if (parsed.data.logo_size_mobile !== undefined) {
+    updates.logo_size_mobile = parsed.data.logo_size_mobile
+  }
   if (parsed.data.banner_slider_urls !== undefined) {
     updates.banner_slider_urls = parsed.data.banner_slider_urls
   }
@@ -518,6 +547,32 @@ export async function PATCH(request: NextRequest) {
   const { data: brandToUpdate } = await loadBrandForUser(db, user, 'id', true)
   if (!brandToUpdate?.id) {
     return jsonError('No brand linked to this account.', 404)
+  }
+
+  if (parsed.data.name !== undefined) {
+    const baseSlug = toSlug(parsed.data.name) || `brand-${Date.now().toString().slice(-6)}`
+    let candidateSlug = baseSlug
+    let suffix = 2
+
+    while (true) {
+      const { data: slugMatch, error: slugError } = await db
+        .from('admin_brands')
+        .select('id')
+        .eq('slug', candidateSlug)
+        .neq('id', brandToUpdate.id)
+        .maybeSingle()
+
+      if (slugError) {
+        console.error('store-front slug lookup failed:', slugError.message)
+        return jsonError('Unable to prepare store URL.', 500)
+      }
+
+      if (!slugMatch) break
+      candidateSlug = `${baseSlug}-${suffix}`
+      suffix += 1
+    }
+
+    updates.slug = candidateSlug
   }
 
   const { data, error } = await db

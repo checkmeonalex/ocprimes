@@ -1350,3 +1350,14 @@ button,
     height: var(--rc-drag-handle-mobile-size);
   }
 }
+
+/* ── Vendor header logo (mobile/desktop size controls) ─── */
+.vendor-logo-img {
+  height: var(--logo-h-mobile, 32px);
+}
+
+@media (min-width: 1024px) {
+  .vendor-logo-img {
+    height: var(--logo-h-desktop, 40px);
+  }
+}

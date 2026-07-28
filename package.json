@@ -4,7 +4,7 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "dev": "next dev",
+    "dev": "node -r ./proxy-setup.js node_modules/.bin/next dev",
     "build": "next build",
     "start": "next start",
     "build:css": "tailwindcss -i ./input.css -o ./public/tailwind.css --watch",

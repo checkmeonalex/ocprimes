@@ -22,6 +22,8 @@ export default function ProductDeferredImage({
   alt,
   imgClassName = '',
   placeholderClassName = '',
+  placeholderName = '',
+  placeholderLogoUrl = '',
   imgStyle,
   eager = false,
   isLoadEnabled = true,
@@ -163,7 +165,13 @@ export default function ProductDeferredImage({
   )
 
   if (!normalizedSrc) {
-    return <ProductImagePlaceholder className={placeholderClassName} />
+    return (
+      <ProductImagePlaceholder
+        className={placeholderClassName}
+        name={placeholderName}
+        logoUrl={placeholderLogoUrl}
+      />
+    )
   }
 
   return (
@@ -171,6 +179,8 @@ export default function ProductDeferredImage({
       {showPlaceholder ? (
         <ProductImagePlaceholder
           className={`pointer-events-none transition-opacity duration-300 ${isReady ? 'opacity-0' : 'opacity-100'} ${placeholderClassName}`.trim()}
+          name={placeholderName}
+          logoUrl={placeholderLogoUrl}
         />
       ) : null}
 

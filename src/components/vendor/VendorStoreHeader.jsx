@@ -91,8 +91,10 @@ export default function VendorStoreHeader({
                   logoUrl={vendorProfile?.logoUrl}
                   logoFullUrl={vendorProfile?.logoFullUrl}
                   logoFont={vendorProfile?.logoFont}
+                  logoSizeDesktop={vendorProfile?.logoSizeDesktop}
+                  logoSizeMobile={vendorProfile?.logoSizeMobile}
                 />
-                {vendorProfile?.isTrusted && (
+                {vendorProfile?.isTrusted && !vendorProfile?.logoFullUrl && (
                   <img src={vendorProfile.trustedBadgeUrl || '/icons/verification/vendor-verified-badge.png'}
                     alt="Verified" className="h-6 w-6 lg:h-7 lg:w-7 shrink-0" />
                 )}

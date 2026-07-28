@@ -13,7 +13,7 @@ import ProductVariantQuickAddModal from '@/components/product/ProductVariantQuic
 import OutOfStockNotifyModal from '@/components/product/OutOfStockNotifyModal';
 import ProductDeferredImage from '@/components/product/ProductDeferredImage';
 
-const PrestigeProductCard = ({ product, onAddToCart }) => {
+const PrestigeProductCard = ({ product, onAddToCart, placeholderLogoUrl = '' }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
   const [showOutOfStockModal, setShowOutOfStockModal] = useState(false);
@@ -92,6 +92,8 @@ const PrestigeProductCard = ({ product, onAddToCart }) => {
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           imgClassName="absolute inset-0 h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
           placeholderClassName="absolute inset-0"
+          placeholderName={product?.vendor}
+          placeholderLogoUrl={placeholderLogoUrl}
           observerClassName="absolute inset-0"
           onReady={() => setImageLoaded(true)}
           onError={() => setImageLoaded(true)}

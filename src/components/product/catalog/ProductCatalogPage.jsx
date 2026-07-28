@@ -1478,6 +1478,7 @@ const ProductCatalogPage = ({
                       key={product.id}
                       product={product}
                       onAddToCart={handleAddToCart}
+                      placeholderLogoUrl={vendorProfile?.logoFullUrl}
                     />
                   ))}
                 </div>
@@ -1534,6 +1535,7 @@ const ProductCatalogPage = ({
                       key={product.id}
                       product={product}
                       onAddToCart={handleAddToCart}
+                      placeholderLogoUrl={vendorProfile?.logoFullUrl}
                     />
                   ))}
                 </div>
@@ -1696,6 +1698,7 @@ const ProductCatalogPage = ({
                   products={sortedProducts}
                   onAddToCart={handleAddToCart}
                   masonry
+                  placeholderLogoUrl={vendorProfile?.logoFullUrl}
                 />
                 {hasMoreFromServer && (
                   <div
