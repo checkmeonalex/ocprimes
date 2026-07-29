@@ -83,7 +83,7 @@ export const homeSettingsUpdateSchema = z.object({
   layout_order: z.array(homeLayoutKeySchema).max(HOME_LAYOUT_KEYS.length).optional(),
   home_blocks: z.array(z.object({
     id: z.string().max(100),
-    type: z.enum(['banner_grid', 'hero_slider', 'featured_strip', 'hotspot', 'logo_grid', 'product_catalog', 'browse_cards']),
+    type: z.enum(['banner_grid', 'hero_slider', 'featured_strip', 'hotspot', 'logo_grid', 'product_catalog', 'browse_cards', 'custom_html']),
     config: z.record(z.string(), z.any()),
   })).max(50).optional(),
 })

@@ -6,6 +6,8 @@ import HomeHeroSlider from '@/components/layouts/home/HomeHeroSlider'
 import ProductCardList from '@/components/product/ProductCardList'
 import { fetchProductListing } from '@/lib/catalog/product-listing'
 import { getCachedHomePageSettings } from '@/lib/home/settings'
+import { sanitizeCustomSectionHtml } from '@/utils/sanitization'
+import CustomSectionRunner from '@/components/layouts/home/CustomSectionRunner'
 
 const FEATURED_STRIP_FETCH_SIZE = 30
 
@@ -147,6 +149,22 @@ async function renderBlock(block) {
       const hasAny = Object.values(tabs).some((arr) => arr.length > 0)
       if (!hasAny) return null
       return <BrowseCategoriesClient title={cfg.title || ''} tabs={tabs} />
+    }
+
+    case 'custom_html': {
+      const safeHtml = sanitizeCustomSectionHtml(String(cfg.html || ''))
+      const mobileEnabled = Boolean(cfg.mobile?.enabled)
+      const safeMobileHtml = mobileEnabled ? sanitizeCustomSectionHtml(String(cfg.mobile?.html || '')) : ''
+      if (!safeHtml.trim() && !safeMobileHtml.trim()) return null
+      return (
+        <CustomSectionRunner
+          html={safeHtml}
+          js={cfg.js || ''}
+          mobileEnabled={mobileEnabled}
+          mobileHtml={safeMobileHtml}
+          mobileJs={cfg.mobile?.js || ''}
+        />
+      )
     }
 
     default:

@@ -101,6 +101,17 @@ const BLOCK_TYPES = [
     ),
     defaultConfig: () => ({ title: '', subtitle: '', filterMode: 'none', categoryId: '', tagId: '', limit: 12 }),
   },
+  {
+    key: 'custom_html',
+    label: 'Custom HTML',
+    description: 'Paste your own HTML (inline styles only) and optional JS for a fully custom section.',
+    icon: (
+      <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="m9.75 8.25-3 3.75 3 3.75m4.5-7.5 3 3.75-3 3.75M13.5 4.5l-3 15" />
+      </svg>
+    ),
+    defaultConfig: () => ({ html: '', js: '', mobile: { enabled: false, html: '', js: '' } }),
+  },
 ];
 
 const genId = () => `block_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
@@ -938,6 +949,339 @@ function LogoGridEditor({ config, onChange }) {
   );
 }
 
+// ─── Custom HTML editor ────────────────────────────────────────────────────
+
+// Small linear undo/redo history for a single text value. Coalesces rapid
+// keystrokes into one history entry (like most code editors) so undo steps
+// feel like meaningful edits rather than one step per character.
+function useTextHistory(value, onCommit) {
+  const historyRef = useRef([value]);
+  const indexRef = useRef(0);
+  const lastCommitAtRef = useRef(0);
+  const skipNextPushRef = useRef(false);
+
+  const push = (next) => {
+    if (skipNextPushRef.current) {
+      skipNextPushRef.current = false;
+      return;
+    }
+    const now = Date.now();
+    const coalesce = now - lastCommitAtRef.current < 500;
+    lastCommitAtRef.current = now;
+    const history = historyRef.current;
+    const index = indexRef.current;
+    if (coalesce && index === history.length - 1 && index > 0) {
+      history[index] = next;
+    } else {
+      const truncated = history.slice(0, index + 1);
+      truncated.push(next);
+      historyRef.current = truncated;
+      indexRef.current = truncated.length - 1;
+      return;
+    }
+  };
+
+  const undo = () => {
+    if (indexRef.current <= 0) return;
+    indexRef.current -= 1;
+    skipNextPushRef.current = true;
+    onCommit(historyRef.current[indexRef.current]);
+  };
+
+  const redo = () => {
+    if (indexRef.current >= historyRef.current.length - 1) return;
+    indexRef.current += 1;
+    skipNextPushRef.current = true;
+    onCommit(historyRef.current[indexRef.current]);
+  };
+
+  return {
+    push,
+    undo,
+    redo,
+    canUndo: indexRef.current > 0,
+    canRedo: indexRef.current < historyRef.current.length - 1,
+  };
+}
+
+function UndoRedoButtons({ onUndo, onRedo, canUndo, canRedo }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      <button
+        type="button"
+        onClick={onUndo}
+        disabled={!canUndo}
+        title="Undo"
+        aria-label="Undo"
+        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-30"
+      >
+        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 14 4 9l5-5M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        onClick={onRedo}
+        disabled={!canRedo}
+        title="Redo"
+        aria-label="Redo"
+        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-30"
+      >
+        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m15 14 5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+function HtmlJsFields({ html, js, onHtmlChange, onJsChange, idPrefix, jsDefaultExpanded = false }) {
+  const [jsExpanded, setJsExpanded] = useState(jsDefaultExpanded);
+  const [pickingImage, setPickingImage] = useState(false);
+  const htmlRef = useRef(null);
+
+  const htmlHistory = useTextHistory(html, onHtmlChange);
+  const jsHistory = useTextHistory(js, onJsChange);
+
+  const insertAtCursor = (text) => {
+    const el = htmlRef.current;
+    if (!el) {
+      htmlHistory.push(html + text);
+      onHtmlChange(html + text);
+      return;
+    }
+    const start = el.selectionStart ?? html.length;
+    const end = el.selectionEnd ?? html.length;
+    const next = html.slice(0, start) + text + html.slice(end);
+    htmlHistory.push(next);
+    onHtmlChange(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const cursor = start + text.length;
+      el.setSelectionRange(cursor, cursor);
+    });
+  };
+
+  return (
+    <div className="space-y-2.5">
+      <label className="block">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">HTML</span>
+          <div className="flex items-center gap-2">
+            <UndoRedoButtons
+              onUndo={htmlHistory.undo}
+              onRedo={htmlHistory.redo}
+              canUndo={htmlHistory.canUndo}
+              canRedo={htmlHistory.canRedo}
+            />
+            <button
+              type="button"
+              onClick={() => setPickingImage(true)}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-500 hover:text-slate-700"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path strokeLinecap="round" strokeLinejoin="round" d="m21 15-5-5L5 21" />
+              </svg>
+              Insert image
+            </button>
+          </div>
+        </div>
+        <textarea
+          ref={htmlRef}
+          value={html}
+          onChange={(e) => {
+            htmlHistory.push(e.target.value);
+            onHtmlChange(e.target.value);
+          }}
+          rows={8}
+          spellCheck={false}
+          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-900 px-3 py-2.5 font-mono text-xs leading-relaxed text-slate-100 outline-none focus:border-slate-400"
+          placeholder={'<div style="padding:40px;text-align:center">\n  <h2 style="font-size:32px;font-weight:800">Your custom section</h2>\n</div>'}
+        />
+      </label>
+
+      <MediaLibraryModal
+        isOpen={pickingImage}
+        onClose={() => setPickingImage(false)}
+        onSelect={(url) => {
+          insertAtCursor(url);
+          setPickingImage(false);
+        }}
+      />
+
+      <label className="block">
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setJsExpanded((v) => !v)}
+            className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-slate-600"
+          >
+            <svg className={`h-3 w-3 transition-transform ${jsExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+            </svg>
+            JS (optional){!jsExpanded && js.trim() ? ' — added' : ''}
+          </button>
+          {jsExpanded && (
+            <UndoRedoButtons
+              onUndo={jsHistory.undo}
+              onRedo={jsHistory.redo}
+              canUndo={jsHistory.canUndo}
+              canRedo={jsHistory.canRedo}
+            />
+          )}
+        </div>
+        {jsExpanded && (
+          <>
+            <textarea
+              value={js}
+              onChange={(e) => {
+                jsHistory.push(e.target.value);
+                onJsChange(e.target.value);
+              }}
+              rows={6}
+              spellCheck={false}
+              className="mt-1.5 w-full rounded-xl border border-slate-200 bg-slate-900 px-3 py-2.5 font-mono text-xs leading-relaxed text-slate-100 outline-none focus:border-slate-400"
+              placeholder={"// `section` is this block's own root element.\nconst btn = section.querySelector('button');\nbtn?.addEventListener('click', () => {\n  // ...\n});"}
+            />
+            <p className="mt-1.5 text-[11px] text-slate-400">
+              Runs once after this section mounts, deferred so it never blocks first paint.
+            </p>
+          </>
+        )}
+      </label>
+    </div>
+  );
+}
+
+function CustomHtmlEditor({ config, onChange }) {
+  const html = config?.html || '';
+  const js = config?.js || '';
+  const mobile = config?.mobile || {};
+  const mobileEnabled = Boolean(mobile.enabled);
+  const mobileHtml = mobile.html || '';
+  const mobileJs = mobile.js || '';
+
+  const [showPreview, setShowPreview] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const [previewTab, setPreviewTab] = useState('desktop');
+
+  const setMobile = (patch) => onChange({ ...config, mobile: { ...mobile, ...patch } });
+
+  return (
+    <div className="space-y-3 pt-1">
+      <button
+        type="button"
+        onClick={() => setShowInfo((v) => !v)}
+        className="flex w-full items-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-700"
+      >
+        <svg className={`h-3 w-3 transition-transform ${showInfo ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m9 6 6 6-6 6" />
+        </svg>
+        How this section works
+      </button>
+      {showInfo && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+          Use inline <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">style=&quot;...&quot;</code> attributes only —
+          Tailwind classes and <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">&lt;style&gt;</code> blocks won&apos;t
+          apply on the live page. Event handler attributes and embeds are stripped from the HTML — put interactivity in
+          the JS field instead, where a <code className="rounded bg-amber-100 px-1 py-0.5 font-mono">section</code> variable
+          points at this block&apos;s own root element. Click into the HTML where you want an image, then &quot;Insert
+          image&quot; to drop in a picked file&apos;s URL at that spot. Turn on &quot;Separate mobile version&quot; below to
+          write different HTML/JS for screens under 768px — only the matching version is ever mounted or executed, the
+          other is skipped entirely.
+        </div>
+      )}
+
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+        <div>
+          <p className="text-xs font-semibold text-slate-700">Separate mobile version</p>
+          <p className="text-[11px] text-slate-400">Screens under 768px get their own HTML/JS, chosen client-side.</p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={mobileEnabled}
+          onClick={() => setMobile({ enabled: !mobileEnabled })}
+          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${mobileEnabled ? 'bg-slate-900' : 'bg-slate-300'}`}
+        >
+          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${mobileEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        </button>
+      </div>
+
+      {mobileEnabled && (
+        <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+          <span className="flex-1 rounded-lg bg-white px-3 py-1.5 text-center text-slate-700 shadow-sm">Desktop &amp; up (≥768px)</span>
+        </div>
+      )}
+
+      <HtmlJsFields
+        idPrefix="desktop"
+        html={html}
+        js={js}
+        onHtmlChange={(next) => onChange({ ...config, html: next })}
+        onJsChange={(next) => onChange({ ...config, js: next })}
+        jsDefaultExpanded={false}
+      />
+
+      {mobileEnabled && (
+        <>
+          <div className="flex items-center gap-1 rounded-xl bg-slate-100 p-1 text-xs font-semibold">
+            <span className="flex-1 rounded-lg bg-white px-3 py-1.5 text-center text-slate-700 shadow-sm">Mobile only (&lt;768px)</span>
+          </div>
+          <HtmlJsFields
+            idPrefix="mobile"
+            html={mobileHtml}
+            js={mobileJs}
+            onHtmlChange={(next) => setMobile({ html: next })}
+            onJsChange={(next) => setMobile({ js: next })}
+            jsDefaultExpanded={false}
+          />
+        </>
+      )}
+
+      <div>
+        <button
+          type="button"
+          onClick={() => setShowPreview((v) => !v)}
+          className="text-[11px] font-semibold text-slate-500 underline underline-offset-2 hover:text-slate-700"
+        >
+          {showPreview ? 'Hide preview' : 'Show preview'}
+        </button>
+
+        {showPreview && (
+          <div className="mt-2 rounded-xl border border-slate-200 bg-white p-2">
+            {mobileEnabled && (
+              <div className="mb-2 flex items-center gap-1 rounded-lg bg-slate-100 p-1 text-[11px] font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setPreviewTab('desktop')}
+                  className={`flex-1 rounded-md px-2 py-1 ${previewTab === 'desktop' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400'}`}
+                >
+                  Desktop
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewTab('mobile')}
+                  className={`flex-1 rounded-md px-2 py-1 ${previewTab === 'mobile' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400'}`}
+                >
+                  Mobile
+                </button>
+              </div>
+            )}
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              HTML preview only (JS does not run here)
+            </p>
+            <div className="overflow-hidden rounded-lg border border-dashed border-slate-200">
+              {/* eslint-disable-next-line react/no-danger */}
+              <div dangerouslySetInnerHTML={{ __html: previewTab === 'mobile' ? mobileHtml : html }} />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Block subtitle helper ─────────────────────────────────────────────────
 
 function blockSubtitle(block) {
@@ -960,6 +1304,13 @@ function blockSubtitle(block) {
     case 'logo_grid': {
       const count = Array.isArray(cfg.items) ? cfg.items.length : 0;
       return `${count} logo${count !== 1 ? 's' : ''}${cfg.title ? ` · ${cfg.title}` : ''}`;
+    }
+    case 'custom_html': {
+      const len = String(cfg.html || '').length;
+      const hasJs = String(cfg.js || '').trim().length > 0;
+      const hasMobile = Boolean(cfg.mobile?.enabled);
+      if (!len) return 'Empty';
+      return `${len.toLocaleString()} characters${hasJs ? ' · with JS' : ''}${hasMobile ? ' · mobile variant' : ''}`;
     }
     default: return '';
   }
@@ -1015,6 +1366,7 @@ function BlockItem({ block, isExpanded, onToggle, onDelete, onConfigChange, onDr
           {block.type === 'product_catalog'&& <ProductCatalogEditor config={block.config} onChange={onConfigChange} categoryOptions={categoryOptions} tags={tags} />}
           {block.type === 'browse_cards'   && <BrowseCardsEditor   config={block.config} onChange={onConfigChange} />}
           {block.type === 'logo_grid'      && <LogoGridEditor      config={block.config} onChange={onConfigChange} />}
+          {block.type === 'custom_html'    && <CustomHtmlEditor    config={block.config} onChange={onConfigChange} />}
         </div>
       )}
     </div>
