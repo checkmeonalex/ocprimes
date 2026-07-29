@@ -49,10 +49,10 @@ function FacebookIcon(props) {
 }
 
 const socialPlatforms = [
-  { label: 'Instagram', Icon: InstagramIcon },
-  { label: 'TikTok', Icon: TikTokIcon },
-  { label: 'Twitter / X', Icon: XIcon },
-  { label: 'Facebook', Icon: FacebookIcon },
+  { label: 'Instagram', Icon: InstagramIcon, key: 'instagram_url' },
+  { label: 'TikTok', Icon: TikTokIcon, key: 'tiktok_url' },
+  { label: 'Twitter / X', Icon: XIcon, key: 'x_url' },
+  { label: 'Facebook', Icon: FacebookIcon, key: 'facebook_url' },
 ]
 
 const footerGroups = [
@@ -103,12 +103,28 @@ export default function Footer({ showBackToTop = true, topMargin = true }) {
   const year = new Date().getFullYear()
   const isInternational = locale.country === INTERNATIONAL_COUNTRY
   const [openMenu, setOpenMenu] = useState(null)
+  const [socialLinks, setSocialLinks] = useState(null)
   const languageMenuRef = useRef(null)
   const countryMenuRef = useRef(null)
 
   const handleBackToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/social-links')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!cancelled && payload?.item) setSocialLinks(payload.item)
+      })
+      .catch(() => {
+        // Non-fatal: labels still render without links.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -136,6 +152,8 @@ export default function Footer({ showBackToTop = true, topMargin = true }) {
           <div className='max-w-md'>
             <BrandLogo
               href='/'
+              tone='light'
+              fullClassName='h-auto w-[190px] sm:w-[230px] lg:w-[260px]'
               className='inline-flex flex-col items-start gap-2 text-white'
               markClassName='h-9 w-9 shrink-0 text-[#f5d10b]'
               labelClassName='text-xl font-semibold tracking-[0.08em] text-white'
@@ -217,12 +235,31 @@ export default function Footer({ showBackToTop = true, topMargin = true }) {
               <span className='hidden sm:inline'>All rights reserved.</span>
             </div>
             <div className='flex flex-wrap items-center gap-4 text-white/74'>
-              {socialPlatforms.map(({ label, Icon }) => (
-                <span key={label} className='inline-flex items-center gap-2 text-sm text-white/74'>
-                  <Icon className='h-4 w-4 shrink-0' />
-                  <span>{label}</span>
-                </span>
-              ))}
+              {socialPlatforms.map(({ label, Icon, key }) => {
+                const href = String(socialLinks?.[key] || '').trim()
+                // Icons always show; they only become links once an admin has
+                // set that platform's URL in settings.
+                if (!href) {
+                  return (
+                    <span key={label} className='inline-flex items-center gap-2 text-sm text-white/74'>
+                      <Icon className='h-4 w-4 shrink-0' />
+                      <span>{label}</span>
+                    </span>
+                  )
+                }
+                return (
+                  <a
+                    key={label}
+                    href={href}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                    className='inline-flex items-center gap-2 text-sm text-white/74 transition hover:text-white'
+                  >
+                    <Icon className='h-4 w-4 shrink-0' />
+                    <span>{label}</span>
+                  </a>
+                )
+              })}
             </div>
           </div>
 

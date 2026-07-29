@@ -1,5 +1,7 @@
 'use client'
 import Navbar from './Navbar'
+import SimpleHeader from './SimpleHeader'
+import AccountCenterBar from './user-backend/AccountCenterBar'
 import MobileNavbar from './mobile/Navbar'
 import ScrollHistoryRestoration from './ScrollHistoryRestoration'
 import Sidebar from './Sidebar'
@@ -189,10 +191,19 @@ export default function ClientLayout({
         />
       ) : null}
       {(!isMobile || isCheckoutFlowRoute) && !isVendorPage && !isProductRoute ? (
-        <Navbar
-          initialAuthUser={initialAuthUser}
-          initialTopCategories={initialTopCategories}
-        />
+        // Checkout keeps its own back-button header; everything else uses the
+        // simplified storefront header.
+        isCheckoutFlowRoute ? (
+          <Navbar
+            initialAuthUser={initialAuthUser}
+            initialTopCategories={initialTopCategories}
+          />
+        ) : (
+          <div className='fixed left-0 right-0 top-0 z-40 hidden lg:block'>
+            <SimpleHeader initialAuthUser={initialAuthUser} embedded />
+            {isUserBackendRoute ? <AccountCenterBar initialAuthUser={initialAuthUser} /> : null}
+          </div>
+        )
       ) : null}
 
       <div
@@ -205,7 +216,7 @@ export default function ClientLayout({
               ? 'pt-0'
             : isProductRoute
               ? 'pt-0 lg:pt-14 xl:pt-16'
-              : 'pt-24 lg:pt-[106px]'
+              : 'pt-24 lg:pt-16'
         }`}
       >
         <Sidebar />

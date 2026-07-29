@@ -209,7 +209,7 @@ export default function NotificationsPage() {
       })
       const payload = await response.json().catch(() => null)
       if (response.status === 401) {
-        window.location.href = '/login?next=/UserBackend/notifications'
+        window.location.href = '/login?next=/account/notifications'
         return
       }
       if (!response.ok) {

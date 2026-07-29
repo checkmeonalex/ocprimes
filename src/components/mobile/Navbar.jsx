@@ -136,42 +136,6 @@ function MobileNavbar({
   })
   const placeholderChipImage =
     'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="20" fill="%23e5e7eb"/></svg>'
-  const mobileTopBarCategories = useMemo(() => {
-    if (!Array.isArray(mobileCategories) || mobileCategories.length === 0) return []
-
-    if (mobileCategories.length !== 1) {
-      return mobileCategories.map((category) => ({
-        id: category.id,
-        name: category.name,
-        rootId: category.id,
-      }))
-    }
-
-    const onlyCategory = mobileCategories[0]
-    const firstSubcategoryGroup = Array.isArray(onlyCategory?.subcategories)
-      ? onlyCategory.subcategories[0]
-      : null
-    const childItems = Array.isArray(firstSubcategoryGroup?.items)
-      ? firstSubcategoryGroup.items
-      : []
-
-    if (!childItems.length) {
-      return [
-        {
-          id: onlyCategory.id,
-          name: onlyCategory.name,
-          rootId: onlyCategory.id,
-        },
-      ]
-    }
-
-    return childItems.map((child) => ({
-      id: child.id,
-      name: child.name,
-      rootId: onlyCategory.id,
-    }))
-  }, [mobileCategories])
-
   const updateMenuTopOffset = useCallback(() => {
     const navEl = navRef.current
     if (!navEl) return
@@ -323,10 +287,7 @@ function MobileNavbar({
   }, [initialTopCategories])
 
   useEffect(() => {
-    const SHOW_AT_Y = 80
-    const HIDE_AFTER_Y = 140
-
-    // Categories bar never shows on vendor store or product pages
+    // Shop links bar never shows on vendor store or product pages
     if (isVendorStore || isProductPage) {
       setIsSecondBarVisible(false)
     }
@@ -341,13 +302,9 @@ function MobileNavbar({
       const nearTop = currentY < 80
       const scrollingUp = currentY < lastScrollYRef.current
 
-      // Categories bar — only on regular pages (not vendor, not product)
+      // Shop links bar stays pinned on regular pages (not vendor, not product)
       if (!isVendorStore && !isProductPage) {
-        if (currentY <= SHOW_AT_Y || scrollingUp) {
-          setIsSecondBarVisible(true)
-        } else if (currentY >= HIDE_AFTER_Y) {
-          setIsSecondBarVisible(false)
-        }
+        setIsSecondBarVisible(true)
       }
 
       // Main bar: hide on scroll-down on vendor/product pages so the
@@ -567,14 +524,6 @@ function MobileNavbar({
     openPopularSearchTarget(targetUrl)
   }
 
-  const handleCategoriesClick = useCallback(() => {
-    toggleCategories()
-  }, [toggleCategories])
-
-  const handleCategoryListClick = useCallback((categoryId) => {
-    openCategories(categoryId || null)
-  }, [openCategories])
-
   const handleSearchToggle = useCallback(() => {
     setIsSearchOpen((prev) => !prev)
   }, [])
@@ -644,7 +593,8 @@ function MobileNavbar({
               <BrandLogo
                 href='/'
                 variant='full'
-                className='inline-flex min-w-0 max-w-full items-center gap-2 text-slate-900'
+                fullClassName='h-auto w-[112px] min-[360px]:w-[132px] min-[400px]:w-[150px] sm:w-[190px] max-w-full min-w-0 shrink'
+                className='inline-flex min-w-0 max-w-full shrink items-center gap-2 overflow-hidden text-slate-900'
                 markClassName='h-12 w-12 shrink-0 text-[#f5d10b]'
                 labelClassName='whitespace-nowrap text-lg font-bold tracking-tight text-slate-900 max-[374px]:text-[15px]'
                 ariaLabel='Alxora home'
@@ -988,61 +938,52 @@ function MobileNavbar({
                 : 'max-h-0 -translate-y-2 opacity-0'
             }`}
           >
-            <div className='px-4 py-2'>
-              <div className='flex items-center gap-3'>
+            <div className='px-3 py-2'>
+              <div className='flex items-center gap-2'>
                 <div className='min-w-0 flex-1 overflow-x-auto no-scrollbar'>
-                  <div className='flex items-center space-x-6'>
-                    <button
-                      onClick={handleCategoriesClick}
-                      className='text-sm font-medium text-gray-900 border-b-2 border-red-500 whitespace-nowrap flex items-center gap-2'
-                      aria-label='Toggle categories'
-                    >
-                      <svg
-                        className='h-5 w-5'
-                        fill='none'
-                        stroke='currentColor'
-                        viewBox='0 0 24 24'
-                        strokeWidth='2'
-                      >
-                        <path
-                          strokeLinecap='round'
-                          strokeLinejoin='round'
-                          d='M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z'
-                        ></path>
-                      </svg>
-                    </button>
-                    {mobileTopBarCategories.map((item) => (
-                      <button
-                        key={item.id}
-                        type='button'
-                        onClick={() => handleCategoryListClick(item.rootId)}
-                        className='text-sm text-gray-600 hover:text-gray-900 whitespace-nowrap'
-                      >
-                        {item.name}
-                      </button>
-                    ))}
+                  <div className='flex items-center gap-1.5'>
+                    {[
+                      { href: '/stores', label: 'Shops' },
+                      { href: '/products', label: 'Browse' },
+                      { href: '/sellersignup', label: 'Sell' },
+                    ].map(({ href, label }) => {
+                      const isActive = pathname === href
+                      return (
+                        <Link
+                          key={href}
+                          href={href}
+                          className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold tracking-tight transition-colors ${
+                            isActive
+                              ? 'bg-gray-900 text-white'
+                              : 'bg-gray-100 text-gray-700 active:bg-gray-200'
+                          }`}
+                        >
+                          {label}
+                        </Link>
+                      )
+                    })}
                   </div>
                 </div>
                 <Link
-                  href='/help-center'
-                  className='inline-flex flex-col items-center justify-center gap-0.5 rounded-md px-1.5 py-1 text-gray-900 hover:bg-gray-100'
-                  aria-label='Support'
+                  href='/wishlist'
+                  aria-label='Favourite'
+                  className='inline-flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-[13px] font-semibold tracking-tight text-gray-700 transition-colors active:bg-gray-100'
                 >
                   <svg
-                    className='h-5 w-5'
-                    viewBox='0 0 18 18'
-                    role='img'
-                    xmlns='http://www.w3.org/2000/svg'
+                    className='h-4 w-4'
+                    fill='none'
+                    stroke='currentColor'
+                    strokeWidth={2}
+                    viewBox='0 0 24 24'
                     aria-hidden='true'
-                    fill='currentColor'
-                    color='currentColor'
                   >
                     <path
-                      d='M16 7.184C16 3.14 12.86 0 9 0S2 3.14 2 7c-1.163.597-2 1.696-2 3v2a3 3 0 0 0 3 3h1a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1 5 5 0 0 1 10 0 1 1 0 0 0-1 1v6a1 1 0 0 0 1 1v1h-2.592c-.206-.581-.756-1-1.408-1H8a1.5 1.5 0 0 0 0 3h6a2 2 0 0 0 2-2v-1.183A2.992 2.992 0 0 0 18 12v-2a2.99 2.99 0 0 0-2-2.816Z'
-                      fillRule='evenodd'
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      d='M12 21s-6.716-4.517-9.038-8.187C.13 8.342 2.72 3 7.2 3c2.159 0 3.54 1.112 4.8 2.797C13.26 4.112 14.642 3 16.8 3 21.28 3 23.87 8.342 21.038 12.813 18.716 16.483 12 21 12 21z'
                     />
                   </svg>
-                  <span className='text-[9px] font-medium leading-none text-gray-500'>Help</span>
+                  Favourite
                 </Link>
               </div>
             </div>

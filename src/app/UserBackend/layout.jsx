@@ -21,7 +21,7 @@ export default async function UserBackendLayout({ children }) {
   const user = error ? null : data?.user || null
 
   if (!user) {
-    redirect('/signup?next=/UserBackend')
+    redirect('/signup?next=/account')
   }
 
   const displayName = getDisplayName(user)

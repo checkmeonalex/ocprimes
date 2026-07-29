@@ -131,6 +131,13 @@ export default function SettingsPage() {
     location: '',
   })
   const [socialForm, setSocialForm] = useState({ ...emptySocials })
+  const [siteSocialForm, setSiteSocialForm] = useState({
+    instagram_url: '',
+    tiktok_url: '',
+    x_url: '',
+    facebook_url: '',
+  })
+  const [isSavingSiteSocial, setIsSavingSiteSocial] = useState(false)
   const [notificationsForm, setNotificationsForm] = useState({ ...emptyNotifications })
   const [securityForm, setSecurityForm] = useState({
     currentPassword: '',
@@ -211,6 +218,30 @@ export default function SettingsPage() {
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+    const loadSiteSocials = async () => {
+      try {
+        const response = await fetch('/api/admin/social-links', { credentials: 'include' })
+        if (!response.ok) return
+        const payload = await response.json().catch(() => null)
+        if (cancelled || !payload?.item) return
+        setSiteSocialForm({
+          instagram_url: payload.item.instagram_url || '',
+          tiktok_url: payload.item.tiktok_url || '',
+          x_url: payload.item.x_url || '',
+          facebook_url: payload.item.facebook_url || '',
+        })
+      } catch {
+        // Non-fatal: the section just stays empty until saved.
+      }
+    }
+    loadSiteSocials()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     if (!avatarPreview) return undefined
     return () => URL.revokeObjectURL(avatarPreview)
   }, [avatarPreview])
@@ -271,6 +302,39 @@ export default function SettingsPage() {
       setError(saveError?.message || 'Unable to save profile settings.')
     } finally {
       setIsSavingProfile(false)
+    }
+  }
+
+  const saveSiteSocialSection = async () => {
+    setError('')
+    setSuccess('')
+    setIsSavingSiteSocial(true)
+    try {
+      const response = await fetch('/api/admin/social-links', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(siteSocialForm),
+      })
+      if (shouldRedirectForAuthFailure(response.status)) {
+        redirectToSignIn()
+        return
+      }
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(payload?.error || 'Unable to save footer social links.')
+      }
+      setSiteSocialForm({
+        instagram_url: payload?.item?.instagram_url || '',
+        tiktok_url: payload?.item?.tiktok_url || '',
+        x_url: payload?.item?.x_url || '',
+        facebook_url: payload?.item?.facebook_url || '',
+      })
+      setSuccess('Footer social links saved.')
+    } catch (saveError) {
+      setError(saveError?.message || 'Unable to save footer social links.')
+    } finally {
+      setIsSavingSiteSocial(false)
     }
   }
 
@@ -1161,6 +1225,61 @@ export default function SettingsPage() {
                     className='rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60'
                   >
                     {isSavingSocial ? 'Saving...' : 'Save social profiles'}
+                  </button>
+                </section>
+
+                <section id='settings-footer-social' className='space-y-4'>
+                  <div>
+                    <h2 className={sectionTitleClass}>Footer social links</h2>
+                    <p className='mt-1 text-sm text-slate-500'>
+                      Shown in the storefront footer on every page. Leave a field blank to hide that icon.
+                    </p>
+                  </div>
+                  <div className='grid gap-4 sm:grid-cols-2'>
+                    <div>
+                      <label className={labelClass}>Instagram</label>
+                      <input
+                        className={inputClass}
+                        value={siteSocialForm.instagram_url}
+                        onChange={(event) => setSiteSocialForm((prev) => ({ ...prev, instagram_url: event.target.value }))}
+                        placeholder='https://instagram.com/alxora'
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>TikTok</label>
+                      <input
+                        className={inputClass}
+                        value={siteSocialForm.tiktok_url}
+                        onChange={(event) => setSiteSocialForm((prev) => ({ ...prev, tiktok_url: event.target.value }))}
+                        placeholder='https://tiktok.com/@alxora'
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Twitter / X</label>
+                      <input
+                        className={inputClass}
+                        value={siteSocialForm.x_url}
+                        onChange={(event) => setSiteSocialForm((prev) => ({ ...prev, x_url: event.target.value }))}
+                        placeholder='https://x.com/alxora'
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Facebook</label>
+                      <input
+                        className={inputClass}
+                        value={siteSocialForm.facebook_url}
+                        onChange={(event) => setSiteSocialForm((prev) => ({ ...prev, facebook_url: event.target.value }))}
+                        placeholder='https://facebook.com/alxora'
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type='button'
+                    onClick={saveSiteSocialSection}
+                    disabled={isSavingSiteSocial}
+                    className='rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60'
+                  >
+                    {isSavingSiteSocial ? 'Saving...' : 'Save footer social links'}
                   </button>
                 </section>
 

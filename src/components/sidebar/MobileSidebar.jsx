@@ -154,7 +154,7 @@ export default function MobileSidebar({ isOpen, onClose, onOpenCategories }) {
       ? user.user_metadata.avatar_url.trim()
       : ''
   const isSignedIn = Boolean(user)
-  const accountHref = isSignedIn ? '/UserBackend' : '/login?next=/UserBackend'
+  const accountHref = isSignedIn ? '/account' : '/login?next=/account'
   const languageLabel =
     languageOptions.find((item) => item.code === locale.language)?.label || locale.language
   const currencyMeta = getCurrencyMeta(locale.currency)

@@ -363,7 +363,7 @@ export default function CheckoutReviewPage() {
 
             <div className='mt-4 space-y-2'>
               <Link
-                href='/UserBackend/orders'
+                href='/account/orders'
                 className='inline-flex h-11 w-full items-center justify-center rounded-md bg-black text-sm font-semibold text-white'
               >
                 Track order
@@ -505,13 +505,13 @@ export default function CheckoutReviewPage() {
 
             <div className='mt-5 flex flex-col items-center justify-center gap-2 sm:flex-row'>
               <Link
-                href='/UserBackend/orders'
+                href='/account/orders'
                 className='inline-flex h-11 min-w-[180px] items-center justify-center rounded-md bg-black px-5 text-sm font-semibold text-white'
               >
                 Track order
               </Link>
               <Link
-                href='/UserBackend/orders'
+                href='/account/orders'
                 className='inline-flex h-11 min-w-[180px] items-center justify-center rounded-md border border-black bg-white px-5 text-sm font-semibold text-black'
               >
                 View order

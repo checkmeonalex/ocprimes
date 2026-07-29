@@ -155,7 +155,7 @@ export default function CheckoutPaymentFailedPage() {
               </div>
 
               <Link
-                href='/UserBackend/messages'
+                href='/account/messages'
                 className='mt-3 inline-flex items-center text-sm font-semibold text-slate-700 hover:text-slate-900'
               >
                 Need help? Contact support
@@ -222,7 +222,7 @@ export default function CheckoutPaymentFailedPage() {
             </div>
 
             <Link
-              href='/UserBackend/messages'
+              href='/account/messages'
               className='mt-3 inline-flex items-center text-sm font-semibold text-slate-700 hover:text-slate-900'
             >
               Need help? Contact support

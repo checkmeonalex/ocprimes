@@ -576,7 +576,7 @@ export default function OrderDetailsPage() {
         const payload = await response.json().catch(() => null)
         if (!active) return
         if (response.status === 401) {
-          router.push(`/login?next=/UserBackend/orders/${orderId}`)
+          router.push(`/login?next=/account/orders/${orderId}`)
           return
         }
         if (!response.ok) {
@@ -1231,7 +1231,7 @@ export default function OrderDetailsPage() {
         timeoutMs: 9000,
         actionLabel: 'View request',
         onAction: () => {
-          router.push('/UserBackend/messages?help_center=1')
+          router.push('/account/messages?help_center=1')
         },
       })
     } catch (submitError) {
@@ -1304,7 +1304,7 @@ export default function OrderDetailsPage() {
   const trackingSteps = trackingActivity.steps
   const getItemReviewHref = (item) => {
     const productSlug = String(item?.productSlug || '').trim()
-    if (!productSlug) return '/UserBackend/reviews'
+    if (!productSlug) return '/account/reviews'
     return `/product/${encodeURIComponent(productSlug)}#reviews-section`
   }
 
@@ -1313,7 +1313,7 @@ export default function OrderDetailsPage() {
       <div className='mx-auto hidden w-full max-w-7xl px-4 pb-10 pt-4 min-[641px]:block'>
         <div className='mb-3 flex items-center justify-between'>
           <div className='flex items-center gap-2 text-sm text-slate-700'>
-            <Link href='/UserBackend/orders' className='inline-flex items-center gap-1 hover:text-slate-900'>
+            <Link href='/account/orders' className='inline-flex items-center gap-1 hover:text-slate-900'>
               <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2'>
                 <path d='m12.5 4.5-5 5 5 5' strokeLinecap='round' strokeLinejoin='round' />
               </svg>
@@ -1539,7 +1539,7 @@ export default function OrderDetailsPage() {
               <div className='flex items-start justify-between gap-2 px-1'>
                 <div className='flex min-w-0 items-start gap-2'>
                   <Link
-                    href='/UserBackend/orders'
+                    href='/account/orders'
                     className='mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#e9edf1] text-slate-700'
                     aria-label='Back to orders'
                   >

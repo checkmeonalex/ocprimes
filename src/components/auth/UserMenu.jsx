@@ -177,6 +177,16 @@ const renderMenuItemIcon = (label) => {
   if (label === 'Account & security') {
     return <AccountSecurityIcon className={iconProps.className} aria-hidden='true' />
   }
+  if (label === 'Support') {
+    return (
+      <svg viewBox='0 0 18 18' fill='currentColor' className={iconProps.className} aria-hidden='true'>
+        <path
+          d='M16 7.184C16 3.14 12.86 0 9 0S2 3.14 2 7c-1.163.597-2 1.696-2 3v2a3 3 0 0 0 3 3h1a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1 5 5 0 0 1 10 0 1 1 0 0 0-1 1v6a1 1 0 0 0 1 1v1h-2.592c-.206-.581-.756-1-1.408-1H8a1.5 1.5 0 0 0 0 3h6a2 2 0 0 0 2-2v-1.183A2.992 2.992 0 0 0 18 12v-2a2.99 2.99 0 0 0-2-2.816Z'
+          fillRule='evenodd'
+        />
+      </svg>
+    )
+  }
 
   return (
     <svg {...iconProps}>
@@ -627,7 +637,7 @@ export default function UserMenu({ variant = 'default', initialAuthUser = null }
                   className='mt-1 max-h-[54vh] overflow-y-auto pr-1.5 md:pr-2 [scrollbar-gutter:stable] [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.42)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-300/55 [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-transparent [&::-webkit-scrollbar-thumb]:bg-clip-padding hover:[&::-webkit-scrollbar-thumb]:bg-slate-400/55'
                 >
                   <div className='space-y-1'>
-                    {USER_MENU_ITEMS.map((item) => (
+                    {[...USER_MENU_ITEMS, { label: 'Support', href: '/help' }].map((item) => (
                       <Link
                         key={item.href}
                         href={item.href}

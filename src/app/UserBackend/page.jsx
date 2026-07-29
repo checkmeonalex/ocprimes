@@ -46,7 +46,7 @@ const ROLE_LABELS = {
 
 const getDashboardAccess = async (supabase, userId) => {
   if (!userId) {
-    return { shopHref: '/UserBackend/shop-access', canAccessShopDashboard: false, roleLabel: ROLE_LABELS.customer }
+    return { shopHref: '/account/shop-access', canAccessShopDashboard: false, roleLabel: ROLE_LABELS.customer }
   }
 
   const { data, error } = await supabase
@@ -57,7 +57,7 @@ const getDashboardAccess = async (supabase, userId) => {
 
   if (error) {
     console.error('Role lookup failed for account landing:', error.message)
-    return { shopHref: '/UserBackend/shop-access', canAccessShopDashboard: false, roleLabel: ROLE_LABELS.customer }
+    return { shopHref: '/account/shop-access', canAccessShopDashboard: false, roleLabel: ROLE_LABELS.customer }
   }
 
   const role = String(data?.role || '').toLowerCase()
@@ -65,7 +65,7 @@ const getDashboardAccess = async (supabase, userId) => {
   if (role === 'admin' || role === 'vendor' || role === 'seller') {
     return { shopHref: '/backend/admin/dashboard', canAccessShopDashboard: true, roleLabel }
   }
-  return { shopHref: '/UserBackend/shop-access', canAccessShopDashboard: false, roleLabel }
+  return { shopHref: '/account/shop-access', canAccessShopDashboard: false, roleLabel }
 }
 
 export default async function UserBackendHome() {

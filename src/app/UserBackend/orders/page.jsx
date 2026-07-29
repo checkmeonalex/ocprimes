@@ -133,7 +133,7 @@ export default function OrdersPage() {
         const payload = await response.json().catch(() => null)
         if (!isActive) return
         if (response.status === 401) {
-          router.push('/login?next=/UserBackend/orders')
+          router.push('/login?next=/account/orders')
           return
         }
         if (!response.ok) {

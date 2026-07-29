@@ -1733,7 +1733,7 @@ function CheckoutPaymentPageContent() {
                   <p className='mt-1 text-sm leading-6 text-slate-600'>
                     Need assistance with your order or account? Our support team is ready to help.
                   </p>
-                  <a href='/UserBackend/messages' className='mt-1 inline-flex items-center gap-1 text-sm font-semibold text-slate-700'>
+                  <a href='/account/messages' className='mt-1 inline-flex items-center gap-1 text-sm font-semibold text-slate-700'>
                     <span>Get help</span>
                     <svg viewBox='0 0 20 20' className='h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='2' aria-hidden='true'>
                       <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />

@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import fulllogo from '@/app/storage/fulllogo.png'
+import fulllogoDark from '../../../public/images/logo-dark.png'
+import fulllogoLight from '../../../public/images/logo-light.png'
 import minilogo from '@/app/storage/minilogo.png'
 import { BRAND_NAME, BRAND_TAGLINE } from '@/lib/brand'
 
@@ -29,16 +30,25 @@ export function BrandLogoMark({
 
 export function BrandLogoFull({
   className = 'h-auto w-[112px] min-[360px]:w-[124px] sm:w-[168px]',
+  // 'dark' is the dark-ink mark for light surfaces (header); 'light' is the
+  // light-ink mark for dark surfaces (footer).
+  tone = 'dark',
   ...props
 }) {
   return (
     <span
-      className={joinClasses('inline-block shrink-0', className)}
+      className={joinClasses(
+        'inline-block',
+        // Callers that opt into shrinking (e.g. tight mobile headers) pass
+        // their own `shrink`; otherwise the mark keeps its intrinsic width.
+        /(^|\s)shrink(\s|$)/.test(className) ? '' : 'shrink-0',
+        className,
+      )}
       aria-hidden='true'
       {...props}
     >
       <Image
-        src={fulllogo}
+        src={tone === 'light' ? fulllogoLight : fulllogoDark}
         alt=''
         priority={false}
         className='h-auto w-full object-contain'
@@ -59,11 +69,13 @@ export default function BrandLogo({
   ariaLabel = BRAND_NAME,
   showTagline = false,
   tagline = BRAND_TAGLINE,
+  tone = 'dark',
+  fullClassName,
 }) {
   const content = (
     <>
       {variant === 'full' ? (
-        <BrandLogoFull />
+        <BrandLogoFull tone={tone} {...(fullClassName ? { className: fullClassName } : {})} />
       ) : (
         <BrandLogoMark className={markClassName} />
       )}

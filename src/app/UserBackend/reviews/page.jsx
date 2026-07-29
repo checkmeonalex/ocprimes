@@ -88,7 +88,7 @@ export default function ReviewsPage() {
         const payload = await response.json().catch(() => null)
         if (!isActive) return
         if (response.status === 401) {
-          window.location.href = '/login?next=/UserBackend/reviews'
+          window.location.href = '/login?next=/account/reviews'
           return
         }
         if (!response.ok) {
@@ -142,7 +142,7 @@ export default function ReviewsPage() {
       )
       const payload = await response.json().catch(() => null)
       if (response.status === 401) {
-        window.location.href = '/login?next=/UserBackend/reviews'
+        window.location.href = '/login?next=/account/reviews'
         return
       }
       if (!response.ok) {
