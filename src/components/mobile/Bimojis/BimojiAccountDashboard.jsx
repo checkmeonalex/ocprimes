@@ -31,6 +31,7 @@ export default function BimojiAccountDashboard({
   shopHref = '/account/shop-access',
   showShopAction = false,
   bimojiCharacterId = '',
+  roleLabel = 'Customer',
 }) {
   const router = useRouter()
   const { locale, t } = useUserI18n()
@@ -208,8 +209,8 @@ export default function BimojiAccountDashboard({
                   {character.name}
                 </span>
               ) : null}
-              <span className='inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600'>
-                OCPrimes
+              <span className='inline-flex items-center rounded-full border border-indigo-200 bg-indigo-600 px-2.5 py-1 text-[11px] font-semibold text-white'>
+                {roleLabel}
               </span>
             </div>
 

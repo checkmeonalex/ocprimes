@@ -37,8 +37,17 @@ const getLocation = (user) => {
   return 'Location not set'
 }
 
+const ROLE_LABELS = {
+  admin: 'Admin',
+  vendor: 'Seller',
+  seller: 'Seller',
+  customer: 'Customer',
+}
+
 const getDashboardAccess = async (supabase, userId) => {
-  if (!userId) return { shopHref: '/UserBackend/shop-access', canAccessShopDashboard: false }
+  if (!userId) {
+    return { shopHref: '/UserBackend/shop-access', canAccessShopDashboard: false, roleLabel: ROLE_LABELS.customer }
+  }
 
   const { data, error } = await supabase
     .from('user_roles')
@@ -48,21 +57,22 @@ const getDashboardAccess = async (supabase, userId) => {
 
   if (error) {
     console.error('Role lookup failed for account landing:', error.message)
-    return { shopHref: '/UserBackend/shop-access', canAccessShopDashboard: false }
+    return { shopHref: '/UserBackend/shop-access', canAccessShopDashboard: false, roleLabel: ROLE_LABELS.customer }
   }
 
   const role = String(data?.role || '').toLowerCase()
+  const roleLabel = ROLE_LABELS[role] || ROLE_LABELS.customer
   if (role === 'admin' || role === 'vendor' || role === 'seller') {
-    return { shopHref: '/backend/admin/dashboard', canAccessShopDashboard: true }
+    return { shopHref: '/backend/admin/dashboard', canAccessShopDashboard: true, roleLabel }
   }
-  return { shopHref: '/UserBackend/shop-access', canAccessShopDashboard: false }
+  return { shopHref: '/UserBackend/shop-access', canAccessShopDashboard: false, roleLabel }
 }
 
 export default async function UserBackendHome() {
   const supabase = await createServerSupabaseClient()
   const { data, error } = await supabase.auth.getUser()
   const user = error ? null : data?.user || null
-  const { shopHref, canAccessShopDashboard } = await getDashboardAccess(supabase, user?.id)
+  const { shopHref, canAccessShopDashboard, roleLabel } = await getDashboardAccess(supabase, user?.id)
 
   return (
     <div className='m-0'>
@@ -74,6 +84,7 @@ export default async function UserBackendHome() {
         shopHref={shopHref}
         showShopAction={canAccessShopDashboard}
         bimojiCharacterId={String(user?.user_metadata?.bimoji_character || '')}
+        roleLabel={roleLabel}
       />
     </div>
   )

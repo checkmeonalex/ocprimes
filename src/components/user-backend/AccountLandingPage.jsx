@@ -44,6 +44,7 @@ export default function AccountLandingPage({
   shopHref = '/admin/dashboard',
   showShopAction = false,
   bimojiCharacterId = '',
+  roleLabel = 'Customer',
 }) {
   const router = useRouter()
   const { locale, t } = useUserI18n()
@@ -93,6 +94,7 @@ export default function AccountLandingPage({
         shopHref={shopHref}
         showShopAction={showShopAction}
         bimojiCharacterId={bimojiCharacterId}
+        roleLabel={roleLabel}
       />
     )
   }

@@ -365,7 +365,7 @@ export default function AddToCartSuccessPopup() {
 
             <div className='grid grid-cols-2 gap-2 sm:grid-cols-1 sm:gap-3'>
             <Link
-              href='/checkout/review'
+              href='/checkout/shipping'
               className='inline-flex h-11 w-full items-center justify-center rounded-full bg-black px-4 text-sm font-semibold text-white sm:h-12 sm:max-w-[320px]'
               onClick={() => {
                 setOpen(false)

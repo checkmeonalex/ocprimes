@@ -771,6 +771,15 @@ function CheckoutPaymentPageContent() {
   }
 
   const openAddressModal = () => {
+    if (isAuthLoading) {
+      setAddressError('Checking your account. Please wait a moment.')
+      return
+    }
+    if (!user) {
+      setAddressError('Sign in to add a billing address.')
+      router.push(`/login?redirect=${encodeURIComponent('/checkout/payment')}`)
+      return
+    }
     if (billingAddresses.length >= MAX_ADDRESSES) {
       setAddressError(`You can only save up to ${MAX_ADDRESSES} addresses.`)
       return
@@ -1151,7 +1160,9 @@ function CheckoutPaymentPageContent() {
                   <button
                     type='button'
                     onClick={openAddressModal}
-                    className='text-[11px] font-semibold text-slate-700 underline underline-offset-2'
+                    disabled={isAuthLoading}
+                    title={!isAuthLoading && !user ? 'Sign in to add a billing address' : undefined}
+                    className='text-[11px] font-semibold text-slate-700 underline underline-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
                   >
                     Add New
                   </button>
