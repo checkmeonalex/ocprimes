@@ -176,6 +176,21 @@ export default async function ProductPage({
       trustedBadgeUrl:
         String(vp?.trusted_badge_url || vp?.trustedBadgeUrl || '').trim() ||
         DEFAULT_VENDOR_VERIFIED_BADGE_PATH,
+      social: {
+        whatsapp: String(vp?.social_whatsapp || '').trim(),
+        instagramUrl: String(vp?.social_instagram_url || '').trim(),
+        instagramHandle: String(vp?.social_instagram_handle || '').trim(),
+        facebookUrl: String(vp?.social_facebook_url || '').trim(),
+        facebookHandle: String(vp?.social_facebook_handle || '').trim(),
+        xUrl: String(vp?.social_x_url || '').trim(),
+        xHandle: String(vp?.social_x_handle || '').trim(),
+        twitchUrl: String(vp?.social_twitch_url || '').trim(),
+        twitchHandle: String(vp?.social_twitch_handle || '').trim(),
+        tiktokUrl: String(vp?.social_tiktok_url || '').trim(),
+        tiktokHandle: String(vp?.social_tiktok_handle || '').trim(),
+        pinterestUrl: String(vp?.social_pinterest_url || '').trim(),
+        pinterestHandle: String(vp?.social_pinterest_handle || '').trim(),
+      },
     }
   }
 

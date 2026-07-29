@@ -5,6 +5,7 @@ import AdminShell from '@/components/admin/AdminShell';
 import { useAlerts } from '@/context/AlertContext';
 import StoreFrontLogoSection from './components/StoreFrontLogoSection';
 import StoreFrontCollectionsMenuSection from './components/StoreFrontCollectionsMenuSection';
+import StoreFrontSocialLinksSection from './components/StoreFrontSocialLinksSection';
 import StoreFrontPageBuilder from './components/StoreFrontPageBuilder';
 import MediaLibraryModal from './components/MediaLibraryModal';
 
@@ -26,6 +27,7 @@ export default function StoreFrontPage() {
   const [isFontSaving, setIsFontSaving] = useState(false);
   const [isSizeSaving, setIsSizeSaving] = useState(false);
   const [isSavingCollectionsMode, setIsSavingCollectionsMode] = useState(false);
+  const [isSavingSocial, setIsSavingSocial] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const [logoFullFailed, setLogoFullFailed] = useState(false);
   const [brand, setBrand] = useState(null);
@@ -263,6 +265,21 @@ export default function StoreFrontPage() {
     [brand, notifyError, notifySuccess, saveStoreFront],
   );
 
+  const handleSaveSocial = useCallback(
+    async (patch) => {
+      setIsSavingSocial(true);
+      try {
+        await saveStoreFront(patch);
+        notifySuccess('Social links updated.');
+      } catch (err) {
+        notifyError(err?.message || 'Unable to save social links.');
+      } finally {
+        setIsSavingSocial(false);
+      }
+    },
+    [saveStoreFront, notifySuccess, notifyError],
+  );
+
   return (
     <AdminShell>
       <div className="mx-auto w-full max-w-5xl space-y-8">
@@ -368,6 +385,13 @@ export default function StoreFrontPage() {
               brand={brand}
               isSaving={isSavingCollectionsMode}
               onChangeMode={handleChangeCollectionsMenuMode}
+            />
+
+            <StoreFrontSocialLinksSection
+              isLoading={isLoading}
+              brand={brand}
+              isSaving={isSavingSocial}
+              onSave={handleSaveSocial}
             />
 
             <StoreFrontPageBuilder

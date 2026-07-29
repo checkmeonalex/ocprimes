@@ -137,6 +137,21 @@ export async function renderVendorPage(vendorSlug, searchParams = {}) {
         logoFullUrl: String(vendorMeta?.logo_full_url || '').trim(),
         logoSizeDesktop: Number(vendorMeta?.logo_size_desktop) || null,
         logoSizeMobile: Number(vendorMeta?.logo_size_mobile) || null,
+        social: {
+          whatsapp: String(vendorMeta?.social_whatsapp || '').trim(),
+          instagramUrl: String(vendorMeta?.social_instagram_url || '').trim(),
+          instagramHandle: String(vendorMeta?.social_instagram_handle || '').trim(),
+          facebookUrl: String(vendorMeta?.social_facebook_url || '').trim(),
+          facebookHandle: String(vendorMeta?.social_facebook_handle || '').trim(),
+          xUrl: String(vendorMeta?.social_x_url || '').trim(),
+          xHandle: String(vendorMeta?.social_x_handle || '').trim(),
+          twitchUrl: String(vendorMeta?.social_twitch_url || '').trim(),
+          twitchHandle: String(vendorMeta?.social_twitch_handle || '').trim(),
+          tiktokUrl: String(vendorMeta?.social_tiktok_url || '').trim(),
+          tiktokHandle: String(vendorMeta?.social_tiktok_handle || '').trim(),
+          pinterestUrl: String(vendorMeta?.social_pinterest_url || '').trim(),
+          pinterestHandle: String(vendorMeta?.social_pinterest_handle || '').trim(),
+        },
       }}
       vendorTemplate={String(vendorMeta?.template || 'default').trim() || 'default'}
       vendorSlider={{

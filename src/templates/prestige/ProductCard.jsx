@@ -127,41 +127,42 @@ const PrestigeProductCard = ({ product, onAddToCart, placeholderLogoUrl = '' }) 
             )}
 
             {!isOutOfStock && (
-              <div className="absolute inset-x-0 bottom-0 z-20 translate-y-full bg-gradient-to-t from-black/95 via-black/80 to-transparent px-4 pb-4 pt-8 transition-transform duration-300 ease-out group-hover:translate-y-0">
-                <p className="line-clamp-1 text-sm font-medium text-white">{product.name}</p>
-                <div className="mt-2 flex items-center justify-between">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-base font-bold text-white">{formatMoney(priceValue)}</span>
-                    {hasDiscount && (
-                      <span className="text-xs text-white/40 line-through">{formatMoney(originalPriceValue)}</span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAddToCart}
-                    className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
-                      inCart ? 'bg-white/20 text-white' : 'bg-white text-black hover:bg-white/90'
-                    }`}
-                    aria-label={inCart ? 'In cart' : 'Add to cart'}
-                  >
-                    {inCart ? (
-                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    ) : (
-                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                      </svg>
-                    )}
-                  </button>
+              <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-3 pb-3 pt-8 sm:px-4 sm:pb-4">
+                <p className="line-clamp-1 text-xs font-medium text-white sm:text-sm">{product.name}</p>
+                <div className="mt-1 flex items-baseline gap-2 sm:mt-2">
+                  <span className="text-xs font-bold text-white sm:text-base">{formatMoney(priceValue)}</span>
+                  {hasDiscount && (
+                    <span className="text-[10px] text-white/40 line-through sm:text-xs">{formatMoney(originalPriceValue)}</span>
+                  )}
                 </div>
               </div>
             )}
 
             {!isOutOfStock && (
-              <div className="absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/90 to-transparent px-3 pb-3 pt-8 sm:hidden">
-                <p className="line-clamp-1 text-xs font-medium text-white">{product.name}</p>
-                <p className="text-xs font-bold text-white">{formatMoney(priceValue)}</p>
+              <div className="absolute inset-x-0 bottom-0 z-20 hidden translate-y-full bg-black/80 backdrop-blur-sm transition-transform duration-300 ease-out group-hover:translate-y-0 sm:block">
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  className={`flex w-full items-center justify-center gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wide transition ${
+                    inCart ? 'bg-white/10 text-white' : 'bg-white text-black hover:bg-white/90'
+                  }`}
+                >
+                  {inCart ? (
+                    <>
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      In cart
+                    </>
+                  ) : (
+                    <>
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                      </svg>
+                      Add to cart
+                    </>
+                  )}
+                </button>
               </div>
             )}
           </>

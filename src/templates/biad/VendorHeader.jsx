@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import VendorCollectionsMenu from '@/components/vendor/VendorCollectionsMenu';
 import { VendorLogo } from '@/components/vendor/VendorHeaderShared';
 import VendorFloatingFollow from '@/components/vendor/VendorFloatingFollow';
 import { useOptionalCart } from '@/context/CartContext';
+import VendorConnectMenu from '@/components/vendor/VendorConnectMenu';
 
 const HEADER_H = 56;
 const MARQUEE_H = 24;
@@ -27,6 +28,8 @@ export default function BiadVendorHeader({
 }) {
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isConnectOpen, setIsConnectOpen] = useState(false);
+  const followBtnRef = useRef(null);
   const storeName = vendorProfile?.name || '';
   const cart = useOptionalCart();
   const cartCount = cart?.summary?.itemCount ?? 0;
@@ -113,22 +116,22 @@ export default function BiadVendorHeader({
             </div>
 
             {/* Right: account, wishlist, cart icons on mobile */}
-            <div className={`flex items-center pr-1 transition-opacity duration-150 ${isSearchOpen ? 'invisible opacity-0' : 'opacity-100'}`}>
+            <div className={`flex items-center gap-1 min-[390px]:gap-2 min-[430px]:gap-3 pr-1 transition-opacity duration-150 ${isSearchOpen ? 'invisible opacity-0' : 'opacity-100'}`}>
               <Link href="/account"
-                className="flex h-8 w-6 min-[375px]:h-9 min-[375px]:w-7 min-[430px]:h-10 min-[430px]:w-8 items-center justify-center text-white/70 hover:text-white transition-colors" aria-label="Account">
+                className="flex h-8 w-5 min-[375px]:h-9 min-[375px]:w-7 min-[430px]:h-10 min-[430px]:w-8 items-center justify-center text-white/70 hover:text-white transition-colors" aria-label="Account">
                 <svg className="h-4 w-4 min-[375px]:h-5 min-[375px]:w-5 min-[430px]:h-6 min-[430px]:w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <path d="M12 12c2.761 0 5-2.239 5-5s-2.239-5-5-5-5 2.239-5 5 2.239 5 5 5Z" stroke="currentColor" strokeWidth="1.8" />
                   <path d="M4 21c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                 </svg>
               </Link>
               <Link href="/wishlist"
-                className="flex h-8 w-6 min-[375px]:h-9 min-[375px]:w-7 min-[430px]:h-10 min-[430px]:w-8 items-center justify-center text-white/70 hover:text-white transition-colors" aria-label="Wishlist">
+                className="flex h-8 w-5 min-[375px]:h-9 min-[375px]:w-7 min-[430px]:h-10 min-[430px]:w-8 items-center justify-center text-white/70 hover:text-white transition-colors" aria-label="Wishlist">
                 <svg className="h-4 w-4 min-[375px]:h-5 min-[375px]:w-5 min-[430px]:h-6 min-[430px]:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s-6.716-4.517-9.038-8.187C.13 8.342 2.72 3 7.2 3c2.159 0 3.54 1.112 4.8 2.797C13.26 4.112 14.642 3 16.8 3 21.28 3 23.87 8.342 21.038 12.813 18.716 16.483 12 21 12 21z" />
                 </svg>
               </Link>
               <Link href="/cart"
-                className="relative flex h-8 w-6 min-[375px]:h-9 min-[375px]:w-7 min-[430px]:h-10 min-[430px]:w-8 items-center justify-center text-white/70 hover:text-white transition-colors" aria-label="Cart">
+                className="relative flex h-8 w-5 min-[375px]:h-9 min-[375px]:w-7 min-[430px]:h-10 min-[430px]:w-8 items-center justify-center text-white/70 hover:text-white transition-colors" aria-label="Cart">
                 <svg className="h-4 w-4 min-[375px]:h-5 min-[375px]:w-5 min-[430px]:h-6 min-[430px]:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                   <path d="M6.5 8H17.5L18.5 21H5.5L6.5 8Z" strokeLinejoin="round" />
                   <path d="M9 8V6a3 3 0 0 1 6 0v2" strokeLinecap="round" strokeLinejoin="round" />
@@ -242,10 +245,22 @@ export default function BiadVendorHeader({
                 </Link>
               )}
               {!isSearchOpen && !canEditStorefront && canFollow && (
-                <button type="button" onClick={onFollow} disabled={isFollowLoading}
-                  className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${isFollowing ? 'border-white/20 bg-white/10 text-white/70 hover:bg-white/15' : 'border-white/40 bg-transparent text-white hover:border-white/70 hover:bg-white/10'}`}>
-                  {isFollowLoading ? '…' : isFollowing ? 'Following' : 'Follow'}
-                </button>
+                <div className="relative">
+                  <button type="button" ref={followBtnRef} onClick={() => setIsConnectOpen((o) => !o)} disabled={isFollowLoading}
+                    className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${isFollowing ? 'border-white/20 bg-white/10 text-white/70 hover:bg-white/15' : 'border-white/40 bg-transparent text-white hover:border-white/70 hover:bg-white/10'}`}>
+                    {isFollowLoading ? '…' : isFollowing ? 'Following' : 'Follow'}
+                  </button>
+                  <VendorConnectMenu
+                    isOpen={isConnectOpen}
+                    onClose={() => setIsConnectOpen(false)}
+                    anchorRef={followBtnRef}
+                    vendorName={storeName}
+                    social={vendorProfile?.social}
+                    isFollowing={isFollowing}
+                    isFollowLoading={isFollowLoading}
+                    onFollow={onFollow}
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -286,6 +301,7 @@ export default function BiadVendorHeader({
         isFollowLoading={isFollowLoading}
         canFollow={canFollow}
         onFollow={onFollow}
+        social={vendorProfile?.social}
       />
     </>
   );

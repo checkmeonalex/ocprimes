@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import VendorConnectMenu from './VendorConnectMenu'
 
 export default function VendorFloatingFollow({
   vendorName,
@@ -9,8 +10,11 @@ export default function VendorFloatingFollow({
   isFollowLoading,
   canFollow,
   onFollow,
+  social,
 }) {
   const [visible, setVisible] = useState(false)
+  const [isConnectOpen, setIsConnectOpen] = useState(false)
+  const btnRef = useRef(null)
 
   // Show after scrolling down 120px
   useEffect(() => {
@@ -30,7 +34,8 @@ export default function VendorFloatingFollow({
     >
       <button
         type="button"
-        onClick={onFollow}
+        ref={btnRef}
+        onClick={() => setIsConnectOpen((o) => !o)}
         disabled={isFollowLoading}
         className="relative flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold tracking-wide transition-transform duration-150 active:scale-95 disabled:opacity-50"
         style={{
@@ -64,6 +69,17 @@ export default function VendorFloatingFollow({
           </>
         )}
       </button>
+
+      <VendorConnectMenu
+        isOpen={isConnectOpen}
+        onClose={() => setIsConnectOpen(false)}
+        anchorRef={btnRef}
+        vendorName={vendorName}
+        social={social}
+        isFollowing={isFollowing}
+        isFollowLoading={isFollowLoading}
+        onFollow={onFollow}
+      />
     </div>
   )
 }

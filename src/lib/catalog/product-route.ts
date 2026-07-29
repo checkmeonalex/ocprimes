@@ -99,7 +99,7 @@ const buildCombinedOrFilter = ({
 
 const withOptionalBrandColumns = async (supabase: any, brandId: string) => {
   const preferredSelect =
-    'id, name, slug, logo_url, logo_full_url, logo_font, logo_size_desktop, logo_size_mobile, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor'
+    'id, name, slug, logo_url, logo_full_url, logo_font, logo_size_desktop, logo_size_mobile, use_custom_profile_metrics, custom_profile_followers, custom_profile_sold, is_trusted_vendor, social_whatsapp, social_instagram_url, social_instagram_handle, social_facebook_url, social_facebook_handle, social_x_url, social_x_handle, social_twitch_url, social_twitch_handle, social_tiktok_url, social_tiktok_handle, social_pinterest_url, social_pinterest_handle'
   const fallbackSelect = 'id, name, slug, logo_url'
 
   // admin_brands is admin-only under RLS, but brand name/logo/metrics are
@@ -204,6 +204,19 @@ const attachVendorProfile = async (supabase: any, item: any) => {
       logo_size_desktop: Number(brandData?.logo_size_desktop) || null,
       logo_size_mobile: Number(brandData?.logo_size_mobile) || null,
       badge: Boolean(brandData?.is_trusted_vendor) ? 'Trusted seller' : '',
+      social_whatsapp: String(brandData?.social_whatsapp || '').trim(),
+      social_instagram_url: String(brandData?.social_instagram_url || '').trim(),
+      social_instagram_handle: String(brandData?.social_instagram_handle || '').trim(),
+      social_facebook_url: String(brandData?.social_facebook_url || '').trim(),
+      social_facebook_handle: String(brandData?.social_facebook_handle || '').trim(),
+      social_x_url: String(brandData?.social_x_url || '').trim(),
+      social_x_handle: String(brandData?.social_x_handle || '').trim(),
+      social_twitch_url: String(brandData?.social_twitch_url || '').trim(),
+      social_twitch_handle: String(brandData?.social_twitch_handle || '').trim(),
+      social_tiktok_url: String(brandData?.social_tiktok_url || '').trim(),
+      social_tiktok_handle: String(brandData?.social_tiktok_handle || '').trim(),
+      social_pinterest_url: String(brandData?.social_pinterest_url || '').trim(),
+      social_pinterest_handle: String(brandData?.social_pinterest_handle || '').trim(),
     },
   }
 }
