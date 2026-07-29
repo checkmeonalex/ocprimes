@@ -2,7 +2,7 @@ import 'server-only'
 
 import { unstable_cache } from 'next/cache'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
-import { sanitizeCustomSectionHtml } from '@/utils/sanitization'
+import { sanitizeCustomSectionHtml } from '@/utils/sanitize-custom-html'
 import {
   homePageRecordSchema,
   homeSettingsUpdateSchema,

@@ -6,7 +6,7 @@ import HomeHeroSlider from '@/components/layouts/home/HomeHeroSlider'
 import ProductCardList from '@/components/product/ProductCardList'
 import { fetchProductListing } from '@/lib/catalog/product-listing'
 import { getCachedHomePageSettings } from '@/lib/home/settings'
-import { sanitizeCustomSectionHtml } from '@/utils/sanitization'
+import { sanitizeCustomSectionHtml } from '@/utils/sanitize-custom-html'
 import CustomSectionRunner from '@/components/layouts/home/CustomSectionRunner'
 
 const FEATURED_STRIP_FETCH_SIZE = 30
