@@ -852,6 +852,26 @@ export async function createProduct(request: NextRequest) {
       return jsonError('Vendor account not configured.', 400)
     }
     vendorId = vendorRow.id
+  } else if (process.env.HOUSE_VENDOR_ID) {
+    vendorId = process.env.HOUSE_VENDOR_ID
+  } else {
+    // Admin-created products (not authored by a specific vendor) attach to
+    // the store's own house vendor — products.vendor_id is NOT NULL and
+    // enforced by a DB trigger (see 104_products_vendor_id_lock.sql), so
+    // every insert needs a resolvable vendor either way.
+    const { data: houseVendorRow, error: houseVendorError } = await db
+      .from('vendors')
+      .select('id')
+      .eq('slug', 'ocprimax')
+      .maybeSingle()
+    if (houseVendorError || !houseVendorRow?.id) {
+      console.error('house vendor lookup failed:', houseVendorError?.message)
+      return jsonError(
+        'No house vendor configured for admin-authored products. Set HOUSE_VENDOR_ID or ensure a vendor with slug "ocprimax" exists.',
+        500,
+      )
+    }
+    vendorId = houseVendorRow.id
   }
 
   const finalBrandIds = parsed.data.brand_ids || []
