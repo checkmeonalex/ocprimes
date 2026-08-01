@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 
 const MOBILE_BREAKPOINT_PX = 768
 
@@ -34,9 +34,20 @@ const runScopedScript = (section, code, label) => {
 }
 
 /**
- * Renders admin-authored HTML for a "Custom HTML" homepage section and, once
- * mounted, runs its paired JS scoped to that section's own DOM node (passed
- * in as `section`).
+ * Renders admin-authored HTML for a "Custom HTML" section and, once mounted,
+ * runs its paired JS scoped to that section's own DOM node (passed in as
+ * `section`).
+ *
+ * Wrapped in React.memo: `dangerouslySetInnerHTML` is reapplied by React on
+ * every re-render of its owning element — not just when the HTML string
+ * changes — which tears down and rebuilds the section's entire DOM subtree
+ * each time, killing anything the script built (e.g. a running countdown)
+ * and detaching any listeners/observers it registered. On a page whose
+ * parent re-renders for unrelated reasons (context updates, sibling state),
+ * that happens repeatedly forever, so the script would never appear to run
+ * at all. Memoizing on the actual content props means React skips
+ * re-rendering (and therefore re-applying dangerouslySetInnerHTML) unless
+ * this section's own html/js actually changed.
  *
  * When a mobile variant is enabled, only one variant's markup is ever
  * mounted into the DOM and only that variant's JS ever executes — the other
@@ -46,7 +57,7 @@ const runScopedScript = (section, code, label) => {
  * the brief blank instant before that is the trade-off for not needing
  * server-side device detection).
  */
-export default function CustomSectionRunner({ html, js, mobileEnabled = false, mobileHtml = '', mobileJs = '' }) {
+function CustomSectionRunner({ html, js, mobileEnabled = false, mobileHtml = '', mobileJs = '' }) {
   const sectionRef = useRef(null)
   const [variant, setVariant] = useState(mobileEnabled ? null : 'desktop')
 
@@ -80,3 +91,5 @@ export default function CustomSectionRunner({ html, js, mobileEnabled = false, m
   // eslint-disable-next-line react/no-danger
   return <div ref={sectionRef} dangerouslySetInnerHTML={{ __html: activeHtml }} />
 }
+
+export default memo(CustomSectionRunner)

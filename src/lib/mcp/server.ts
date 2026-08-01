@@ -6,6 +6,7 @@ import {
   updateProductInput,
   deleteProductInput,
   listTaxonomyInput,
+  uploadMediaInput,
   listMediaInput,
   listOrdersInput,
   getOrderInput,
@@ -15,6 +16,18 @@ import {
   upsertVendorCustomHtmlSectionInput,
   deleteVendorStorefrontBlockInput,
 } from './schemas'
+
+const storefrontBaseUrl = () => (process.env.APP_BASE_URL || '').replace(/\/+$/, '')
+
+const withStorefrontUrl = (payload: any) => {
+  const slug = payload?.item?.slug || payload?.slug
+  if (!slug) return payload
+  const base = storefrontBaseUrl()
+  const storefront_url = base ? `${base}/product/${slug}` : undefined
+  if (!storefront_url) return payload
+  if (payload?.item) return { ...payload, item: { ...payload.item, storefront_url } }
+  return { ...payload, storefront_url }
+}
 
 const textResult = (data: unknown) => ({
   content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }],
@@ -59,8 +72,9 @@ const adminApiRequest = async (
 
 /**
  * Builds a fresh McpServer per request. Mirrors mcp-server/src/index.js's tool
- * set (minus upload_media, which needs a local filesystem path and has no
- * meaning for a remote caller) — keep the two in sync by hand when tools change.
+ * set, except upload_media here takes a URL/base64 (not a local file path,
+ * which has no meaning for a remote caller) — keep the two in sync by hand
+ * when tools change.
  */
 export function createOcprimesMcpServer() {
   const server = new McpServer({ name: 'ocprimes-admin', version: '0.1.0' })
@@ -90,12 +104,12 @@ export function createOcprimesMcpServer() {
     'get_product',
     {
       title: 'Get product',
-      description: 'Fetch a single product by its UUID.',
+      description: 'Fetch a single product by its UUID. Response includes storefront_url, the public product page link.',
       inputSchema: getProductInput,
     },
     async ({ id }: any) => {
       try {
-        return textResult(await adminApiRequest(`/api/admin/products/${id}`))
+        return textResult(withStorefrontUrl(await adminApiRequest(`/api/admin/products/${id}`)))
       } catch (error) {
         return errorResult(error)
       }
@@ -107,12 +121,14 @@ export function createOcprimesMcpServer() {
     {
       title: 'Create product',
       description:
-        'Create a new product. condition_check, packaging_style, and return_policy are required enums; category_ids/tag_ids/brand_ids/image_ids reference existing UUIDs.',
+        'Create a new product. condition_check, packaging_style, and return_policy are required enums; category_ids/tag_ids/brand_ids/image_ids reference existing UUIDs (use list_categories/list_tags/list_brands). Response includes storefront_url, the public product page link. For each variation, set image_id (from upload_media or list_media) to the photo showing that specific color/size so picking the variation shows the matching photo, same as manual editing.',
       inputSchema: createProductInput,
     },
     async (input: any) => {
       try {
-        return textResult(await adminApiRequest('/api/admin/products', { method: 'POST', body: input }))
+        return textResult(
+          withStorefrontUrl(await adminApiRequest('/api/admin/products', { method: 'POST', body: input })),
+        )
       } catch (error) {
         return errorResult(error)
       }
@@ -123,12 +139,15 @@ export function createOcprimesMcpServer() {
     'update_product',
     {
       title: 'Update product',
-      description: 'Update fields on an existing product. Only send fields you want changed.',
+      description:
+        'Update fields on an existing product. Only send fields you want changed. Response includes storefront_url. For variations, set image_id per variation to link its matching photo (same as manual editing) — passing variations replaces the full list, so include image_id on every entry you want it set on.',
       inputSchema: updateProductInput,
     },
     async ({ id, ...rest }: any) => {
       try {
-        return textResult(await adminApiRequest(`/api/admin/products/${id}`, { method: 'PATCH', body: rest }))
+        return textResult(
+          withStorefrontUrl(await adminApiRequest(`/api/admin/products/${id}`, { method: 'PATCH', body: rest })),
+        )
       } catch (error) {
         return errorResult(error)
       }
@@ -188,6 +207,28 @@ export function createOcprimesMcpServer() {
         if (per_page) params.set('per_page', String(per_page))
         if (filter) params.set('filter', filter)
         return textResult(await adminApiRequest(`/api/admin/media?${params.toString()}`))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'upload_media',
+    {
+      title: 'Upload an image',
+      description:
+        'Upload an image into the media library from a public https URL or base64 image data, optionally attached directly to a product. Returns the new image id — use it in create_product/update_product image_ids, main_image_id, or a variation\'s image_id (to link that photo to a specific color/size).',
+      inputSchema: uploadMediaInput,
+    },
+    async ({ image_url, image_base64, file_name, product_id, alt_text, sort_order }: any) => {
+      try {
+        return textResult(
+          await adminApiRequest('/api/admin/media/upload-remote', {
+            method: 'POST',
+            body: { image_url, image_base64, file_name, product_id, alt_text, sort_order },
+          }),
+        )
       } catch (error) {
         return errorResult(error)
       }

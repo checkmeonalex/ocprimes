@@ -22,7 +22,13 @@ const variationInput = z.object({
   sale_price: z.union([z.string(), z.number()]).optional(),
   sku: z.string().max(120).optional(),
   stock_quantity: z.union([z.string(), z.number()]).optional(),
-  image_id: z.string().uuid().optional(),
+  image_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      'The media id (from upload_media or list_media) of the image showing THIS specific variation — e.g. the blue-colorway photo for the "blue" variation. Set this so picking a variation swaps to its matching photo, same as manual editing.',
+    ),
 })
 
 const productFields = {
@@ -65,6 +71,26 @@ export const deleteProductInput = {
 
 export const listTaxonomyInput = {
   search: z.string().max(120).optional(),
+}
+
+export const uploadMediaInput = {
+  image_url: z
+    .string()
+    .url()
+    .max(2000)
+    .optional()
+    .describe('Public https URL of the image to fetch and upload. Provide this OR image_base64, not both.'),
+  image_base64: z
+    .string()
+    .max(8_000_000)
+    .optional()
+    .describe(
+      'Base64-encoded image data, optionally as a data: URI (e.g. "data:image/png;base64,...."). Provide this OR image_url, not both.',
+    ),
+  file_name: z.string().max(200).optional(),
+  product_id: z.string().uuid().optional().describe('Attach directly to this product'),
+  alt_text: z.string().max(200).optional(),
+  sort_order: z.number().int().min(0).max(1000).optional(),
 }
 
 export const listMediaInput = {

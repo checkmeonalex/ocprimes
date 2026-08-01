@@ -22,7 +22,13 @@ const variationInput = z.object({
   sale_price: z.union([z.string(), z.number()]).optional(),
   sku: z.string().max(120).optional(),
   stock_quantity: z.union([z.string(), z.number()]).optional(),
-  image_id: z.string().uuid().optional(),
+  image_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe(
+      'The media id (from upload_media or list_media) of the image showing THIS specific variation — e.g. the blue-colorway photo for the "blue" variation. Set this so picking a variation swaps to its matching photo, same as manual editing.',
+    ),
 })
 
 const productFields = {

@@ -38,6 +38,18 @@ const textResult = (data) => ({
   content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
 })
 
+const storefrontBaseUrl = () => (process.env.APP_BASE_URL || '').replace(/\/+$/, '')
+
+const withStorefrontUrl = (payload) => {
+  const slug = payload?.item?.slug || payload?.slug
+  if (!slug) return payload
+  const base = storefrontBaseUrl()
+  const storefront_url = base ? `${base}/product/${slug}` : undefined
+  if (!storefront_url) return payload
+  if (payload?.item) return { ...payload, item: { ...payload.item, storefront_url } }
+  return { ...payload, storefront_url }
+}
+
 const errorResult = (error) => ({
   content: [{ type: 'text', text: `Error: ${error.message}` }],
   isError: true,
@@ -69,13 +81,13 @@ server.registerTool(
   'get_product',
   {
     title: 'Get product',
-    description: 'Fetch a single product by its UUID.',
+    description: 'Fetch a single product by its UUID. Response includes storefront_url, the public product page link.',
     inputSchema: getProductInput,
   },
   async ({ id }) => {
     try {
       const data = await adminApiRequest(`/api/admin/products/${id}`)
-      return textResult(data)
+      return textResult(withStorefrontUrl(data))
     } catch (error) {
       return errorResult(error)
     }
@@ -87,13 +99,13 @@ server.registerTool(
   {
     title: 'Create product',
     description:
-      'Create a new product. condition_check, packaging_style, and return_policy are required enums; category_ids/tag_ids/brand_ids/image_ids reference existing UUIDs.',
+      'Create a new product. condition_check, packaging_style, and return_policy are required enums; category_ids/tag_ids/brand_ids/image_ids reference existing UUIDs (use list_categories/list_tags/list_brands). Response includes storefront_url, the public product page link. For each variation, set image_id (from upload_media or list_media) to the photo showing that specific color/size so picking the variation shows the matching photo, same as manual editing.',
     inputSchema: createProductInput,
   },
   async (input) => {
     try {
       const data = await adminApiRequest('/api/admin/products', { method: 'POST', body: input })
-      return textResult(data)
+      return textResult(withStorefrontUrl(data))
     } catch (error) {
       return errorResult(error)
     }
@@ -104,13 +116,14 @@ server.registerTool(
   'update_product',
   {
     title: 'Update product',
-    description: 'Update fields on an existing product. Only send fields you want changed.',
+    description:
+      'Update fields on an existing product. Only send fields you want changed. Response includes storefront_url. For variations, set image_id per variation to link its matching photo (same as manual editing) — passing variations replaces the full list, so include image_id on every entry you want it set on.',
     inputSchema: updateProductInput,
   },
   async ({ id, ...rest }) => {
     try {
       const data = await adminApiRequest(`/api/admin/products/${id}`, { method: 'PATCH', body: rest })
-      return textResult(data)
+      return textResult(withStorefrontUrl(data))
     } catch (error) {
       return errorResult(error)
     }
