@@ -11,6 +11,7 @@ import FeaturedStrip from '@/components/layouts/FeaturedStrip'
 import HotspotProductSlider from '@/components/layouts/HotspotProductSlider'
 import LogoGrid from '@/components/layouts/LogoGrid'
 import VendorBannerGrid from '@/components/vendor/VendorBannerGrid'
+import CustomSectionRunner from '@/components/layouts/home/CustomSectionRunner'
 import VendorStoreSidebar from '@/components/vendor/VendorStoreSidebar'
 import SellerChatPopup from '@/components/product/SellerChatPopup'
 import { useScrollDirection } from '@/hooks/useScrollDirection'
@@ -1380,6 +1381,15 @@ const ProductCatalogPage = ({
                   {blocks.map((block) =>
                     block.type === 'banner_grid' ? (
                       <VendorBannerGrid key={block.id} bannerGrid={block.config} />
+                    ) : block.type === 'custom_html' ? (
+                      <CustomSectionRunner
+                        key={block.id}
+                        html={block.config?.html || ''}
+                        js={block.config?.js || ''}
+                        mobileEnabled={Boolean(block.config?.mobileEnabled)}
+                        mobileHtml={block.config?.mobileHtml || ''}
+                        mobileJs={block.config?.mobileJs || ''}
+                      />
                     ) : null
                   )}
                 </Fragment>

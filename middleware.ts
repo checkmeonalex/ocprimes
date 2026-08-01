@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { createMiddlewareSupabaseClient } from '@/lib/supabase/middleware'
 import { getUserRoleSafe } from '@/lib/auth/roles'
 import { resolveCustomerRedirect, resolveRequestCustomerDeviceType } from '@/lib/auth/navigation'
+import { isMcpAdminRequest } from '@/lib/auth/mcp-token'
 
 const ADMIN_PREFIXES = ['/backend/admin', '/admin', '/api/admin']
 const ADMIN_PUBLIC_PATHS = ['/admin/login', '/admin/signup']
@@ -62,6 +63,10 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!isApiRequest && ADMIN_PUBLIC_PATHS.includes(pathname)) {
+    return NextResponse.next()
+  }
+
+  if (isApiRequest && isMcpAdminRequest(request)) {
     return NextResponse.next()
   }
 

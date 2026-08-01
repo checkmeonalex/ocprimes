@@ -4,6 +4,23 @@ import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { deleteFromR2 } from '@/lib/storage/r2'
+import { sanitizeCustomSectionHtml } from '@/utils/sanitize-custom-html'
+
+const sanitizeStorefrontBlocks = (blocks: unknown) =>
+  Array.isArray(blocks)
+    ? blocks.map((block: any) =>
+        block?.type === 'custom_html'
+          ? {
+              ...block,
+              config: {
+                ...block.config,
+                html: sanitizeCustomSectionHtml(String(block.config?.html || '')),
+                mobileHtml: sanitizeCustomSectionHtml(String(block.config?.mobileHtml || '')),
+              },
+            }
+          : block,
+      )
+    : []
 
 const sliderLinkSchema = z
   .string()
@@ -19,7 +36,7 @@ const sliderLinkSchema = z
 
 const storefrontBlockSchema = z.object({
   id: z.string().max(100),
-  type: z.enum(['banner_grid']),
+  type: z.enum(['banner_grid', 'custom_html']),
   template: z.string().max(60).optional(), // template that seeded this block (display label only)
   config: z.object({
     layout: z.enum(['single', 'two-col', 'two-by-two', 'three-col', 'four-col', 'hero-duo']).optional(),
@@ -33,6 +50,11 @@ const storefrontBlockSchema = z.object({
       )
       .max(16)
       .optional(),
+    html: z.string().max(20000).optional(),
+    js: z.string().max(20000).optional(),
+    mobileEnabled: z.boolean().optional(),
+    mobileHtml: z.string().max(20000).optional(),
+    mobileJs: z.string().max(20000).optional(),
   }),
 })
 
@@ -549,7 +571,7 @@ export async function PATCH(request: NextRequest) {
     updates.storefront_section_order = parsed.data.storefront_section_order
   }
   if (parsed.data.storefront_blocks !== undefined) {
-    updates.storefront_blocks = parsed.data.storefront_blocks
+    updates.storefront_blocks = sanitizeStorefrontBlocks(parsed.data.storefront_blocks)
   }
   const socialFields = [
     'social_whatsapp',
