@@ -17,6 +17,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.972.0",
     "@heroicons/react": "^2.2.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.90.1",
     "@tiptap/extension-image": "^3.19.0",
