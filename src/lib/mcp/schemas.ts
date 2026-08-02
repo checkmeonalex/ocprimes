@@ -99,6 +99,10 @@ export const listMediaInput = {
   filter: z.enum(['all', 'unattached', 'stale']).optional(),
 }
 
+export const deleteMediaInput = {
+  id: z.string().uuid().describe('Media/image UUID to delete (from list_media). Also removes the underlying storage object.'),
+}
+
 export const listOrdersInput = {
   page: z.number().int().min(1).optional(),
   perPage: z.number().int().min(1).max(50).optional(),
@@ -150,6 +154,36 @@ export const upsertVendorCustomHtmlSectionInput = {
 export const deleteVendorStorefrontBlockInput = {
   vendor_id: z.string().uuid(),
   block_id: z.string().max(100),
+}
+
+export const HOME_BLOCK_TYPES = [
+  'banner_grid',
+  'hero_slider',
+  'featured_strip',
+  'hotspot',
+  'logo_grid',
+  'product_catalog',
+  'browse_cards',
+  'custom_html',
+] as const
+
+export const getHomeBlocksInput = {}
+
+export const upsertHomeCustomHtmlSectionInput = {
+  block_id: z
+    .string()
+    .max(100)
+    .optional()
+    .describe('Existing block id to update in place; omit to create a new section'),
+  html: z.string().max(20000).describe('Section HTML (desktop, or the only variant if mobile is not set)'),
+  js: z.string().max(20000).optional().describe('Optional JS, runs scoped to this section after mount'),
+  mobile_enabled: z.boolean().optional().describe('Set true to serve different markup on mobile'),
+  mobile_html: z.string().max(20000).optional(),
+  mobile_js: z.string().max(20000).optional(),
+}
+
+export const deleteHomeBlockInput = {
+  block_id: z.string().max(100).describe('Id of the homepage block to remove (any block type, not just custom_html)'),
 }
 
 export const updateOrderStatusInput = {

@@ -12,6 +12,7 @@ import {
   listTaxonomyInput,
   uploadMediaInput,
   listMediaInput,
+  deleteMediaInput,
   listOrdersInput,
   getOrderInput,
   updateOrderStatusInput,
@@ -19,6 +20,9 @@ import {
   getVendorStorefrontInput,
   upsertVendorCustomHtmlSectionInput,
   deleteVendorStorefrontBlockInput,
+  getHomeBlocksInput,
+  upsertHomeCustomHtmlSectionInput,
+  deleteHomeBlockInput,
 } from './schemas.js'
 
 const MIME_BY_EXT = {
@@ -227,6 +231,24 @@ server.registerTool(
   },
 )
 
+server.registerTool(
+  'delete_media',
+  {
+    title: 'Delete an image from the media library',
+    description:
+      'Permanently delete an uploaded image from the media library by its UUID (from list_media). Also removes the underlying storage object. If a product uses this image as its main image or a variation image, that reference is cleared automatically. This cannot be undone.',
+    inputSchema: deleteMediaInput,
+  },
+  async ({ id }) => {
+    try {
+      const data = await adminApiRequest(`/api/admin/media/${id}`, { method: 'DELETE' })
+      return textResult(data)
+    } catch (error) {
+      return errorResult(error)
+    }
+  },
+)
+
 // --- Orders ---
 
 server.registerTool(
@@ -394,6 +416,95 @@ server.registerTool(
       const data = await adminApiRequest(`/api/admin/vendors/${vendor_id}/storefront-blocks`, {
         method: 'PATCH',
         body: { storefront_blocks: nextBlocks },
+      })
+      return textResult(data)
+    } catch (error) {
+      return errorResult(error)
+    }
+  },
+)
+
+// --- Homepage custom sections/blocks ---
+
+const randomHomeBlockId = () => `block_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+
+server.registerTool(
+  'get_home_blocks',
+  {
+    title: 'Get homepage blocks',
+    description:
+      'Fetch the storefront homepage current section blocks (banner_grid, hero_slider, featured_strip, hotspot, logo_grid, product_catalog, browse_cards, custom_html), with their ids. Use before editing to see what already exists.',
+    inputSchema: getHomeBlocksInput,
+  },
+  async () => {
+    try {
+      const data = await adminApiRequest('/api/admin/home')
+      return textResult(data)
+    } catch (error) {
+      return errorResult(error)
+    }
+  },
+)
+
+server.registerTool(
+  'upsert_home_custom_html_section',
+  {
+    title: 'Create or update a homepage custom HTML section',
+    description:
+      'Add a new custom HTML/CSS/JS section to the storefront homepage, or update an existing one by block_id. HTML is sanitized server-side (scripts/event handlers/iframes stripped) before saving. Inline <style> attributes and CSS are allowed. Call get_home_blocks first to see existing block ids. Only touches custom_html blocks; other homepage block types are left as-is.',
+    inputSchema: upsertHomeCustomHtmlSectionInput,
+  },
+  async ({ block_id, html, js, mobile_enabled, mobile_html, mobile_js }) => {
+    try {
+      const existing = await adminApiRequest('/api/admin/home')
+      const blocks = Array.isArray(existing?.item?.home_blocks) ? existing.item.home_blocks : []
+
+      const config = {
+        html,
+        js: js || '',
+        mobile: {
+          enabled: Boolean(mobile_enabled),
+          html: mobile_html || '',
+          js: mobile_js || '',
+        },
+      }
+
+      let nextBlocks
+      if (block_id && blocks.some((block) => block.id === block_id)) {
+        nextBlocks = blocks.map((block) =>
+          block.id === block_id ? { ...block, type: 'custom_html', config } : block,
+        )
+      } else {
+        nextBlocks = [...blocks, { id: block_id || randomHomeBlockId(), type: 'custom_html', config }]
+      }
+
+      const data = await adminApiRequest('/api/admin/home', {
+        method: 'PUT',
+        body: { home_blocks: nextBlocks },
+      })
+      return textResult(data)
+    } catch (error) {
+      return errorResult(error)
+    }
+  },
+)
+
+server.registerTool(
+  'delete_home_block',
+  {
+    title: 'Delete a homepage block',
+    description: 'Remove any block (banner_grid, custom_html, etc.) from the storefront homepage by its block_id.',
+    inputSchema: deleteHomeBlockInput,
+  },
+  async ({ block_id }) => {
+    try {
+      const existing = await adminApiRequest('/api/admin/home')
+      const blocks = Array.isArray(existing?.item?.home_blocks) ? existing.item.home_blocks : []
+      const nextBlocks = blocks.filter((block) => block.id !== block_id)
+
+      const data = await adminApiRequest('/api/admin/home', {
+        method: 'PUT',
+        body: { home_blocks: nextBlocks },
       })
       return textResult(data)
     } catch (error) {
