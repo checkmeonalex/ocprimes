@@ -6,6 +6,12 @@ import {
   updateProductInput,
   deleteProductInput,
   listTaxonomyInput,
+  getCategoryTreeInput,
+  createCategoryInput,
+  updateCategoryInput,
+  deleteCategoryInput,
+  deleteCategoriesInput,
+  reorderCategoriesInput,
   uploadMediaInput,
   listMediaInput,
   deleteMediaInput,
@@ -196,6 +202,150 @@ export function createOcprimesMcpServer() {
   registerTaxonomyTools('categories', '/api/admin/categories')
   registerTaxonomyTools('tags', '/api/admin/tags')
   registerTaxonomyTools('brands', '/api/admin/brands')
+
+  server.registerTool(
+    'get_category_tree',
+    {
+      title: 'Get product category tree',
+      description:
+        'Fetch the full nested product category tree with parent/child relationships, ids, slugs, and sort_order. Use before creating/editing/deleting/reordering categories to see current structure.',
+      inputSchema: getCategoryTreeInput,
+    },
+    async ({ search, limit }: any) => {
+      try {
+        const params = new URLSearchParams()
+        if (search) params.set('search', search)
+        if (limit) params.set('limit', String(limit))
+        return textResult(await adminApiRequest(`/api/admin/categories/tree?${params.toString()}`))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'create_category',
+    {
+      title: 'Create a product category',
+      description: 'Create a new product category, optionally nested under a parent_id. Returns the new category with its id.',
+      inputSchema: createCategoryInput,
+    },
+    async (input: any) => {
+      try {
+        return textResult(await adminApiRequest('/api/admin/categories', { method: 'POST', body: input }))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'update_category',
+    {
+      title: 'Update a product category',
+      description:
+        'Update fields on an existing category — name, slug, description, parent_id (reparent), image, or is_active. Only send fields you want changed. Toggling is_active cascades to all descendant categories.',
+      inputSchema: updateCategoryInput,
+    },
+    async (input: any) => {
+      try {
+        return textResult(await adminApiRequest('/api/admin/categories', { method: 'PATCH', body: input }))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'delete_category',
+    {
+      title: 'Delete a product category',
+      description:
+        'Permanently delete a single category by UUID. Fails with an error if it still has child categories — delete or reparent those first, or use delete_categories for bulk/subtree deletes.',
+      inputSchema: deleteCategoryInput,
+    },
+    async ({ id }: any) => {
+      try {
+        return textResult(await adminApiRequest(`/api/admin/categories/${id}`, { method: 'DELETE' }))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  // /api/admin/categories/tree returns a flat list with parent_id — compute
+  // each node's depth by walking parent_id chains so bulk delete can order
+  // deepest-first (leaves before their ancestors).
+  const computeDepths = (flatItems: any[]) => {
+    const byId = new Map<string, any>()
+    for (const item of flatItems || []) {
+      if (item?.id) byId.set(item.id, item)
+    }
+    const depths = new Map<string, number>()
+    const depthOf = (id: string, guard = new Set<string>()): number => {
+      if (depths.has(id)) return depths.get(id)!
+      if (guard.has(id)) return 0
+      guard.add(id)
+      const node = byId.get(id)
+      const parentId = node?.parent_id
+      const depth = parentId && byId.has(parentId) ? depthOf(parentId, guard) + 1 : 0
+      depths.set(id, depth)
+      return depth
+    }
+    for (const item of flatItems || []) {
+      if (item?.id) depthOf(item.id)
+    }
+    return depths
+  }
+
+  server.registerTool(
+    'delete_categories',
+    {
+      title: 'Delete multiple product categories at once',
+      description:
+        'Permanently delete many categories in one call, including whole subtrees — pass a parent id together with its descendant ids and they will be deleted deepest-first automatically, so the parent-child block does not fire. Any id not found or already deleted is skipped. Returns per-id results.',
+      inputSchema: deleteCategoriesInput,
+    },
+    async ({ ids }: any) => {
+      try {
+        const tree = await adminApiRequest('/api/admin/categories/tree?limit=2000')
+        const depths = computeDepths(tree?.items || [])
+        const orderedIds = [...ids].sort((a, b) => (depths.get(b) ?? 0) - (depths.get(a) ?? 0))
+
+        const results: Array<{ id: string; ok: boolean; error?: string }> = []
+        for (const id of orderedIds) {
+          try {
+            await adminApiRequest(`/api/admin/categories/${id}`, { method: 'DELETE' })
+            results.push({ id, ok: true })
+          } catch (error) {
+            results.push({ id, ok: false, error: error instanceof Error ? error.message : String(error) })
+          }
+        }
+        return textResult({ results })
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'reorder_categories',
+    {
+      title: 'Reorder / reparent product categories',
+      description:
+        'Batch-update sort_order and/or parent_id for up to 200 categories at once. Call get_category_tree first to see current ids/structure and compute the new tuples.',
+      inputSchema: reorderCategoriesInput,
+    },
+    async ({ updates }: any) => {
+      try {
+        return textResult(
+          await adminApiRequest('/api/admin/categories/order', { method: 'PATCH', body: { updates } }),
+        )
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
 
   server.registerTool(
     'list_media',

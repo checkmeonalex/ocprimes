@@ -73,6 +73,58 @@ export const listTaxonomyInput = {
   search: z.string().max(120).optional(),
 }
 
+export const getCategoryTreeInput = {
+  search: z.string().max(120).optional().describe('Filter by name substring'),
+  limit: z.number().int().min(1).max(2000).optional().describe('Max categories to return, defaults to 500'),
+}
+
+export const createCategoryInput = {
+  name: z.string().min(2).max(120),
+  slug: z.string().max(120).optional().describe('Defaults to a slugified version of name'),
+  description: z.string().max(500).optional(),
+  parent_id: z.string().uuid().optional().describe('Parent category UUID, omit for a top-level category'),
+}
+
+export const updateCategoryInput = {
+  id: z.string().uuid().describe('Category UUID to update'),
+  name: z.string().min(2).max(120).optional(),
+  slug: z.string().max(120).optional(),
+  description: z.string().max(500).nullable().optional(),
+  parent_id: z.string().uuid().nullable().optional().describe('Set null to move to top level'),
+  image_url: z.string().url().max(500).nullable().optional(),
+  image_alt: z.string().max(200).nullable().optional(),
+  image_key: z.string().max(500).nullable().optional(),
+  is_active: z.boolean().optional().describe('Toggling this cascades to all descendant categories'),
+}
+
+export const deleteCategoryInput = {
+  id: z.string().uuid().describe('Category UUID to delete. Fails if it still has child categories.'),
+}
+
+export const deleteCategoriesInput = {
+  ids: z
+    .array(z.string().uuid())
+    .min(1)
+    .max(200)
+    .describe(
+      'Category UUIDs to delete in bulk. Deletes deepest-first so a parent and its children can be deleted together in one call.',
+    ),
+}
+
+export const reorderCategoriesInput = {
+  updates: z
+    .array(
+      z.object({
+        id: z.string().uuid(),
+        parent_id: z.string().uuid().nullable().describe('New parent, or null for top-level'),
+        sort_order: z.number().int().min(0),
+      }),
+    )
+    .min(1)
+    .max(200)
+    .describe('Full list of {id, parent_id, sort_order} tuples to apply. Call get_category_tree first to compute these.'),
+}
+
 export const uploadMediaInput = {
   image_url: z
     .string()
