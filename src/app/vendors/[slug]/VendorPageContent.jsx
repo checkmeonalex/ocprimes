@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import ProductCatalogPage from '@/components/product/catalog/ProductCatalogPage'
-import { fetchProductListingPayload } from '@/lib/catalog/product-listing'
+import { fetchProductListingPayload, fetchProductListing } from '@/lib/catalog/product-listing'
 import { fetchBrandBySlugOrId } from '@/lib/catalog/brands'
 import { buildVendorCategoryImageList, buildVendorCategoryTree } from '@/lib/catalog/categories'
 import { countBrandFollowers } from '@/lib/catalog/brand-following'
@@ -41,6 +41,45 @@ export async function renderVendorPage(vendorSlug, searchParams = {}) {
     buildVendorCategoryTree(items),
   ])
   const brandId = String(vendorMeta?.id || '').trim()
+
+  const storefrontBlocksRaw = Array.isArray(vendorMeta?.storefront_blocks) ? vendorMeta.storefront_blocks : []
+  const storefrontBlockProducts = Object.fromEntries(
+    (
+      await Promise.all(
+        storefrontBlocksRaw.map(async (block) => {
+          const cfg = block?.config || {}
+          if (block.type === 'featured_strip') {
+            const categoryId = cfg.filterType === 'category' ? cfg.categoryId || '' : ''
+            const tagId = cfg.filterType === 'tag' ? cfg.tagId || '' : ''
+            if (!categoryId && !tagId) return [block.id, []]
+            const products = await fetchProductListing({
+              vendor: normalizedVendorSlug,
+              page: 1,
+              perPage: 30,
+              category: categoryId,
+              tag: tagId,
+            })
+            return [block.id, products]
+          }
+          if (block.type === 'product_catalog') {
+            const filterMode = cfg.filterMode || 'none'
+            const shouldFetch = (filterMode === 'category' && cfg.categoryId) || (filterMode === 'tag' && cfg.tagId)
+            if (!shouldFetch) return [block.id, []]
+            const perPage = Math.min(30, Math.max(1, Math.floor(Number(cfg.limit) || 12)))
+            const products = await fetchProductListing({
+              vendor: normalizedVendorSlug,
+              page: 1,
+              perPage,
+              category: filterMode === 'category' ? cfg.categoryId : '',
+              tag: filterMode === 'tag' ? cfg.tagId : '',
+            })
+            return [block.id, products]
+          }
+          return null
+        }),
+      )
+    ).filter(Boolean),
+  )
 
   const vendorName = String(vendorMeta?.name || toReadableName(normalizedVendorSlug) || 'Vendor')
   const productCount = Math.max(0, Number(listing.totalCount) || items.length || 0)
@@ -168,7 +207,8 @@ export async function renderVendorPage(vendorSlug, searchParams = {}) {
       activeCategorySlug={categoryFilter || ''}
       bannerGrid={vendorMeta?.banner_grid ?? null}
       storefrontSectionOrder={Array.isArray(vendorMeta?.storefront_section_order) ? vendorMeta.storefront_section_order : ['banner_grid', 'storefront_filter']}
-      storefrontBlocks={Array.isArray(vendorMeta?.storefront_blocks) ? vendorMeta.storefront_blocks : []}
+      storefrontBlocks={storefrontBlocksRaw}
+      storefrontBlockProducts={storefrontBlockProducts}
       listingQuery={{ vendor: normalizedVendorSlug, ...(categoryFilter ? { category: categoryFilter } : {}) }}
       initialNextCursor={listing.nextCursor}
       initialHasMore={listing.hasMore}

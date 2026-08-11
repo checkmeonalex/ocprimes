@@ -29,6 +29,9 @@ export const CATEGORY_LAYOUT_LABELS: Record<
   },
 }
 
+// Dedupes and filters a saved layout order down to valid keys, preserving
+// the admin's chosen subset — it does NOT force-include every key, so a
+// category can genuinely omit a section rather than always showing all 4.
 export const normalizeCategoryLayoutOrder = (order?: unknown) => {
   const normalized: CategoryLayoutKey[] = []
   if (Array.isArray(order)) {
@@ -41,10 +44,5 @@ export const normalizeCategoryLayoutOrder = (order?: unknown) => {
       }
     })
   }
-  CATEGORY_LAYOUT_KEYS.forEach((key) => {
-    if (!normalized.includes(key)) {
-      normalized.push(key)
-    }
-  })
   return normalized
 }

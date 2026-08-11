@@ -12,6 +12,9 @@ import HotspotProductSlider from '@/components/layouts/HotspotProductSlider'
 import LogoGrid from '@/components/layouts/LogoGrid'
 import VendorBannerGrid from '@/components/vendor/VendorBannerGrid'
 import CustomSectionRunner from '@/components/layouts/home/CustomSectionRunner'
+import HomeHeroSlider from '@/components/layouts/home/HomeHeroSlider'
+import ProductCardList from '@/components/product/ProductCardList'
+import BrowseCategoriesClient from '@/components/layouts/BrowseCategoriesClient'
 import VendorStoreSidebar from '@/components/vendor/VendorStoreSidebar'
 import SellerChatPopup from '@/components/product/SellerChatPopup'
 import { useScrollDirection } from '@/hooks/useScrollDirection'
@@ -100,6 +103,23 @@ const toInitials = (value = '') => {
   return cleaned.slice(0, 2)
 }
 
+const mapStorefrontBrowseCards = (cards) => {
+  const normalized = (Array.isArray(cards) ? cards : [])
+    .filter((c) => c?.imageUrl && c?.name)
+    .map((c) => ({
+      id: c.imageKey || c.imageUrl,
+      name: c.name,
+      image: c.imageUrl,
+      alt: c.imageAlt || c.name,
+      link: c.link || '',
+      segment: String(c.segment || 'all').toLowerCase(),
+    }))
+  const all = normalized.filter((c) => c.segment === 'all')
+  const men = normalized.filter((c) => c.segment === 'men')
+  const women = normalized.filter((c) => c.segment === 'women')
+  return { ALL: all.length ? all : [...men, ...women], MEN: men, WOMEN: women }
+}
+
 const PAGE_SIZE = 10
 
 const ProductCatalogPage = ({
@@ -122,6 +142,7 @@ const ProductCatalogPage = ({
   bannerGrid = null,
   storefrontSectionOrder = ['banner_grid', 'storefront_filter'],
   storefrontBlocks = [],
+  storefrontBlockProducts = {},
   vendorTemplate = 'default',
 }) => {
   const template = getTemplate(vendorProfile ? vendorTemplate : 'default')
@@ -1389,20 +1410,112 @@ const ProductCatalogPage = ({
               if (!blocks.length) return null
               return (
                 <Fragment key='banner_grid'>
-                  {blocks.map((block) =>
-                    block.type === 'banner_grid' ? (
-                      <VendorBannerGrid key={block.id} bannerGrid={block.config} />
-                    ) : block.type === 'custom_html' ? (
-                      <CustomSectionRunner
-                        key={block.id}
-                        html={block.config?.html || ''}
-                        js={block.config?.js || ''}
-                        mobileEnabled={Boolean(block.config?.mobileEnabled)}
-                        mobileHtml={block.config?.mobileHtml || ''}
-                        mobileJs={block.config?.mobileJs || ''}
-                      />
-                    ) : null
-                  )}
+                  {blocks.map((block) => {
+                    const cfg = block.config || {}
+                    switch (block.type) {
+                      case 'banner_grid':
+                        return <VendorBannerGrid key={block.id} bannerGrid={cfg} />
+                      case 'custom_html':
+                        return (
+                          <CustomSectionRunner
+                            key={block.id}
+                            html={cfg.html || ''}
+                            js={cfg.js || ''}
+                            mobileEnabled={Boolean(cfg.mobileEnabled)}
+                            mobileHtml={cfg.mobileHtml || ''}
+                            mobileJs={cfg.mobileJs || ''}
+                          />
+                        )
+                      case 'hero_slider': {
+                        const slides = Array.isArray(cfg.slides) ? cfg.slides : []
+                        const desktopUrls = []
+                        const desktopTypes = []
+                        const desktopPosters = []
+                        const mobileUrls = []
+                        const mobileTypes = []
+                        const mobilePosters = []
+                        const links = []
+                        slides.forEach((s) => {
+                          if (s.desktopUrl) {
+                            desktopUrls.push(s.desktopUrl)
+                            desktopTypes.push(s.desktopType === 'video' ? 'video' : 'image')
+                            desktopPosters.push(s.desktopPoster || '')
+                            mobileUrls.push(s.mobileUrl || '')
+                            mobileTypes.push(s.mobileType === 'video' ? 'video' : 'image')
+                            mobilePosters.push(s.mobilePoster || '')
+                            links.push(s.linkUrl || '')
+                          }
+                        })
+                        if (!desktopUrls.length) return null
+                        return (
+                          <section key={block.id} className='relative isolate w-[calc(100%+0.2rem)] -mx-[0.10rem] overflow-hidden sm:w-full sm:mx-0'>
+                            <HomeHeroSlider
+                              images={desktopUrls}
+                              imageTypes={desktopTypes}
+                              imagePosters={desktopPosters}
+                              mobileImages={mobileUrls}
+                              mobileImageTypes={mobileTypes}
+                              mobileImagePosters={mobilePosters}
+                              links={links}
+                              autoMs={5000}
+                            />
+                          </section>
+                        )
+                      }
+                      case 'featured_strip': {
+                        if (!cfg.imageUrl) return null
+                        const categoryId = cfg.filterType === 'category' ? cfg.categoryId || '' : ''
+                        const tagId = cfg.filterType === 'tag' ? cfg.tagId || '' : ''
+                        const products = storefrontBlockProducts[block.id] || []
+                        return (
+                          <FeaturedStrip
+                            key={block.id}
+                            imageUrl={cfg.imageUrl}
+                            imageAlt={cfg.titleMain || 'Featured'}
+                            products={products}
+                            tagId={tagId || null}
+                            categoryId={categoryId || null}
+                            titleMain={cfg.titleMain}
+                          />
+                        )
+                      }
+                      case 'product_catalog': {
+                        const products = storefrontBlockProducts[block.id] || []
+                        return (
+                          <ProductCardList
+                            key={block.id}
+                            products={products}
+                            useSeedFallback={false}
+                            title={cfg.title || 'Fashion Collection'}
+                            subtitle={cfg.subtitle || 'Discover our latest trends and bestsellers'}
+                          />
+                        )
+                      }
+                      case 'logo_grid': {
+                        const items = Array.isArray(cfg.items) ? cfg.items : []
+                        if (!items.length) return null
+                        return (
+                          <LogoGrid
+                            key={block.id}
+                            title={cfg.title || ''}
+                            titleBgColor={cfg.titleBgColor || '#111827'}
+                            titleTextColor={cfg.titleTextColor || '#ffffff'}
+                            items={items}
+                          />
+                        )
+                      }
+                      case 'browse_cards': {
+                        const cards = Array.isArray(cfg.cards) ? cfg.cards : []
+                        if (!cards.length) return null
+                        const tabs = mapStorefrontBrowseCards(cards)
+                        const hasAny = Object.values(tabs).some((arr) => arr.length > 0)
+                        if (!hasAny) return null
+                        return <BrowseCategoriesClient key={block.id} title={cfg.title || ''} tabs={tabs} />
+                      }
+                      default:
+                        return null
+                    }
+                  })}
                 </Fragment>
               )
             }

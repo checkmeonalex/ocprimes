@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MediaLibraryModal from '../../../store-front/components/MediaLibraryModal';
+import BlockListBuilder, { genBlockId } from '@/components/admin/page-builder/BlockListBuilder';
 
 // ─── Layout definitions (for banner_grid) ─────────────────────────────────
 
@@ -40,6 +41,10 @@ const BLOCK_TYPES = [
       </svg>
     ),
     defaultConfig: () => ({ slides: [{ desktopUrl: '', mobileUrl: '', linkUrl: '' }] }),
+    subtitle: (cfg) => {
+      const count = (Array.isArray(cfg?.slides) ? cfg.slides : []).filter((s) => s.desktopUrl).length;
+      return `${count} slide${count !== 1 ? 's' : ''}`;
+    },
   },
   {
     key: 'browse_cards',
@@ -51,6 +56,10 @@ const BLOCK_TYPES = [
       </svg>
     ),
     defaultConfig: () => ({ title: '', cards: [] }),
+    subtitle: (cfg) => {
+      const count = Array.isArray(cfg?.cards) ? cfg.cards.length : 0;
+      return `${count} card${count !== 1 ? 's' : ''}`;
+    },
   },
   {
     key: 'banner_grid',
@@ -63,6 +72,10 @@ const BLOCK_TYPES = [
       </svg>
     ),
     defaultConfig: () => ({ layout: 'four-col', mode: 'slider', displayStyle: 'banner', title: '', autoPlay: true, autoPlayMs: 5000, heightPreset: 'normal', slides: [{ imageUrl: '', linkUrl: '', label: '' }] }),
+    subtitle: (cfg) => {
+      const layoutLabel = LAYOUTS.find((l) => l.key === cfg?.layout)?.label || 'Single';
+      return `${layoutLabel} · ${cfg?.mode === 'slider' ? 'Slider' : 'Static'}`;
+    },
   },
   {
     key: 'featured_strip',
@@ -76,6 +89,7 @@ const BLOCK_TYPES = [
       </svg>
     ),
     defaultConfig: () => ({ imageUrl: '', imageKey: '', titleMain: '', filterType: 'none', categoryId: '', tagId: '' }),
+    subtitle: (cfg) => cfg?.titleMain || 'No title',
   },
   {
     key: 'logo_grid',
@@ -89,6 +103,10 @@ const BLOCK_TYPES = [
       </svg>
     ),
     defaultConfig: () => ({ title: '', titleBgColor: '#111827', titleTextColor: '#ffffff', items: [] }),
+    subtitle: (cfg) => {
+      const count = Array.isArray(cfg?.items) ? cfg.items.length : 0;
+      return `${count} logo${count !== 1 ? 's' : ''}${cfg?.title ? ` · ${cfg.title}` : ''}`;
+    },
   },
   {
     key: 'product_catalog',
@@ -100,6 +118,7 @@ const BLOCK_TYPES = [
       </svg>
     ),
     defaultConfig: () => ({ title: '', subtitle: '', filterMode: 'none', categoryId: '', tagId: '', limit: 12 }),
+    subtitle: (cfg) => cfg?.title || 'No title',
   },
   {
     key: 'custom_html',
@@ -111,17 +130,23 @@ const BLOCK_TYPES = [
       </svg>
     ),
     defaultConfig: () => ({ html: '', js: '', mobile: { enabled: false, html: '', js: '' } }),
+    subtitle: (cfg) => {
+      const len = String(cfg?.html || '').length;
+      const hasJs = String(cfg?.js || '').trim().length > 0;
+      const hasMobile = Boolean(cfg?.mobile?.enabled);
+      if (!len) return 'Empty';
+      return `${len.toLocaleString()} characters${hasJs ? ' · with JS' : ''}${hasMobile ? ' · mobile variant' : ''}`;
+    },
   },
 ];
 
-const genId = () => `block_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
-const genCardId = () => `card_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+export const genCardId = () => `card_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
 const emptySlide = () => ({ imageUrl: '', linkUrl: '', label: '' });
 const isSafeUrl = (v) => v === '' || v.startsWith('/') || v.startsWith('http://') || v.startsWith('https://');
 
 // ─── Image slot helper ─────────────────────────────────────────────────────
 
-function ImageSlot({ url, mediaType = 'image', onPick, onClear, label, heightClass = 'h-28' }) {
+export function ImageSlot({ url, mediaType = 'image', onPick, onClear, label, heightClass = 'h-28' }) {
   return url ? (
     <div className={`relative group rounded-xl overflow-hidden ${heightClass}`}>
       {mediaType === 'video' ? (
@@ -555,7 +580,7 @@ function BannerGridEditor({ config, onChange }) {
 
 // ─── Hero Slider editor ────────────────────────────────────────────────────
 
-function HeroSliderEditor({ config, onChange }) {
+export function HeroSliderEditor({ config, onChange }) {
   const [picker, setPicker] = useState(null); // { slot: number, target: 'desktop'|'mobile' }
   const [posterPicker, setPosterPicker] = useState(null); // { slot: number, target: 'desktop'|'mobile' }
   const MAX_SLIDES = 5;
@@ -666,7 +691,7 @@ function HeroSliderEditor({ config, onChange }) {
 
 // ─── Featured Strip editor ─────────────────────────────────────────────────
 
-function FeaturedStripEditor({ config, onChange, categoryOptions = [], tags = [] }) {
+export function FeaturedStripEditor({ config, onChange, categoryOptions = [], tags = [] }) {
   const [picking, setPicking] = useState(false);
   const filterType = config?.filterType || 'none';
   const update = (patch) => onChange({ ...config, ...patch });
@@ -729,7 +754,7 @@ function FeaturedStripEditor({ config, onChange, categoryOptions = [], tags = []
 
 // ─── Product Catalog editor ────────────────────────────────────────────────
 
-function ProductCatalogEditor({ config, onChange, categoryOptions = [], tags = [] }) {
+export function ProductCatalogEditor({ config, onChange, categoryOptions = [], tags = [] }) {
   const filterMode = config?.filterMode || 'none';
   const update = (patch) => onChange({ ...config, ...patch });
 
@@ -792,9 +817,9 @@ function ProductCatalogEditor({ config, onChange, categoryOptions = [], tags = [
 
 // ─── Browse Cards editor ───────────────────────────────────────────────────
 
-const SEGMENTS = ['all', 'men', 'women'];
+export const SEGMENTS = ['all', 'men', 'women'];
 
-function BrowseCardsEditor({ config, onChange }) {
+export function BrowseCardsEditor({ config, onChange }) {
   const [activeSegment, setActiveSegment] = useState('all');
   const [pickerCardId, setPickerCardId] = useState(null);
   const cards = Array.isArray(config?.cards) ? config.cards : [];
@@ -877,9 +902,9 @@ function BrowseCardsEditor({ config, onChange }) {
 
 // ─── Logo Grid editor (fully self-contained) ──────────────────────────────
 
-const genLogoId = () => `logo_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+export const genLogoId = () => `logo_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
 
-function LogoGridEditor({ config, onChange }) {
+export function LogoGridEditor({ config, onChange }) {
   const [picking, setPicking] = useState(false);
   const update = (patch) => onChange({ ...config, ...patch });
   const items = Array.isArray(config?.items) ? config.items : [];
@@ -954,7 +979,7 @@ function LogoGridEditor({ config, onChange }) {
 // Small linear undo/redo history for a single text value. Coalesces rapid
 // keystrokes into one history entry (like most code editors) so undo steps
 // feel like meaningful edits rather than one step per character.
-function useTextHistory(value, onCommit) {
+export function useTextHistory(value, onCommit) {
   const historyRef = useRef([value]);
   const indexRef = useRef(0);
   const lastCommitAtRef = useRef(0);
@@ -1004,7 +1029,7 @@ function useTextHistory(value, onCommit) {
   };
 }
 
-function UndoRedoButtons({ onUndo, onRedo, canUndo, canRedo }) {
+export function UndoRedoButtons({ onUndo, onRedo, canUndo, canRedo }) {
   return (
     <div className="flex items-center gap-0.5">
       <button
@@ -1035,7 +1060,7 @@ function UndoRedoButtons({ onUndo, onRedo, canUndo, canRedo }) {
   );
 }
 
-function HtmlJsFields({ html, js, onHtmlChange, onJsChange, idPrefix, jsDefaultExpanded = false }) {
+export function HtmlJsFields({ html, js, onHtmlChange, onJsChange, idPrefix, jsDefaultExpanded = false }) {
   const [jsExpanded, setJsExpanded] = useState(jsDefaultExpanded);
   const [pickingImage, setPickingImage] = useState(false);
   const htmlRef = useRef(null);
@@ -1153,7 +1178,7 @@ function HtmlJsFields({ html, js, onHtmlChange, onJsChange, idPrefix, jsDefaultE
   );
 }
 
-function CustomHtmlEditor({ config, onChange }) {
+export function CustomHtmlEditor({ config, onChange }) {
   const html = config?.html || '';
   const js = config?.js || '';
   const mobile = config?.mobile || {};
@@ -1282,150 +1307,20 @@ function CustomHtmlEditor({ config, onChange }) {
   );
 }
 
-// ─── Block subtitle helper ─────────────────────────────────────────────────
-
-function blockSubtitle(block) {
-  const cfg = block.config || {};
-  switch (block.type) {
-    case 'banner_grid': {
-      const layoutLabel = LAYOUTS.find((l) => l.key === cfg.layout)?.label || 'Single';
-      return `${layoutLabel} · ${cfg.mode === 'slider' ? 'Slider' : 'Static'}`;
-    }
-    case 'hero_slider': {
-      const count = (Array.isArray(cfg.slides) ? cfg.slides : []).filter((s) => s.desktopUrl).length;
-      return `${count} slide${count !== 1 ? 's' : ''}`;
-    }
-    case 'featured_strip': return cfg.titleMain || 'No title';
-    case 'product_catalog': return cfg.title || 'No title';
-    case 'browse_cards': {
-      const count = Array.isArray(cfg.cards) ? cfg.cards.length : 0;
-      return `${count} card${count !== 1 ? 's' : ''}`;
-    }
-    case 'logo_grid': {
-      const count = Array.isArray(cfg.items) ? cfg.items.length : 0;
-      return `${count} logo${count !== 1 ? 's' : ''}${cfg.title ? ` · ${cfg.title}` : ''}`;
-    }
-    case 'custom_html': {
-      const len = String(cfg.html || '').length;
-      const hasJs = String(cfg.js || '').trim().length > 0;
-      const hasMobile = Boolean(cfg.mobile?.enabled);
-      if (!len) return 'Empty';
-      return `${len.toLocaleString()} characters${hasJs ? ' · with JS' : ''}${hasMobile ? ' · mobile variant' : ''}`;
-    }
-    default: return '';
-  }
-}
-
-// ─── Block item row ────────────────────────────────────────────────────────
-
-function BlockItem({ block, isExpanded, onToggle, onDelete, onConfigChange, onDragStart, onDragOver, onDrop, categoryOptions, tags }) {
-  const typeMeta = BLOCK_TYPES.find((t) => t.key === block.type);
-  const subtitle = blockSubtitle(block);
-
-  return (
-    <div draggable onDragStart={onDragStart} onDragOver={onDragOver} onDrop={onDrop}
-      className="group rounded-xl border border-slate-200 bg-white overflow-hidden transition-shadow hover:shadow-sm">
-      {/* Row */}
-      <div className="flex items-center gap-2.5 px-3 py-2.5">
-        {/* drag handle */}
-        <svg className="h-3.5 w-3.5 text-slate-300 shrink-0 cursor-grab active:cursor-grabbing" fill="currentColor" viewBox="0 0 16 16">
-          <circle cx="5" cy="4" r="1.2" /><circle cx="11" cy="4" r="1.2" />
-          <circle cx="5" cy="8" r="1.2" /><circle cx="11" cy="8" r="1.2" />
-          <circle cx="5" cy="12" r="1.2" /><circle cx="11" cy="12" r="1.2" />
-        </svg>
-        {/* icon */}
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 [&>svg]:h-4 [&>svg]:w-4">
-          {typeMeta?.icon}
-        </span>
-        {/* label + meta */}
-        <button type="button" onClick={onToggle} className="flex-1 min-w-0 text-left">
-          <span className="text-[13px] font-medium text-slate-800">{typeMeta?.label || block.type}</span>
-          {subtitle && <span className="ml-2 text-[11px] text-slate-400">{subtitle}</span>}
-        </button>
-        {/* chevron */}
-        <button type="button" onClick={onToggle}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 transition shrink-0">
-          <svg className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
-          </svg>
-        </button>
-        {/* delete — visible on hover */}
-        <button type="button" onClick={onDelete}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-rose-50 hover:text-rose-500 transition shrink-0">
-          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-      {/* Expanded editor */}
-      {isExpanded && (
-        <div className="border-t border-slate-100 bg-white px-4 pb-6 pt-4">
-          {block.type === 'banner_grid'    && <BannerGridEditor    config={block.config} onChange={onConfigChange} />}
-          {block.type === 'hero_slider'    && <HeroSliderEditor    config={block.config} onChange={onConfigChange} />}
-          {block.type === 'featured_strip' && <FeaturedStripEditor config={block.config} onChange={onConfigChange} categoryOptions={categoryOptions} tags={tags} />}
-          {block.type === 'product_catalog'&& <ProductCatalogEditor config={block.config} onChange={onConfigChange} categoryOptions={categoryOptions} tags={tags} />}
-          {block.type === 'browse_cards'   && <BrowseCardsEditor   config={block.config} onChange={onConfigChange} />}
-          {block.type === 'logo_grid'      && <LogoGridEditor      config={block.config} onChange={onConfigChange} />}
-          {block.type === 'custom_html'    && <CustomHtmlEditor    config={block.config} onChange={onConfigChange} />}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Block picker modal ────────────────────────────────────────────────────
-
-function BlockPicker({ onAdd, onClose }) {
-  return (
-    <div className="fixed inset-0 z-[9998] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
-      <div className="relative z-10 w-full bg-white shadow-2xl sm:max-w-md sm:rounded-2xl overflow-hidden">
-        {/* header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <p className="text-sm font-semibold text-slate-900">Add section</p>
-          <button type="button" onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 transition">
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        {/* list */}
-        <div className="overflow-y-auto max-h-[60vh] py-2">
-          {BLOCK_TYPES.map((t) => (
-            <button key={t.key} type="button" onClick={() => { onAdd(t.key); onClose(); }}
-              className="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 transition">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 [&>svg]:h-4 [&>svg]:w-4">
-                {t.icon}
-              </span>
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium text-slate-800 leading-tight">{t.label}</p>
-                <p className="text-[11px] text-slate-400 truncate leading-tight mt-0.5">{t.description}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main HomePageBuilder ──────────────────────────────────────────────────
 
 export default function HomePageBuilder({ homePage, categoryOptions = [], tags = [] }) {
   const [blocks, setBlocks] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
-  const [showPicker, setShowPicker] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const savedRef = useRef(null);
-  const dragSrcRef = useRef(null);
 
   useEffect(() => {
     const raw = Array.isArray(homePage?.home_blocks) ? homePage.home_blocks : [];
     const normalized = raw.map((b) => ({
-      id: String(b?.id || genId()),
+      id: String(b?.id || genBlockId()),
       type: String(b?.type || 'banner_grid'),
       config: b?.config && typeof b.config === 'object' ? b.config : {},
     }));
@@ -1439,37 +1334,17 @@ export default function HomePageBuilder({ homePage, categoryOptions = [], tags =
     setIsDirty(JSON.stringify(nextBlocks) !== savedRef.current);
   };
 
-  const handleAddBlock = (typeKey) => {
-    const typeMeta = BLOCK_TYPES.find((t) => t.key === typeKey);
-    if (!typeMeta) return;
-    const newBlock = { id: genId(), type: typeKey, config: typeMeta.defaultConfig() };
-    const next = [...blocks, newBlock];
-    markDirty(next);
-    setExpandedId(newBlock.id);
-  };
-
-  const handleDeleteBlock = (id) => {
-    markDirty(blocks.filter((b) => b.id !== id));
-    if (expandedId === id) setExpandedId(null);
-  };
-
-  const handleConfigChange = (id, config) => {
-    markDirty(blocks.map((b) => (b.id === id ? { ...b, config } : b)));
-  };
-
-  const handleDragStart = (id) => { dragSrcRef.current = id; };
-  const handleDragOver = (e) => e.preventDefault();
-  const handleDrop = (targetId) => {
-    const srcId = dragSrcRef.current;
-    if (!srcId || srcId === targetId) return;
-    const srcIdx = blocks.findIndex((b) => b.id === srcId);
-    const tgtIdx = blocks.findIndex((b) => b.id === targetId);
-    if (srcIdx < 0 || tgtIdx < 0) return;
-    const next = [...blocks];
-    const [moved] = next.splice(srcIdx, 1);
-    next.splice(tgtIdx, 0, moved);
-    markDirty(next);
-    dragSrcRef.current = null;
+  const renderEditor = (block, { onConfigChange }) => {
+    switch (block.type) {
+      case 'banner_grid': return <BannerGridEditor config={block.config} onChange={onConfigChange} />;
+      case 'hero_slider': return <HeroSliderEditor config={block.config} onChange={onConfigChange} />;
+      case 'featured_strip': return <FeaturedStripEditor config={block.config} onChange={onConfigChange} categoryOptions={categoryOptions} tags={tags} />;
+      case 'product_catalog': return <ProductCatalogEditor config={block.config} onChange={onConfigChange} categoryOptions={categoryOptions} tags={tags} />;
+      case 'browse_cards': return <BrowseCardsEditor config={block.config} onChange={onConfigChange} />;
+      case 'logo_grid': return <LogoGridEditor config={block.config} onChange={onConfigChange} />;
+      case 'custom_html': return <CustomHtmlEditor config={block.config} onChange={onConfigChange} />;
+      default: return null;
+    }
   };
 
   const handleSave = useCallback(async () => {
@@ -1495,51 +1370,26 @@ export default function HomePageBuilder({ homePage, categoryOptions = [], tags =
 
   return (
     <div className="space-y-2">
-      {/* Block list */}
-      {blocks.length === 0 ? (
-        <button
-          type="button"
-          onClick={() => setShowPicker(true)}
-          className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-14 text-slate-400 hover:border-slate-300 hover:text-slate-500 transition"
-        >
-          <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          <span className="text-xs font-medium">Add your first section</span>
-        </button>
-      ) : (
-        <>
-          <div className="space-y-1.5">
-            {blocks.map((block) => (
-              <BlockItem
-                key={block.id}
-                block={block}
-                isExpanded={expandedId === block.id}
-                onToggle={() => setExpandedId((prev) => (prev === block.id ? null : block.id))}
-                onDelete={() => handleDeleteBlock(block.id)}
-                onConfigChange={(config) => handleConfigChange(block.id, config)}
-                onDragStart={() => handleDragStart(block.id)}
-                onDragOver={handleDragOver}
-                onDrop={() => handleDrop(block.id)}
-                categoryOptions={categoryOptions}
-                tags={tags}
-              />
-            ))}
-          </div>
-
-          {/* Add section — always at the bottom */}
+      <BlockListBuilder
+        blocks={blocks}
+        onBlocksChange={markDirty}
+        blockTypes={BLOCK_TYPES}
+        renderEditor={renderEditor}
+        expandedId={expandedId}
+        onExpandedIdChange={setExpandedId}
+        emptyState={(openPicker) => (
           <button
             type="button"
-            onClick={() => setShowPicker(true)}
-            className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-200 py-2.5 text-[11px] font-medium text-slate-400 hover:border-slate-300 hover:text-slate-600 transition"
+            onClick={openPicker}
+            className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-14 text-slate-400 hover:border-slate-300 hover:text-slate-500 transition"
           >
-            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
-            Add section
+            <span className="text-xs font-medium">Add your first section</span>
           </button>
-        </>
-      )}
+        )}
+      />
 
       {/* Save error */}
       {saveError && (
@@ -1557,8 +1407,6 @@ export default function HomePageBuilder({ homePage, categoryOptions = [], tags =
           </button>
         </div>
       )}
-
-      {showPicker && <BlockPicker onAdd={handleAddBlock} onClose={() => setShowPicker(false)} />}
     </div>
   );
 }

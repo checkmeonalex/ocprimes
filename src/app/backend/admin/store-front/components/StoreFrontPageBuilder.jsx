@@ -3,6 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import MediaLibraryModal from './MediaLibraryModal';
 import { VENDOR_TEMPLATES } from '@/lib/vendor/templateConfig.mjs';
+import BlockListBuilder from '@/components/admin/page-builder/BlockListBuilder';
+import {
+  HeroSliderEditor,
+  FeaturedStripEditor,
+  ProductCatalogEditor,
+  BrowseCardsEditor,
+  LogoGridEditor,
+  CustomHtmlEditor,
+} from '../../pages/home/components/HomePageBuilder.jsx';
 
 const resolveTemplateName = (templateId) => {
   if (!templateId) return null;
@@ -88,13 +97,106 @@ const BLOCK_TYPES = [
       mode: 'static',
       slides: [{ imageUrl: '', linkUrl: '' }],
     }),
+    subtitle: (cfg) => {
+      const layoutLabel = LAYOUTS.find((l) => l.key === cfg?.layout)?.label || 'Single';
+      const modeLabel = cfg?.mode === 'slider' ? 'Slider' : 'Static';
+      return `${layoutLabel} · ${modeLabel}`;
+    },
+  },
+  {
+    key: 'hero_slider',
+    label: 'Hero Slider',
+    description: 'Full-width hero banner with desktop & mobile image slots.',
+    icon: (
+      <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+        <rect x="2" y="5" width="20" height="14" rx="2" /><path strokeLinecap="round" strokeLinejoin="round" d="m9 12 2 2 4-4" />
+      </svg>
+    ),
+    defaultConfig: () => ({ slides: [{ desktopUrl: '', mobileUrl: '', linkUrl: '' }] }),
+    subtitle: (cfg) => {
+      const count = (Array.isArray(cfg?.slides) ? cfg.slides : []).filter((s) => s.desktopUrl).length;
+      return `${count} slide${count !== 1 ? 's' : ''}`;
+    },
+  },
+  {
+    key: 'browse_cards',
+    label: 'Browse Categories',
+    description: 'Category card grid with All / Men / Women tabs.',
+    icon: (
+      <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
+      </svg>
+    ),
+    defaultConfig: () => ({ title: '', cards: [] }),
+    subtitle: (cfg) => {
+      const count = Array.isArray(cfg?.cards) ? cfg.cards.length : 0;
+      return `${count} card${count !== 1 ? 's' : ''}`;
+    },
+  },
+  {
+    key: 'featured_strip',
+    label: 'Featured Strip',
+    description: 'Side image with a product grid filtered by category or tag.',
+    icon: (
+      <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+        <rect x="2" y="3" width="8" height="18" rx="1.5" /><rect x="12" y="3" width="4" height="4" rx="1" />
+        <rect x="18" y="3" width="4" height="4" rx="1" /><rect x="12" y="10" width="4" height="4" rx="1" />
+        <rect x="18" y="10" width="4" height="4" rx="1" />
+      </svg>
+    ),
+    defaultConfig: () => ({ imageUrl: '', imageKey: '', titleMain: '', filterType: 'none', categoryId: '', tagId: '' }),
+    subtitle: (cfg) => cfg?.titleMain || 'No title',
+  },
+  {
+    key: 'logo_grid',
+    label: 'Logo Grid',
+    description: 'Brand logo grid with title and colors.',
+    icon: (
+      <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+        <rect x="2" y="7" width="6" height="4" rx="1" /><rect x="9" y="7" width="6" height="4" rx="1" />
+        <rect x="16" y="7" width="6" height="4" rx="1" /><rect x="2" y="13" width="6" height="4" rx="1" />
+        <rect x="9" y="13" width="6" height="4" rx="1" /><rect x="16" y="13" width="6" height="4" rx="1" />
+      </svg>
+    ),
+    defaultConfig: () => ({ title: '', titleBgColor: '#111827', titleTextColor: '#ffffff', items: [] }),
+    subtitle: (cfg) => {
+      const count = Array.isArray(cfg?.items) ? cfg.items.length : 0;
+      return `${count} logo${count !== 1 ? 's' : ''}${cfg?.title ? ` · ${cfg.title}` : ''}`;
+    },
+  },
+  {
+    key: 'product_catalog',
+    label: 'Product Catalog',
+    description: 'Product grid with title, description, and filter.',
+    icon: (
+      <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+      </svg>
+    ),
+    defaultConfig: () => ({ title: '', subtitle: '', filterMode: 'none', categoryId: '', tagId: '', limit: 12 }),
+    subtitle: (cfg) => cfg?.title || 'No title',
+  },
+  {
+    key: 'custom_html',
+    label: 'Custom HTML',
+    description: 'Paste your own HTML (inline styles only) and optional JS for a fully custom section.',
+    icon: (
+      <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="m9.75 8.25-3 3.75 3 3.75m4.5-7.5 3 3.75-3 3.75M13.5 4.5l-3 15" />
+      </svg>
+    ),
+    defaultConfig: () => ({ html: '', js: '', mobile: { enabled: false, html: '', js: '' } }),
+    subtitle: (cfg) => {
+      const len = String(cfg?.html || '').length;
+      const hasJs = String(cfg?.js || '').trim().length > 0;
+      const hasMobile = Boolean(cfg?.mobile?.enabled);
+      if (!len) return 'Empty';
+      return `${len.toLocaleString()} characters${hasJs ? ' · with JS' : ''}${hasMobile ? ' · mobile variant' : ''}`;
+    },
   },
 ];
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
-
-const genId = () =>
-  `block_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
 
 const emptySlide = () => ({ imageUrl: '', linkUrl: '' });
 
@@ -103,6 +205,30 @@ const isSafeUrl = (v) =>
   v.startsWith('/') ||
   v.startsWith('http://') ||
   v.startsWith('https://');
+
+// custom_html blocks are stored with a FLAT config shape on the storefront
+// (mobileEnabled/mobileHtml/mobileJs, matching CustomSectionRunner's own prop
+// contract and this feature's existing zod schema), while the reused
+// CustomHtmlEditor component reads/writes a NESTED shape
+// (mobile: {enabled, html, js}). These adapters translate at the editor
+// boundary only — storage stays flat end-to-end.
+const toNestedCustomHtmlConfig = (cfg = {}) => ({
+  html: cfg.html || '',
+  js: cfg.js || '',
+  mobile: {
+    enabled: Boolean(cfg.mobileEnabled),
+    html: cfg.mobileHtml || '',
+    js: cfg.mobileJs || '',
+  },
+});
+
+const toFlatCustomHtmlConfig = (cfg = {}) => ({
+  html: cfg.html || '',
+  js: cfg.js || '',
+  mobileEnabled: Boolean(cfg.mobile?.enabled),
+  mobileHtml: cfg.mobile?.html || '',
+  mobileJs: cfg.mobile?.js || '',
+});
 
 // ─── Banner Grid block editor ──────────────────────────────────────────────
 
@@ -264,165 +390,14 @@ function BannerGridEditor({ config, onChange }) {
   );
 }
 
-// ─── Single block item ─────────────────────────────────────────────────────
-
-function BlockItem({ block, isExpanded, onToggle, onDelete, onConfigChange, onDragStart, onDragOver, onDrop }) {
-  const typeMeta = BLOCK_TYPES.find((t) => t.key === block.type);
-  const layoutLabel = block.type === 'banner_grid'
-    ? LAYOUTS.find((l) => l.key === block.config?.layout)?.label || 'Single'
-    : '';
-  const modeLabel = block.config?.mode === 'slider' ? 'Slider' : 'Static';
-  const templateName = resolveTemplateName(block.template);
-
-  return (
-    <div
-      draggable
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      className="rounded-2xl border border-slate-200 bg-white overflow-hidden transition hover:border-slate-300"
-    >
-      {/* Header row */}
-      <div className="flex items-center gap-3 px-4 py-3">
-        {/* Drag handle */}
-        <svg
-          className="h-4 w-4 text-slate-300 shrink-0 cursor-grab active:cursor-grabbing"
-          fill="currentColor"
-          viewBox="0 0 16 16"
-        >
-          <circle cx="5" cy="4" r="1.2" /><circle cx="11" cy="4" r="1.2" />
-          <circle cx="5" cy="8" r="1.2" /><circle cx="11" cy="8" r="1.2" />
-          <circle cx="5" cy="12" r="1.2" /><circle cx="11" cy="12" r="1.2" />
-        </svg>
-
-        {/* Type icon */}
-        <span className="text-slate-400 shrink-0">{typeMeta?.icon}</span>
-
-        {/* Labels */}
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex-1 text-left min-w-0"
-        >
-          <p className="text-sm font-semibold text-slate-800 leading-none">
-            {typeMeta?.label || block.type}
-          </p>
-          {layoutLabel && (
-            <p className="text-[11px] text-slate-400 mt-0.5">
-              {layoutLabel} · {modeLabel}
-            </p>
-          )}
-        </button>
-
-        {/* Template source label */}
-        {templateName && (
-          <span className="shrink-0 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-500 ring-1 ring-violet-200">
-            {templateName}
-          </span>
-        )}
-
-        {/* Expand toggle */}
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 transition shrink-0"
-          aria-label={isExpanded ? 'Collapse' : 'Expand'}
-        >
-          <svg
-            className={`h-4 w-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        {/* Delete */}
-        <button
-          type="button"
-          onClick={onDelete}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-slate-300 hover:text-red-500 hover:bg-red-50 transition shrink-0"
-          aria-label="Remove block"
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Editor (expanded) */}
-      {isExpanded && (
-        <div className="border-t border-slate-100 px-4 pb-4">
-          {block.type === 'banner_grid' && (
-            <BannerGridEditor
-              config={block.config}
-              onChange={(nextConfig) => onConfigChange(block.id, nextConfig)}
-            />
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Block picker modal ────────────────────────────────────────────────────
-
-function BlockPicker({ onAdd, onClose }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white shadow-2xl p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold text-slate-900">Add Component</h3>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-full text-slate-400 hover:bg-slate-100 transition">
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="space-y-2">
-          {BLOCK_TYPES.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => { onAdd(t.key); onClose(); }}
-              className="w-full flex items-center gap-3 rounded-xl border-2 border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-slate-400 hover:bg-white"
-            >
-              <span className="text-slate-500 shrink-0">{t.icon}</span>
-              <div>
-                <p className="text-sm font-semibold text-slate-800">{t.label}</p>
-                <p className="text-[11px] text-slate-400">{t.description}</p>
-              </div>
-            </button>
-          ))}
-          {/* Coming soon placeholder */}
-          <div className="flex items-center gap-3 rounded-xl border-2 border-dashed border-slate-200 px-4 py-3 opacity-50">
-            <svg className="h-6 w-6 text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            <div>
-              <p className="text-sm font-semibold text-slate-500">More coming soon</p>
-              <p className="text-[11px] text-slate-400">Text blocks, video, announcements…</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main builder ──────────────────────────────────────────────────────────
 
-export default function StoreFrontPageBuilder({ isLoading, brand, onSave }) {
+export default function StoreFrontPageBuilder({ isLoading, brand, onSave, categoryOptions = [], tags = [] }) {
   const [blocks, setBlocks] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
-  const [showPicker, setShowPicker] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const savedRef = useRef([]);
-  const dragSrcRef = useRef(null);
 
   useEffect(() => {
     const raw = Array.isArray(brand?.storefront_blocks) ? brand.storefront_blocks : [];
@@ -431,55 +406,35 @@ export default function StoreFrontPageBuilder({ isLoading, brand, onSave }) {
     setIsDirty(false);
   }, [brand?.storefront_blocks]);
 
-  const markDirty = () => setIsDirty(true);
-
-  const addBlock = (type) => {
-    const typeMeta = BLOCK_TYPES.find((t) => t.key === type);
-    if (!typeMeta) return;
-    const newBlock = { id: genId(), type, config: typeMeta.defaultConfig() };
-    setBlocks((prev) => [...prev, newBlock]);
-    setExpandedId(newBlock.id);
-    markDirty();
+  const markDirty = (nextBlocks) => {
+    setBlocks(nextBlocks);
+    setIsDirty(true);
   };
 
-  const removeBlock = (id) => {
-    setBlocks((prev) => prev.filter((b) => b.id !== id));
-    if (expandedId === id) setExpandedId(null);
-    markDirty();
-  };
-
-  const updateConfig = (id, config) => {
-    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, config } : b)));
-    markDirty();
-  };
-
-  const toggleExpand = (id) =>
-    setExpandedId((prev) => (prev === id ? null : id));
-
-  // Drag handlers
-  const handleDragStart = (e, id) => {
-    dragSrcRef.current = id;
-    e.dataTransfer.effectAllowed = 'move';
-  };
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-  const handleDrop = (e, targetId) => {
-    e.preventDefault();
-    const srcId = dragSrcRef.current;
-    if (!srcId || srcId === targetId) return;
-    setBlocks((prev) => {
-      const next = [...prev];
-      const si = next.findIndex((b) => b.id === srcId);
-      const ti = next.findIndex((b) => b.id === targetId);
-      if (si === -1 || ti === -1) return prev;
-      const [item] = next.splice(si, 1);
-      next.splice(ti, 0, item);
-      return next;
-    });
-    dragSrcRef.current = null;
-    markDirty();
+  const renderEditor = (block, { onConfigChange }) => {
+    switch (block.type) {
+      case 'banner_grid':
+        return <BannerGridEditor config={block.config} onChange={onConfigChange} />;
+      case 'hero_slider':
+        return <HeroSliderEditor config={block.config} onChange={onConfigChange} />;
+      case 'featured_strip':
+        return <FeaturedStripEditor config={block.config} onChange={onConfigChange} categoryOptions={categoryOptions} tags={tags} />;
+      case 'product_catalog':
+        return <ProductCatalogEditor config={block.config} onChange={onConfigChange} categoryOptions={categoryOptions} tags={tags} />;
+      case 'browse_cards':
+        return <BrowseCardsEditor config={block.config} onChange={onConfigChange} />;
+      case 'logo_grid':
+        return <LogoGridEditor config={block.config} onChange={onConfigChange} />;
+      case 'custom_html':
+        return (
+          <CustomHtmlEditor
+            config={toNestedCustomHtmlConfig(block.config)}
+            onChange={(nextNested) => onConfigChange(toFlatCustomHtmlConfig(nextNested))}
+          />
+        );
+      default:
+        return null;
+    }
   };
 
   const handleSave = async () => {
@@ -493,24 +448,6 @@ export default function StoreFrontPageBuilder({ isLoading, brand, onSave }) {
     }
   };
 
-  // Split blocks into template-seeded vs manually added
-  const templateBlocks = blocks.filter((b) => Boolean(b.template));
-  const customBlocks = blocks.filter((b) => !b.template);
-
-  const renderBlockItem = (block) => (
-    <BlockItem
-      key={block.id}
-      block={block}
-      isExpanded={expandedId === block.id}
-      onToggle={() => toggleExpand(block.id)}
-      onDelete={() => removeBlock(block.id)}
-      onConfigChange={updateConfig}
-      onDragStart={(e) => handleDragStart(e, block.id)}
-      onDragOver={handleDragOver}
-      onDrop={(e) => handleDrop(e, block.id)}
-    />
-  );
-
   return (
     <>
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
@@ -521,64 +458,61 @@ export default function StoreFrontPageBuilder({ isLoading, brand, onSave }) {
           </p>
         </div>
 
-        {/* ── Template blocks ─────────────────────────────────────────── */}
-        {templateBlocks.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-500">
-                {resolveTemplateName(templateBlocks[0].template)} Template
-              </span>
-              <div className="h-px flex-1 bg-violet-100" />
-              <span className="text-[10px] text-slate-400">Built-in layout</span>
-            </div>
-            <div className="space-y-2">
-              {templateBlocks.map(renderBlockItem)}
-            </div>
-          </div>
-        )}
-
-        {/* ── Custom blocks ────────────────────────────────────────────── */}
-        <div className="space-y-2">
-          {(templateBlocks.length > 0 || customBlocks.length > 0) && (
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                Your Blocks
-              </span>
-              <div className="h-px flex-1 bg-slate-100" />
-            </div>
-          )}
-
-          {customBlocks.length > 0 ? (
-            <div className="space-y-2">
-              {customBlocks.map(renderBlockItem)}
-            </div>
-          ) : (
-            blocks.length === 0 ? (
-              <div className="rounded-2xl border-2 border-dashed border-slate-200 py-10 text-center">
-                <svg className="mx-auto h-8 w-8 text-slate-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                <p className="mt-2 text-sm font-medium text-slate-400">No components yet</p>
-                <p className="text-xs text-slate-400">Click + Add Component below to get started.</p>
+        <BlockListBuilder
+          blocks={blocks}
+          onBlocksChange={markDirty}
+          blockTypes={BLOCK_TYPES}
+          renderEditor={renderEditor}
+          expandedId={expandedId}
+          onExpandedIdChange={setExpandedId}
+          pickerTitle="Add Component"
+          groupBy={(b) => (b.template ? b.template : null)}
+          renderGroupHeader={(groupKey, groupBlocks) => (
+            groupKey ? (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-500">
+                  {resolveTemplateName(groupKey)} Template
+                </span>
+                <div className="h-px flex-1 bg-violet-100" />
+                <span className="text-[10px] text-slate-400">Built-in layout</span>
               </div>
-            ) : (
-              <p className="text-xs text-slate-400 italic">No custom blocks added yet.</p>
-            )
+            ) : blocks.some((b) => b.template) ? (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Your Blocks
+                </span>
+                <div className="h-px flex-1 bg-slate-100" />
+              </div>
+            ) : null
           )}
-        </div>
-
-        {/* Add component button */}
-        <button
-          type="button"
-          onClick={() => setShowPicker(true)}
-          disabled={isLoading}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-3 text-xs font-bold uppercase tracking-widest text-slate-500 transition hover:border-slate-500 hover:text-slate-700"
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          Add Component
-        </button>
+          renderEmptyGroup={
+            blocks.length > 0 && !blocks.some((b) => !b.template) ? (
+              <p className="text-xs text-slate-400 italic">No custom blocks added yet.</p>
+            ) : null
+          }
+          emptyState={
+            <div className="rounded-2xl border-2 border-dashed border-slate-200 py-10 text-center">
+              <svg className="mx-auto h-8 w-8 text-slate-300" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              <p className="mt-2 text-sm font-medium text-slate-400">No components yet</p>
+              <p className="text-xs text-slate-400">Click + Add Component below to get started.</p>
+            </div>
+          }
+          renderAddTrigger={(openPicker) => (
+            <button
+              type="button"
+              onClick={openPicker}
+              disabled={isLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-3 text-xs font-bold uppercase tracking-widest text-slate-500 transition hover:border-slate-500 hover:text-slate-700 mt-2"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Add Component
+            </button>
+          )}
+        />
 
         {/* Save bar */}
         {isDirty && (
@@ -595,10 +529,6 @@ export default function StoreFrontPageBuilder({ isLoading, brand, onSave }) {
           </div>
         )}
       </section>
-
-      {showPicker && (
-        <BlockPicker onAdd={addBlock} onClose={() => setShowPicker(false)} />
-      )}
     </>
   );
 }

@@ -36,6 +36,8 @@ export default function StoreFrontPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
   const [isNameSaving, setIsNameSaving] = useState(false);
+  const [categoryOptions, setCategoryOptions] = useState([]);
+  const [tags, setTags] = useState([]);
   const nameInputRef = useRef(null);
 
   const brandName = String(brand?.name || 'Store');
@@ -112,6 +114,33 @@ export default function StoreFrontPage() {
   useEffect(() => {
     loadStoreFront();
   }, [loadStoreFront]);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadFilters = async () => {
+      try {
+        const [treeRes, filtersRes, tagsRes] = await Promise.all([
+          fetch('/api/admin/categories/tree?limit=500').then((r) => r.json().catch(() => null)),
+          fetch('/api/admin/product-filters?status=publish').then((r) => r.json().catch(() => null)),
+          fetch('/api/admin/tags?per_page=50').then((r) => r.json().catch(() => null)),
+        ]);
+        if (!mounted) return;
+        const categoryIds = Array.isArray(filtersRes?.category_ids) ? filtersRes.category_ids : [];
+        if (Array.isArray(treeRes?.items)) {
+          setCategoryOptions(
+            categoryIds.length ? treeRes.items.filter((i) => categoryIds.includes(i.id)) : treeRes.items,
+          );
+        }
+        if (Array.isArray(tagsRes?.items)) setTags(tagsRes.items);
+      } catch {
+        // non-critical: category/tag filter dropdowns just stay empty
+      }
+    };
+    loadFilters();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleLogoSelect = useCallback(
     async (url) => {
@@ -398,6 +427,8 @@ export default function StoreFrontPage() {
               isLoading={isLoading}
               brand={brand}
               onSave={saveStoreFront}
+              categoryOptions={categoryOptions}
+              tags={tags}
             />
 
       </div>

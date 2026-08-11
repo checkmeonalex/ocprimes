@@ -12,6 +12,44 @@ import {
   CATEGORY_LAYOUT_LABELS,
   normalizeCategoryLayoutOrder,
 } from '@/lib/layouts/category-layout';
+import BlockListBuilder from '@/components/admin/page-builder/BlockListBuilder';
+
+const CATEGORY_BLOCK_ICONS = {
+  banner: (
+    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+      <rect x="3" y="3" width="8" height="8" rx="1" /><rect x="13" y="3" width="8" height="8" rx="1" />
+      <rect x="3" y="13" width="8" height="8" rx="1" /><rect x="13" y="13" width="8" height="8" rx="1" />
+    </svg>
+  ),
+  hotspot: (
+    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  logo_grid: (
+    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+      <rect x="2" y="7" width="6" height="4" rx="1" /><rect x="9" y="7" width="6" height="4" rx="1" />
+      <rect x="16" y="7" width="6" height="4" rx="1" /><rect x="2" y="13" width="6" height="4" rx="1" />
+      <rect x="9" y="13" width="6" height="4" rx="1" /><rect x="16" y="13" width="6" height="4" rx="1" />
+    </svg>
+  ),
+  featured_strip: (
+    <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+      <rect x="2" y="3" width="8" height="18" rx="1.5" /><rect x="12" y="3" width="4" height="4" rx="1" />
+      <rect x="18" y="3" width="4" height="4" rx="1" /><rect x="12" y="10" width="4" height="4" rx="1" />
+      <rect x="18" y="10" width="4" height="4" rx="1" />
+    </svg>
+  ),
+};
+
+const CATEGORY_BLOCK_TYPES = CATEGORY_LAYOUT_KEYS.map((key) => ({
+  key,
+  label: CATEGORY_LAYOUT_LABELS[key].label,
+  description: CATEGORY_LAYOUT_LABELS[key].description,
+  icon: CATEGORY_BLOCK_ICONS[key],
+  defaultConfig: () => ({}),
+  subtitle: () => '',
+}));
 
 const createDraftLayout = (order = 0) => ({
   id: `temp-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -38,14 +76,10 @@ const emptyBrowseCards = {
 
 const CATEGORY_TABS = [
   { key: 'general', label: 'General' },
-  { key: 'layout', label: 'Layout order' },
+  { key: 'layout', label: 'Sections' },
   { key: 'subcategories', label: 'Subcategories' },
-  { key: 'banner', label: 'Banner' },
-  { key: 'featured', label: 'Featured strip' },
-  { key: 'hotspot', label: 'Hotspot products' },
   { key: 'catalog', label: 'Home catalog' },
   { key: 'browse', label: 'Browse cards' },
-  { key: 'logo', label: 'Logo grid' },
 ];
 
 const SectionCard = ({ title, description, action, children, id, className = '' }) => (
@@ -158,8 +192,7 @@ function CategoryDetailPage({ params }) {
     home_catalog_limit: 12,
   });
   const [layoutOrder, setLayoutOrder] = useState(CATEGORY_LAYOUT_KEYS);
-  const [draggingLayoutKey, setDraggingLayoutKey] = useState('');
-  const [layoutDragOverKey, setLayoutDragOverKey] = useState('');
+  const [expandedSectionKey, setExpandedSectionKey] = useState(null);
   const [removing, setRemoving] = useState(false);
   const [bannerSliderDesktop, setBannerSliderDesktop] = useState([]);
   const [bannerSliderMobile, setBannerSliderMobile] = useState([]);
@@ -459,20 +492,6 @@ function CategoryDetailPage({ params }) {
     setTags((prev) => prev.filter((tag) => availableTagIds.has(tag.id)));
   }, [availableTagIds]);
 
-  useEffect(() => {
-    if (!draggingLayoutKey) return;
-    const handlePointerUp = () => {
-      setDraggingLayoutKey('');
-      setLayoutDragOverKey('');
-    };
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('pointercancel', handlePointerUp);
-    return () => {
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('pointercancel', handlePointerUp);
-    };
-  }, [draggingLayoutKey]);
-
   const handleSave = async () => {
     if (!item?.id) return;
     setSaving(true);
@@ -534,30 +553,6 @@ function CategoryDetailPage({ params }) {
       setSaving(false);
       setTimeout(() => setSaveMsg(''), 2000);
     }
-  };
-
-  const reorderLayout = (fromIndex, toIndex) => {
-    setLayoutOrder((prev) => {
-      if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return prev;
-      const next = [...prev];
-      const [moved] = next.splice(fromIndex, 1);
-      next.splice(toIndex, 0, moved);
-      return next;
-    });
-  };
-
-  const handleLayoutHover = (targetKey) => {
-    if (!draggingLayoutKey || draggingLayoutKey === targetKey) return;
-    const fromIndex = layoutOrder.indexOf(draggingLayoutKey);
-    const toIndex = layoutOrder.indexOf(targetKey);
-    reorderLayout(fromIndex, toIndex);
-    setLayoutDragOverKey(targetKey);
-  };
-
-  const moveLayoutBy = (key, direction) => {
-    const fromIndex = layoutOrder.indexOf(key);
-    const toIndex = fromIndex + direction;
-    reorderLayout(fromIndex, toIndex);
   };
 
   const handleLibraryApply = async ({ gallery, videos }) => {
@@ -1510,87 +1505,34 @@ function CategoryDetailPage({ params }) {
 
               <SectionCard
                 id="layout-order"
-                title="Layout order"
-                description="Drag sections to control the front-end order."
+                title="Sections"
+                description="Add, remove, reorder, and edit the sections shown on this category's page."
                 action={<SaveButton onClick={handleSave} disabled={saving} saving={saving} label="Save order" />}
                 className={activeTab === 'layout' ? '' : 'hidden'}
               >
-                <div className="space-y-1.5">
-                  {layoutOrder.map((key, index) => {
-                    const meta = CATEGORY_LAYOUT_LABELS[key];
-                    return (
-                      <div
-                        key={key}
-                        onPointerDown={(event) => {
-                          event.preventDefault();
-                          setDraggingLayoutKey(key);
-                          setLayoutDragOverKey(key);
-                        }}
-                        onPointerEnter={() => handleLayoutHover(key)}
-                        className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm transition select-none ${
-                          draggingLayoutKey === key ? 'cursor-grabbing' : 'cursor-grab'
-                        } ${
-                          layoutDragOverKey === key
-                            ? 'border-slate-400 bg-slate-50'
-                            : 'border-slate-200 bg-white'
-                        } ${draggingLayoutKey === key ? 'opacity-70' : ''}`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-slate-50"
-                            title="Drag to reorder"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 24 24"
-                              className="h-4 w-4 text-slate-400"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <circle cx="10" cy="6" r="1" />
-                              <circle cx="14" cy="6" r="1" />
-                              <circle cx="10" cy="12" r="1" />
-                              <circle cx="14" cy="12" r="1" />
-                              <circle cx="10" cy="18" r="1" />
-                              <circle cx="14" cy="18" r="1" />
-                            </svg>
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800">
-                              {meta?.label || key}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {meta?.description || 'Section'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onPointerDown={(event) => event.stopPropagation()}
-                            onClick={() => moveLayoutBy(key, -1)}
-                            disabled={index === 0}
-                            className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40"
-                          >
-                            Up
-                          </button>
-                          <button
-                            type="button"
-                            onPointerDown={(event) => event.stopPropagation()}
-                            onClick={() => moveLayoutBy(key, 1)}
-                            disabled={index === layoutOrder.length - 1}
-                            className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-slate-600 disabled:opacity-40"
-                          >
-                            Down
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <BlockListBuilder
+                  blocks={layoutOrder.map((key) => ({ id: key, type: key, config: {} }))}
+                  onBlocksChange={(nextBlocks) => setLayoutOrder(nextBlocks.map((b) => b.type))}
+                  blockTypes={CATEGORY_BLOCK_TYPES.filter((t) => !layoutOrder.includes(t.key))}
+                  genId={(typeKey) => typeKey}
+                  expandedId={expandedSectionKey}
+                  onExpandedIdChange={setExpandedSectionKey}
+                  pickerTitle="Add section"
+                  addButtonLabel="Add section"
+                  emptyState={(openPicker) => (
+                    <button
+                      type="button"
+                      onClick={openPicker}
+                      className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 py-14 text-slate-400 hover:border-slate-300 hover:text-slate-500 transition"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                      <span className="text-xs font-medium">Add your first section</span>
+                    </button>
+                  )}
+                  renderEditor={() => null}
+                />
               </SectionCard>
 
               <SectionCard
@@ -1632,7 +1574,7 @@ function CategoryDetailPage({ params }) {
               <SectionCard
                 title="Banner"
                 description="Wide slider (max 5)."
-                className={activeTab === 'banner' ? '' : 'hidden'}
+                className={activeTab === 'layout' && expandedSectionKey === 'banner' ? '' : 'hidden'}
               >
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
@@ -1774,7 +1716,7 @@ function CategoryDetailPage({ params }) {
                 title="Featured strip"
                 description="Image + products filtered by tag or category."
                 action={<SaveButton onClick={handleSave} disabled={saving} saving={saving} label="Save featured strip" />}
-                className={activeTab === 'featured' ? '' : 'hidden'}
+                className={activeTab === 'layout' && expandedSectionKey === 'featured_strip' ? '' : 'hidden'}
               >
                 <div>
                   <FieldLabel>Title</FieldLabel>
@@ -1943,7 +1885,7 @@ function CategoryDetailPage({ params }) {
                     )}
                   </div>
                 }
-                className={activeTab === 'hotspot' ? '' : 'hidden'}
+                className={activeTab === 'layout' && expandedSectionKey === 'hotspot' ? '' : 'hidden'}
               >
                 <div>
                   <FieldLabel>Title</FieldLabel>
@@ -2395,7 +2337,7 @@ function CategoryDetailPage({ params }) {
                     ) : null}
                   </div>
                 }
-                className={activeTab === 'logo' ? '' : 'hidden'}
+                className={activeTab === 'layout' && expandedSectionKey === 'logo_grid' ? '' : 'hidden'}
               >
                 {logoGridLoading ? (
                   <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">

@@ -34,27 +34,82 @@ const sliderLinkSchema = z
     'Invalid slider link.',
   )
 
+// banner_grid and hero_slider both store their images under a `slides` key but
+// with incompatible item shapes, since they share one flat, non-discriminated
+// config schema below — union the two shapes rather than merging their fields.
+const bannerSlideItemSchema = z.object({
+  imageUrl: z.string().max(500),
+  linkUrl: z.string().max(300),
+})
+
+const heroSlideItemSchema = z.object({
+  desktopUrl: z.string().max(500).optional(),
+  desktopType: z.enum(['image', 'video']).optional(),
+  desktopPoster: z.string().max(500).optional(),
+  mobileUrl: z.string().max(500).optional(),
+  mobileType: z.enum(['image', 'video']).optional(),
+  mobilePoster: z.string().max(500).optional(),
+  linkUrl: z.string().max(300).optional(),
+})
+
+const browseCardItemSchema = z.object({
+  id: z.string().max(100).optional(),
+  segment: z.string().max(20).optional(),
+  name: z.string().max(120).optional(),
+  link: z.string().max(300).optional(),
+  imageUrl: z.string().max(500).optional(),
+  imageKey: z.string().max(500).optional(),
+  imageAlt: z.string().max(200).optional(),
+})
+
+const logoGridItemSchema = z.object({
+  id: z.string().max(100).optional(),
+  image_url: z.string().max(500).optional(),
+  image_key: z.string().max(500).optional(),
+  image_alt: z.string().max(200).optional(),
+})
+
 const storefrontBlockSchema = z.object({
   id: z.string().max(100),
-  type: z.enum(['banner_grid', 'custom_html']),
+  type: z.enum([
+    'banner_grid',
+    'hero_slider',
+    'featured_strip',
+    'product_catalog',
+    'browse_cards',
+    'logo_grid',
+    'custom_html',
+  ]),
   template: z.string().max(60).optional(), // template that seeded this block (display label only)
   config: z.object({
+    // banner_grid
     layout: z.enum(['single', 'two-col', 'two-by-two', 'three-col', 'four-col', 'hero-duo']).optional(),
     mode: z.enum(['static', 'slider']).optional(),
-    slides: z
-      .array(
-        z.object({
-          imageUrl: z.string().max(500),
-          linkUrl: z.string().max(300),
-        }),
-      )
-      .max(16)
-      .optional(),
+    slides: z.array(z.union([bannerSlideItemSchema, heroSlideItemSchema])).max(16).optional(),
+    // custom_html
     html: z.string().max(20000).optional(),
     js: z.string().max(20000).optional(),
     mobileEnabled: z.boolean().optional(),
     mobileHtml: z.string().max(20000).optional(),
     mobileJs: z.string().max(20000).optional(),
+    // featured_strip
+    imageUrl: z.string().max(500).optional(),
+    imageKey: z.string().max(500).optional(),
+    titleMain: z.string().max(200).optional(),
+    filterType: z.enum(['none', 'category', 'tag']).optional(),
+    categoryId: z.string().max(100).optional(),
+    tagId: z.string().max(100).optional(),
+    // product_catalog
+    title: z.string().max(200).optional(),
+    subtitle: z.string().max(400).optional(),
+    filterMode: z.enum(['none', 'category', 'tag']).optional(),
+    limit: z.number().int().min(1).max(30).optional(),
+    // browse_cards
+    cards: z.array(browseCardItemSchema).max(60).optional(),
+    // logo_grid
+    titleBgColor: z.string().max(20).optional(),
+    titleTextColor: z.string().max(20).optional(),
+    items: z.array(logoGridItemSchema).max(60).optional(),
   }),
 })
 
