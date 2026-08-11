@@ -345,6 +345,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   const [sizeGuidesError, setSizeGuidesError] = useState('');
   const [sizeGuideEnabled, setSizeGuideEnabled] = useState(false);
   const [selectedSizeGuideId, setSelectedSizeGuideId] = useState('');
+  const [showLowStockWarning, setShowLowStockWarning] = useState(false);
   const [showMobileMainHeader, setShowMobileMainHeader] = useState(true);
   const [isMobileActionsOpen, setIsMobileActionsOpen] = useState(false);
   const [activeAttributeEditorKey, setActiveAttributeEditorKey] = useState('');
@@ -490,6 +491,10 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     }
     setSizeGuideEnabled(false);
     setSelectedSizeGuideId('');
+  }, [product]);
+
+  useEffect(() => {
+    setShowLowStockWarning(Boolean(product?.show_low_stock_warning));
   }, [product]);
 
   const handleLoadCategories = useCallback(() => {
@@ -1289,6 +1294,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
       attributes: selectedAttributesWithOptions || [],
       sizeGuideEnabled,
       selectedSizeGuideId: selectedSizeGuideId || '',
+      showLowStockWarning,
     });
   }, [
     canDraftSave,
@@ -1300,6 +1306,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     selectedSizeGuideId,
     selectedTags,
     sizeGuideEnabled,
+    showLowStockWarning,
     variationEnabled,
     variations,
   ]);
@@ -1802,6 +1809,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         attributes: buildAttributePayload(),
         variations: buildVariationPayload(),
         size_guide_id: sizeGuideEnabled ? selectedSizeGuideId : '',
+        show_low_stock_warning: showLowStockWarning,
       };
 
       const nextForm = statusOverride ? { ...formData, status: statusOverride } : formData;
@@ -1884,6 +1892,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         attributes: buildAttributePayload(),
         variations: buildVariationPayload(),
         size_guide_id: sizeGuideEnabled ? selectedSizeGuideId : '',
+        show_low_stock_warning: showLowStockWarning,
       };
       const existingId = savedProduct?.id || product?.id;
       const payload = buildProductPayload(draftForm, {
@@ -1934,6 +1943,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     selectedCategories,
     selectedSizeGuideId,
     selectedTags,
+    showLowStockWarning,
     sizeGuideEnabled,
     variationEnabled,
   ]);
@@ -3282,6 +3292,26 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                   ))}
                 </CustomSelect>
               </div>
+            </div>
+            )}
+
+            {(isConfigurationStep || isReviewStep) && (
+            <div className={variationSectionClass}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-900">Low Stock Warning</p>
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={showLowStockWarning}
+                    onChange={(event) => setShowLowStockWarning(event.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  Show &quot;Only X left in stock&quot; badge
+                </label>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                When on, shoppers see an urgency badge on this product once stock runs low. Off by default.
+              </p>
             </div>
             )}
 

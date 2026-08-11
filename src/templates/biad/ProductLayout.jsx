@@ -6,6 +6,7 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import { Share2, Minus, Plus, Heart } from 'lucide-react'
 import RelatedProductsSection from '@/components/product/RelatedProductsSection'
 import RecentlyViewedSection from '@/components/product/RecentlyViewedSection'
+import FitRecommendationBadge from '@/components/product/FitRecommendationBadge'
 
 export default function BiadProductLayout({
   product,
@@ -385,6 +386,13 @@ export default function BiadProductLayout({
                 </div>
                 {showSelectionErrors && !selectedSize && sizeOptions.length > 1 && (
                   <p className='text-xs text-red-400 font-bold uppercase tracking-wide'>{getSelectionErrorMessage('size')}</p>
+                )}
+                {sizeGuide && (
+                  <FitRecommendationBadge
+                    guide={sizeGuide}
+                    selectedSize={selectedSize}
+                    onApply={(size) => setSelectedSize(String(size))}
+                  />
                 )}
               </div>
             )}

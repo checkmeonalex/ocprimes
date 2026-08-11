@@ -21,6 +21,7 @@ type RelatedProduct = {
   price: number
   originalPrice?: number | null
   stock?: number | null
+  showLowStockWarning?: boolean
   rating?: number
   reviews?: number
   selectedVariationId?: string | number | null
@@ -101,7 +102,7 @@ const RelatedProductsSection = ({
           const reviews = Number(product.reviews || 0)
           const showRating = rating > 0
           const stockCount = Number(product.stock || 0)
-          const showLowStockWarning = stockCount > 0 && stockCount <= 3
+          const showLowStockWarning = Boolean(product.showLowStockWarning) && stockCount > 0 && stockCount <= 3
           const savingsAmount =
             product.originalPrice && product.originalPrice > product.price
               ? product.originalPrice - product.price

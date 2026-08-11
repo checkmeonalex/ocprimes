@@ -162,8 +162,6 @@ export default function SizeGuideModal({ guide, onClose, currentSlug, formatMone
 
   if (!guide) return null
 
-  const hasHowToMeasure = Boolean(guide.how_to_measure)
-
   return (
     <div
       className={`fixed inset-0 z-[70] flex items-end justify-center bg-black/50 transition-opacity duration-300 ease-out sm:items-stretch sm:justify-end ${
@@ -172,11 +170,11 @@ export default function SizeGuideModal({ guide, onClose, currentSlug, formatMone
     >
       <div className='absolute inset-0' onClick={handleClose} />
       <div
-        className={`relative flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl transition-transform duration-300 ease-out sm:h-full sm:max-h-none sm:w-full sm:max-w-md sm:rounded-none ${
+        className={`relative flex h-[88vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl transition-transform duration-300 ease-out sm:h-full sm:w-full sm:max-w-md sm:rounded-none ${
           isVisible ? 'translate-y-0 sm:translate-x-0' : 'translate-y-full sm:translate-x-full sm:translate-y-0'
         }`}
       >
-        <div className='flex items-center justify-between border-b border-stone-100 px-5 py-4 sm:px-8 sm:py-6'>
+        <div className='shrink-0 flex items-center justify-between border-b border-stone-100 px-5 py-4 sm:px-8 sm:py-6'>
           <h2 className='text-base font-semibold tracking-wide text-stone-900'>Size Guide</h2>
           <button
             type='button'
@@ -188,7 +186,7 @@ export default function SizeGuideModal({ guide, onClose, currentSlug, formatMone
           </button>
         </div>
 
-        <div className='flex gap-6 overflow-x-auto border-b border-stone-100 px-5 sm:px-8'>
+        <div className='shrink-0 flex gap-6 overflow-x-auto border-b border-stone-100 px-5 sm:px-8'>
           <button
             type='button'
             onClick={() => setActiveTab('chart')}
@@ -200,19 +198,6 @@ export default function SizeGuideModal({ guide, onClose, currentSlug, formatMone
           >
             Size Chart
           </button>
-          {hasHowToMeasure && (
-            <button
-              type='button'
-              onClick={() => setActiveTab('measure')}
-              className={`shrink-0 whitespace-nowrap border-b-2 py-3 text-sm font-medium transition ${
-                activeTab === 'measure'
-                  ? 'border-stone-900 text-stone-900'
-                  : 'border-transparent text-stone-400 hover:text-stone-600'
-              }`}
-            >
-              How To Measure
-            </button>
-          )}
           <button
             type='button'
             onClick={() => setActiveTab('findmysize')}
@@ -226,7 +211,7 @@ export default function SizeGuideModal({ guide, onClose, currentSlug, formatMone
           </button>
         </div>
 
-        <div className='flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6'>
+        <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6'>
           {activeTab === 'chart' && (
             <>
               <p className='mb-4 text-sm leading-relaxed text-stone-500'>{guide.name}</p>
@@ -258,13 +243,13 @@ export default function SizeGuideModal({ guide, onClose, currentSlug, formatMone
                 </div>
               )}
 
-              <RecentlyViewedStrip currentSlug={currentSlug} formatMoney={formatMoney} />
-            </>
-          )}
+              {guide.how_to_measure && (
+                <div className='mt-4 rounded-lg bg-stone-50 p-3'>
+                  <p className='mb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-500'>How to measure</p>
+                  <p className='whitespace-pre-line text-xs leading-relaxed text-stone-600'>{guide.how_to_measure}</p>
+                </div>
+              )}
 
-          {activeTab === 'measure' && hasHowToMeasure && (
-            <>
-              <p className='whitespace-pre-line text-sm leading-relaxed text-stone-600'>{guide.how_to_measure}</p>
               <RecentlyViewedStrip currentSlug={currentSlug} formatMoney={formatMoney} />
             </>
           )}

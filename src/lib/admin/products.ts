@@ -53,6 +53,7 @@ const baseProductSchema = z.object({
     normalizeNullableBlank,
     z.string().uuid().nullable().optional(),
   ),
+  show_low_stock_warning: z.boolean().optional(),
   product_video_key: z.preprocess(
     normalizeNullableBlank,
     z.string().max(500).nullable().optional(),

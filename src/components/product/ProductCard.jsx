@@ -367,7 +367,7 @@ const ProductCard = ({
             ) : null}
 
             {/* Almost Sold Out Badge */}
-            {(isOutOfStock || (stockCount <= 3 && hasStockDropped)) && (
+            {(isOutOfStock || (product?.showLowStockWarning && stockCount <= 3 && hasStockDropped)) && (
               <div className='mb-0.5'>
                 <span
                   className={`flex items-center gap-1 text-xs font-semibold ${

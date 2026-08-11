@@ -624,7 +624,7 @@ export async function listProducts(request: NextRequest) {
 
   let query = db
     .from(PRODUCT_TABLE)
-    .select('id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, sku_auto_generated, stock_quantity, initial_stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, size_guide_id, product_video_key, product_video_url, vendor_id, created_at, updated_at')
+    .select('id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, sku_auto_generated, stock_quantity, initial_stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, size_guide_id, show_low_stock_warning, product_video_key, product_video_url, vendor_id, created_at, updated_at')
     .order('created_at', { ascending: false })
     .range(from, to)
   if (isVendor && vendorId) {
@@ -719,7 +719,7 @@ export async function getProduct(request: NextRequest, id: string) {
 
   let query = db
     .from(PRODUCT_TABLE)
-    .select('id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, sku_auto_generated, stock_quantity, initial_stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, size_guide_id, product_video_key, product_video_url, vendor_id, created_at, updated_at')
+    .select('id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, sku_auto_generated, stock_quantity, initial_stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, size_guide_id, show_low_stock_warning, product_video_key, product_video_url, vendor_id, created_at, updated_at')
     .eq('id', parsed.data.id)
   if (isVendor && vendorId) {
     query = query.eq('vendor_id', vendorId)
@@ -926,12 +926,13 @@ export async function createProduct(request: NextRequest) {
         return_policy: parsed.data.return_policy,
         main_image_id: parsed.data.main_image_id || null,
         size_guide_id: parsed.data.size_guide_id || null,
+        show_low_stock_warning: parsed.data.show_low_stock_warning ?? false,
         product_video_key: parsed.data.product_video_key || null,
         product_video_url: parsed.data.product_video_url || null,
         vendor_id: vendorId,
         created_by: user.id,
       })
-      .select('id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, sku_auto_generated, stock_quantity, initial_stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, size_guide_id, product_video_key, product_video_url, vendor_id, created_at, updated_at')
+      .select('id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, sku_auto_generated, stock_quantity, initial_stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, size_guide_id, show_low_stock_warning, product_video_key, product_video_url, vendor_id, created_at, updated_at')
       .single()
 
   let data: any = null
@@ -1289,6 +1290,9 @@ export async function updateProduct(request: NextRequest, id: string) {
   if (updates.size_guide_id !== undefined) {
     updatePayload.size_guide_id = updates.size_guide_id ?? null
   }
+  if (updates.show_low_stock_warning !== undefined) {
+    updatePayload.show_low_stock_warning = Boolean(updates.show_low_stock_warning)
+  }
   if (updates.product_video_key !== undefined) {
     updatePayload.product_video_key = updates.product_video_key ?? null
   }
@@ -1320,7 +1324,7 @@ export async function updateProduct(request: NextRequest, id: string) {
     .update(updatePayload)
     .eq('id', parsed.data.id)
   const { data, error } = await updateQuery
-    .select('id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, sku_auto_generated, stock_quantity, initial_stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, size_guide_id, product_video_key, product_video_url, vendor_id, created_at, updated_at')
+    .select('id, name, slug, short_description, description, price, discount_price, deal_expires_at, sku, sku_auto_generated, stock_quantity, initial_stock_quantity, status, product_type, condition_check, packaging_style, return_policy, main_image_id, size_guide_id, show_low_stock_warning, product_video_key, product_video_url, vendor_id, created_at, updated_at')
     .single()
 
   if (error) {

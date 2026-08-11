@@ -2,6 +2,7 @@
 
 import { useAlerts } from '@/context/AlertContext'
 import { usePathname } from 'next/navigation'
+import { Check, X, AlertTriangle, Info, XCircle } from 'lucide-react'
 
 const typeStyles = {
   success: 'ios-alert--success',
@@ -10,11 +11,27 @@ const typeStyles = {
   info: 'ios-alert--info',
 }
 
-const dotStyles = {
-  success: 'bg-emerald-500/90',
-  error: 'bg-rose-500/90',
-  warning: 'bg-amber-500/90',
-  info: 'bg-slate-500/90',
+const iconWrapStyles = {
+  success: 'bg-emerald-500/12 text-emerald-600',
+  error: 'bg-rose-500/12 text-rose-600',
+  warning: 'bg-amber-500/12 text-amber-600',
+  info: 'bg-slate-500/12 text-slate-600',
+}
+
+const icons = {
+  success: Check,
+  error: XCircle,
+  warning: AlertTriangle,
+  info: Info,
+}
+
+const AlertIcon = ({ type }) => {
+  const Icon = icons[type] || icons.info
+  return (
+    <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${iconWrapStyles[type] || iconWrapStyles.info}`}>
+      <Icon size={14} strokeWidth={2.5} />
+    </span>
+  )
 }
 
 export default function AlertStack() {
@@ -26,7 +43,7 @@ export default function AlertStack() {
 
   return (
     <div
-      className={`fixed left-1/2 z-[20000] flex w-[min(94vw,420px)] -translate-x-1/2 flex-col gap-2.5 ${
+      className={`fixed left-1/2 z-[20000] flex w-[min(92vw,380px)] -translate-x-1/2 flex-col gap-2 ${
         isUserBackendRoute
           ? 'top-[calc(env(safe-area-inset-top)+4rem)] lg:top-3'
           : 'top-3'
@@ -35,27 +52,27 @@ export default function AlertStack() {
       {confirmations.map((item) => (
         <div
           key={item.id}
-          className={`alert-slide-in ios-alert-card rounded-[18px] border px-4 py-3 ${typeStyles[item.type] || typeStyles.warning}`}
+          className={`alert-slide-in ios-alert-card rounded-2xl px-3.5 py-3 ${typeStyles[item.type] || typeStyles.warning}`}
           role='alertdialog'
           aria-live='assertive'
         >
-          <div className='flex items-start gap-3'>
-            <span className={`mt-1 h-2 w-2 rounded-full ${dotStyles[item.type] || dotStyles.warning}`} />
-            <div className='flex-1'>
-              {item.title ? <p className='text-[14px] font-semibold leading-5 text-slate-900'>{item.title}</p> : null}
-              {item.message ? <p className='mt-0.5 text-[12px] leading-4 text-slate-600'>{item.message}</p> : null}
-              <div className='mt-3 flex items-center gap-2 border-t border-slate-200/80 pt-2.5'>
+          <div className='flex items-start gap-2.5'>
+            <AlertIcon type={item.type} />
+            <div className='min-w-0 flex-1 pt-0.5'>
+              {item.title ? <p className='text-[13px] font-semibold leading-4 text-slate-900'>{item.title}</p> : null}
+              {item.message ? <p className='mt-0.5 text-[12px] leading-4 text-slate-500'>{item.message}</p> : null}
+              <div className='mt-2.5 flex items-center gap-2'>
                 <button
                   type='button'
                   onClick={() => resolveConfirm(item.id, true)}
-                  className='ios-alert-action ios-alert-action--primary rounded-full px-3.5 py-1.5 text-[12px] font-semibold'
+                  className='ios-alert-action ios-alert-action--primary rounded-full px-3 py-1 text-[11px] font-semibold'
                 >
                   {item.confirmLabel || 'Allow'}
                 </button>
                 <button
                   type='button'
                   onClick={() => resolveConfirm(item.id, false)}
-                  className='ios-alert-action rounded-full px-3.5 py-1.5 text-[12px] font-semibold'
+                  className='ios-alert-action rounded-full px-3 py-1 text-[11px] font-semibold'
                 >
                   {item.cancelLabel || 'Deny'}
                 </button>
@@ -67,17 +84,17 @@ export default function AlertStack() {
       {alerts.map((alert) => (
         <div
           key={alert.id}
-          className={`alert-slide-in ios-alert-card rounded-[18px] border px-4 py-3 ${typeStyles[alert.type] || typeStyles.info}`}
+          className={`alert-slide-in ios-alert-card relative overflow-hidden rounded-2xl py-3 pl-3.5 pr-9 ${typeStyles[alert.type] || typeStyles.info}`}
           role='status'
         >
-          <div className='flex items-start gap-3'>
-            <span className={`mt-1 h-2 w-2 rounded-full ${dotStyles[alert.type] || dotStyles.info}`} />
-            <div className='flex-1'>
+          <div className='flex items-start gap-2.5'>
+            <AlertIcon type={alert.type} />
+            <div className='min-w-0 flex-1 pt-0.5'>
               {alert.title ? (
-                <p className='text-[14px] font-semibold leading-5 text-slate-900'>{alert.title}</p>
+                <p className='truncate text-[13px] font-semibold leading-4 text-slate-900'>{alert.title}</p>
               ) : null}
               {alert.message ? (
-                <p className='mt-0.5 text-[12px] leading-4 text-slate-600'>{alert.message}</p>
+                <p className='mt-0.5 text-[12px] leading-4 text-slate-500'>{alert.message}</p>
               ) : null}
               {alert.actionLabel ? (
                 <button
@@ -93,21 +110,27 @@ export default function AlertStack() {
                       }
                     }
                   }}
-                  className='mt-2 inline-flex items-center rounded-full bg-slate-900 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-slate-800'
+                  className='mt-2 inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white transition hover:bg-slate-800'
                 >
                   {alert.actionLabel}
                 </button>
               ) : null}
             </div>
-            <button
-              type='button'
-              onClick={() => removeAlert(alert.id)}
-              className='rounded-full border border-transparent p-1 text-[11px] font-semibold text-slate-500 hover:border-slate-300 hover:bg-white/70 hover:text-slate-700'
-              aria-label='Dismiss alert'
-            >
-              ✕
-            </button>
           </div>
+          <button
+            type='button'
+            onClick={() => removeAlert(alert.id)}
+            className='absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition hover:bg-black/5 hover:text-slate-600'
+            aria-label='Dismiss alert'
+          >
+            <X size={13} strokeWidth={2.5} />
+          </button>
+          {alert.timeoutMs > 0 && (
+            <span
+              className='ios-alert-progress absolute inset-x-0 bottom-0 h-[2px] origin-left bg-current opacity-25'
+              style={{ animationDuration: `${alert.timeoutMs}ms` }}
+            />
+          )}
         </div>
       ))}
     </div>

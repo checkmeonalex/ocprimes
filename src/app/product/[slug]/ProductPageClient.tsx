@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { getSwatchStyle } from '../../../components/product/colorUtils.mjs'
 import SizeGuideModal from '../../../components/product/SizeGuideModal'
+import FitRecommendationBadge from '../../../components/product/FitRecommendationBadge'
 import StarRating from '../../../components/product/StarRating'
 import Gallery from '../../../components/product/ProductDetails/gallery'
 import ProductGalleryShippingWrapper from '../../../components/product/ProductGalleryShippingWrapper'
@@ -444,6 +445,7 @@ const mapApiProduct = (item: any) => {
     video: videoUrl,
     galleryMedia,
     stock: Number.isFinite(Number(item.stock_quantity)) ? Number(item.stock_quantity) : 0,
+    showLowStockWarning: Boolean(item.show_low_stock_warning),
     tags: normalizedTagLinks.map((tag: any) => tag?.name).filter(Boolean),
     tagLinks: normalizedTagLinks,
     variations,
@@ -670,6 +672,23 @@ function ProductContent({
     const fromAttrs = attributeOptions.find((item) => item.key === 'size')?.options || []
     return fromAttrs.length ? fromAttrs : product?.sizes || []
   }, [attributeOptions, product?.sizes])
+  // Find My Fit returns a size label from the size guide (e.g. "M"), which
+  // may not match this product's raw variation value byte-for-byte (case,
+  // whitespace). Resolve to the closest real option so auto-selecting the
+  // variation doesn't silently no-op on a near-miss.
+  const resolveSizeToOption = useCallback(
+    (rawSize: string) => {
+      const target = String(rawSize || '').trim().toLowerCase()
+      if (!target) return ''
+      const exact = sizeOptions.find((option: string) => String(option).trim().toLowerCase() === target)
+      if (exact) return exact
+      const byLabel = sizeOptions.find(
+        (option: string) => getOptionLabel('size', String(option)).trim().toLowerCase() === target,
+      )
+      return byLabel || rawSize
+    },
+    [sizeOptions, getOptionLabel],
+  )
   const extraAttributeOptions = useMemo(
     () => attributeOptions.filter((item) => item.key !== 'color' && item.key !== 'size'),
     [attributeOptions],
@@ -1814,7 +1833,7 @@ function ProductContent({
         onOpenSizeGuide={() => setIsSizeGuideOpen(true)}
       />
       {isSizeGuideOpen && sizeGuide && (
-        <SizeGuideModal guide={sizeGuide} onClose={() => setIsSizeGuideOpen(false)} currentSlug={product?.slug} formatMoney={formatMoney} onSizeSelect={(size) => setSelectedSize(size)} />
+        <SizeGuideModal guide={sizeGuide} onClose={() => setIsSizeGuideOpen(false)} currentSlug={product?.slug} formatMoney={formatMoney} onSizeSelect={(size) => setSelectedSize(resolveSizeToOption(size))} />
       )}
       </>
     )
@@ -2087,6 +2106,13 @@ function ProductContent({
                                 )
                               })}
                             </div>
+                            {sizeGuide && (
+                              <FitRecommendationBadge
+                                guide={sizeGuide}
+                                selectedSize={selectedSize}
+                                onApply={(size) => setSelectedSize(resolveSizeToOption(size))}
+                              />
+                            )}
                           </div>
                         )}
                         {selectableExtraAttributeOptions.map((attribute) => (
@@ -2213,10 +2239,10 @@ function ProductContent({
                   })()}
 
                   {/* Details rows — no border cards, just clean dividers */}
-                  <div className='border-t border-stone-100 divide-y divide-stone-100'>
+                  <div className='rounded-xl bg-stone-50 divide-y divide-stone-100 px-4'>
                     <div className='py-3 flex items-center justify-between text-sm'>
                       <span className='text-stone-400 text-xs uppercase tracking-wide'>Sizes</span>
-                      <span className='text-stone-800 font-medium text-xs'>{sizeSummaryLabel}{extraSizeCount > 0 ? ` +${extraSizeCount}` : ''}</span>
+                      <span className='text-stone-800 font-medium text-xs uppercase'>{sizeSummaryLabel}{extraSizeCount > 0 ? ` +${extraSizeCount}` : ''}</span>
                     </div>
                     <div className='py-3'>
                       <div className='flex items-center justify-between text-sm'>
@@ -2355,7 +2381,7 @@ function ProductContent({
             onClose={() => setIsSizeGuideOpen(false)}
             currentSlug={product?.slug}
             formatMoney={formatMoney}
-            onSizeSelect={(size) => setSelectedSize(size)}
+            onSizeSelect={(size) => setSelectedSize(resolveSizeToOption(size))}
           />
         )}
       </div>
@@ -2795,6 +2821,13 @@ function ProductContent({
                                   </span>
                                 )}
                               </div>
+                              {sizeGuide && (
+                                <FitRecommendationBadge
+                                  guide={sizeGuide}
+                                  selectedSize={selectedSize}
+                                  onApply={(size) => setSelectedSize(resolveSizeToOption(size))}
+                                />
+                              )}
                             </div>
                           )}
                           {selectableExtraAttributeOptions.map((attribute) => (
@@ -3201,7 +3234,7 @@ function ProductContent({
         productName={product.name}
       />
       {isSizeGuideOpen && sizeGuide && (
-        <SizeGuideModal guide={sizeGuide} onClose={() => setIsSizeGuideOpen(false)} currentSlug={product?.slug} formatMoney={formatMoney} onSizeSelect={(size) => setSelectedSize(size)} />
+        <SizeGuideModal guide={sizeGuide} onClose={() => setIsSizeGuideOpen(false)} currentSlug={product?.slug} formatMoney={formatMoney} onSizeSelect={(size) => setSelectedSize(resolveSizeToOption(size))} />
       )}
     </div>
     </>

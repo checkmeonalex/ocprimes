@@ -21,6 +21,7 @@ type CompactProductCardProps = {
     vendorSlug?: string
     vendorFont?: string
     stock?: number | null
+    showLowStockWarning?: boolean
   }
   variant?: 'fixed' | 'fluid'
   theme?: 'default' | 'dark' | 'prestige'
@@ -38,7 +39,8 @@ export const CompactProductCard = ({
   const { formatMoney } = useUserI18n()
   const openInNewTab = !isMobile
   const stock = Number(product.stock || 0)
-  const lowStockLabel = stock > 0 && stock < 10 ? `Only ${stock} left in stock` : ''
+  const lowStockLabel =
+    product.showLowStockWarning && stock > 0 && stock < 10 ? `Only ${stock} left in stock` : ''
   const isFluid = variant === 'fluid'
   const fixedCardWidthClass = 'min-w-[200px] max-w-[200px] sm:min-w-[240px] sm:max-w-[240px] flex-shrink-0'
   const fixedCardFrameClass = 'w-[200px] h-[272px] sm:w-[240px] sm:h-[300px]'

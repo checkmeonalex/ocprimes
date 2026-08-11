@@ -129,7 +129,10 @@ export default function FindMySizeWizard({ guide, onSizeSelect }) {
   useEffect(() => {
     if (!user?.id || hasLoadedRemote) return
     let isActive = true
-    fetch('/api/user/body-profile', { credentials: 'include' })
+    fetch('/api/user/body-profile', {
+      credentials: 'include',
+      headers: { 'x-no-global-error-alert': '1' },
+    })
       .then((res) => (res.ok ? res.json() : null))
       .then((payload) => {
         if (!isActive) return
@@ -182,7 +185,7 @@ export default function FindMySizeWizard({ guide, onSizeSelect }) {
       try {
         await fetch('/api/user/body-profile', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'x-no-global-error-alert': '1' },
           credentials: 'include',
           body: JSON.stringify({
             gender,

@@ -156,6 +156,9 @@ export const buildProductPayload = (form, options = {}) => {
   } else if (mode === 'create') {
     payload.size_guide_id = undefined;
   }
+  if (typeof form.show_low_stock_warning === 'boolean') {
+    payload.show_low_stock_warning = form.show_low_stock_warning;
+  }
   const imageIds = normalizeUuidArray(form.image_ids);
   if (Array.isArray(imageIds)) {
     payload.image_ids = imageIds;

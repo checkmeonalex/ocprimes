@@ -240,6 +240,7 @@ const normalizeProduct = (item) => {
         : Number.isFinite(Number(item?.stock_quantity))
           ? Number(item.stock_quantity)
           : Number(item?.stock) || 0,
+    showLowStockWarning: Boolean(item?.show_low_stock_warning ?? item?.showLowStockWarning),
     productType: item?.product_type || item?.productType || '',
     conditionCheck: item?.condition_check || item?.conditionCheck || '',
     packagingStyle: item?.packaging_style || item?.packagingStyle || '',
