@@ -366,9 +366,11 @@ const ProductCard = ({
               </div>
             ) : null}
 
-            {/* Almost Sold Out Badge */}
-            {(isOutOfStock || (product?.showLowStockWarning && stockCount <= 3 && hasStockDropped)) && (
-              <div className='mb-0.5'>
+            {/* Almost Sold Out Badge — reserves its line height even when hidden,
+                so cards in the same row don't have their price/cart row jump
+                around depending on whether this product opted into the warning. */}
+            <div className='mb-0.5 h-4'>
+              {(isOutOfStock || (product?.showLowStockWarning && stockCount <= 3 && hasStockDropped)) && (
                 <span
                   className={`flex items-center gap-1 text-xs font-semibold ${
                     isOutOfStock ? 'text-red-600' : 'text-orange-600'
@@ -386,8 +388,8 @@ const ProductCard = ({
                   </svg>
                   <span className='font-mono text-[10px]'>{isOutOfStock ? 'Out of stock' : `Only ${stockCount} left in stock`}</span>
                 </span>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Price and Add to Cart */}
             <div className='space-y-1'>
