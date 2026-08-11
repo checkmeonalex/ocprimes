@@ -1814,7 +1814,7 @@ function ProductContent({
         onOpenSizeGuide={() => setIsSizeGuideOpen(true)}
       />
       {isSizeGuideOpen && sizeGuide && (
-        <SizeGuideModal guide={sizeGuide} onClose={() => setIsSizeGuideOpen(false)} />
+        <SizeGuideModal guide={sizeGuide} onClose={() => setIsSizeGuideOpen(false)} currentSlug={product?.slug} formatMoney={formatMoney} onSizeSelect={(size) => setSelectedSize(size)} />
       )}
       </>
     )
@@ -2349,6 +2349,15 @@ function ProductContent({
           shareUrl={shareUrl}
           productName={product.name}
         />
+        {isSizeGuideOpen && sizeGuide && (
+          <SizeGuideModal
+            guide={sizeGuide}
+            onClose={() => setIsSizeGuideOpen(false)}
+            currentSlug={product?.slug}
+            formatMoney={formatMoney}
+            onSizeSelect={(size) => setSelectedSize(size)}
+          />
+        )}
       </div>
       </>
     )
@@ -3192,7 +3201,7 @@ function ProductContent({
         productName={product.name}
       />
       {isSizeGuideOpen && sizeGuide && (
-        <SizeGuideModal guide={sizeGuide} onClose={() => setIsSizeGuideOpen(false)} />
+        <SizeGuideModal guide={sizeGuide} onClose={() => setIsSizeGuideOpen(false)} currentSlug={product?.slug} formatMoney={formatMoney} onSizeSelect={(size) => setSelectedSize(size)} />
       )}
     </div>
     </>

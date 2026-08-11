@@ -1,7 +1,22 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import dynamic from 'next/dynamic'
+import Image from 'next/image'
+import Link from 'next/link'
 import { X } from 'lucide-react'
+import { getRecentlyViewed } from '@/lib/recently-viewed/storage'
+
+// Its own chunk — the height/weight wizard + prediction matcher never ships
+// in the base product page bundle, only fetched once someone opens this tab.
+const FindMySizeWizard = dynamic(() => import('./FindMySizeWizard'), {
+  loading: () => (
+    <div className='flex justify-center py-10'>
+      <span className='h-5 w-5 animate-spin rounded-full border-2 border-stone-300 border-t-stone-900' />
+    </div>
+  ),
+  ssr: false,
+})
 
 // Columns whose key ends in _in / _cm are treated as a unit pair sharing one
 // visible header (the label with the suffix stripped); the toggle swaps
@@ -33,12 +48,104 @@ const buildVisibleColumns = (columns, unit) => {
   return result
 }
 
-export default function SizeGuideModal({ guide, onClose }) {
+const SizeTable = ({ guide, unit, hasUnitPairs }) => {
+  const visibleColumns = useMemo(() => buildVisibleColumns(guide?.columns, unit), [guide?.columns, unit])
+  return (
+    <div className='overflow-x-auto rounded-lg border border-stone-100'>
+      <table className='w-full min-w-[420px] border-collapse text-sm'>
+        <thead>
+          <tr className='bg-stone-50'>
+            {visibleColumns.map((col) => (
+              <th
+                key={col.key}
+                className='whitespace-nowrap border-b border-stone-100 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-500'
+              >
+                {col.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {(guide?.rows || []).map((row, index) => (
+            <tr key={index} className='odd:bg-white even:bg-stone-50/60'>
+              {visibleColumns.map((col) => (
+                <td key={col.key} className='whitespace-nowrap border-b border-stone-50 px-3 py-2.5 text-stone-700'>
+                  {row[col.key] || '—'}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+const RecentlyViewedStrip = ({ currentSlug, formatMoney }) => {
+  const [items, setItems] = useState([])
+
+  useEffect(() => {
+    const stored = getRecentlyViewed()
+    const filtered = (currentSlug ? stored.filter((entry) => entry?.slug !== currentSlug) : stored).slice(0, 4)
+    setItems(filtered)
+  }, [currentSlug])
+
+  if (!items.length) return null
+
+  const format = (value) => (formatMoney ? formatMoney(value) : `₦${Number(value || 0).toLocaleString()}`)
+
+  return (
+    <div className='mt-6 border-t border-stone-100 pt-4'>
+      <p className='mb-3 text-sm font-semibold text-stone-900'>Recently Viewed</p>
+      <div className='grid grid-cols-2 gap-3'>
+        {items.map((item) => (
+          <Link
+            key={item.id}
+            href={`/product/${item.slug}`}
+            className='group block overflow-hidden rounded-lg border border-stone-100'
+          >
+            <div className='relative aspect-square w-full overflow-hidden bg-stone-50'>
+              {item.image && (
+                <Image
+                  src={item.image}
+                  alt={item.name}
+                  fill
+                  sizes='200px'
+                  className='object-cover transition group-hover:scale-105'
+                />
+              )}
+            </div>
+            <div className='px-2 py-2'>
+              <p className='truncate text-xs font-medium text-stone-800'>{item.name}</p>
+              <p className='mt-0.5 text-xs font-semibold text-stone-900'>{format(item.price)}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const ANIMATION_MS = 300
+
+export default function SizeGuideModal({ guide, onClose, currentSlug, formatMoney, onSizeSelect }) {
   const [unit, setUnit] = useState('in')
+  const [activeTab, setActiveTab] = useState('chart')
+  const [isVisible, setIsVisible] = useState(false)
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setIsVisible(true))
+    return () => cancelAnimationFrame(raf)
+  }, [])
+
+  const handleClose = () => {
+    setIsVisible(false)
+    window.setTimeout(() => onClose?.(), ANIMATION_MS)
+  }
 
   useEffect(() => {
     const onKeyDown = (event) => {
-      if (event.key === 'Escape') onClose?.()
+      if (event.key === 'Escape') handleClose()
     }
     document.addEventListener('keydown', onKeyDown)
     document.body.style.overflow = 'hidden'
@@ -46,103 +153,130 @@ export default function SizeGuideModal({ guide, onClose }) {
       document.removeEventListener('keydown', onKeyDown)
       document.body.style.overflow = ''
     }
-  }, [onClose])
+  }, [])
 
   const hasUnitPairs = useMemo(
     () => (guide?.columns || []).some((col) => splitUnitSuffix(col.key)),
     [guide?.columns],
   )
 
-  const visibleColumns = useMemo(
-    () => buildVisibleColumns(guide?.columns, unit),
-    [guide?.columns, unit],
-  )
-
   if (!guide) return null
+
+  const hasHowToMeasure = Boolean(guide.how_to_measure)
 
   return (
     <div
-      className='fixed inset-0 z-[70] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4'
-      onClick={onClose}
+      className={`fixed inset-0 z-[70] flex items-end justify-center bg-black/50 transition-opacity duration-300 ease-out sm:items-stretch sm:justify-end ${
+        isVisible ? 'opacity-100' : 'opacity-0'
+      }`}
     >
+      <div className='absolute inset-0' onClick={handleClose} />
       <div
-        className='flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:max-w-md sm:rounded-2xl'
-        onClick={(event) => event.stopPropagation()}
+        className={`relative flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl transition-transform duration-300 ease-out sm:h-full sm:max-h-none sm:w-full sm:max-w-md sm:rounded-none ${
+          isVisible ? 'translate-y-0 sm:translate-x-0' : 'translate-y-full sm:translate-x-full sm:translate-y-0'
+        }`}
       >
-        <div className='flex items-center justify-between border-b border-stone-100 px-5 py-4'>
-          <h2 className='text-sm font-semibold tracking-wide text-stone-900'>Size Guide</h2>
-          <div className='flex items-center gap-3'>
-            {guide.unit_toggle && hasUnitPairs && (
-              <div className='flex items-center rounded-full border border-stone-200 p-0.5 text-[11px] font-semibold'>
-                {['in', 'cm'].map((option) => (
-                  <button
-                    key={option}
-                    type='button'
-                    onClick={() => setUnit(option)}
-                    className={`rounded-full px-2.5 py-1 uppercase transition ${
-                      unit === option ? 'bg-stone-900 text-white' : 'text-stone-500 hover:text-stone-800'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            )}
-            <button
-              type='button'
-              onClick={onClose}
-              className='rounded-full p-1 text-stone-500 hover:bg-stone-100'
-              aria-label='Close size guide'
-            >
-              <X size={18} />
-            </button>
-          </div>
+        <div className='flex items-center justify-between border-b border-stone-100 px-5 py-4 sm:px-8 sm:py-6'>
+          <h2 className='text-base font-semibold tracking-wide text-stone-900'>Size Guide</h2>
+          <button
+            type='button'
+            onClick={handleClose}
+            className='rounded-full p-1 text-stone-500 hover:bg-stone-100'
+            aria-label='Close size guide'
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        <div className='overflow-y-auto px-5 py-4'>
-          <p className='mb-3 text-sm font-medium text-stone-900'>{guide.name}</p>
+        <div className='flex gap-6 overflow-x-auto border-b border-stone-100 px-5 sm:px-8'>
+          <button
+            type='button'
+            onClick={() => setActiveTab('chart')}
+            className={`shrink-0 whitespace-nowrap border-b-2 py-3 text-sm font-medium transition ${
+              activeTab === 'chart'
+                ? 'border-stone-900 text-stone-900'
+                : 'border-transparent text-stone-400 hover:text-stone-600'
+            }`}
+          >
+            Size Chart
+          </button>
+          {hasHowToMeasure && (
+            <button
+              type='button'
+              onClick={() => setActiveTab('measure')}
+              className={`shrink-0 whitespace-nowrap border-b-2 py-3 text-sm font-medium transition ${
+                activeTab === 'measure'
+                  ? 'border-stone-900 text-stone-900'
+                  : 'border-transparent text-stone-400 hover:text-stone-600'
+              }`}
+            >
+              How To Measure
+            </button>
+          )}
+          <button
+            type='button'
+            onClick={() => setActiveTab('findmysize')}
+            className={`shrink-0 whitespace-nowrap border-b-2 py-3 text-sm font-medium transition ${
+              activeTab === 'findmysize'
+                ? 'border-stone-900 text-stone-900'
+                : 'border-transparent text-stone-400 hover:text-stone-600'
+            }`}
+          >
+            Find My Fit ✨
+          </button>
+        </div>
 
-          <div className='overflow-x-auto rounded-lg border border-stone-100'>
-            <table className='w-full min-w-[320px] border-collapse text-sm'>
-              <thead>
-                <tr className='bg-stone-50'>
-                  {visibleColumns.map((col) => (
-                    <th
-                      key={col.key}
-                      className='whitespace-nowrap border-b border-stone-100 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-500'
-                    >
-                      {col.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(guide.rows || []).map((row, index) => (
-                  <tr key={index} className='odd:bg-white even:bg-stone-50/60'>
-                    {visibleColumns.map((col) => (
-                      <td key={col.key} className='whitespace-nowrap border-b border-stone-50 px-3 py-2 text-stone-700'>
-                        {row[col.key] || '—'}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className='flex-1 overflow-y-auto px-5 py-5 sm:px-8 sm:py-6'>
+          {activeTab === 'chart' && (
+            <>
+              <p className='mb-4 text-sm leading-relaxed text-stone-500'>{guide.name}</p>
 
-          {guide.how_to_measure && (
-            <div className='mt-4 rounded-lg bg-stone-50 p-3'>
-              <p className='mb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-500'>
-                How to measure
-              </p>
-              <p className='whitespace-pre-line text-xs leading-relaxed text-stone-600'>
-                {guide.how_to_measure}
-              </p>
-            </div>
+              {guide.unit_toggle && hasUnitPairs && (
+                <div className='mb-4 flex items-center justify-end gap-2'>
+                  <span className={`text-xs font-semibold ${unit === 'in' ? 'text-stone-900' : 'text-stone-400'}`}>IN</span>
+                  <button
+                    type='button'
+                    onClick={() => setUnit((prev) => (prev === 'in' ? 'cm' : 'in'))}
+                    className={`relative h-5 w-9 rounded-full transition ${unit === 'cm' ? 'bg-stone-900' : 'bg-stone-300'}`}
+                    aria-label='Toggle unit'
+                  >
+                    <span
+                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                        unit === 'cm' ? 'translate-x-4' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                  <span className={`text-xs font-semibold ${unit === 'cm' ? 'text-stone-900' : 'text-stone-400'}`}>CM</span>
+                </div>
+              )}
+
+              <SizeTable guide={guide} unit={unit} hasUnitPairs={hasUnitPairs} />
+
+              {guide.notes && (
+                <div className='mt-4 rounded-lg bg-stone-50 p-3'>
+                  <p className='whitespace-pre-line text-xs leading-relaxed text-stone-600'>{guide.notes}</p>
+                </div>
+              )}
+
+              <RecentlyViewedStrip currentSlug={currentSlug} formatMoney={formatMoney} />
+            </>
           )}
 
-          {guide.notes && (
-            <p className='mt-3 text-xs leading-relaxed text-stone-500'>{guide.notes}</p>
+          {activeTab === 'measure' && hasHowToMeasure && (
+            <>
+              <p className='whitespace-pre-line text-sm leading-relaxed text-stone-600'>{guide.how_to_measure}</p>
+              <RecentlyViewedStrip currentSlug={currentSlug} formatMoney={formatMoney} />
+            </>
+          )}
+
+          {activeTab === 'findmysize' && (
+            <FindMySizeWizard
+              guide={guide}
+              onSizeSelect={(size) => {
+                onSizeSelect?.(size)
+                handleClose()
+              }}
+            />
           )}
         </div>
       </div>
