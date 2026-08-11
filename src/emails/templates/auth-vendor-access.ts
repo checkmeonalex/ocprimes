@@ -1,4 +1,5 @@
 import { renderAuthActionEmail } from '@/emails/templates/auth-action'
+import { emailHeroIcons } from '@/emails/templates/layout'
 import { safeText } from '@/lib/email/utils'
 
 export const renderVendorApprovalEmail = ({
@@ -26,6 +27,7 @@ export const renderVendorApprovalEmail = ({
     secondaryCtaUrl: 'https://alxora.com/vendor/login',
     bodyTitle: 'What happens next',
     bodyText: 'Create your password, sign in, and complete your seller setup from your dashboard.',
+    heroIcon: emailHeroIcons.storefront,
   })
 
 export const renderVendorRejectionEmail = ({
@@ -55,4 +57,5 @@ export const renderVendorRejectionEmail = ({
     ctaUrl: 'https://alxora.com/help-center',
     secondaryCtaLabel: 'Try again later',
     secondaryCtaUrl: 'https://alxora.com/sellersignup',
+    heroIcon: emailHeroIcons.alertCircle,
   })

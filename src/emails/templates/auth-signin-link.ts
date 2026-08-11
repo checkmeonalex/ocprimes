@@ -1,4 +1,5 @@
 import { renderAuthActionEmail } from '@/emails/templates/auth-action'
+import { emailHeroIcons } from '@/emails/templates/layout'
 import { safeText } from '@/lib/email/utils'
 
 export const renderSigninLinkEmail = ({
@@ -22,4 +23,5 @@ export const renderSigninLinkEmail = ({
     secondaryCtaUrl: 'https://alxora.com/help-center',
     bodyTitle: 'Why you got this email',
     bodyText: 'This sign-in link was requested from your account. If this was not you, you can ignore it.',
+    heroIcon: emailHeroIcons.magicLink,
   })

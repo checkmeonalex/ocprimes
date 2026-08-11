@@ -1,4 +1,5 @@
 import { renderAuthActionEmail } from '@/emails/templates/auth-action'
+import { emailHeroIcons } from '@/emails/templates/layout'
 import { safeText } from '@/lib/email/utils'
 
 export const renderPasswordResetEmail = ({
@@ -22,4 +23,5 @@ export const renderPasswordResetEmail = ({
     secondaryCtaUrl: 'https://alxora.com/help-center',
     bodyTitle: 'Important',
     bodyText: 'If you did not request this, you can ignore this email. Your password will stay the same.',
+    heroIcon: emailHeroIcons.lockKey,
   })

@@ -24,6 +24,7 @@ type RenderAuthActionEmailInput = {
   bodyTitle?: string
   bodyText?: string
   footerText?: string
+  heroIcon?: string
 }
 
 const renderSummaryHtml = (rows: AuthActionSummaryRow[]) => {
@@ -36,8 +37,8 @@ const renderSummaryHtml = (rows: AuthActionSummaryRow[]) => {
           .map(
             (row) => `
               <td style="padding-right:16px;vertical-align:top;">
-                <div style="font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#8a8f98;margin-bottom:8px;">${escapeHtml(row.label)}</div>
-                <div style="font-size:18px;font-weight:800;color:#111827;line-height:1.5;">${escapeHtml(row.value)}</div>
+                <div style="font-size:11px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#f5c451;margin-bottom:8px;">${escapeHtml(row.label)}</div>
+                <div style="font-size:18px;font-weight:800;color:#ffffff;line-height:1.5;">${escapeHtml(row.value)}</div>
               </td>
             `,
           )
@@ -65,14 +66,15 @@ export const renderAuthActionEmail = ({
   bodyTitle,
   bodyText,
   footerText,
+  heroIcon,
 }: RenderAuthActionEmailInput) => {
   const summaryHtml = renderSummaryHtml(summaryRows)
 
   const codeBlockHtml =
     safeText(codeLabel) && safeText(codeValue)
       ? `
-        <div style="margin:0 0 20px;padding:20px 22px;background:#ffffff;border:1px solid #e7e1d4;text-align:center;">
-          <div style="font-size:12px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:#8a8f98;margin-bottom:12px;">${escapeHtml(codeLabel)}</div>
+        <div style="margin:0 0 20px;padding:20px 22px;background:#ffffff;border-radius:14px;text-align:center;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.18em;text-transform:uppercase;color:#9a7a23;margin-bottom:12px;">${escapeHtml(codeLabel)}</div>
           <div style="font-size:28px;font-weight:800;letter-spacing:0.24em;color:#111827;">${escapeHtml(codeValue)}</div>
         </div>
       `
@@ -81,9 +83,9 @@ export const renderAuthActionEmail = ({
   const bodySectionHtml =
     safeText(bodyTitle) && safeText(bodyText)
       ? `
-        <div style="padding:18px 20px;background:#fff8e7;border:1px solid #ead9a9;">
-          <div style="font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#8b6b16;margin-bottom:10px;">${escapeHtml(bodyTitle)}</div>
-          <div style="font-size:15px;line-height:1.8;color:#475569;">${escapeHtml(bodyText)}</div>
+        <div style="padding:18px 20px;background:#fff2cc;border-radius:14px;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#9a7a23;margin-bottom:10px;">${escapeHtml(bodyTitle)}</div>
+          <div style="font-size:15px;line-height:1.8;color:#3a3126;">${escapeHtml(bodyText)}</div>
         </div>
       `
       : ''
@@ -117,6 +119,7 @@ export const renderAuthActionEmail = ({
       eyebrow,
       heading,
       subheading,
+      heroIconSvg: heroIcon,
       summaryHtml,
       accentLabel: summaryRows.length ? 'Details' : '',
       bodyHtml,

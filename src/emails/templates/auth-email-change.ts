@@ -1,4 +1,5 @@
 import { renderAuthActionEmail } from '@/emails/templates/auth-action'
+import { emailHeroIcons } from '@/emails/templates/layout'
 import { safeText } from '@/lib/email/utils'
 
 export const renderEmailChangeVerificationEmail = ({
@@ -30,4 +31,5 @@ export const renderEmailChangeVerificationEmail = ({
     secondaryCtaUrl: 'https://alxora.com/account/security',
     bodyTitle: 'Next step',
     bodyText: 'After this confirmation, we will start the change and ask you to confirm the new email too.',
+    heroIcon: emailHeroIcons.mailOpen,
   })

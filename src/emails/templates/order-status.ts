@@ -1,4 +1,4 @@
-import { renderEmailLayout } from '@/emails/templates/layout'
+import { emailHeroIcons, renderEmailLayout } from '@/emails/templates/layout'
 import { formatEmailMoney, type EmailOrderBreakdown } from '@/lib/email/order-breakdown'
 import { escapeHtml } from '@/lib/email/utils'
 
@@ -51,6 +51,7 @@ const getCommerceOrderCopy = (status: string, statusLabel: string) => {
         "Thanks for shopping with Alxora. We've received your payment and your order is now being prepared.",
       nextSteps:
         "We're confirming your items and getting them ready for shipment. You'll receive another update when your order is on the way.",
+      icon: emailHeroIcons.orderPlaced,
     }
   }
 
@@ -61,6 +62,7 @@ const getCommerceOrderCopy = (status: string, statusLabel: string) => {
         'Good news. Your order is now being picked and packed for shipment.',
       nextSteps:
         "We're getting everything ready for delivery. We'll send you another update when your order is on the way.",
+      icon: emailHeroIcons.orderPlaced,
     }
   }
 
@@ -70,6 +72,7 @@ const getCommerceOrderCopy = (status: string, statusLabel: string) => {
       subheading: 'Your order is packed and ready to move.',
       nextSteps:
         "Your package is waiting for handoff to delivery. We'll let you know as soon as it is on the way.",
+      icon: emailHeroIcons.truck,
     }
   }
 
@@ -79,6 +82,7 @@ const getCommerceOrderCopy = (status: string, statusLabel: string) => {
       subheading: 'Your package is currently on its way to you.',
       nextSteps:
         'You can keep an eye on your order page for the latest delivery update.',
+      icon: emailHeroIcons.truck,
     }
   }
 
@@ -89,6 +93,7 @@ const getCommerceOrderCopy = (status: string, statusLabel: string) => {
         'Your order has arrived. We hope you love everything inside.',
       nextSteps:
         'You can view your order details anytime, and if you need help after delivery, support is available in your account.',
+      icon: emailHeroIcons.checkCircle,
     }
   }
 
@@ -99,6 +104,7 @@ const getCommerceOrderCopy = (status: string, statusLabel: string) => {
         'This order has been cancelled and will not move forward for shipment.',
       nextSteps:
         'If this was unexpected, open your order page to review the details or contact support.',
+      icon: emailHeroIcons.alertCircle,
     }
   }
 
@@ -109,6 +115,7 @@ const getCommerceOrderCopy = (status: string, statusLabel: string) => {
         'We could not complete this order yet. Please review the order details to continue.',
       nextSteps:
         'Open your order page to see what needs attention. Once payment is confirmed, we will continue with your order.',
+      icon: emailHeroIcons.alertCircle,
     }
   }
 
@@ -117,6 +124,7 @@ const getCommerceOrderCopy = (status: string, statusLabel: string) => {
     subheading: 'Here is your latest order update from Alxora.',
     nextSteps:
       'Open your order page to follow the latest progress. We will keep you updated as your order moves forward.',
+    icon: emailHeroIcons.orderPlaced,
   }
 }
 
@@ -134,14 +142,14 @@ const renderOrderActivityHtml = (statusKey: string) => {
               <table role="presentation" width="26" cellspacing="0" cellpadding="0">
                 <tr>
                   <td align="center" style="padding-top:2px;">
-                    <div style="width:12px;height:12px;background:${isDone ? '#2563eb' : '#d1d5db'};"></div>
+                    <div style="width:12px;height:12px;border-radius:999px;background:${isDone ? '#e0a90c' : '#d1d5db'};"></div>
                   </td>
                 </tr>
                 ${
                   !isLast
                     ? `<tr>
                         <td align="center">
-                          <div style="width:2px;height:34px;background:${isDone ? '#2563eb' : '#d1d5db'};"></div>
+                          <div style="width:2px;height:34px;background:${isDone ? '#e0a90c' : '#d1d5db'};"></div>
                         </td>
                       </tr>`
                     : ''
@@ -176,12 +184,12 @@ export const renderOrderStatusEmail = ({
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
       <tr>
         <td style="padding-right:16px;vertical-align:top;">
-          <div style="font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#8a8f98;margin-bottom:8px;">Order number</div>
-          <div style="font-size:20px;font-weight:800;color:#111827;">${escapeHtml(orderNumberLabel)}</div>
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#f5c451;margin-bottom:8px;">Order number</div>
+          <div style="font-size:20px;font-weight:800;color:#ffffff;">${escapeHtml(orderNumberLabel)}</div>
         </td>
         <td style="vertical-align:top;">
-          <div style="font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#8a8f98;margin-bottom:8px;">Status</div>
-          <div style="display:inline-block;padding:10px 14px;background:#f7f2e4;border:1px solid #e4d5a5;font-size:13px;font-weight:800;color:#8b6b16;">
+          <div style="font-size:11px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#f5c451;margin-bottom:8px;">Status</div>
+          <div style="display:inline-block;padding:10px 16px;border-radius:999px;background:#f5c451;font-size:13px;font-weight:800;color:#1a140d;">
             ${escapeHtml(displayStatusLabel)}
           </div>
         </td>
@@ -192,8 +200,8 @@ export const renderOrderStatusEmail = ({
   const breakdownHtml =
     breakdown && Array.isArray(breakdown.items) && breakdown.items.length > 0
       ? `
-        <div style="margin:0 0 22px;background:#fff;border:1px solid #e7e1d4;">
-          <div style="padding:16px 18px 12px;font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#8a8f98;border-bottom:1px solid #e7e1d4;">Order breakdown</div>
+        <div style="margin:0 0 20px;background:#fff;border-radius:14px;overflow:hidden;">
+          <div style="padding:16px 18px 12px;font-size:11px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#9a7a23;border-bottom:1px solid #f0ebe0;">Order breakdown</div>
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
             <tr>
               <td style="padding:10px 18px;font-size:12px;font-weight:800;color:#6b7280;border-bottom:1px solid #f0ebe0;">Item</td>
@@ -210,7 +218,7 @@ export const renderOrderStatusEmail = ({
                           ${
                             item.image
                               ? `<td valign="top" style="padding-right:12px;">
-                                  <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" width="54" height="54" style="display:block;width:54px;height:54px;object-fit:cover;border:1px solid #ebe5d8;" />
+                                  <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}" width="54" height="54" style="display:block;width:54px;height:54px;object-fit:cover;border-radius:10px;" />
                                 </td>`
                               : ''
                           }
@@ -252,17 +260,17 @@ export const renderOrderStatusEmail = ({
       : ''
 
   const bodyHtml = `
-    <div style="margin:0 0 22px;padding:20px 22px;background:#fff8e7;border:1px solid #ead9a9;">
-      <div style="font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#8b6b16;margin-bottom:10px;">What happens next</div>
-      <div style="font-size:15px;line-height:1.8;color:#334155;">${escapeHtml(commerceCopy.nextSteps)}</div>
+    <div style="margin:0 0 20px;padding:20px 22px;background:#fff2cc;border-radius:14px;">
+      <div style="font-size:11px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#9a7a23;margin-bottom:10px;">What happens next</div>
+      <div style="font-size:15px;line-height:1.8;color:#3a3126;">${escapeHtml(commerceCopy.nextSteps)}</div>
     </div>
-    <div style="margin:0 0 22px;padding:18px 20px;background:#fff;border:1px solid #e7e1d4;">
-      <div style="font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#8a8f98;margin-bottom:10px;">Order update</div>
+    <div style="margin:0 0 20px;padding:18px 20px;background:#fff;border-radius:14px;">
+      <div style="font-size:11px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#9a7a23;margin-bottom:10px;">Order update</div>
       <div style="font-size:15px;line-height:1.8;color:#475569;">${escapeHtml(statusMessage)}</div>
     </div>
     ${breakdownHtml}
-    <div style="padding:18px 20px;background:#fff;border:1px solid #e7e1d4;">
-      <div style="font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#8a8f98;margin-bottom:14px;">Order activity</div>
+    <div style="padding:18px 20px;background:#fff;border-radius:14px;">
+      <div style="font-size:11px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#9a7a23;margin-bottom:14px;">Order activity</div>
       ${orderActivityHtml}
     </div>
   `
@@ -283,6 +291,7 @@ export const renderOrderStatusEmail = ({
       eyebrow: 'Order Update',
       heading: commerceCopy.heading,
       subheading: commerceCopy.subheading,
+      heroIconSvg: commerceCopy.icon,
       summaryHtml,
       accentLabel: 'Order Details',
       bodyHtml,

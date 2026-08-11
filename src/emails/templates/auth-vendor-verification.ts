@@ -1,4 +1,5 @@
 import { renderAuthActionEmail } from '@/emails/templates/auth-action'
+import { emailHeroIcons } from '@/emails/templates/layout'
 import { safeText } from '@/lib/email/utils'
 
 export const renderVendorVerificationEmail = ({
@@ -20,4 +21,5 @@ export const renderVendorVerificationEmail = ({
     codeValue: verificationCode,
     bodyTitle: 'Important',
     bodyText: 'This code expires soon. If you did not request seller access, you can ignore this email.',
+    heroIcon: emailHeroIcons.storefront,
   })

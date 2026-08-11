@@ -1,4 +1,4 @@
-import { renderEmailLayout } from '@/emails/templates/layout'
+import { emailHeroIcons, renderEmailLayout } from '@/emails/templates/layout'
 import { escapeHtml } from '@/lib/email/utils'
 
 type AdminTeamAlertEmailInput = {
@@ -31,8 +31,8 @@ export const renderAdminTeamAlertEmail = ({
             .map(
               (row) => `<tr>
                 <td style="padding:0 16px 10px 0;vertical-align:top;">
-                  <div style="font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#8a8f98;margin-bottom:6px;">${escapeHtml(row.label)}</div>
-                  <div style="font-size:15px;font-weight:700;color:#111827;">${escapeHtml(row.value)}</div>
+                  <div style="font-size:11px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#f5c451;margin-bottom:6px;">${escapeHtml(row.label)}</div>
+                  <div style="font-size:15px;font-weight:700;color:#ffffff;">${escapeHtml(row.value)}</div>
                 </td>
               </tr>`,
             )
@@ -41,9 +41,9 @@ export const renderAdminTeamAlertEmail = ({
       : ''
 
   const bodyHtml = `
-    <div style="padding:18px 20px;background:#fff8e7;border:1px solid #ead9a9;">
-      <div style="font-size:12px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#8b6b16;margin-bottom:10px;">${escapeHtml(bodyTitle)}</div>
-      <div style="font-size:15px;line-height:1.8;color:#475569;">${escapeHtml(bodyText)}</div>
+    <div style="padding:18px 20px;background:#fff2cc;border-radius:14px;">
+      <div style="font-size:11px;font-weight:800;letter-spacing:0.16em;text-transform:uppercase;color:#9a7a23;margin-bottom:10px;">${escapeHtml(bodyTitle)}</div>
+      <div style="font-size:15px;line-height:1.8;color:#3a3126;">${escapeHtml(bodyText)}</div>
     </div>
   `
 
@@ -54,6 +54,7 @@ export const renderAdminTeamAlertEmail = ({
       eyebrow: 'Admin alert',
       heading,
       subheading,
+      heroIconSvg: emailHeroIcons.megaphone,
       summaryHtml,
       accentLabel,
       bodyHtml,
