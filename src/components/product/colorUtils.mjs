@@ -16,7 +16,9 @@ const COLOR_SWATCHES = {
   floral: '#f472b6',
 }
 
-export const getSwatchStyle = (color) => {
+const HEX_PATTERN = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i
+
+export const getSwatchStyle = (color, hex) => {
   if (!color) return { backgroundColor: '#d1d5db' }
   const key = color.toLowerCase()
   if (key === 'multicolor' || key === 'multi') {
@@ -24,6 +26,9 @@ export const getSwatchStyle = (color) => {
       backgroundImage:
         'conic-gradient(#ef4444, #f59e0b, #facc15, #22c55e, #3b82f6, #a855f7, #ef4444)',
     }
+  }
+  if (typeof hex === 'string' && HEX_PATTERN.test(hex.trim())) {
+    return { backgroundColor: hex.trim() }
   }
   if (key === 'white') {
     return {

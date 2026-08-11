@@ -8,6 +8,7 @@ const ProductFiltersMobile = ({
   categories,
   vendors,
   colors,
+  colorHexMap = {},
   sizes,
   dynamicSections = [],
   priceList = [],
@@ -69,7 +70,7 @@ const ProductFiltersMobile = ({
     { key: 'price', label: 'Price', count: 0 },
   ]
 
-  const renderChips = (items, selectedSet, onToggle, withSwatch = false) => {
+  const renderChips = (items, selectedSet, onToggle, withSwatch = false, hexMap = {}) => {
     if (!items.length) {
       return <p className='text-xs text-gray-500'>No options</p>
     }
@@ -93,7 +94,7 @@ const ProductFiltersMobile = ({
                 {withSwatch && (
                   <span
                     className='h-3.5 w-3.5 rounded-full border border-gray-300'
-                    style={getSwatchStyle(item)}
+                    style={getSwatchStyle(item, hexMap[item])}
                   />
                 )}
                 <span>{item}</span>
@@ -169,7 +170,7 @@ const ProductFiltersMobile = ({
       case 'brand':
         return renderChips(vendors, selectedVendors, onToggleVendor)
       case 'color':
-        return renderChips(colors, selectedColors, onToggleColor, true)
+        return renderChips(colors, selectedColors, onToggleColor, true, colorHexMap)
       case 'size':
         return renderChips(sizes, selectedSizes, onToggleSize)
       case 'price':

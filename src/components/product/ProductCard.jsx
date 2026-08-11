@@ -5,7 +5,7 @@ import StarRating from './StarRating'
 import ColorOptions from './ColorOptions' // Import new component
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { buildSwatchImages, deriveOptionsFromVariations } from './variationUtils.mjs'
+import { buildColorHexMap, buildSwatchImages, deriveOptionsFromVariations } from './variationUtils.mjs'
 import ProductVariantQuickAddModal from './ProductVariantQuickAddModal'
 import { useOptionalCart } from '../../context/CartContext'
 import QuantityControl from '../cart/QuantityControl'
@@ -55,6 +55,10 @@ const ProductCard = ({
   const swatchImages = React.useMemo(
     () => buildSwatchImages(product.variations, product.images, ['color', 'colour']),
     [product.images, product.variations],
+  )
+  const colorHexMap = React.useMemo(
+    () => product.colorHexMap || buildColorHexMap(product.variations, ['color', 'colour']),
+    [product.colorHexMap, product.variations],
   )
 
   React.useEffect(() => {
@@ -299,6 +303,7 @@ const ProductCard = ({
                     selectedColor={selectedColor}
                     setSelectedColor={setSelectedColor}
                     swatchImages={swatchImages}
+                    colorHexMap={colorHexMap}
                     onPreviewImage={handlePreviewImage}
                     onClearPreview={handleClearPreview}
                   />

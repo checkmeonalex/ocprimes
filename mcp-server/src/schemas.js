@@ -17,7 +17,12 @@ export const getProductInput = {
 }
 
 const variationInput = z.object({
-  attributes: z.record(z.string(), z.string()).optional().describe('e.g. {"color":"Red","size":"M"}'),
+  attributes: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe(
+      'e.g. {"color":"Red","size":"M"}. For a color variation, also set a "color_hex" key (e.g. "#ef4444") so the storefront swatch dot shows the exact color — required for any color name not already recognized (black/white/gray/blue/red/green/yellow/orange/pink/purple/brown/navy/tan/floral/multicolor), and recommended always.',
+    ),
   regular_price: z.union([z.string(), z.number()]).optional(),
   sale_price: z.union([z.string(), z.number()]).optional(),
   sku: z.string().max(120).optional(),

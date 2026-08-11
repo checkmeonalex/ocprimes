@@ -13,6 +13,7 @@ const EMPTY_SET = new Set();
 export default function VendorStoreSidebar({
   categories,
   colors = [],
+  colorHexMap = {},
   sizes = [],
   priceBounds,
   priceRange,
@@ -134,7 +135,7 @@ export default function VendorStoreSidebar({
                   >
                     <span 
                       className="h-6 w-6 rounded-full" 
-                      style={getSwatchStyle(color)} 
+                      style={getSwatchStyle(color, colorHexMap[color])}
                     />
                     {isActive && (
                       <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-black" />

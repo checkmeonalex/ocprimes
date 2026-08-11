@@ -26,6 +26,25 @@ export const deriveOptionsFromVariations = (variations, keys) => {
   return list
 }
 
+// Builds { [colorName]: '#rrggbb' } from variation.attributes.color_hex, so a
+// custom color (not in colorUtils.mjs's ~15-name lookup) still renders as an
+// exact swatch instead of falling back to a generic gray dot.
+export const buildColorHexMap = (variations, keys) => {
+  const map = {}
+  if (!Array.isArray(variations)) return map
+  variations.forEach((variation) => {
+    const attributes = variation?.attributes
+    if (!attributes || typeof attributes !== 'object') return
+    const name = extractVariationValue(attributes, keys)
+    if (!name || map[name]) return
+    const hex = attributes.color_hex
+    if (typeof hex === 'string' && hex.trim()) {
+      map[name] = hex.trim()
+    }
+  })
+  return map
+}
+
 export const buildSwatchImages = (variations, images, keys) => {
   const imageLookup = new Map()
   if (Array.isArray(images)) {

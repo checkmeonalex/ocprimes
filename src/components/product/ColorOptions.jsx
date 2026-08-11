@@ -8,6 +8,7 @@ const ColorOptions = ({
   selectedColor,
   setSelectedColor,
   swatchImages,
+  colorHexMap,
   onPreviewImage,
   onClearPreview,
 }) => {
@@ -38,7 +39,7 @@ const ColorOptions = ({
               : 'opacity-80 hover:opacity-100'
             }
             transition-all duration-200`}
-          style={!swatchImages?.[color] ? getSwatchStyle(color) : undefined}
+          style={!swatchImages?.[color] ? getSwatchStyle(color, colorHexMap?.[color]) : undefined}
           title={color}
         >
           {swatchImages?.[color] && (

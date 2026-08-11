@@ -427,6 +427,17 @@ const ProductCatalogPage = ({
     () => buildFacetList(normalized.flatMap((product) => product.colors || [])),
     [normalized]
   )
+  const colorHexMap = useMemo(() => {
+    const map = {}
+    normalized.forEach((product) => {
+      const hexMap = product.colorHexMap
+      if (!hexMap) return
+      Object.entries(hexMap).forEach(([name, hex]) => {
+        if (!map[name] && hex) map[name] = hex
+      })
+    })
+    return map
+  }, [normalized])
   const sizes = useMemo(
     () => buildFacetList(normalized.flatMap((product) => product.sizes || [])),
     [normalized]
@@ -1607,6 +1618,7 @@ const ProductCatalogPage = ({
                 <VendorStoreSidebar
                   categories={categories}
                   colors={colors}
+                  colorHexMap={colorHexMap}
                   sizes={sizes}
                   priceBounds={priceBounds}
                   priceRange={priceRange}
@@ -1626,6 +1638,7 @@ const ProductCatalogPage = ({
                   categories={categories}
                   vendors={vendors}
                   colors={colors}
+                  colorHexMap={colorHexMap}
                   sizes={sizes}
                   priceList={priceList}
                   priceBounds={priceBounds}
@@ -1758,6 +1771,7 @@ const ProductCatalogPage = ({
                   categories={categories}
                   vendors={vendors}
                   colors={colors}
+                  colorHexMap={colorHexMap}
                   sizes={sizes}
                   priceBounds={priceBounds}
                   priceRange={priceRange}

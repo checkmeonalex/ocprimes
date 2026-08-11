@@ -96,6 +96,7 @@ const ProductFilters = ({
   categories,
   vendors,
   colors = [],
+  colorHexMap = {},
   sizes,
   priceBounds,
   priceRange,
@@ -202,7 +203,7 @@ const ProductFilters = ({
             <span className='flex items-center gap-2'>
               <span
                 className='h-4 w-4 rounded-full border border-gray-300'
-                style={getSwatchStyle(color)}
+                style={getSwatchStyle(color, colorHexMap[color])}
               />
               <span className='capitalize'>{color}</span>
             </span>

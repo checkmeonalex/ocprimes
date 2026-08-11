@@ -1,4 +1,4 @@
-import { deriveOptionsFromVariations } from '../variationUtils.mjs'
+import { buildColorHexMap, deriveOptionsFromVariations } from '../variationUtils.mjs'
 
 const CUSTOM_ATTRIBUTE_EXCLUDE = new Set([
   'id',
@@ -152,6 +152,7 @@ const normalizeProduct = (item) => {
     hasDiscount && basePrice ? basePrice : Number(item?.originalPrice) || null
   const variationColors = deriveOptionsFromVariations(item?.variations, ['color', 'colour'])
   const variationSizes = deriveOptionsFromVariations(item?.variations, ['size'])
+  const colorHexMap = buildColorHexMap(item?.variations, ['color', 'colour'])
   const videoUrl = String(item?.product_video_url || item?.video || '').trim()
   const galleryMedia = []
   if (videoUrl) {
@@ -216,6 +217,7 @@ const normalizeProduct = (item) => {
       : Array.isArray(item?.colors)
         ? item.colors
         : [],
+    colorHexMap,
     sizes: variationSizes.length
       ? variationSizes
       : Array.isArray(item?.sizes)
