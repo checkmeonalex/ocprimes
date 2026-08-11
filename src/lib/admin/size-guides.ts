@@ -18,7 +18,7 @@ export const sizeGuideRowSchema = z.record(z.string(), z.string()).refine(
 
 export const listSizeGuidesQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  per_page: z.coerce.number().int().min(1).max(50).default(20),
+  per_page: z.coerce.number().int().min(1).max(100).default(20),
   search: z.preprocess(normalizeBlank, z.string().max(120).optional()),
 })
 

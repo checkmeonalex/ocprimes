@@ -36,6 +36,95 @@ const emptyBrowseCards = {
   women: [],
 };
 
+const CATEGORY_TABS = [
+  { key: 'general', label: 'General' },
+  { key: 'layout', label: 'Layout order' },
+  { key: 'subcategories', label: 'Subcategories' },
+  { key: 'banner', label: 'Banner' },
+  { key: 'featured', label: 'Featured strip' },
+  { key: 'hotspot', label: 'Hotspot products' },
+  { key: 'catalog', label: 'Home catalog' },
+  { key: 'browse', label: 'Browse cards' },
+  { key: 'logo', label: 'Logo grid' },
+];
+
+const SectionCard = ({ title, description, action, children, id, className = '' }) => (
+  <div
+    id={id}
+    className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3 ${className}`}
+  >
+    {(title || action) && (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {title && (
+          <div>
+            <p className="text-sm font-semibold text-slate-800">{title}</p>
+            {description && <p className="text-xs text-slate-500">{description}</p>}
+          </div>
+        )}
+        {action}
+      </div>
+    )}
+    {children}
+  </div>
+);
+
+const FieldLabel = ({ children }) => (
+  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-400">
+    {children}
+  </label>
+);
+
+const SaveButton = ({ onClick, disabled, saving, savingLabel = 'Saving...', label = 'Save' }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={disabled}
+    className="rounded-full bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
+  >
+    {saving ? savingLabel : label}
+  </button>
+);
+
+const SkeletonBar = ({ className = '' }) => (
+  <div className={`animate-pulse rounded-full bg-slate-200 ${className}`} />
+);
+
+const SkeletonBlock = ({ className = '' }) => (
+  <div className={`animate-pulse rounded-xl bg-slate-100 ${className}`} />
+);
+
+const CategoryDetailSkeleton = () => (
+  <div className="space-y-4">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-4">
+      <div className="flex items-start gap-4">
+        <SkeletonBlock className="h-20 w-20 shrink-0 rounded-2xl" />
+        <div className="flex-1 space-y-2">
+          <SkeletonBar className="h-3 w-28" />
+          <SkeletonBar className="h-3 w-40" />
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <SkeletonBlock className="h-11" />
+        <SkeletonBlock className="h-11" />
+      </div>
+      <SkeletonBlock className="h-16" />
+      <SkeletonBlock className="h-11 w-1/2" />
+    </div>
+    {[0, 1, 2].map((row) => (
+      <div key={row} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <SkeletonBar className="h-3 w-32" />
+          <SkeletonBar className="h-7 w-20 rounded-full" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+          {[0, 1, 2, 3, 4].map((slot) => (
+            <SkeletonBlock key={slot} className="aspect-[16/9]" />
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+);
 
 function CategoryDetailPage({ params }) {
   const resolvedParams = use(params);
@@ -112,6 +201,7 @@ function CategoryDetailPage({ params }) {
   const [browseCardsError, setBrowseCardsError] = useState('');
   const [activeBrowseSegment, setActiveBrowseSegment] = useState('all');
   const [redirectingHome, setRedirectingHome] = useState(false);
+  const [activeTab, setActiveTab] = useState('general');
   const activeLayout =
     hotspotLayouts.find((layout) => layout.id === activeLayoutId) ||
     hotspotLayouts[0] ||
@@ -181,9 +271,19 @@ function CategoryDetailPage({ params }) {
           setBannerSliderLinks(Array.isArray(next.banner_slider_links) ? next.banner_slider_links : []);
         }
         fetch('/api/admin/size-guides?per_page=100', { credentials: 'include' })
-          .then((res) => res.json().catch(() => null))
+          .then(async (res) => {
+            const payload = await res.json().catch(() => null);
+            if (!res.ok) {
+              console.error('size guide list failed:', payload?.error || res.status);
+              return null;
+            }
+            return payload;
+          })
           .then((payload) => setSizeGuideOptions(Array.isArray(payload?.items) ? payload.items : []))
-          .catch(() => setSizeGuideOptions([]));
+          .catch((err) => {
+            console.error('size guide list failed:', err);
+            setSizeGuideOptions([]);
+          });
 
         // load subcategories + filterable ids
         setChildrenLoading(true);
@@ -1228,30 +1328,32 @@ function CategoryDetailPage({ params }) {
 
   return (
     <AdminShell>
-      <div className="space-y-6">
+      <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-400">
                 Category
               </p>
-              <h1 className="mt-2 text-2xl font-semibold text-slate-900">
-                {item?.name || 'Loading...'}
-              </h1>
-              <p className="text-sm text-slate-500">{item?.slug}</p>
+              {isLoading ? (
+                <div className="mt-2 space-y-1.5">
+                  <SkeletonBar className="h-6 w-40" />
+                  <SkeletonBar className="h-3 w-24" />
+                </div>
+              ) : (
+                <>
+                  <h1 className="mt-1 text-xl font-semibold text-slate-900">{item?.name}</h1>
+                  <p className="text-sm text-slate-500">{item?.slug}</p>
+                </>
+              )}
             </div>
             <Link
               href="/backend/admin/categories"
-              className="rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+              className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
             >
               Back to categories
             </Link>
           </div>
 
-          {isLoading && (
-            <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">
-              Loading category...
-            </div>
-          )}
           {error && (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
               {error}
@@ -1264,14 +1366,35 @@ function CategoryDetailPage({ params }) {
             </div>
           )}
 
+          {isLoading && <CategoryDetailSkeleton />}
+
           {item && !isLoading && item?.slug !== 'home' && !redirectingHome && (
             <div className="space-y-4">
+              <div className="-mx-1 flex gap-1 overflow-x-auto border-b border-slate-200 px-1 pb-px">
+                {CATEGORY_TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-xs font-semibold transition ${
+                      activeTab === tab.key
+                        ? 'border-slate-900 text-slate-900'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
               <div
-                id="hotspot-layout"
-                className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4"
+                id="general-info"
+                className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-4 ${
+                  activeTab === 'general' ? '' : 'hidden'
+                }`}
               >
-                <div className="flex items-start gap-4">
-                  <div className="relative h-24 w-24 overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+                <div className="flex items-start gap-3">
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                     {item.image_url ? (
                       <img
                         src={item.image_url}
@@ -1279,153 +1402,120 @@ function CategoryDetailPage({ params }) {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-[11px] text-slate-400">
+                      <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">
                         No image
                       </div>
                     )}
                     {(uploadingSlot === 'category-image' || removing) && (
-                      <div className="absolute inset-0 flex items-center justify-center gap-2 bg-slate-900/70 text-white text-[11px] font-semibold">
+                      <div className="absolute inset-0 flex items-center justify-center bg-slate-900/70">
                         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/70 border-t-transparent" />
-                        {uploadingSlot === 'category-image' ? 'Saving...' : 'Removing...'}
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-col gap-2">
-                    <div className="flex gap-2">
+                  <div className="flex flex-1 flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLibraryContext({ type: 'category-image', index: 0, device: 'desktop' });
+                        setShowLibrary(true);
+                      }}
+                      className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                      disabled={uploadingSlot === 'category-image' || removing}
+                    >
+                      {item.image_url ? 'Change image' : 'Choose from library'}
+                    </button>
+                    {item.image_url && (
                       <button
                         type="button"
-                        onClick={() => {
-                          setLibraryContext({ type: 'category-image', index: 0, device: 'desktop' });
-                          setShowLibrary(true);
-                        }}
-                        className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                        onClick={handleRemoveImage}
+                        className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-60"
                         disabled={uploadingSlot === 'category-image' || removing}
                       >
-                        {item.image_url ? 'Change image' : 'Choose from library'}
+                        Remove
                       </button>
-                      {item.image_url && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveImage}
-                          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-60"
-                          disabled={uploadingSlot === 'category-image' || removing}
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-500">
-                      Pick an image from the component library or upload a new one there first.
-                    </p>
+                    )}
                   </div>
                 </div>
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      Name
-                    </label>
+                    <FieldLabel>Name</FieldLabel>
                     <input
                       value={form.name}
                       onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      Slug
-                    </label>
+                    <FieldLabel>Slug</FieldLabel>
                     <input
                       value={form.slug}
                       onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value }))}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
                       placeholder="auto-generated if empty"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                    Description
-                  </label>
+                  <FieldLabel>Description</FieldLabel>
                   <textarea
                     value={form.description}
                     onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
-                    rows={3}
+                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                    rows={2}
                   />
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                    Size guide
-                  </label>
-                  <CustomSelect
-                    value={form.size_guide_id}
-                    onChange={(e) => setForm((prev) => ({ ...prev, size_guide_id: e.target.value }))}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
-                  >
-                    <option value="">No default size guide</option>
-                    {sizeGuideOptions.map((guide) => (
-                      <option key={guide.id} value={guide.id}>{guide.name}</option>
-                    ))}
-                  </CustomSelect>
-                  <p className="mt-1.5 text-xs text-slate-400">
-                    Products in this category use this guide by default, unless a product sets its own.
-                  </p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <FieldLabel>Size guide</FieldLabel>
+                    <CustomSelect
+                      value={form.size_guide_id}
+                      onChange={(e) => setForm((prev) => ({ ...prev, size_guide_id: e.target.value }))}
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                    >
+                      <option value="">No default size guide</option>
+                      {sizeGuideOptions.map((guide) => (
+                        <option key={guide.id} value={guide.id}>{guide.name}</option>
+                      ))}
+                    </CustomSelect>
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      Default for products in this category, unless a product sets its own.
+                    </p>
+                  </div>
+                  <div>
+                    <FieldLabel>Visibility</FieldLabel>
+                    <div className="mt-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setForm((prev) => ({ ...prev, is_active: !prev.is_active }))}
+                        className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold ${
+                          form.is_active
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : 'border-slate-200 bg-slate-50 text-slate-500'
+                        }`}
+                      >
+                        {form.is_active ? 'Visible' : 'Hidden'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                    Visibility
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setForm((prev) => ({ ...prev, is_active: !prev.is_active }))}
-                    className={`flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
-                      form.is_active
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : 'border-slate-200 bg-slate-50 text-slate-500'
-                    }`}
-                  >
-                    {form.is_active ? 'Visible' : 'Hidden'}
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                  >
-                    {saving ? 'Saving...' : 'Save changes'}
-                  </button>
+                <div className="flex items-center gap-3 pt-1">
+                  <SaveButton onClick={handleSave} disabled={saving} saving={saving} label="Save changes" />
                   {saveMsg && <span className="text-xs text-emerald-600">{saveMsg}</span>}
                 </div>
              </div>
 
-              <div
-                id="logo-grid"
-                className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4"
+              <SectionCard
+                id="layout-order"
+                title="Layout order"
+                description="Drag sections to control the front-end order."
+                action={<SaveButton onClick={handleSave} disabled={saving} saving={saving} label="Save order" />}
+                className={activeTab === 'layout' ? '' : 'hidden'}
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Layout order</p>
-                    <p className="text-xs text-slate-500">
-                      Drag sections to control the front-end order.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                  >
-                    {saving ? 'Saving...' : 'Save layout order'}
-                  </button>
-                </div>
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {layoutOrder.map((key, index) => {
                     const meta = CATEGORY_LAYOUT_LABELS[key];
                     return (
@@ -1437,7 +1527,7 @@ function CategoryDetailPage({ params }) {
                           setLayoutDragOverKey(key);
                         }}
                         onPointerEnter={() => handleLayoutHover(key)}
-                        className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm transition select-none ${
+                        className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-sm transition select-none ${
                           draggingLayoutKey === key ? 'cursor-grabbing' : 'cursor-grab'
                         } ${
                           layoutDragOverKey === key
@@ -1445,9 +1535,9 @@ function CategoryDetailPage({ params }) {
                             : 'border-slate-200 bg-white'
                         } ${draggingLayoutKey === key ? 'opacity-70' : ''}`}
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2.5">
                           <div
-                            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-slate-50"
+                            className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-slate-50"
                             title="Drag to reorder"
                           >
                             <svg
@@ -1501,31 +1591,23 @@ function CategoryDetailPage({ params }) {
                     );
                   })}
                 </div>
-              </div>
+              </SectionCard>
 
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">
-                      {children.length ? 'Subcategories' : 'No subcategories'}
-                    </p>
-                    <p className="text-xs text-slate-500">
-                      Direct children of this category.
-                    </p>
-                  </div>
-                  {childrenLoading && (
-                    <span className="text-xs text-slate-500">Loading...</span>
-                  )}
-                </div>
+              <SectionCard
+                title={children.length ? 'Subcategories' : 'No subcategories'}
+                description="Direct children of this category."
+                action={childrenLoading && <span className="text-xs text-slate-500">Loading...</span>}
+                className={activeTab === 'subcategories' ? '' : 'hidden'}
+              >
                 {children.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
                     {children.map((child) => (
                       <Link
                         key={child.id}
                         href={`/backend/admin/categories/${child.id}`}
-                        className="flex flex-col items-center gap-2 rounded-xl border border-slate-100 p-3 hover:border-slate-200 hover:shadow-sm transition"
+                        className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-100 p-2.5 hover:border-slate-200 hover:shadow-sm transition"
                       >
-                        <div className="h-20 w-20 overflow-hidden rounded-full border border-slate-200 bg-slate-50">
+                        <div className="h-14 w-14 overflow-hidden rounded-full border border-slate-200 bg-slate-50">
                           {child.image_url ? (
                             <img
                               src={child.image_url}
@@ -1533,32 +1615,29 @@ function CategoryDetailPage({ params }) {
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[11px] text-slate-400">
+                            <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">
                               Image
                             </div>
                           )}
                         </div>
-                        <span className="text-xs font-semibold text-slate-800 text-center">
+                        <span className="text-xs font-semibold text-slate-800 text-center line-clamp-1">
                           {child.name}
                         </span>
                       </Link>
                     ))}
                   </div>
                 )}
-              </div>
+              </SectionCard>
 
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Banner</p>
-                    <p className="text-xs text-slate-500">Wide slider (max 5).</p>
-                  </div>
-                </div>
+              <SectionCard
+                title="Banner"
+                description="Wide slider (max 5)."
+                className={activeTab === 'banner' ? '' : 'hidden'}
+              >
                 <div className="space-y-3">
-                  <div className="space-y-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      Wide slider (16:9) — max 5 per device
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <FieldLabel>Wide slider (16:9) — max 5 per device</FieldLabel>
+                    </div>
                     <div className="inline-flex rounded-full border border-slate-200 p-1">
                       <button
                         type="button"
@@ -1680,59 +1759,40 @@ function CategoryDetailPage({ params }) {
                       ))}
                     </div>
                     <div className="flex items-center gap-3">
-                      <button
-                        type="button"
+                      <SaveButton
                         onClick={handleSaveSliderLinks}
                         disabled={savingSliderLinks}
-                        className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                      >
-                        {savingSliderLinks ? 'Saving links...' : 'Save slider links'}
-                      </button>
+                        saving={savingSliderLinks}
+                        savingLabel="Saving links..."
+                        label="Save slider links"
+                      />
                     </div>
-                  </div>
                 </div>
-              </div>
+              </SectionCard>
 
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Featured strip</p>
-                    <p className="text-xs text-slate-500">
-                      Image + products filtered by tag or category.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                  >
-                    {saving ? 'Saving...' : 'Save featured strip'}
-                  </button>
-                </div>
-                <div className="grid gap-3 md:grid-cols-1">
-                  <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      Title
-                    </label>
-                    <input
-                      value={form.featured_strip_title_main}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          featured_strip_title_main: e.target.value,
-                        }))
-                      }
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
-                      placeholder="Just For You"
-                    />
-                  </div>
+              <SectionCard
+                title="Featured strip"
+                description="Image + products filtered by tag or category."
+                action={<SaveButton onClick={handleSave} disabled={saving} saving={saving} label="Save featured strip" />}
+                className={activeTab === 'featured' ? '' : 'hidden'}
+              >
+                <div>
+                  <FieldLabel>Title</FieldLabel>
+                  <input
+                    value={form.featured_strip_title_main}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        featured_strip_title_main: e.target.value,
+                      }))
+                    }
+                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                    placeholder="Just For You"
+                  />
                 </div>
                 <div className="grid gap-4 md:grid-cols-[1.2fr_1fr]">
-                  <div className="space-y-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      Featured image
-                    </p>
+                  <div className="space-y-2">
+                    <FieldLabel>Featured image</FieldLabel>
                     <button
                       type="button"
                       onClick={() => {
@@ -1769,11 +1829,9 @@ function CategoryDetailPage({ params }) {
                       </button>
                     )}
                   </div>
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     <div>
-                      <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                        Filter by
-                      </label>
+                      <FieldLabel>Filter by</FieldLabel>
                       <CustomSelect
                         value={featureFilterType}
                         onChange={(e) => {
@@ -1786,7 +1844,7 @@ function CategoryDetailPage({ params }) {
                               value === 'category' ? prev.featured_strip_category_id : '',
                           }));
                         }}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                        className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
                       >
                         <option value="none">None</option>
                         <option value="category">Category</option>
@@ -1796,9 +1854,7 @@ function CategoryDetailPage({ params }) {
 
                     {featureFilterType === 'category' && (
                       <div>
-                        <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                          Category
-                        </label>
+                        <FieldLabel>Category</FieldLabel>
                         <CustomSelect
                           value={form.featured_strip_category_id}
                           onChange={(e) =>
@@ -1807,7 +1863,7 @@ function CategoryDetailPage({ params }) {
                               featured_strip_category_id: e.target.value,
                             }))
                           }
-                          className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                          className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
                         >
                           <option value="">Select category</option>
                           {categoryOptions.map((category) => (
@@ -1821,9 +1877,7 @@ function CategoryDetailPage({ params }) {
 
                     {featureFilterType === 'tag' && (
                       <div>
-                        <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                          Tag
-                        </label>
+                        <FieldLabel>Tag</FieldLabel>
                         <CustomSelect
                           value={form.featured_strip_tag_id}
                           onChange={(e) =>
@@ -1832,7 +1886,7 @@ function CategoryDetailPage({ params }) {
                               featured_strip_tag_id: e.target.value,
                             }))
                           }
-                          className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                          className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
                           disabled={tagsLoading}
                         >
                           <option value="">
@@ -1848,16 +1902,12 @@ function CategoryDetailPage({ params }) {
                     )}
                   </div>
                 </div>
-              </div>
+              </SectionCard>
 
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Hotspot products</p>
-                    <p className="text-xs text-slate-500">
-                      Click the image to add a dot (max 10), then assign a product.
-                    </p>
-                  </div>
+              <SectionCard
+                title="Hotspot products"
+                description="Click the image to add a dot (max 10), then assign a product."
+                action={
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -1892,27 +1942,29 @@ function CategoryDetailPage({ params }) {
                       </button>
                     )}
                   </div>
-                </div>
-
-                <div className="grid gap-3 md:grid-cols-1">
-                  <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      Title
-                    </label>
-                    <input
-                      value={form.hotspot_title_main}
-                      onChange={(e) =>
-                        setForm((prev) => ({ ...prev, hotspot_title_main: e.target.value }))
-                      }
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
-                      placeholder="Just For You"
-                    />
-                  </div>
+                }
+                className={activeTab === 'hotspot' ? '' : 'hidden'}
+              >
+                <div>
+                  <FieldLabel>Title</FieldLabel>
+                  <input
+                    value={form.hotspot_title_main}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, hotspot_title_main: e.target.value }))
+                    }
+                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                    placeholder="Just For You"
+                  />
                 </div>
 
                 {hotspotLoading ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">
-                    Loading hotspot layout...
+                  <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+                    <SkeletonBlock className="aspect-[16/9]" />
+                    <div className="space-y-2">
+                      <SkeletonBar className="h-3 w-24" />
+                      <SkeletonBlock className="h-16" />
+                      <SkeletonBlock className="h-16" />
+                    </div>
                   </div>
                 ) : (
                   <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
@@ -2012,17 +2064,13 @@ function CategoryDetailPage({ params }) {
                     </div>
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                          Hotspots ({activeLayout?.hotspots?.length || 0}/10)
-                        </p>
-                        <button
-                          type="button"
+                        <FieldLabel>Hotspots ({activeLayout?.hotspots?.length || 0}/10)</FieldLabel>
+                        <SaveButton
                           onClick={handleSaveHotspotLayout}
                           disabled={hotspotSaving || !activeLayout?.image_url}
-                          className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                        >
-                          {hotspotSaving ? 'Saving...' : 'Save layout'}
-                        </button>
+                          saving={hotspotSaving}
+                          label="Save layout"
+                        />
                       </div>
                       {hotspotError && (
                         <p className="text-xs text-rose-600">{hotspotError}</p>
@@ -2069,47 +2117,29 @@ function CategoryDetailPage({ params }) {
                     </div>
                   </div>
                 )}
-              </div>
+              </SectionCard>
 
-              <div
+              <SectionCard
                 id="home-product-catalog"
-                className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4"
+                title="Home product catalog"
+                description="Title, description, filter, and product count for the Home catalog."
+                action={<SaveButton onClick={handleSave} disabled={saving} saving={saving} label="Save product catalog" />}
+                className={activeTab === 'catalog' ? '' : 'hidden'}
               >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Home product catalog</p>
-                    <p className="text-xs text-slate-500">
-                      Configure title, description, filter, and number of products for the Home catalog.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                  >
-                    {saving ? 'Saving...' : 'Save product catalog'}
-                  </button>
-                </div>
-
                 <div className="grid gap-3 md:grid-cols-2">
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      Title
-                    </label>
+                    <FieldLabel>Title</FieldLabel>
                     <input
                       value={form.home_catalog_title}
                       onChange={(e) =>
                         setForm((prev) => ({ ...prev, home_catalog_title: e.target.value }))
                       }
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
                       placeholder="Fashion Collection"
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      Product count
-                    </label>
+                    <FieldLabel>Product count</FieldLabel>
                     <input
                       type="number"
                       min={1}
@@ -2121,29 +2151,25 @@ function CategoryDetailPage({ params }) {
                           home_catalog_limit: Number(e.target.value) || 12,
                         }))
                       }
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                    Description
-                  </label>
+                  <FieldLabel>Description</FieldLabel>
                   <textarea
                     value={form.home_catalog_description}
                     onChange={(e) =>
                       setForm((prev) => ({ ...prev, home_catalog_description: e.target.value }))
                     }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
-                    rows={3}
+                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                    rows={2}
                     placeholder="Discover our latest trends and bestsellers"
                   />
                 </div>
                 <div className="grid gap-3 md:grid-cols-3">
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      Filter mode
-                    </label>
+                    <FieldLabel>Filter mode</FieldLabel>
                     <CustomSelect
                       value={form.home_catalog_filter_mode}
                       onChange={(e) =>
@@ -2156,7 +2182,7 @@ function CategoryDetailPage({ params }) {
                             e.target.value === 'tag' ? prev.home_catalog_tag_id : '',
                         }))
                       }
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
                     >
                       <option value="none">None (show no products)</option>
                       <option value="category">Category</option>
@@ -2164,16 +2190,14 @@ function CategoryDetailPage({ params }) {
                     </CustomSelect>
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      Category
-                    </label>
+                    <FieldLabel>Category</FieldLabel>
                     <CustomSelect
                       value={form.home_catalog_category_id}
                       onChange={(e) =>
                         setForm((prev) => ({ ...prev, home_catalog_category_id: e.target.value }))
                       }
                       disabled={form.home_catalog_filter_mode !== 'category'}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 disabled:bg-slate-50"
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 disabled:bg-slate-50"
                     >
                       <option value="">
                         {childrenLoading ? 'Loading categories...' : 'Select category'}
@@ -2186,16 +2210,14 @@ function CategoryDetailPage({ params }) {
                     </CustomSelect>
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      Tag
-                    </label>
+                    <FieldLabel>Tag</FieldLabel>
                     <CustomSelect
                       value={form.home_catalog_tag_id}
                       onChange={(e) =>
                         setForm((prev) => ({ ...prev, home_catalog_tag_id: e.target.value }))
                       }
                       disabled={form.home_catalog_filter_mode !== 'tag'}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700 disabled:bg-slate-50"
+                      className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 disabled:bg-slate-50"
                     >
                       <option value="">
                         {tagsLoading ? 'Loading tags...' : 'Select tag'}
@@ -2208,19 +2230,13 @@ function CategoryDetailPage({ params }) {
                     </CustomSelect>
                   </div>
                 </div>
-              </div>
+              </SectionCard>
 
-              <div
+              <SectionCard
                 id="browse-categories-cards"
-                className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Browse categories cards</p>
-                    <p className="text-xs text-slate-500">
-                      Manage Home Browse cards with image, name, and link for All, Men, Women.
-                    </p>
-                  </div>
+                title="Browse categories cards"
+                description="Home Browse cards with image, name, and link for All, Men, Women."
+                action={
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -2243,8 +2259,9 @@ function CategoryDetailPage({ params }) {
                       </button>
                     ) : null}
                   </div>
-                </div>
-
+                }
+                className={activeTab === 'browse' ? '' : 'hidden'}
+              >
                 <div className="flex items-center gap-2">
                   {['all', 'men', 'women'].map((segment) => (
                     <button
@@ -2262,22 +2279,22 @@ function CategoryDetailPage({ params }) {
                   ))}
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                    Section title
-                  </label>
+                  <FieldLabel>Section title</FieldLabel>
                   <input
                     value={form.browse_categories_title || ''}
                     onChange={(e) =>
                       setForm((prev) => ({ ...prev, browse_categories_title: e.target.value }))
                     }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
                     placeholder="Browse by categories"
                   />
                 </div>
 
                 {browseCardsLoading ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">
-                    Loading browse cards...
+                  <div className="space-y-2">
+                    {[0, 1].map((row) => (
+                      <SkeletonBlock key={row} className="h-24" />
+                    ))}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -2340,27 +2357,21 @@ function CategoryDetailPage({ params }) {
                       <p className="text-xs text-rose-600">{browseCardsError}</p>
                     ) : null}
                     <div className="flex items-center gap-3">
-                      <button
-                        type="button"
+                      <SaveButton
                         onClick={handleSaveBrowseCards}
                         disabled={browseCardsSaving}
-                        className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                      >
-                        {browseCardsSaving ? 'Saving...' : 'Save browse cards'}
-                      </button>
+                        saving={browseCardsSaving}
+                        label="Save browse cards"
+                      />
                     </div>
                   </div>
                 )}
-              </div>
+              </SectionCard>
 
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-800">Logo grid</p>
-                    <p className="text-xs text-slate-500">
-                      Upload multiple logos and display them in a grid.
-                    </p>
-                  </div>
+              <SectionCard
+                title="Logo grid"
+                description="Upload multiple logos and display them in a grid."
+                action={
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -2383,52 +2394,49 @@ function CategoryDetailPage({ params }) {
                       </button>
                     ) : null}
                   </div>
-                </div>
-
+                }
+                className={activeTab === 'logo' ? '' : 'hidden'}
+              >
                 {logoGridLoading ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-sm text-slate-500">
-                    Loading logo grid...
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+                    {[0, 1, 2, 3, 4, 5].map((slot) => (
+                      <SkeletonBlock key={slot} className="aspect-square" />
+                    ))}
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div>
-                      <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                        Title (optional)
-                      </label>
+                      <FieldLabel>Title (optional)</FieldLabel>
                       <input
                         value={logoGrid.title || ''}
                         onChange={(e) =>
                           setLogoGrid((prev) => ({ ...prev, title: e.target.value }))
                         }
-                        className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                        className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
                         placeholder="e.g. Trusted by"
                       />
                     </div>
                     <div className="grid gap-3 md:grid-cols-2">
                       <div>
-                        <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                          Title background color
-                        </label>
+                        <FieldLabel>Title background color</FieldLabel>
                         <ColorPicker
                           value={logoGrid.title_bg_color || '#fed7aa'}
                           onChange={(value) =>
                             setLogoGrid((prev) => ({ ...prev, title_bg_color: value }))
                           }
-                          inputClassName="mt-2 h-12 w-full rounded-2xl border border-slate-200 p-1"
-                          textInputClassName="mt-3 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-700"
+                          inputClassName="mt-1.5 h-10 w-full rounded-xl border border-slate-200 p-1"
+                          textInputClassName="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700"
                         />
                       </div>
                       <div>
-                        <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                          Title text color
-                        </label>
+                        <FieldLabel>Title text color</FieldLabel>
                         <ColorPicker
                           value={logoGrid.title_text_color || '#111827'}
                           onChange={(value) =>
                             setLogoGrid((prev) => ({ ...prev, title_text_color: value }))
                           }
-                          inputClassName="mt-2 h-12 w-full rounded-2xl border border-slate-200 p-1"
-                          textInputClassName="mt-3 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-700"
+                          inputClassName="mt-1.5 h-10 w-full rounded-xl border border-slate-200 p-1"
+                          textInputClassName="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700"
                         />
                       </div>
                     </div>
@@ -2440,7 +2448,7 @@ function CategoryDetailPage({ params }) {
                         {logoGrid.items.map((logo) => (
                           <div
                             key={logo.id}
-                            className="relative flex items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 p-3"
+                            className="relative flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 p-3"
                           >
                             <img
                               src={logo.image_url}
@@ -2458,23 +2466,21 @@ function CategoryDetailPage({ params }) {
                         ))}
                       </div>
                     ) : (
-                      <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-xs text-slate-500">
+                      <div className="rounded-xl border border-dashed border-slate-200 px-4 py-6 text-xs text-slate-500">
                         No logos yet. Click “Add logos” to upload.
                       </div>
                     )}
                     <div className="flex items-center gap-3">
-                      <button
-                        type="button"
+                      <SaveButton
                         onClick={handleSaveLogoGrid}
                         disabled={logoGridSaving}
-                        className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
-                      >
-                        {logoGridSaving ? 'Saving...' : 'Save logo grid'}
-                      </button>
+                        saving={logoGridSaving}
+                        label="Save logo grid"
+                      />
                     </div>
                   </div>
                 )}
-              </div>
+              </SectionCard>
             </div>
           )}
       </div>

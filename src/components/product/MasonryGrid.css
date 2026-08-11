@@ -1,5 +1,5 @@
 .masonry {
-  column-count: 6;
+  column-count: 4;
   column-gap: var(--masonry-gap, 24px);
   max-width: 2400px;
   margin: 0 auto;
@@ -13,7 +13,7 @@
 /* Responsive breakpoints */
 @media (max-width: 1536px) {
   .masonry {
-    column-count: 5;
+    column-count: 4;
   }
 }
 
