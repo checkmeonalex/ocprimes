@@ -19,9 +19,40 @@ export default function VendorSetPasswordForm() {
   useEffect(() => {
     let mounted = true
     const run = async () => {
-      const {
+      let {
         data: { session },
       } = await supabase.auth.getSession()
+
+      if (!session && typeof window !== 'undefined') {
+        const url = new URL(window.location.href)
+        const code = url.searchParams.get('code')
+        const tokenHash = url.searchParams.get('token_hash')
+        const type = url.searchParams.get('type')
+
+        if (code) {
+          await supabase.auth.exchangeCodeForSession(code).catch(() => null)
+        } else if (tokenHash && type === 'recovery') {
+          await supabase.auth
+            .verifyOtp({
+              token_hash: tokenHash,
+              type: 'recovery',
+            })
+            .catch(() => null)
+        }
+
+        if (code || (tokenHash && type === 'recovery')) {
+          const cleanedUrl = new URL(window.location.href)
+          cleanedUrl.searchParams.delete('code')
+          cleanedUrl.searchParams.delete('token_hash')
+          cleanedUrl.searchParams.delete('type')
+          cleanedUrl.searchParams.delete('redirect_to')
+          window.history.replaceState({}, '', `${cleanedUrl.pathname}${cleanedUrl.search}${cleanedUrl.hash}`)
+        }
+
+        const refreshed = await supabase.auth.getSession()
+        session = refreshed.data.session
+      }
+
       if (mounted) {
         setHasSession(Boolean(session))
         setIsReady(true)

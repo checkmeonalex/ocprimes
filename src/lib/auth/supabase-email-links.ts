@@ -7,6 +7,7 @@ const readGeneratedLinkProperties = (data: any) => {
   const properties = data?.properties || {}
   const actionLink = safeText(properties.action_link)
   const emailOtp = safeText(properties.email_otp)
+  const hashedToken = safeText(properties.hashed_token)
 
   if (!actionLink) {
     throw new Error('Unable to generate secure email link.')
@@ -15,6 +16,7 @@ const readGeneratedLinkProperties = (data: any) => {
   return {
     actionLink,
     emailOtp,
+    hashedToken,
   }
 }
 
@@ -38,7 +40,25 @@ export const generateRecoveryEmailLink = async ({
     throw new Error(error.message || 'Unable to generate recovery link.')
   }
 
-  return readGeneratedLinkProperties(data)
+  const generated = readGeneratedLinkProperties(data)
+
+  // action_link is a PKCE `?code=` URL under this project's browser client
+  // config, which requires a code-verifier cookie that only exists if
+  // resetPasswordForEmail() ran in the recipient's own browser. Since this
+  // link is generated server-side via the admin API, no such cookie is ever
+  // set, so exchangeCodeForSession() on the reset-password page silently
+  // fails for anyone who isn't already logged in. Route through the
+  // token_hash + type=recovery flow instead (verifyOtp), which the
+  // reset-password page already supports and doesn't depend on any
+  // browser-local state from the request that generated the link.
+  if (!generated.hashedToken) {
+    return generated
+  }
+  const tokenHashUrl = new URL(redirectTo)
+  tokenHashUrl.searchParams.set('token_hash', generated.hashedToken)
+  tokenHashUrl.searchParams.set('type', 'recovery')
+
+  return { ...generated, actionLink: tokenHashUrl.toString() }
 }
 
 export const generateMagicLinkEmailLink = async ({
