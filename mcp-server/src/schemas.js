@@ -55,6 +55,12 @@ const productFields = {
   brand_ids: z.array(z.string().uuid()).optional(),
   image_ids: z.array(z.string().uuid()).optional(),
   main_image_id: z.string().uuid().nullable().optional(),
+  size_guide_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .optional()
+    .describe('Overrides the category default size guide for this product only. Use list_size_guides to find ids.'),
   variations: z
     .array(variationInput)
     .optional()
@@ -88,6 +94,11 @@ export const createCategoryInput = {
   slug: z.string().max(120).optional().describe('Defaults to a slugified version of name'),
   description: z.string().max(500).optional(),
   parent_id: z.string().uuid().optional().describe('Parent category UUID, omit for a top-level category'),
+  size_guide_id: z
+    .string()
+    .uuid()
+    .optional()
+    .describe('Default size guide for products in this category. Use list_size_guides to find ids.'),
 }
 
 export const updateCategoryInput = {
@@ -100,6 +111,12 @@ export const updateCategoryInput = {
   image_alt: z.string().max(200).nullable().optional(),
   image_key: z.string().max(500).nullable().optional(),
   is_active: z.boolean().optional().describe('Toggling this cascades to all descendant categories'),
+  size_guide_id: z
+    .string()
+    .uuid()
+    .nullable()
+    .optional()
+    .describe('Default size guide for products in this category; set null to remove. Use list_size_guides to find ids.'),
 }
 
 export const deleteCategoryInput = {
@@ -232,4 +249,49 @@ export const updateOrderStatusInput = {
     'refunded',
     'cancelled',
   ]),
+}
+
+const sizeGuideColumnInput = z.object({
+  key: z.string().min(1).max(60).describe('Machine key for this column, e.g. "chest_in" or "size"'),
+  label: z.string().min(1).max(60).describe('Header shown on the storefront, e.g. "Chest (in)"'),
+})
+
+export const listSizeGuidesInput = {
+  search: z.string().max(120).optional(),
+}
+
+export const getSizeGuideInput = {
+  id: z.string().uuid().describe('Size guide UUID'),
+}
+
+export const createSizeGuideInput = {
+  name: z.string().min(2).max(140).describe('e.g. "Men\'s Shirts (UK/US/EU)"'),
+  unit_toggle: z
+    .boolean()
+    .optional()
+    .describe(
+      'Show an IN/CM toggle on the storefront. Requires column key pairs like "chest_in"/"chest_cm" sharing the same label base.',
+    ),
+  columns: z.array(sizeGuideColumnInput).min(1).max(20),
+  rows: z
+    .array(z.record(z.string(), z.string()))
+    .max(100)
+    .optional()
+    .describe('Each row is an object keyed by column key, e.g. {"size":"M","chest_in":"38-40"}'),
+  how_to_measure: z.string().max(4000).optional(),
+  notes: z.string().max(2000).optional(),
+}
+
+export const updateSizeGuideInput = {
+  id: z.string().uuid().describe('Size guide UUID to update'),
+  name: z.string().min(2).max(140).optional(),
+  unit_toggle: z.boolean().optional(),
+  columns: z.array(sizeGuideColumnInput).min(1).max(20).optional(),
+  rows: z.array(z.record(z.string(), z.string())).max(100).optional(),
+  how_to_measure: z.string().max(4000).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+}
+
+export const deleteSizeGuideInput = {
+  id: z.string().uuid().describe('Size guide UUID to delete. Fails if still assigned to a category or product.'),
 }

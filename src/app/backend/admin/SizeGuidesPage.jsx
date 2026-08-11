@@ -1,584 +1,410 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { readStoredSiteInfo, readStoredSiteId } from '../../../utils/connector';
-import { fetchSizeGuides, createSizeGuide, deleteSizeGuide } from './products/functions/sizeGuides';
-import { fetchProductCategories } from './products/functions/categories';
-import ProductCategorySelector from './products/ProductCategorySelector';
-import { uploadMediaFile } from './products/functions/media';
-import LoadingButton from '../../../components/LoadingButton';
-import AdminShell from '@/components/admin/AdminShell';
-import { useAlerts } from '@/context/AlertContext';
-import { sanitizeHtml } from '@/utils/sanitization';
+'use client'
 
-const buildTableHtml = (columns, rows) => {
-  const head = columns.map((col) => `<th>${col || ''}</th>`).join('');
-  const body = rows
-    .map((row) => `<tr>${row.map((cell) => `<td>${cell || ''}</td>`).join('')}</tr>`)
-    .join('');
-  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
-};
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { createSizeGuide, deleteSizeGuide, fetchSizeGuides, updateSizeGuide } from './products/functions/sizeGuides'
+import AdminShell from '@/components/admin/AdminShell'
+import { useAlerts } from '@/context/AlertContext'
+import { Plus, Ruler, Trash2, X } from 'lucide-react'
 
-const stripHtml = (value) => value.replace(/<[^>]+>/g, '').trim();
+const emptyColumn = () => ({ key: `col_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`, label: '' })
 
-function WooCommerceSizeGuidesPage() {
-  const { confirmAlert } = useAlerts();
-  const [siteInfo, setSiteInfo] = useState(() => readStoredSiteInfo());
-  const [siteId, setSiteId] = useState(() => readStoredSiteId() || siteInfo?.siteId || '');
-  const [sizeGuides, setSizeGuides] = useState([]);
-  const [useDefaultGuides, setUseDefaultGuides] = useState(() => {
+const blankDraft = () => ({
+  id: null,
+  name: '',
+  unit_toggle: false,
+  columns: [
+    { key: 'size', label: 'Size' },
+    { key: 'chest', label: 'Chest' },
+    { key: 'waist', label: 'Waist' },
+  ],
+  rows: [{}, {}],
+  how_to_measure: '',
+  notes: '',
+})
+
+function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error }) {
+  const updateField = (key, value) => onChange({ ...draft, [key]: value })
+
+  const updateColumnLabel = (index, label) => {
+    const columns = draft.columns.map((col, i) => (i === index ? { ...col, label } : col))
+    onChange({ ...draft, columns })
+  }
+
+  const addColumn = () => {
+    onChange({ ...draft, columns: [...draft.columns, emptyColumn()] })
+  }
+
+  const removeColumn = (index) => {
+    const removedKey = draft.columns[index]?.key
+    const columns = draft.columns.filter((_, i) => i !== index)
+    const rows = draft.rows.map((row) => {
+      const next = { ...row }
+      delete next[removedKey]
+      return next
+    })
+    onChange({ ...draft, columns, rows })
+  }
+
+  const updateCell = (rowIndex, columnKey, value) => {
+    const rows = draft.rows.map((row, i) => (i === rowIndex ? { ...row, [columnKey]: value } : row))
+    onChange({ ...draft, rows })
+  }
+
+  const addRow = () => onChange({ ...draft, rows: [...draft.rows, {}] })
+
+  const removeRow = (index) => onChange({ ...draft, rows: draft.rows.filter((_, i) => i !== index) })
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onCancel}>
+      <div
+        className="flex h-full w-full max-w-2xl flex-col overflow-hidden bg-white shadow-2xl dark:bg-[#1c1c1e]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+            {draft.id ? 'Edit size guide' : 'New size guide'}
+          </h2>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-white/10"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
+              {error}
+            </div>
+          )}
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-zinc-400">
+              Name
+            </label>
+            <input
+              type="text"
+              value={draft.name}
+              onChange={(event) => updateField('name', event.target.value)}
+              placeholder="e.g. Men's Shirts (UK/US/EU)"
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            />
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-zinc-300">
+            <input
+              type="checkbox"
+              checked={draft.unit_toggle}
+              onChange={(event) => updateField('unit_toggle', event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            Show an IN / CM unit toggle on the storefront
+          </label>
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-medium text-slate-600 dark:text-zinc-400">Table</span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={addColumn}
+                  className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+                >
+                  + Column
+                </button>
+                <button
+                  type="button"
+                  onClick={addRow}
+                  className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+                >
+                  + Row
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-white/10">
+              <table className="w-full border-collapse text-sm">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-white/5">
+                    {draft.columns.map((col, index) => (
+                      <th key={col.key} className="border-b border-slate-200 p-1.5 dark:border-white/10">
+                        <div className="flex items-center gap-1">
+                          <input
+                            value={col.label}
+                            onChange={(event) => updateColumnLabel(index, event.target.value)}
+                            placeholder="Label"
+                            className="w-full min-w-[70px] rounded border border-transparent bg-transparent px-1.5 py-1 text-xs font-semibold text-slate-700 outline-none focus:border-slate-300 dark:text-zinc-200"
+                          />
+                          {draft.columns.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeColumn(index)}
+                              className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-red-600 dark:hover:bg-white/10"
+                            >
+                              <X size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                    <th className="w-8 border-b border-slate-200 dark:border-white/10" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {draft.rows.map((row, rowIndex) => (
+                    <tr key={rowIndex} className="odd:bg-white even:bg-slate-50/50 dark:odd:bg-transparent dark:even:bg-white/[0.03]">
+                      {draft.columns.map((col) => (
+                        <td key={col.key} className="border-b border-slate-100 p-1 dark:border-white/5">
+                          <input
+                            value={row[col.key] || ''}
+                            onChange={(event) => updateCell(rowIndex, col.key, event.target.value)}
+                            className="w-full min-w-[60px] rounded border border-transparent bg-transparent px-1.5 py-1 text-sm text-slate-700 outline-none focus:border-slate-300 dark:text-zinc-200"
+                          />
+                        </td>
+                      ))}
+                      <td className="border-b border-slate-100 p-1 text-center dark:border-white/5">
+                        <button
+                          type="button"
+                          onClick={() => removeRow(rowIndex)}
+                          className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-red-600 dark:hover:bg-white/10"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-zinc-400">
+              How to measure (optional)
+            </label>
+            <textarea
+              value={draft.how_to_measure}
+              onChange={(event) => updateField('how_to_measure', event.target.value)}
+              rows={3}
+              placeholder="e.g. Chest: measure around the fullest part of your chest, keeping the tape level."
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-zinc-400">
+              Notes (optional)
+            </label>
+            <textarea
+              value={draft.notes}
+              onChange={(event) => updateField('notes', event.target.value)}
+              rows={2}
+              placeholder="e.g. Hassle-free returns: if it doesn't fit, we'll replace it or refund you."
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-white/10">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={isSaving || !draft.name.trim()}
+            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900"
+          >
+            {isSaving ? 'Saving…' : draft.id ? 'Save changes' : 'Create size guide'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function SizeGuidesPage() {
+  const { confirmAlert, pushAlert } = useAlerts()
+  const [guides, setGuides] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [search, setSearch] = useState('')
+  const [draft, setDraft] = useState(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
+
+  const loadGuides = useCallback(async () => {
+    setIsLoading(true)
+    setLoadError('')
     try {
-      const raw = localStorage.getItem('agentic_use_default_size_guides');
-      if (raw === null) return true;
-      return raw === 'true';
-    } catch (_error) {
-      return true;
-    }
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingGuide, setEditingGuide] = useState(null);
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [generalInfo, setGeneralInfo] = useState('');
-  const [useTable, setUseTable] = useState(true);
-  const [useHtml, setUseHtml] = useState(false);
-  const [imageUrl, setImageUrl] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
-  const [categories, setCategories] = useState([]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
-  const [categoryError, setCategoryError] = useState('');
-  const [columns, setColumns] = useState(['Size', 'Chest', 'Length']);
-  const [rows, setRows] = useState([
-    ['', '', ''],
-    ['', '', ''],
-  ]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
-  const [deleteError, setDeleteError] = useState('');
-
-  useEffect(() => {
-    const handleStorage = (event) => {
-      if (event.key === 'agentic_wp_site') {
-        setSiteInfo(readStoredSiteInfo());
-      }
-      if (event.key === 'agentic_wp_site_id') {
-        setSiteId(readStoredSiteId());
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
-
-  useEffect(() => {
-    if (siteInfo?.siteId) {
-      setSiteId(siteInfo.siteId);
-    }
-  }, [siteInfo]);
-
-  const loadSizeGuides = useCallback(async () => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const token = localStorage.getItem('agentic_auth_token');
-      if (!siteId || !token) {
-        throw new Error('Connect a store to load size guides.');
-      }
-      const payload = await fetchSizeGuides({ siteId, token });
-      setSizeGuides(Array.isArray(payload?.size_guides) ? payload.size_guides : []);
-    } catch (err) {
-      setError(err?.message || 'Unable to load size guides.');
+      const items = await fetchSizeGuides({ search })
+      setGuides(items)
+    } catch (error) {
+      setLoadError(error.message || 'Unable to load size guides.')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  }, [siteId]);
-
-  const loadCategories = useCallback(async () => {
-    setCategoryError('');
-    try {
-      const token = localStorage.getItem('agentic_auth_token');
-      if (!siteId || !token) {
-        throw new Error('Connect a store to load categories.');
-      }
-      const payload = await fetchProductCategories({ siteId, token, topLimit: 10 });
-      setCategories(Array.isArray(payload?.categories) ? payload.categories : []);
-    } catch (err) {
-      setCategoryError(err?.message || 'Unable to load categories.');
-      setCategories([]);
-    }
-  }, [siteId]);
+  }, [search])
 
   useEffect(() => {
-    loadSizeGuides();
-  }, [loadSizeGuides]);
+    loadGuides()
+  }, [loadGuides])
 
-  useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
+  const filteredGuides = useMemo(() => guides, [guides])
 
-  useEffect(() => {
+  const openCreate = () => {
+    setSaveError('')
+    setDraft(blankDraft())
+  }
+
+  const openEdit = (guide) => {
+    setSaveError('')
+    setDraft({
+      id: guide.id,
+      name: guide.name || '',
+      unit_toggle: Boolean(guide.unit_toggle),
+      columns: Array.isArray(guide.columns) && guide.columns.length ? guide.columns : blankDraft().columns,
+      rows: Array.isArray(guide.rows) ? guide.rows : [],
+      how_to_measure: guide.how_to_measure || '',
+      notes: guide.notes || '',
+    })
+  }
+
+  const closeEditor = () => {
+    setDraft(null)
+    setSaveError('')
+  }
+
+  const handleSave = async () => {
+    if (!draft?.name?.trim()) return
+    setIsSaving(true)
+    setSaveError('')
     try {
-      localStorage.setItem('agentic_use_default_size_guides', String(useDefaultGuides));
-    } catch (_error) {}
-  }, [useDefaultGuides]);
-
-  const visibleGuides = useMemo(() => {
-    if (useDefaultGuides) return sizeGuides;
-    return sizeGuides.filter((guide) => !guide.is_default);
-  }, [sizeGuides, useDefaultGuides]);
-
-  const handleAddColumn = () => {
-    setColumns((prev) => [...prev, '']);
-    setRows((prev) => prev.map((row) => [...row, '']));
-  };
-
-  const handleRemoveColumn = (index) => {
-    setColumns((prev) => prev.filter((_, colIndex) => colIndex !== index));
-    setRows((prev) => prev.map((row) => row.filter((_, colIndex) => colIndex !== index)));
-  };
-
-  const handleAddRow = () => {
-    setRows((prev) => [...prev, columns.map(() => '')]);
-  };
-
-  const handleRemoveRow = (index) => {
-    setRows((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
-  };
-
-  const handleCreateGuide = async () => {
-    if (!title.trim()) {
-      setSaveError('Title is required.');
-      return;
-    }
-    setIsSaving(true);
-    setSaveError('');
-    try {
-      const token = localStorage.getItem('agentic_auth_token');
-      if (!siteId || !token) {
-        throw new Error('Connect a store to save size guides.');
+      const columns = draft.columns.filter((col) => col.label.trim())
+      if (!columns.length) {
+        throw new Error('Add at least one column.')
       }
-      const baseContent = useHtml ? content : buildTableHtml(columns, rows);
-      const htmlContent = imageUrl
-        ? `${baseContent}\n<p><img src="${imageUrl}" alt="Size guide" /></p>`
-        : baseContent;
-      const sanitizedContent = sanitizeHtml(htmlContent);
-      const payload = await createSizeGuide({
-        siteId,
-        token,
-        id: editingGuide?.id,
-        title: title.trim(),
-        content: sanitizedContent,
-        general_info: generalInfo.trim(),
-        category_ids: selectedCategoryIds,
-      });
-      const created = payload?.size_guide;
-      if (created) {
-        setSizeGuides((prev) => {
-          const filtered = prev.filter((item) => item.id !== created.id);
-          return [created, ...filtered];
-        });
+      const payload = {
+        name: draft.name.trim(),
+        unit_toggle: draft.unit_toggle,
+        columns,
+        rows: draft.rows,
+        how_to_measure: draft.how_to_measure || undefined,
+        notes: draft.notes || undefined,
       }
-      setIsCreateOpen(false);
-      setEditingGuide(null);
-      setTitle('');
-      setContent('');
-      setUseTable(true);
-      setUseHtml(false);
-      setImageUrl('');
-      setSelectedCategoryIds([]);
-      setGeneralInfo('');
-      setColumns(['Size', 'Chest', 'Length']);
-      setRows([
-        ['', '', ''],
-        ['', '', ''],
-      ]);
-    } catch (err) {
-      setSaveError(err?.message || 'Unable to save size guide.');
+      if (draft.id) {
+        await updateSizeGuide({ id: draft.id, ...payload })
+      } else {
+        await createSizeGuide(payload)
+      }
+      closeEditor()
+      loadGuides()
+    } catch (error) {
+      setSaveError(error.message || 'Unable to save size guide.')
     } finally {
-      setIsSaving(false);
+      setIsSaving(false)
     }
-  };
+  }
 
-  const handleEditGuide = (guide) => {
-    setEditingGuide(guide);
-    setTitle(guide.title || '');
-    setContent(guide.content || '');
-    setGeneralInfo(guide.general_info || '');
-    setSelectedCategoryIds(Array.isArray(guide.category_ids) ? guide.category_ids : []);
-    setUseHtml(true);
-    setUseTable(false);
-    setIsCreateOpen(true);
-  };
-
-  const handleDeleteGuide = async (guide) => {
-    if (!guide?.id) return;
-    const confirmDelete = await confirmAlert({
-      type: 'warning',
+  const handleDelete = async (guide) => {
+    const confirmed = await confirmAlert({
       title: 'Delete size guide?',
-      message: `Delete "${guide.title}"? This cannot be undone.`,
-      confirmLabel: 'Allow',
-      cancelLabel: 'Deny',
-    });
-    if (!confirmDelete) return;
-    setDeleteError('');
+      message: `"${guide.name}" will be permanently deleted. Products or categories still using it must be unassigned first.`,
+      confirmLabel: 'Delete',
+      type: 'danger',
+    })
+    if (!confirmed) return
     try {
-      const token = localStorage.getItem('agentic_auth_token');
-      if (!siteId || !token) {
-        throw new Error('Connect a store to delete size guides.');
-      }
-      await deleteSizeGuide({ siteId, token, id: guide.id });
-      setSizeGuides((prev) => prev.filter((item) => item.id !== guide.id));
-    } catch (err) {
-      setDeleteError(err?.message || 'Unable to delete size guide.');
+      await deleteSizeGuide(guide.id)
+      loadGuides()
+    } catch (error) {
+      pushAlert({ type: 'error', message: error.message || 'Unable to delete size guide.' })
     }
-  };
+  }
 
   return (
     <AdminShell>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-                Inventory
-              </p>
-              <h1 className="mt-2 text-2xl font-semibold text-slate-900">Size Guides</h1>
-              <p className="mt-1 text-xs text-slate-500">
-                Assign a size guide to products that need fit information.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-                <input
-                  type="checkbox"
-                  checked={useDefaultGuides}
-                  onChange={(event) => setUseDefaultGuides(event.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                Use default size guide
-              </label>
-              <button
-                type="button"
-                onClick={() => setIsCreateOpen(true)}
-                className="rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white"
-              >
-                New Size Guide
-              </button>
-            </div>
+      <div className="mx-auto max-w-4xl py-6">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold text-slate-900 dark:text-white">Size Guides</h1>
+            <p className="text-sm text-slate-500 dark:text-zinc-400">
+              Build measurement charts and attach them to categories or individual products.
+            </p>
           </div>
-
-          {error && <p className="mt-4 text-xs text-rose-500">{error}</p>}
-          {deleteError && <p className="mt-4 text-xs text-rose-500">{deleteError}</p>}
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {isLoading && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 text-xs text-slate-400">
-                Loading size guides...
-              </div>
-            )}
-            {!isLoading && visibleGuides.length === 0 && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 text-xs text-slate-400">
-                No size guides found.
-              </div>
-            )}
-            {visibleGuides.map((guide) => (
-              <div
-                key={guide.id}
-                className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-semibold text-slate-800">{guide.title}</p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleEditGuide(guide)}
-                      className="rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:bg-slate-50"
-                    >
-                      Edit
-                    </button>
-                    {!guide.is_default && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteGuide(guide)}
-                        className="rounded-full border border-rose-200 px-2 py-1 text-[10px] font-semibold text-rose-500 hover:bg-rose-50"
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <p className="mt-2 text-xs text-slate-500">
-                  {stripHtml(guide.general_info || guide.content || '').slice(0, 120) || 'Table size guide'}
-                </p>
-                {Array.isArray(guide.categories) && guide.categories.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {guide.categories.map((category) => (
-                      <span
-                        key={`${guide.id}-category-${category.id}`}
-                        className="rounded-full border border-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-500"
-                      >
-                        {category.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-      </div>
-
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
           <button
             type="button"
-            onClick={() => setIsCreateOpen(false)}
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-            aria-label="Close size guide"
-          />
-          <div className="relative z-10 w-full max-w-3xl max-h-[calc(100vh-48px)] overflow-y-auto rounded-[28px] border border-slate-200 bg-white p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-slate-900">
-                {editingGuide ? 'Edit size guide' : 'Create size guide'}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setIsCreateOpen(false)}
-                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
-              >
-                Close
-              </button>
-            </div>
-
-            {saveError && <p className="mt-3 text-xs text-rose-500">{saveError}</p>}
-
-            <label className="mt-4 block text-[11px] text-slate-400">Title</label>
-            <input
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs"
-              placeholder="e.g., Men’s Tops"
-            />
-            <label className="mt-4 block text-[11px] text-slate-400">General Info</label>
-            <textarea
-              value={generalInfo}
-              onChange={(event) => setGeneralInfo(event.target.value)}
-              rows={3}
-              className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-600"
-              placeholder="How to measure, fit type, tolerance..."
-            />
-            <label className="mt-4 block text-[11px] text-slate-400">Default Categories</label>
-            {categoryError && <p className="mt-2 text-xs text-rose-500">{categoryError}</p>}
-            <ProductCategorySelector
-              selectedCategories={selectedCategoryIds}
-              onSelectCategories={setSelectedCategoryIds}
-              categories={categories}
-              frequentlyUsedCategories={[]}
-              maxTopCategories={0}
-              className="mt-2 w-full"
-            />
-
-            <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={useTable}
-                  onChange={(event) => {
-                    const next = event.target.checked;
-                    setUseTable(next);
-                    if (next) {
-                      setUseHtml(false);
-                    }
-                  }}
-                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                Use table layout
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={useHtml}
-                  onChange={(event) => {
-                    const next = event.target.checked;
-                    setUseHtml(next);
-                    if (next) {
-                      setUseTable(false);
-                    }
-                  }}
-                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-                />
-                Use HTML editor
-              </label>
-            </div>
-
-            {useTable && (
-              <div className="mt-4 space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleAddColumn}
-                    className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
-                  >
-                    Add column
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAddRow}
-                    className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
-                  >
-                    Add row
-                  </button>
-                  <LoadingButton
-                    type="button"
-                    isLoading={isUploading}
-                    onClick={async () => {
-                      const token = localStorage.getItem('agentic_auth_token');
-                      if (!siteId || !token) {
-                        setSaveError('Connect a store to upload images.');
-                        return;
-                      }
-                      const fileInput = document.createElement('input');
-                      fileInput.type = 'file';
-                      fileInput.accept = 'image/*';
-                      fileInput.onchange = async (event) => {
-                        const file = event.target.files?.[0];
-                        if (!file) return;
-                        setIsUploading(true);
-                        setSaveError('');
-                        try {
-                          const uploaded = await uploadMediaFile({ siteId, token, file });
-                          if (uploaded?.url || uploaded?.src) {
-                            setImageUrl(uploaded.url || uploaded.src);
-                          }
-                        } catch (err) {
-                          setSaveError(err?.message || 'Unable to upload image.');
-                        } finally {
-                          setIsUploading(false);
-                        }
-                      };
-                      fileInput.click();
-                    }}
-                    className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
-                  >
-                    Add image
-                  </LoadingButton>
-                </div>
-                <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                  <table className="min-w-full text-left text-xs">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        {columns.map((column, colIndex) => (
-                          <th key={`col-${colIndex}`} className="border-b px-3 py-2 text-slate-500">
-                            <div className="flex items-center gap-2">
-                              <input
-                                value={column}
-                                onChange={(event) =>
-                                  setColumns((prev) =>
-                                    prev.map((item, idx) => (idx === colIndex ? event.target.value : item)),
-                                  )
-                                }
-                                className="w-full bg-transparent text-xs font-semibold text-slate-600 outline-none"
-                                placeholder="Header"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveColumn(colIndex)}
-                                className="rounded-full border border-slate-200 px-2 py-1 text-[10px] text-slate-500 hover:bg-slate-50"
-                                aria-label="Remove column"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          </th>
-                        ))}
-                        <th className="border-b px-3 py-2 text-slate-400" />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {rows.map((row, rowIndex) => (
-                        <tr key={`row-${rowIndex}`} className="border-t">
-                          {row.map((cell, colIndex) => (
-                            <td key={`cell-${rowIndex}-${colIndex}`} className="px-3 py-2">
-                              <input
-                                value={cell}
-                                onChange={(event) =>
-                                  setRows((prev) =>
-                                    prev.map((rowItem, idx) =>
-                                      idx === rowIndex
-                                        ? rowItem.map((item, cellIdx) =>
-                                            cellIdx === colIndex ? event.target.value : item,
-                                          )
-                                        : rowItem,
-                                    ),
-                                  )
-                                }
-                                className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs"
-                                placeholder="Value"
-                              />
-                            </td>
-                          ))}
-                          <td className="px-3 py-2 text-right">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveRow(rowIndex)}
-                              className="rounded-full border border-slate-200 px-2 py-1 text-[10px] text-slate-500 hover:bg-slate-50"
-                              aria-label="Remove row"
-                            >
-                              ✕
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {imageUrl && (
-                  <div className="rounded-2xl border border-slate-200 p-3">
-                    <img src={imageUrl} alt="Size guide" className="max-h-48 w-auto rounded-xl" />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {useHtml && (
-              <div className="mt-4">
-                <label className="block text-[11px] text-slate-400">Guide Content</label>
-                <textarea
-                  value={content}
-                  onChange={(event) => setContent(event.target.value)}
-                  rows={6}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-600"
-                  placeholder="Write size guide details..."
-                />
-                <div className="mt-4 rounded-2xl border border-slate-200 p-4 text-xs text-slate-600">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                    Preview
-                  </p>
-                  <div
-                    className="prose prose-sm mt-3 max-w-none text-slate-600"
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) || '<p>No HTML content yet.</p>' }}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="mt-6 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setIsCreateOpen(false)}
-                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
-              >
-                Cancel
-              </button>
-              <LoadingButton
-                type="button"
-                onClick={handleCreateGuide}
-                className="rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white"
-                isLoading={isSaving}
-              >
-                {editingGuide ? 'Update size guide' : 'Save size guide'}
-              </LoadingButton>
-            </div>
-          </div>
+            onClick={openCreate}
+            className="flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-900"
+          >
+            <Plus size={16} />
+            New guide
+          </button>
         </div>
+
+        <input
+          type="text"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search size guides…"
+          className="mb-4 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+        />
+
+        {loadError && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
+            {loadError}
+          </div>
+        )}
+
+        {isLoading ? (
+          <p className="text-sm text-slate-500 dark:text-zinc-400">Loading…</p>
+        ) : filteredGuides.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-slate-300 px-6 py-12 text-center dark:border-white/10">
+            <Ruler className="mx-auto mb-2 text-slate-400" size={22} />
+            <p className="text-sm text-slate-500 dark:text-zinc-400">No size guides yet.</p>
+          </div>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {filteredGuides.map((guide) => (
+              <div
+                key={guide.id}
+                className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-slate-300 dark:border-white/10 dark:bg-white/5"
+              >
+                <button type="button" onClick={() => openEdit(guide)} className="min-w-0 flex-1 text-left">
+                  <p className="truncate text-sm font-medium text-slate-900 dark:text-white">{guide.name}</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                    {(guide.columns || []).length} columns · {(guide.rows || []).length} rows
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(guide)}
+                  className="ml-2 shrink-0 rounded-md p-1.5 text-slate-400 opacity-0 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/40"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {draft && (
+        <SizeGuideEditor
+          draft={draft}
+          onChange={setDraft}
+          onCancel={closeEditor}
+          onSave={handleSave}
+          isSaving={isSaving}
+          error={saveError}
+        />
       )}
     </AdminShell>
-  );
+  )
 }
-
-export default WooCommerceSizeGuidesPage;

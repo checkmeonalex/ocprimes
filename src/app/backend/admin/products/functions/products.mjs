@@ -148,6 +148,14 @@ export const buildProductPayload = (form, options = {}) => {
   } else if (mode === 'create') {
     payload.main_image_id = undefined;
   }
+  const sizeGuideId = normalizeUuid(String(form.size_guide_id ?? ''));
+  if (sizeGuideId) {
+    payload.size_guide_id = sizeGuideId;
+  } else if (mode === 'update') {
+    payload.size_guide_id = null;
+  } else if (mode === 'create') {
+    payload.size_guide_id = undefined;
+  }
   const imageIds = normalizeUuidArray(form.image_ids);
   if (Array.isArray(imageIds)) {
     payload.image_ids = imageIds;

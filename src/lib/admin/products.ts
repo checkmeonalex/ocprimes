@@ -49,6 +49,10 @@ const baseProductSchema = z.object({
     normalizeNullableBlank,
     z.string().uuid().nullable().optional(),
   ),
+  size_guide_id: z.preprocess(
+    normalizeNullableBlank,
+    z.string().uuid().nullable().optional(),
+  ),
   product_video_key: z.preprocess(
     normalizeNullableBlank,
     z.string().max(500).nullable().optional(),

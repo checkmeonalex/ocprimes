@@ -4,6 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { getSwatchStyle } from '../../../components/product/colorUtils.mjs'
+import SizeGuideModal from '../../../components/product/SizeGuideModal'
 import StarRating from '../../../components/product/StarRating'
 import Gallery from '../../../components/product/ProductDetails/gallery'
 import ProductGalleryShippingWrapper from '../../../components/product/ProductGalleryShippingWrapper'
@@ -491,6 +492,27 @@ function ProductContent({
   const [relatedProducts, setRelatedProducts] = useState<any[]>([])
   const [selectedColor, setSelectedColor] = useState('')
   const [selectedSize, setSelectedSize] = useState('')
+  const [sizeGuide, setSizeGuide] = useState<any>(null)
+  const [isSizeGuideOpen, setIsSizeGuideOpen] = useState(false)
+
+  useEffect(() => {
+    if (!product?.slug) {
+      setSizeGuide(null)
+      return
+    }
+    let isActive = true
+    fetch(`/api/products/${product.slug}/size-guide`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((payload) => {
+        if (isActive) setSizeGuide(payload?.item || null)
+      })
+      .catch(() => {
+        if (isActive) setSizeGuide(null)
+      })
+    return () => {
+      isActive = false
+    }
+  }, [product?.slug])
   const [currentImage, setCurrentImage] = useState(() => product?.video || product?.image || '')
   const [activeTab, setActiveTab] = useState('details')
   const [showFloatingCart, setShowFloatingCart] = useState(false)
@@ -2025,7 +2047,18 @@ function ProductContent({
                         )}
                         {sizeOptions.length > 1 && (
                           <div>
-                            <p className='mb-1.5 text-[10px] uppercase tracking-widest text-stone-400'>Size</p>
+                            <div className='mb-1.5 flex items-center justify-between'>
+                              <p className='text-[10px] uppercase tracking-widest text-stone-400'>Size</p>
+                              {sizeGuide && (
+                                <button
+                                  type='button'
+                                  onClick={() => setIsSizeGuideOpen(true)}
+                                  className='text-[10px] font-medium uppercase tracking-wide text-stone-500 underline underline-offset-2 hover:text-stone-800'
+                                >
+                                  Size Guide
+                                </button>
+                              )}
+                            </div>
                             {showSelectionErrors && missingSelectionKeySet.has('size') && (
                               <p className='mb-1 text-xs text-rose-600'>{getSelectionErrorMessage('size')}</p>
                             )}
@@ -2692,8 +2725,19 @@ function ProductContent({
                           {sizeOptions.length > 1 && (
                             <div className='flex-1 min-w-[220px]'>
                               <div className='mb-2 space-y-1'>
-                                <div className={`text-xs font-semibold uppercase tracking-wide ${isBiad ? 'text-white/50' : 'text-gray-600'}`}>
-                                  Size
+                                <div className='flex items-center justify-between gap-2'>
+                                  <span className={`text-xs font-semibold uppercase tracking-wide ${isBiad ? 'text-white/50' : 'text-gray-600'}`}>
+                                    Size
+                                  </span>
+                                  {sizeGuide && (
+                                    <button
+                                      type='button'
+                                      onClick={() => setIsSizeGuideOpen(true)}
+                                      className={`text-[11px] font-medium uppercase tracking-wide underline underline-offset-2 ${isBiad ? 'text-white/60 hover:text-white' : 'text-gray-500 hover:text-gray-800'}`}
+                                    >
+                                      Size Guide
+                                    </button>
+                                  )}
                                 </div>
                                 {showSelectionErrors && missingSelectionKeySet.has('size') && (
                                   <p className='text-xs font-semibold text-rose-600'>
@@ -3142,6 +3186,9 @@ function ProductContent({
         shareUrl={shareUrl}
         productName={product.name}
       />
+      {isSizeGuideOpen && sizeGuide && (
+        <SizeGuideModal guide={sizeGuide} onClose={() => setIsSizeGuideOpen(false)} />
+      )}
     </div>
     </>
   )

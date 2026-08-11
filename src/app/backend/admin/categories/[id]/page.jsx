@@ -51,6 +51,7 @@ function CategoryDetailPage({ params }) {
     slug: '',
     description: '',
     is_active: true,
+    size_guide_id: '',
     banner_title: '',
     banner_subtitle: '',
     banner_cta_text: '',
@@ -79,6 +80,7 @@ function CategoryDetailPage({ params }) {
   const [children, setChildren] = useState([]);
   const [childrenLoading, setChildrenLoading] = useState(false);
   const [categoryOptions, setCategoryOptions] = useState([]);
+  const [sizeGuideOptions, setSizeGuideOptions] = useState([]);
   const [tags, setTags] = useState([]);
   const [tagsLoading, setTagsLoading] = useState(false);
   const [availableCategoryIds, setAvailableCategoryIds] = useState(null);
@@ -151,6 +153,7 @@ function CategoryDetailPage({ params }) {
             slug: next.slug || '',
             description: next.description || '',
             is_active: !!next.is_active,
+            size_guide_id: next.size_guide_id || '',
             banner_title: next.banner_title || '',
             banner_subtitle: next.banner_subtitle || '',
             banner_cta_text: next.banner_cta_text || '',
@@ -177,6 +180,11 @@ function CategoryDetailPage({ params }) {
           );
           setBannerSliderLinks(Array.isArray(next.banner_slider_links) ? next.banner_slider_links : []);
         }
+        fetch('/api/admin/size-guides?per_page=100', { credentials: 'include' })
+          .then((res) => res.json().catch(() => null))
+          .then((payload) => setSizeGuideOptions(Array.isArray(payload?.items) ? payload.items : []))
+          .catch(() => setSizeGuideOptions([]));
+
         // load subcategories + filterable ids
         setChildrenLoading(true);
         try {
@@ -385,6 +393,7 @@ function CategoryDetailPage({ params }) {
           slug: form.slug.trim(),
           description: form.description.trim(),
           is_active: form.is_active,
+          size_guide_id: form.size_guide_id || null,
           layout_order: layoutOrder,
           banner_title: form.banner_title?.trim() || null,
           banner_subtitle: form.banner_subtitle?.trim() || null,
@@ -1345,6 +1354,25 @@ function CategoryDetailPage({ params }) {
                     className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
                     rows={3}
                   />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                    Size guide
+                  </label>
+                  <CustomSelect
+                    value={form.size_guide_id}
+                    onChange={(e) => setForm((prev) => ({ ...prev, size_guide_id: e.target.value }))}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
+                  >
+                    <option value="">No default size guide</option>
+                    {sizeGuideOptions.map((guide) => (
+                      <option key={guide.id} value={guide.id}>{guide.name}</option>
+                    ))}
+                  </CustomSelect>
+                  <p className="mt-1.5 text-xs text-slate-400">
+                    Products in this category use this guide by default, unless a product sets its own.
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-3">

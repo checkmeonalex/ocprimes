@@ -1,68 +1,55 @@
-import { fetchConnector } from '../../../../../utils/connector';
+const resolveApiErrorMessage = (result, fallback) => result?.error || result?.message || fallback
 
-export const fetchSizeGuides = async ({ siteId, token }) => {
-  if (!siteId) {
-    throw new Error('Missing site ID.');
-  }
-  const response = await fetchConnector(`/sites/${siteId}/size-guides`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-    },
-  });
-  const payload = await response.json().catch(() => null);
+export const fetchSizeGuides = async ({ page = 1, perPage = 50, search = '' } = {}) => {
+  const params = new URLSearchParams({ page: String(page), per_page: String(perPage) })
+  if (search) params.set('search', search)
+
+  const response = await fetch(`/api/admin/size-guides?${params.toString()}`, {
+    credentials: 'include',
+  })
+  const result = await response.json().catch(() => null)
   if (!response.ok) {
-    const message = payload?.message || payload?.error || 'Unable to load size guides.';
-    throw new Error(message);
+    throw new Error(resolveApiErrorMessage(result, 'Unable to load size guides.'))
   }
-  return payload || {};
-};
+  return result?.items || []
+}
 
-export const createSizeGuide = async ({ siteId, token, id, title, content, general_info, category_ids }) => {
-  if (!siteId) {
-    throw new Error('Missing site ID.');
-  }
-  const response = await fetchConnector(`/sites/${siteId}/size-guides`, {
+export const createSizeGuide = async (payload) => {
+  const response = await fetch('/api/admin/size-guides', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      id: id || undefined,
-      title,
-      content,
-      general_info,
-      category_ids,
-    }),
-  });
-  const payload = await response.json().catch(() => null);
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  })
+  const result = await response.json().catch(() => null)
   if (!response.ok) {
-    const message = payload?.message || payload?.error || 'Unable to save size guide.';
-    throw new Error(message);
+    throw new Error(resolveApiErrorMessage(result, 'Unable to create size guide.'))
   }
-  return payload || {};
-};
+  return result?.item
+}
 
-export const deleteSizeGuide = async ({ siteId, token, id }) => {
-  if (!siteId) {
-    throw new Error('Missing site ID.');
-  }
-  if (!id) {
-    throw new Error('Missing size guide ID.');
-  }
-  const response = await fetchConnector(`/sites/${siteId}/size-guides/${id}`, {
-    method: 'DELETE',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/json',
-    },
-  });
-  const payload = await response.json().catch(() => null);
+export const updateSizeGuide = async ({ id, ...updates }) => {
+  const response = await fetch('/api/admin/size-guides', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ id, ...updates }),
+  })
+  const result = await response.json().catch(() => null)
   if (!response.ok) {
-    const message = payload?.message || payload?.error || 'Unable to delete size guide.';
-    throw new Error(message);
+    throw new Error(resolveApiErrorMessage(result, 'Unable to update size guide.'))
   }
-  return payload || {};
-};
+  return result?.item
+}
+
+export const deleteSizeGuide = async (id) => {
+  const response = await fetch(`/api/admin/size-guides/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  const result = await response.json().catch(() => null)
+  if (!response.ok) {
+    throw new Error(resolveApiErrorMessage(result, 'Unable to delete size guide.'))
+  }
+  return result
+}

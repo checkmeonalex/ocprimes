@@ -29,6 +29,11 @@ import {
   getHomeBlocksInput,
   upsertHomeCustomHtmlSectionInput,
   deleteHomeBlockInput,
+  listSizeGuidesInput,
+  getSizeGuideInput,
+  createSizeGuideInput,
+  updateSizeGuideInput,
+  deleteSizeGuideInput,
 } from './schemas.js'
 
 const MIME_BY_EXT = {
@@ -329,6 +334,99 @@ server.registerTool(
         method: 'PATCH',
         body: { updates },
       })
+      return textResult(data)
+    } catch (error) {
+      return errorResult(error)
+    }
+  },
+)
+
+// --- Size guides ---
+
+server.registerTool(
+  'list_size_guides',
+  {
+    title: 'List size guides',
+    description: 'List size guides with their ids, ready to assign to a category (default) or a product (override).',
+    inputSchema: listSizeGuidesInput,
+  },
+  async ({ search }) => {
+    try {
+      const params = new URLSearchParams()
+      if (search) params.set('search', search)
+      const data = await adminApiRequest(`/api/admin/size-guides?${params.toString()}`)
+      return textResult(data)
+    } catch (error) {
+      return errorResult(error)
+    }
+  },
+)
+
+server.registerTool(
+  'get_size_guide',
+  {
+    title: 'Get size guide',
+    description: 'Fetch a single size guide by id, including its full column/row table.',
+    inputSchema: getSizeGuideInput,
+  },
+  async ({ id }) => {
+    try {
+      const all = await adminApiRequest('/api/admin/size-guides?per_page=50')
+      const found = Array.isArray(all?.items) ? all.items.find((row) => row.id === id) : null
+      if (!found) throw new Error('Size guide not found.')
+      return textResult({ item: found })
+    } catch (error) {
+      return errorResult(error)
+    }
+  },
+)
+
+server.registerTool(
+  'create_size_guide',
+  {
+    title: 'Create a size guide',
+    description:
+      'Create a measurement chart (custom columns/rows) that can be set as a category default or attached to an individual product to override it. For an IN/CM toggle, use paired column keys like "chest_in"/"chest_cm" with unit_toggle: true.',
+    inputSchema: createSizeGuideInput,
+  },
+  async (input) => {
+    try {
+      const data = await adminApiRequest('/api/admin/size-guides', { method: 'POST', body: input })
+      return textResult(data)
+    } catch (error) {
+      return errorResult(error)
+    }
+  },
+)
+
+server.registerTool(
+  'update_size_guide',
+  {
+    title: 'Update a size guide',
+    description: "Update a size guide's name, columns, rows, unit toggle, how-to-measure, or notes. Only send fields you want changed.",
+    inputSchema: updateSizeGuideInput,
+  },
+  async (input) => {
+    try {
+      const data = await adminApiRequest('/api/admin/size-guides', { method: 'PATCH', body: input })
+      return textResult(data)
+    } catch (error) {
+      return errorResult(error)
+    }
+  },
+)
+
+server.registerTool(
+  'delete_size_guide',
+  {
+    title: 'Delete a size guide',
+    description:
+      'Permanently delete a size guide. Fails if it is still set as a category default or a product override — use update_category/update_product to unassign it first.',
+    inputSchema: deleteSizeGuideInput,
+  },
+  async ({ id }) => {
+    try {
+      const data = await adminApiRequest(`/api/admin/size-guides/${id}`, { method: 'DELETE' })
       return textResult(data)
     } catch (error) {
       return errorResult(error)

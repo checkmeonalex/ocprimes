@@ -42,6 +42,7 @@ export const createCategorySchema = z.object({
     normalizeBlank,
     z.string().uuid().optional(),
   ),
+  size_guide_id: z.preprocess(normalizeBlank, z.string().uuid().optional()),
 })
 
 export const updateCategorySchema = z.object({
@@ -192,6 +193,10 @@ export const updateCategorySchema = z.object({
       z.boolean().optional(),
     )
     .optional(),
+  size_guide_id: z.preprocess(
+    (value) => (value === '' ? null : value),
+    z.string().uuid().nullable().optional(),
+  ),
 })
 
 export const reorderCategoriesSchema = z.object({

@@ -2,7 +2,6 @@ import CustomSelect from '@/components/common/CustomSelect'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { readStoredSiteId } from '../../../../utils/connector';
 import LazyImage from '../components/LazyImage';
 import ProductImageLibraryModal from './ProductImageLibraryModal';
 import ProductCategorySelector from './ProductCategorySelector';
@@ -346,7 +345,6 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   const [sizeGuidesError, setSizeGuidesError] = useState('');
   const [sizeGuideEnabled, setSizeGuideEnabled] = useState(false);
   const [selectedSizeGuideId, setSelectedSizeGuideId] = useState('');
-  const [useDefaultSizeGuides, setUseDefaultSizeGuides] = useState(true);
   const [showMobileMainHeader, setShowMobileMainHeader] = useState(true);
   const [isMobileActionsOpen, setIsMobileActionsOpen] = useState(false);
   const [activeAttributeEditorKey, setActiveAttributeEditorKey] = useState('');
@@ -485,34 +483,14 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   }, [product]);
 
   useEffect(() => {
-    if (product?.size_guide?.id) {
+    if (product?.size_guide_id) {
       setSizeGuideEnabled(true);
-      setSelectedSizeGuideId(String(product.size_guide.id));
+      setSelectedSizeGuideId(String(product.size_guide_id));
       return;
     }
     setSizeGuideEnabled(false);
     setSelectedSizeGuideId('');
   }, [product]);
-
-  useEffect(() => {
-    const readPreference = () => {
-      try {
-        const raw = localStorage.getItem('agentic_use_default_size_guides');
-        if (raw === null) return true;
-        return raw === 'true';
-      } catch (_error) {
-        return true;
-      }
-    };
-    setUseDefaultSizeGuides(readPreference());
-    const handleStorage = (event) => {
-      if (event.key === 'agentic_use_default_size_guides') {
-        setUseDefaultSizeGuides(event.newValue !== 'false');
-      }
-    };
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
 
   const handleLoadCategories = useCallback(() => {
     if (categoriesLoaded || categoriesLoading) return;
@@ -913,29 +891,22 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         setIsAttributesLoading(false);
       });
 
-    const storedSiteId = readStoredSiteId();
-    const token = localStorage.getItem('agentic_auth_token');
-    if (storedSiteId && token) {
-      setIsSizeGuidesLoading(true);
-      fetchSizeGuides({ siteId: storedSiteId, token })
-        .then((payload) => {
-          if (!isActive) return;
-          setSizeGuides(Array.isArray(payload?.size_guides) ? payload.size_guides : []);
-        })
-        .catch((loadError) => {
-          if (!isActive) return;
-          setSizeGuides([]);
-          setSizeGuidesError(loadError?.message || 'Unable to load size guides.');
-        })
-        .finally(() => {
-          if (!isActive) return;
-          setIsSizeGuidesLoading(false);
-        });
-    } else {
-      setSizeGuides([]);
-      setIsSizeGuidesLoading(false);
-      setSizeGuidesError('');
-    }
+    setIsSizeGuidesLoading(true);
+    setSizeGuidesError('');
+    fetchSizeGuides()
+      .then((items) => {
+        if (!isActive) return;
+        setSizeGuides(Array.isArray(items) ? items : []);
+      })
+      .catch((loadError) => {
+        if (!isActive) return;
+        setSizeGuides([]);
+        setSizeGuidesError(loadError?.message || 'Unable to load size guides.');
+      })
+      .finally(() => {
+        if (!isActive) return;
+        setIsSizeGuidesLoading(false);
+      });
     handleLoadCategoryRequests();
     return () => {
       isActive = false;
@@ -962,20 +933,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     return names.length ? { [nameKey]: names } : {};
   };
 
-  const visibleSizeGuides = useMemo(() => {
-    if (useDefaultSizeGuides) return sizeGuides;
-    return sizeGuides.filter((guide) => !guide.is_default);
-  }, [sizeGuides, useDefaultSizeGuides]);
-
-  useEffect(() => {
-    if (!sizeGuideEnabled) return;
-    if (!selectedSizeGuideId) return;
-    const selected = sizeGuides.find((guide) => String(guide.id) === String(selectedSizeGuideId));
-    if (!selected) return;
-    if (!useDefaultSizeGuides && selected.is_default) {
-      setSelectedSizeGuideId('');
-    }
-  }, [sizeGuides, selectedSizeGuideId, sizeGuideEnabled, useDefaultSizeGuides]);
+  const visibleSizeGuides = sizeGuides;
 
   useEffect(() => {
     if (!product?.variations || !Array.isArray(product.variations)) {
@@ -3296,7 +3254,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 </label>
               </div>
               <p className="mt-2 text-xs text-slate-500">
-                Select the size guide to show shoppers accurate fit details for this product.
+                Overrides the category&apos;s default size guide (if any) for this product only.
               </p>
               {isSizeGuidesLoading && (
                 <p className="mt-3 text-xs text-slate-400">Loading size guides...</p>
@@ -3305,7 +3263,9 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 <p className="mt-3 text-xs text-rose-500">{sizeGuidesError}</p>
               )}
               {!isSizeGuidesLoading && !sizeGuidesError && sizeGuides.length === 0 && (
-                <p className="mt-3 text-xs text-slate-400">No size guides found yet.</p>
+                <p className="mt-3 text-xs text-slate-400">
+                  No size guides found yet. Create one under Admin &gt; Size Guides.
+                </p>
               )}
               <div className="mt-4">
                 <CustomSelect
@@ -3317,7 +3277,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                   <option value="">Select size guide...</option>
                   {visibleSizeGuides.map((guide) => (
                     <option key={guide.id} value={guide.id}>
-                      {guide.title}
+                      {guide.name}
                     </option>
                   ))}
                 </CustomSelect>
