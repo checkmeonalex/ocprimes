@@ -1810,7 +1810,12 @@ function ProductContent({
         relatedProducts={relatedProducts}
         isRelatedLoading={isRelatedLoading}
         categorySlug={categorySlug}
+        sizeGuide={sizeGuide}
+        onOpenSizeGuide={() => setIsSizeGuideOpen(true)}
       />
+      {isSizeGuideOpen && sizeGuide && (
+        <SizeGuideModal guide={sizeGuide} onClose={() => setIsSizeGuideOpen(false)} />
+      )}
       </>
     )
   }

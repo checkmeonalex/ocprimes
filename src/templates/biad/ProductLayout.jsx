@@ -53,6 +53,8 @@ export default function BiadProductLayout({
   relatedProducts = [],
   isRelatedLoading = false,
   categorySlug = '',
+  sizeGuide = null,
+  onOpenSizeGuide,
 }) {
   const vendorName = String(product.vendor || vendorHeaderProfile?.name || '').trim()
   const vendorSlug = product.vendorSlug || vendorHeaderProfile?.slug || ''
@@ -343,9 +345,20 @@ export default function BiadProductLayout({
             {/* Size selector */}
             {sizeOptions.length > 0 && (
               <div className={`space-y-3 ${isShaking && !selectedSize && sizeOptions.length > 1 ? 'animate-shake' : ''}`}>
-                <p className='text-[10px] font-black uppercase tracking-[0.2em] text-white/50'>
-                  Size{selectedSize ? <span className='ml-2 text-white/80'>{getOptionLabel('size', selectedSize)}</span> : ''}
-                </p>
+                <div className='flex items-center justify-between gap-2'>
+                  <p className='text-[10px] font-black uppercase tracking-[0.2em] text-white/50'>
+                    Size{selectedSize ? <span className='ml-2 text-white/80'>{getOptionLabel('size', selectedSize)}</span> : ''}
+                  </p>
+                  {sizeGuide && (
+                    <button
+                      type='button'
+                      onClick={onOpenSizeGuide}
+                      className='text-[10px] font-bold uppercase tracking-widest text-white/50 underline underline-offset-2 hover:text-white'
+                    >
+                      Size Guide
+                    </button>
+                  )}
+                </div>
                 <div className='flex flex-wrap gap-2'>
                   {sizeOptions.map((size) => {
                     const label = getOptionLabel('size', String(size))
