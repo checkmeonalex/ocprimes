@@ -125,13 +125,11 @@ export const CompactProductCard = ({
                 </span>
               ) : null}
             </div>
-            {lowStockLabel ? (
-              <div className={`mt-1 text-[11px] font-semibold ${
-                dark ? 'text-orange-400' : prestige ? 'text-amber-700' : 'text-orange-600'
-              }`}>
-                {lowStockLabel}
-              </div>
-            ) : null}
+            <div className={`mt-1 h-[14px] text-[11px] font-semibold ${
+              dark ? 'text-orange-400' : prestige ? 'text-amber-700' : 'text-orange-600'
+            }`}>
+              {lowStockLabel}
+            </div>
           </div>
         </div>
       </div>
