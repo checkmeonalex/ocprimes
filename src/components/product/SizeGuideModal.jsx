@@ -48,17 +48,19 @@ const buildVisibleColumns = (columns, unit) => {
   return result
 }
 
-const SizeTable = ({ guide, unit, hasUnitPairs }) => {
+const SizeTable = ({ guide, unit, hasUnitPairs, isDark }) => {
   const visibleColumns = useMemo(() => buildVisibleColumns(guide?.columns, unit), [guide?.columns, unit])
   return (
-    <div className='overflow-x-auto rounded-lg border border-stone-100'>
+    <div className={`overflow-x-auto rounded-lg border ${isDark ? 'border-white/10' : 'border-stone-100'}`}>
       <table className='w-full min-w-[420px] border-collapse text-sm'>
         <thead>
-          <tr className='bg-stone-50'>
+          <tr className={isDark ? 'bg-white/5' : 'bg-stone-50'}>
             {visibleColumns.map((col) => (
               <th
                 key={col.key}
-                className='whitespace-nowrap border-b border-stone-100 px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-500'
+                className={`whitespace-nowrap border-b px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide ${
+                  isDark ? 'border-white/10 text-white/50' : 'border-stone-100 text-stone-500'
+                }`}
               >
                 {col.label}
               </th>
@@ -67,9 +69,17 @@ const SizeTable = ({ guide, unit, hasUnitPairs }) => {
         </thead>
         <tbody>
           {(guide?.rows || []).map((row, index) => (
-            <tr key={index} className='odd:bg-white even:bg-stone-50/60'>
+            <tr
+              key={index}
+              className={isDark ? 'odd:bg-white/[0.02] even:bg-white/[0.05]' : 'odd:bg-white even:bg-stone-50/60'}
+            >
               {visibleColumns.map((col) => (
-                <td key={col.key} className='whitespace-nowrap border-b border-stone-50 px-3 py-2.5 text-stone-700'>
+                <td
+                  key={col.key}
+                  className={`whitespace-nowrap border-b px-3 py-2.5 ${
+                    isDark ? 'border-white/5 text-white/80' : 'border-stone-50 text-stone-700'
+                  }`}
+                >
                   {row[col.key] || '—'}
                 </td>
               ))}
@@ -81,7 +91,7 @@ const SizeTable = ({ guide, unit, hasUnitPairs }) => {
   )
 }
 
-const RecentlyViewedStrip = ({ currentSlug, formatMoney }) => {
+const RecentlyViewedStrip = ({ currentSlug, formatMoney, isDark }) => {
   const [items, setItems] = useState([])
 
   useEffect(() => {
@@ -95,16 +105,16 @@ const RecentlyViewedStrip = ({ currentSlug, formatMoney }) => {
   const format = (value) => (formatMoney ? formatMoney(value) : `₦${Number(value || 0).toLocaleString()}`)
 
   return (
-    <div className='mt-6 border-t border-stone-100 pt-4'>
-      <p className='mb-3 text-sm font-semibold text-stone-900'>Recently Viewed</p>
+    <div className={`mt-6 border-t pt-4 ${isDark ? 'border-white/10' : 'border-stone-100'}`}>
+      <p className={`mb-3 text-sm font-semibold ${isDark ? 'text-white' : 'text-stone-900'}`}>Recently Viewed</p>
       <div className='grid grid-cols-2 gap-3'>
         {items.map((item) => (
           <Link
             key={item.id}
             href={`/product/${item.slug}`}
-            className='group block overflow-hidden rounded-lg border border-stone-100'
+            className={`group block overflow-hidden rounded-lg border ${isDark ? 'border-white/10' : 'border-stone-100'}`}
           >
-            <div className='relative aspect-square w-full overflow-hidden bg-stone-50'>
+            <div className={`relative aspect-square w-full overflow-hidden ${isDark ? 'bg-white/5' : 'bg-stone-50'}`}>
               {item.image && (
                 <Image
                   src={item.image}
@@ -116,8 +126,8 @@ const RecentlyViewedStrip = ({ currentSlug, formatMoney }) => {
               )}
             </div>
             <div className='px-2 py-2'>
-              <p className='truncate text-xs font-medium text-stone-800'>{item.name}</p>
-              <p className='mt-0.5 text-xs font-semibold text-stone-900'>{format(item.price)}</p>
+              <p className={`truncate text-xs font-medium ${isDark ? 'text-white/80' : 'text-stone-800'}`}>{item.name}</p>
+              <p className={`mt-0.5 text-xs font-semibold ${isDark ? 'text-white' : 'text-stone-900'}`}>{format(item.price)}</p>
             </div>
           </Link>
         ))}
@@ -128,7 +138,8 @@ const RecentlyViewedStrip = ({ currentSlug, formatMoney }) => {
 
 const ANIMATION_MS = 300
 
-export default function SizeGuideModal({ guide, onClose, currentSlug, formatMoney, onSizeSelect }) {
+export default function SizeGuideModal({ guide, onClose, currentSlug, formatMoney, onSizeSelect, theme = 'light' }) {
+  const isDark = theme === 'dark'
   const [unit, setUnit] = useState('in')
   const [activeTab, setActiveTab] = useState('chart')
   const [isVisible, setIsVisible] = useState(false)
@@ -170,30 +181,34 @@ export default function SizeGuideModal({ guide, onClose, currentSlug, formatMone
     >
       <div className='absolute inset-0' onClick={handleClose} />
       <div
-        className={`relative flex h-[88vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl transition-transform duration-300 ease-out sm:h-full sm:w-full sm:max-w-md sm:rounded-none ${
-          isVisible ? 'translate-y-0 sm:translate-x-0' : 'translate-y-full sm:translate-x-full sm:translate-y-0'
-        }`}
+        className={`relative flex h-[88vh] w-full flex-col overflow-hidden rounded-t-2xl shadow-2xl transition-transform duration-300 ease-out sm:h-full sm:w-full sm:max-w-md sm:rounded-none ${
+          isDark ? 'bg-[#0a0a0a]' : 'bg-white'
+        } ${isVisible ? 'translate-y-0 sm:translate-x-0' : 'translate-y-full sm:translate-x-full sm:translate-y-0'}`}
       >
-        <div className='shrink-0 flex items-center justify-between border-b border-stone-100 px-5 py-4 sm:px-8 sm:py-6'>
-          <h2 className='text-base font-semibold tracking-wide text-stone-900'>Size Guide</h2>
+        <div className={`shrink-0 flex items-center justify-between border-b px-5 py-4 sm:px-8 sm:py-6 ${isDark ? 'border-white/10' : 'border-stone-100'}`}>
+          <h2 className={`text-base font-semibold tracking-wide ${isDark ? 'text-white' : 'text-stone-900'}`}>Size Guide</h2>
           <button
             type='button'
             onClick={handleClose}
-            className='rounded-full p-1 text-stone-500 hover:bg-stone-100'
+            className={`rounded-full p-1 transition ${isDark ? 'text-white/60 hover:bg-white/10 hover:text-white' : 'text-stone-500 hover:bg-stone-100'}`}
             aria-label='Close size guide'
           >
             <X size={20} />
           </button>
         </div>
 
-        <div className='shrink-0 flex gap-6 overflow-x-auto border-b border-stone-100 px-5 sm:px-8'>
+        <div className={`shrink-0 flex gap-6 overflow-x-auto border-b px-5 sm:px-8 ${isDark ? 'border-white/10' : 'border-stone-100'}`}>
           <button
             type='button'
             onClick={() => setActiveTab('chart')}
             className={`shrink-0 whitespace-nowrap border-b-2 py-3 text-sm font-medium transition ${
               activeTab === 'chart'
-                ? 'border-stone-900 text-stone-900'
-                : 'border-transparent text-stone-400 hover:text-stone-600'
+                ? isDark
+                  ? 'border-white text-white'
+                  : 'border-stone-900 text-stone-900'
+                : isDark
+                  ? 'border-transparent text-white/40 hover:text-white/70'
+                  : 'border-transparent text-stone-400 hover:text-stone-600'
             }`}
           >
             Size Chart
@@ -203,8 +218,12 @@ export default function SizeGuideModal({ guide, onClose, currentSlug, formatMone
             onClick={() => setActiveTab('findmysize')}
             className={`shrink-0 whitespace-nowrap border-b-2 py-3 text-sm font-medium transition ${
               activeTab === 'findmysize'
-                ? 'border-stone-900 text-stone-900'
-                : 'border-transparent text-stone-400 hover:text-stone-600'
+                ? isDark
+                  ? 'border-white text-white'
+                  : 'border-stone-900 text-stone-900'
+                : isDark
+                  ? 'border-transparent text-white/40 hover:text-white/70'
+                  : 'border-transparent text-stone-400 hover:text-stone-600'
             }`}
           >
             Find My Fit ✨
@@ -214,43 +233,57 @@ export default function SizeGuideModal({ guide, onClose, currentSlug, formatMone
         <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-8 sm:py-6'>
           {activeTab === 'chart' && (
             <>
-              <p className='mb-4 text-sm leading-relaxed text-stone-500'>{guide.name}</p>
+              <p className={`mb-4 text-sm leading-relaxed ${isDark ? 'text-white/60' : 'text-stone-500'}`}>{guide.name}</p>
 
               {guide.unit_toggle && hasUnitPairs && (
                 <div className='mb-4 flex items-center justify-end gap-2'>
-                  <span className={`text-xs font-semibold ${unit === 'in' ? 'text-stone-900' : 'text-stone-400'}`}>IN</span>
+                  <span
+                    className={`text-xs font-semibold ${
+                      unit === 'in' ? (isDark ? 'text-white' : 'text-stone-900') : isDark ? 'text-white/40' : 'text-stone-400'
+                    }`}
+                  >
+                    IN
+                  </span>
                   <button
                     type='button'
                     onClick={() => setUnit((prev) => (prev === 'in' ? 'cm' : 'in'))}
-                    className={`relative h-5 w-9 rounded-full transition ${unit === 'cm' ? 'bg-stone-900' : 'bg-stone-300'}`}
+                    className={`relative h-5 w-9 rounded-full transition ${
+                      unit === 'cm' ? (isDark ? 'bg-white' : 'bg-stone-900') : isDark ? 'bg-white/20' : 'bg-stone-300'
+                    }`}
                     aria-label='Toggle unit'
                   >
                     <span
-                      className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                      className={`absolute top-0.5 h-4 w-4 rounded-full transition-transform ${isDark ? 'bg-[#0a0a0a]' : 'bg-white'} ${
                         unit === 'cm' ? 'translate-x-4' : 'translate-x-0.5'
                       }`}
                     />
                   </button>
-                  <span className={`text-xs font-semibold ${unit === 'cm' ? 'text-stone-900' : 'text-stone-400'}`}>CM</span>
+                  <span
+                    className={`text-xs font-semibold ${
+                      unit === 'cm' ? (isDark ? 'text-white' : 'text-stone-900') : isDark ? 'text-white/40' : 'text-stone-400'
+                    }`}
+                  >
+                    CM
+                  </span>
                 </div>
               )}
 
-              <SizeTable guide={guide} unit={unit} hasUnitPairs={hasUnitPairs} />
+              <SizeTable guide={guide} unit={unit} hasUnitPairs={hasUnitPairs} isDark={isDark} />
 
               {guide.notes && (
-                <div className='mt-4 rounded-lg bg-stone-50 p-3'>
-                  <p className='whitespace-pre-line text-xs leading-relaxed text-stone-600'>{guide.notes}</p>
+                <div className={`mt-4 rounded-lg p-3 ${isDark ? 'bg-white/5' : 'bg-stone-50'}`}>
+                  <p className={`whitespace-pre-line text-xs leading-relaxed ${isDark ? 'text-white/70' : 'text-stone-600'}`}>{guide.notes}</p>
                 </div>
               )}
 
               {guide.how_to_measure && (
-                <div className='mt-4 rounded-lg bg-stone-50 p-3'>
-                  <p className='mb-1 text-[11px] font-semibold uppercase tracking-wide text-stone-500'>How to measure</p>
-                  <p className='whitespace-pre-line text-xs leading-relaxed text-stone-600'>{guide.how_to_measure}</p>
+                <div className={`mt-4 rounded-lg p-3 ${isDark ? 'bg-white/5' : 'bg-stone-50'}`}>
+                  <p className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${isDark ? 'text-white/50' : 'text-stone-500'}`}>How to measure</p>
+                  <p className={`whitespace-pre-line text-xs leading-relaxed ${isDark ? 'text-white/70' : 'text-stone-600'}`}>{guide.how_to_measure}</p>
                 </div>
               )}
 
-              <RecentlyViewedStrip currentSlug={currentSlug} formatMoney={formatMoney} />
+              <RecentlyViewedStrip currentSlug={currentSlug} formatMoney={formatMoney} isDark={isDark} />
             </>
           )}
 

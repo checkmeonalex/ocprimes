@@ -36,6 +36,8 @@ const CUSTOM_ATTRIBUTE_EXCLUDE = new Set([
   'product_type',
   'main_image_id',
   'main_image_key',
+  'initial_stock_quantity',
+  'show_low_stock_warning',
 ])
 
 const normalizeCustomKey = (value = '') =>
@@ -139,6 +141,33 @@ const resolveVendorId = (item) => {
   return String(item?.vendor_id || '').trim()
 }
 
+const resolveVendorTrusted = (item) => {
+  if (item?.vendor && typeof item.vendor === 'object' && item.vendor.is_trusted_vendor !== undefined) {
+    return Boolean(item.vendor.is_trusted_vendor)
+  }
+
+  if (Array.isArray(item?.brands)) {
+    const firstBrand = item.brands.find((brand) => String(brand?.name || '').trim())
+    if (firstBrand) return Boolean(firstBrand.is_trusted_vendor)
+  }
+
+  return false
+}
+
+const resolveVendorLogoUrl = (item) => {
+  if (item?.vendor && typeof item.vendor === 'object') {
+    const logo = String(item.vendor.logo_url || item.vendor.logoUrl || '').trim()
+    if (logo) return logo
+  }
+
+  if (Array.isArray(item?.brands)) {
+    const firstBrand = item.brands.find((brand) => String(brand?.logo_url || '').trim())
+    if (firstBrand) return String(firstBrand.logo_url).trim()
+  }
+
+  return ''
+}
+
 const normalizeProduct = (item) => {
   const images = Array.isArray(item?.images) ? item.images : []
   const imageUrls = images
@@ -151,7 +180,9 @@ const normalizeProduct = (item) => {
   const originalPrice =
     hasDiscount && basePrice ? basePrice : Number(item?.originalPrice) || null
   const variationColors = deriveOptionsFromVariations(item?.variations, ['color', 'colour'])
-  const variationSizes = deriveOptionsFromVariations(item?.variations, ['size'])
+  const variationSizes = [
+    ...new Set(deriveOptionsFromVariations(item?.variations, ['size']).map((size) => size.toUpperCase())),
+  ]
   const colorHexMap = buildColorHexMap(item?.variations, ['color', 'colour'])
   const videoUrl = String(item?.product_video_url || item?.video || '').trim()
   const galleryMedia = []
@@ -203,6 +234,8 @@ const normalizeProduct = (item) => {
     vendor: resolveVendorName(item),
     vendorSlug: resolveVendorSlug(item),
     vendorId: resolveVendorId(item),
+    vendorVerified: resolveVendorTrusted(item),
+    vendorLogoUrl: resolveVendorLogoUrl(item),
     vendorFont: item?.vendorFont || 'Georgia, serif',
     shortDescription: item?.short_description || item?.shortDescription || '',
     fullDescription: item?.description || item?.fullDescription || '',
@@ -221,7 +254,7 @@ const normalizeProduct = (item) => {
     sizes: variationSizes.length
       ? variationSizes
       : Array.isArray(item?.sizes)
-        ? item.sizes
+        ? [...new Set(item.sizes.map((size) => String(size || '').toUpperCase()))]
         : [],
     isTrending: Boolean(item?.isTrending),
     isPortrait: Boolean(item?.isPortrait),

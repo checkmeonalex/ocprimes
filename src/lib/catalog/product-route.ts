@@ -428,7 +428,7 @@ const attachRelations = async (supabase, items) => {
       .in('product_id', ids),
     supabase
       .from(BRAND_LINKS)
-      .select('product_id, admin_brands(id, name, slug, template, created_by)')
+      .select('product_id, admin_brands(id, name, slug, logo_url, template, created_by, is_trusted_vendor, trusted_badge_url)')
       .in('product_id', ids),
     supabase
       .from(IMAGE_TABLE)
@@ -483,7 +483,7 @@ const attachRelations = async (supabase, items) => {
       const adminDb = createAdminSupabaseClient()
       const fallbackBrandResult = await adminDb
         .from(BRAND_LINKS)
-        .select('product_id, admin_brands(id, name, slug, logo_url, template, created_by)')
+        .select('product_id, admin_brands(id, name, slug, logo_url, template, created_by, is_trusted_vendor, trusted_badge_url)')
         .in('product_id', ids)
       if (!fallbackBrandResult.error && Array.isArray(fallbackBrandResult.data)) {
         brandRows = fallbackBrandResult.data

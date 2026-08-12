@@ -522,7 +522,7 @@ const ProductVariantQuickAddModal = ({
     <>
     <div className={`fixed inset-0 ${overlayZIndexClass} flex items-end justify-center bg-black/45 p-0 md:items-center md:p-3`} onClick={onClose}>
       <div
-        className='relative h-[65vh] max-h-[65vh] w-full overflow-hidden rounded-t-xl rounded-b-none bg-white shadow-2xl animate-[oc-sheet-up_220ms_ease-out] md:h-[min(82vh,720px)] md:max-h-[720px] md:w-full md:max-w-5xl md:rounded-lg md:animate-none'
+        className='relative h-[65vh] max-h-[65vh] w-full overflow-hidden rounded-t-xl rounded-b-none bg-white shadow-2xl animate-[oc-sheet-up_220ms_ease-out] md:h-auto md:max-h-[min(82vh,720px)] md:w-full md:max-w-5xl md:rounded-lg md:animate-none'
         style={{ transform: sheetDragY > 0 ? `translateY(${sheetDragY}px)` : undefined, transition: sheetDraggingRef.current ? 'none' : 'transform 180ms ease-out' }}
         onClick={(event) => event.stopPropagation()}
       >

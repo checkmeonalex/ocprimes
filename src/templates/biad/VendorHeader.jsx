@@ -7,6 +7,7 @@ import { VendorLogo } from '@/components/vendor/VendorHeaderShared';
 import VendorFloatingFollow from '@/components/vendor/VendorFloatingFollow';
 import { useOptionalCart } from '@/context/CartContext';
 import VendorConnectMenu from '@/components/vendor/VendorConnectMenu';
+import SearchOverlay from '@/components/search/SearchOverlay';
 
 const HEADER_H = 56;
 const MARQUEE_H = 24;
@@ -47,8 +48,7 @@ export default function BiadVendorHeader({
           {/* ── MOBILE layout ─── */}
           <div className="relative flex sm:hidden items-center justify-between" style={{ height: HEADER_H }}>
             {/* Left: hamburger/shop + search */}
-            {!isSearchOpen && (
-              <div className="flex items-center">
+            <div className="flex items-center">
                 {showCollectionsMenu ? (
                   <button type="button" onClick={() => setIsCollectionsOpen(true)}
                     className="flex items-center justify-center h-11 w-11 min-[375px]:h-12 min-[375px]:w-12 text-white/70 hover:text-white transition-colors"
@@ -78,27 +78,9 @@ export default function BiadVendorHeader({
                   </svg>
                 </button>
               </div>
-            )}
-
-            {/* Expanded mobile search bar — replaces the centered logo row */}
-            {isSearchOpen && (
-              <div className="absolute inset-x-0 flex items-center gap-1.5 px-2">
-                <input autoFocus type="search" value={searchValue}
-                  onChange={(e) => setSearchValue?.(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Escape' && (setIsSearchOpen(false), setSearchValue?.(''))}
-                  placeholder="Search…"
-                  className="h-9 flex-1 rounded-full border border-white/20 bg-white/10 px-3.5 text-sm text-white placeholder:text-white/30 outline-none focus:ring-1 focus:ring-white/20" />
-                <button type="button" onClick={() => { setIsSearchOpen(false); setSearchValue?.('') }}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center text-white/60 hover:text-white">
-                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-                  </svg>
-                </button>
-              </div>
-            )}
 
             {/* Center: logo (absolutely centered regardless of side widths) */}
-            <div className={`absolute left-1/2 -translate-x-1/2 flex items-center transition-opacity duration-150 ${isSearchOpen ? 'invisible opacity-0' : 'opacity-100'}`}>
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
               <Link href={`/${vendorProfile?.slug}`} className="flex items-center gap-1.5">
                 <VendorLogo
                   name={storeName}
@@ -117,7 +99,7 @@ export default function BiadVendorHeader({
             </div>
 
             {/* Right: account, wishlist, cart icons on mobile */}
-            <div className={`flex items-center gap-1 min-[390px]:gap-2 min-[430px]:gap-3 pr-1 transition-opacity duration-150 ${isSearchOpen ? 'invisible opacity-0' : 'opacity-100'}`}>
+            <div className="flex items-center gap-1 min-[390px]:gap-2 min-[430px]:gap-3 pr-1">
               <Link href="/account"
                 className="flex h-8 w-5 min-[375px]:h-9 min-[375px]:w-7 min-[430px]:h-10 min-[430px]:w-8 items-center justify-center text-white/70 hover:text-white transition-colors" aria-label="Account">
                 <svg className="h-4 w-4 min-[375px]:h-5 min-[375px]:w-5 min-[430px]:h-6 min-[430px]:w-6" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -174,7 +156,7 @@ export default function BiadVendorHeader({
             </div>
 
             {/* Center */}
-            <div className={`absolute left-1/2 -translate-x-1/2 flex items-center gap-2 transition-opacity duration-150 ${isSearchOpen ? 'invisible opacity-0' : 'opacity-100'}`}>
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
               <Link href={`/${vendorProfile?.slug}`} className="flex items-center gap-2.5">
                 <VendorLogo name={storeName} logoUrl={vendorProfile?.logoUrl}
                   logoFullUrl={vendorProfile?.logoFullUrl} logoFont={vendorProfile?.logoFont}
@@ -188,30 +170,13 @@ export default function BiadVendorHeader({
 
             {/* Right */}
             <div className="flex flex-1 items-center justify-end gap-1">
-              {isSearchOpen ? (
-                <div className="flex items-center gap-1.5">
-                  <input autoFocus type="search" value={searchValue}
-                    onChange={(e) => setSearchValue?.(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Escape' && (setIsSearchOpen(false), setSearchValue?.(''))}
-                    placeholder="Search…"
-                    className="h-8 w-48 rounded-full border border-white/20 bg-white/10 px-3 text-xs text-white placeholder:text-white/30 outline-none focus:ring-1 focus:ring-white/20" />
-                  <button type="button" onClick={() => { setIsSearchOpen(false); setSearchValue?.('') }}
-                    className="text-white/40 hover:text-white/80">
-                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                </div>
-              ) : (
-                <button type="button" onClick={() => setIsSearchOpen(true)}
-                  className="flex h-9 w-9 items-center justify-center text-white/40 hover:text-white/80 transition-colors" aria-label="Search">
-                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <circle cx="11" cy="11" r="6" /><path d="m15.5 15.5 4 4" strokeLinecap="round" />
-                  </svg>
-                </button>
-              )}
-              {!isSearchOpen && (
-                <div className="flex items-center gap-0.5">
+              <button type="button" onClick={() => setIsSearchOpen(true)}
+                className="flex h-9 w-9 items-center justify-center text-white/40 hover:text-white/80 transition-colors" aria-label="Search">
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <circle cx="11" cy="11" r="6" /><path d="m15.5 15.5 4 4" strokeLinecap="round" />
+                </svg>
+              </button>
+              <div className="flex items-center gap-0.5">
                   <Link href="/account"
                     className="flex h-9 w-9 items-center justify-center text-white/70 hover:text-white transition-colors" aria-label="Account">
                     <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -238,14 +203,13 @@ export default function BiadVendorHeader({
                     )}
                   </Link>
                 </div>
-              )}
-              {!isSearchOpen && canEditStorefront && (
+              {canEditStorefront && (
                 <Link href="/backend/admin/store-front"
                   className="flex items-center rounded-full border border-white/30 px-3.5 py-1.5 text-xs font-semibold text-white/80 transition hover:border-white/60 hover:text-white">
                   Edit
                 </Link>
               )}
-              {!isSearchOpen && !canEditStorefront && canFollow && (
+              {!canEditStorefront && canFollow && (
                 <div className="relative">
                   <button type="button" ref={followBtnRef} onClick={() => setIsConnectOpen((o) => !o)} disabled={isFollowLoading}
                     className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition disabled:opacity-60 ${isFollowing ? 'border-white/20 bg-white/10 text-white/70 hover:bg-white/15' : 'border-white/40 bg-transparent text-white hover:border-white/70 hover:bg-white/10'}`}>
@@ -287,6 +251,16 @@ export default function BiadVendorHeader({
       <VendorCollectionsMenu isOpen={isCollectionsOpen} onClose={() => setIsCollectionsOpen(false)}
         categoryTree={categoryTree} vendorSlug={vendorProfile?.slug} storeName={storeName}
         mode={collectionsMenuMode} activeCategorySlug={activeCategorySlug} />
+
+      <SearchOverlay
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        value={searchValue}
+        onChange={setSearchValue}
+        onSubmit={() => setIsSearchOpen(false)}
+        placeholder={`Search ${storeName || 'store'}…`}
+        theme="dark"
+      />
 
       <style jsx global>{`
         @keyframes biadMarquee {

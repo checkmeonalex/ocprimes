@@ -26,6 +26,9 @@ import {
 } from './productAttributeFilters.mjs'
 import { getTemplate } from '@/templates/index.mjs'
 import { useVendorPage } from '@/context/VendorPageContext'
+import { BrandLogoFull } from '@/components/common/BrandLogo'
+import { getVendorBadgeColors } from '../vendorBadgeColors.mjs'
+import FilterThumbnail from '../filters/FilterThumbnail'
 
 const normalizeKey = (value) => String(value || '').trim().toLowerCase()
 const buildFacetList = (values) => {
@@ -440,10 +443,75 @@ const ProductCatalogPage = ({
       }
     })
   }, [categories, categoryImageLookup, childCategories, vendorProfile])
+  const productImagesByCategory = useMemo(() => {
+    const map = new Map()
+    normalized.forEach((product) => {
+      const image = product.image || product.gallery?.[0] || ''
+      if (!image) return
+      getProductCategoryNames(product).forEach((name) => {
+        const key = normalizeKey(name)
+        if (!key) return
+        const list = map.get(key) || []
+        list.push(image)
+        map.set(key, list)
+      })
+    })
+    return map
+  }, [normalized])
+  // Category's own uploaded image first, else a random photo from a product
+  // actually in that category, else the caller falls back to an initials
+  // avatar. Looked up by name so it works for both the facet list (strings)
+  // and childCategories rows (which may have zero loaded products yet).
+  const resolveCategoryImage = useCallback(
+    (name) => {
+      const key = normalizeKey(name)
+      const match = categoryImageLookup.get(key)
+      const categoryImage = String(match?.image_url || '').trim()
+      if (categoryImage) return categoryImage
+      const productImages = productImagesByCategory.get(key) || []
+      if (productImages.length) {
+        return productImages[Math.floor(Math.random() * productImages.length)]
+      }
+      return ''
+    },
+    [categoryImageLookup, productImagesByCategory],
+  )
+  const categoryThumbnails = useMemo(() => {
+    const lookup = new Map()
+    categories.forEach((name) => {
+      lookup.set(name, { imageUrl: resolveCategoryImage(name) })
+    })
+    return lookup
+  }, [categories, resolveCategoryImage])
   const vendors = useMemo(
     () => buildFacetList(normalized.map((product) => product.vendor)),
     [normalized]
   )
+  const vendorThumbnails = useMemo(() => {
+    const lookup = new Map()
+    if (!vendors.length) return lookup
+
+    const logoByVendor = new Map()
+    normalized.forEach((product) => {
+      const name = String(product?.vendor || '').trim()
+      const key = normalizeKey(name)
+      if (!key || logoByVendor.has(key)) return
+      const logo = String(product?.vendorLogoUrl || '').trim()
+      if (logo) logoByVendor.set(key, logo)
+    })
+
+    vendors.forEach((name) => {
+      const key = normalizeKey(name)
+      const colors = getVendorBadgeColors(key || name)
+      lookup.set(name, {
+        imageUrl: logoByVendor.get(key) || '',
+        bg: colors.bg,
+        text: colors.text,
+      })
+    })
+
+    return lookup
+  }, [vendors, normalized])
   const colors = useMemo(
     () => buildFacetList(normalized.flatMap((product) => product.colors || [])),
     [normalized]
@@ -1252,9 +1320,10 @@ const ProductCatalogPage = ({
         {!vendorProfile && Array.isArray(childCategories) && childCategories.length > 0 && (
           <>
             {/* Mobile: horizontal strip */}
-            <div className='mb-4 overflow-x-auto lg:hidden'>
+            <div className='thin-scrollbar mb-4 overflow-x-auto lg:hidden'>
               <div className='flex items-start gap-4 min-w-full px-1'>
                 {childCategories.map((cat) => {
+                  const imageUrl = cat.image_url || resolveCategoryImage(cat.name)
                   return (
                     <Link
                       key={cat.id}
@@ -1262,19 +1331,7 @@ const ProductCatalogPage = ({
                       className='flex flex-col items-center gap-2 transition'
                       style={{ minWidth: '100px' }}
                     >
-                      <div className='h-16 w-16 overflow-hidden rounded-full bg-gray-50'>
-                        {cat.image_url ? (
-                          <img
-                            src={cat.image_url}
-                            alt={cat.image_alt || cat.name}
-                            className='h-full w-full object-cover'
-                          />
-                        ) : (
-                          <div className='flex h-full w-full items-center justify-center text-[11px] text-gray-400'>
-                            Image
-                          </div>
-                        )}
-                      </div>
+                      <FilterThumbnail imageUrl={imageUrl} label={cat.name} size='h-16 w-16' />
                       <span className='text-center text-xs font-semibold leading-tight text-gray-800'>
                         {cat.name}
                       </span>
@@ -1287,9 +1344,10 @@ const ProductCatalogPage = ({
             {/* Desktop: grid */}
             <div className='mb-6 hidden lg:block'>
               <div className='relative'>
-                <div className='overflow-x-auto pr-16' ref={desktopStripRef}>
+                <div className='thin-scrollbar overflow-x-auto pr-16' ref={desktopStripRef}>
                   <div className='flex items-start gap-0 min-w-full'>
                     {childCategories.map((cat) => {
+                      const imageUrl = cat.image_url || resolveCategoryImage(cat.name)
                       return (
                         <Link
                           key={cat.id}
@@ -1297,19 +1355,7 @@ const ProductCatalogPage = ({
                           className='flex flex-col items-center gap-2 transition'
                           style={{ minWidth: '100px' }}
                         >
-                          <div className='h-20 w-20 overflow-hidden rounded-full bg-gray-50'>
-                            {cat.image_url ? (
-                              <img
-                                src={cat.image_url}
-                                alt={cat.image_alt || cat.name}
-                                className='h-full w-full object-cover'
-                              />
-                            ) : (
-                              <div className='flex h-full w-full items-center justify-center text-[11px] text-gray-400'>
-                                Image
-                              </div>
-                            )}
-                          </div>
+                          <FilterThumbnail imageUrl={imageUrl} label={cat.name} size='h-20 w-20' />
                           <span className='max-w-[100px] break-words text-center text-xs font-semibold leading-tight text-gray-800'>
                             {cat.name}
                           </span>
@@ -1749,7 +1795,9 @@ const ProductCatalogPage = ({
               ) : (
                 <ProductFilters
                   categories={categories}
+                  categoryThumbnails={categoryThumbnails}
                   vendors={vendors}
+                  vendorThumbnails={vendorThumbnails}
                   colors={colors}
                   colorHexMap={colorHexMap}
                   sizes={sizes}
@@ -1839,9 +1887,20 @@ const ProductCatalogPage = ({
                 {hasMoreFromServer && (
                   <div
                     ref={loadMoreRef}
-                    className='flex items-center justify-center py-4 text-xs text-gray-500'
+                    className='flex flex-col items-center justify-center gap-2 py-4 text-xs text-gray-500'
                   >
-                    {isLoadingMore ? 'Loading more products...' : 'Scroll for more'}
+                    {isLoadingMore && (
+                      <BrandLogoFull tone='dark' className='h-auto w-24 animate-pulse' />
+                    )}
+                    <span className='flex items-center gap-2'>
+                      {isLoadingMore ? 'Loading more products...' : 'Scroll for more'}
+                      {isLoadingMore && (
+                        <span
+                          className='h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600'
+                          aria-hidden='true'
+                        />
+                      )}
+                    </span>
                   </div>
                 )}
               </>
@@ -1868,21 +1927,30 @@ const ProductCatalogPage = ({
               }`}
               style={{ transform: `translateY(${filterSheetOffset}px)` }}
             >
-              <div className='flex justify-center pb-1 pt-2'>
+              <div
+                className='flex justify-center pb-1 pt-2'
+                onTouchStart={handleFilterSheetTouchStart}
+                onTouchMove={handleFilterSheetTouchMove}
+                onTouchEnd={handleFilterSheetTouchEnd}
+              >
                 <button
                   type='button'
                   className='h-1.5 w-14 rounded-full bg-slate-300'
                   aria-label='Drag or tap to close filters'
                   onClick={closeFilterSheet}
-                  onTouchStart={handleFilterSheetTouchStart}
-                  onTouchMove={handleFilterSheetTouchMove}
-                  onTouchEnd={handleFilterSheetTouchEnd}
                 />
               </div>
               <div className='h-[min(82dvh,760px)] overflow-hidden'>
                 <ProductFiltersMobile
+                  headerDragHandlers={{
+                    onTouchStart: handleFilterSheetTouchStart,
+                    onTouchMove: handleFilterSheetTouchMove,
+                    onTouchEnd: handleFilterSheetTouchEnd,
+                  }}
                   categories={categories}
+                  categoryThumbnails={categoryThumbnails}
                   vendors={vendors}
+                  vendorThumbnails={vendorThumbnails}
                   colors={colors}
                   colorHexMap={colorHexMap}
                   sizes={sizes}

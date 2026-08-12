@@ -27,6 +27,8 @@ const CUSTOM_ATTRIBUTE_EXCLUDE = new Set([
   'category',
   'colors',
   'sizes',
+  'initial_stock_quantity',
+  'show_low_stock_warning',
 ])
 
 const SECTION_EXCLUDE = new Set([

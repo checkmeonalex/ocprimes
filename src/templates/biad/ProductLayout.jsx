@@ -56,6 +56,8 @@ export default function BiadProductLayout({
   categorySlug = '',
   sizeGuide = null,
   onOpenSizeGuide,
+  vendorCategoryTree = [],
+  vendorCollectionsMenuMode = 'grouped',
 }) {
   const vendorName = String(product.vendor || vendorHeaderProfile?.name || '').trim()
   const vendorSlug = product.vendorSlug || vendorHeaderProfile?.slug || ''
@@ -179,9 +181,9 @@ export default function BiadProductLayout({
           isFollowLoading={vendorFollowState.isSaving}
           canFollow={vendorFollowState.canFollow}
           canEditStorefront={vendorFollowState.canEditStorefront}
-          categoryTree={[]}
-          showCollectionsMenu={false}
-          collectionsMenuMode='grouped'
+          categoryTree={vendorCategoryTree}
+          showCollectionsMenu
+          collectionsMenuMode={vendorCollectionsMenuMode}
           activeCategorySlug=''
           searchValue=''
           setSearchValue={() => {}}

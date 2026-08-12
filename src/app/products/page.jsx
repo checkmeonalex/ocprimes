@@ -1,6 +1,6 @@
 import ProductCatalogPage from '../../components/product/catalog/ProductCatalogPage'
 import { fetchProductListingPayload } from '../../lib/catalog/product-listing'
-import { fetchCategoryWithChildren } from '../../lib/catalog/categories'
+import { fetchCategoryWithChildren, fetchAllCategoriesWithImages } from '../../lib/catalog/categories'
 import { fetchTagBySlugOrId } from '../../lib/catalog/tags'
 
 export const dynamic = 'force-dynamic'
@@ -30,6 +30,7 @@ export default async function ProductsPage({ searchParams }) {
 
   let title = 'All'
   let subtitle = ''
+  let childCategories = []
 
   if (search) {
     title = search
@@ -38,12 +39,15 @@ export default async function ProductsPage({ searchParams }) {
     title = String(tagMeta?.name || toReadableName(tag))
     subtitle = String(tagMeta?.description || '').trim()
   } else if (category) {
-    const { parent } = await fetchCategoryWithChildren(category)
+    const { parent, children } = await fetchCategoryWithChildren(category)
     title = String(parent?.name || toReadableName(category))
     subtitle = String(parent?.description || '').trim()
+    childCategories = children
   } else if (vendor) {
     title = toReadableName(vendor)
     subtitle = `Explore items from ${title}`
+  } else {
+    childCategories = await fetchAllCategoriesWithImages()
   }
 
   return (
@@ -54,6 +58,7 @@ export default async function ProductsPage({ searchParams }) {
       listingQuery={{ category, tag, search, vendor }}
       initialNextCursor={listing.nextCursor}
       initialHasMore={listing.hasMore}
+      childCategories={childCategories}
     />
   )
 }

@@ -3,10 +3,14 @@ import CustomSelect from '@/components/common/CustomSelect'
 import { useMemo, useState } from 'react'
 import PriceRangeSlider from '../filters/PriceRangeSlider'
 import { getSwatchStyle } from '../colorUtils.mjs'
+import FilterThumbnail from '../filters/FilterThumbnail'
 
 const ProductFiltersMobile = ({
+  headerDragHandlers = {},
   categories,
+  categoryThumbnails = new Map(),
   vendors,
+  vendorThumbnails = new Map(),
   colors,
   colorHexMap = {},
   sizes,
@@ -70,9 +74,63 @@ const ProductFiltersMobile = ({
     { key: 'price', label: 'Price', count: 0 },
   ]
 
-  const renderChips = (items, selectedSet, onToggle, withSwatch = false, hexMap = {}) => {
+  const renderChips = (items, selectedSet, onToggle, withSwatch = false, hexMap = {}, thumbnails = null) => {
     if (!items.length) {
       return <p className='text-xs text-gray-500'>No options</p>
+    }
+
+    // Thumbnail-bearing lists (category/brand) read better as a single-column
+    // row list with a larger avatar; swatch/plain lists keep the compact
+    // 2-column chip grid.
+    if (thumbnails) {
+      return (
+        <div className='flex flex-col divide-y divide-gray-100'>
+          {items.map((item) => {
+            const isSelected = selectedSet.has(item)
+            const thumb = thumbnails.get(item)
+            return (
+              <button
+                key={item}
+                type='button'
+                onClick={() => onToggle(item)}
+                className='flex w-full items-center gap-3 py-2.5 text-left transition'
+              >
+                <FilterThumbnail
+                  imageUrl={thumb?.imageUrl}
+                  label={item}
+                  bg={thumb?.bg}
+                  text={thumb?.text}
+                  size='h-9 w-9'
+                />
+                <span
+                  className={`min-w-0 flex-1 truncate text-sm font-medium ${
+                    isSelected ? 'text-gray-900' : 'text-gray-600'
+                  }`}
+                >
+                  {item}
+                </span>
+                <span
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition ${
+                    isSelected ? 'border-black bg-black' : 'border-gray-300'
+                  }`}
+                >
+                  {isSelected && (
+                    <svg viewBox='0 0 24 24' className='h-3 w-3 text-white' fill='none'>
+                      <path
+                        d='M5 13l4 4L19 7'
+                        stroke='currentColor'
+                        strokeWidth='3'
+                        strokeLinecap='round'
+                        strokeLinejoin='round'
+                      />
+                    </svg>
+                  )}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )
     }
 
     return (
@@ -166,9 +224,9 @@ const ProductFiltersMobile = ({
 
     switch (activeSection) {
       case 'category':
-        return renderChips(categories, selectedCategories, onToggleCategory)
+        return renderChips(categories, selectedCategories, onToggleCategory, false, {}, categoryThumbnails)
       case 'brand':
-        return renderChips(vendors, selectedVendors, onToggleVendor)
+        return renderChips(vendors, selectedVendors, onToggleVendor, false, {}, vendorThumbnails)
       case 'color':
         return renderChips(colors, selectedColors, onToggleColor, true, colorHexMap)
       case 'size':
@@ -191,7 +249,10 @@ const ProductFiltersMobile = ({
 
   return (
     <div className='flex h-full min-h-0 flex-col overflow-hidden bg-white'>
-      <div className='flex items-center justify-between border-b border-gray-200 px-4 py-3'>
+      <div
+        className='flex items-center justify-between border-b border-gray-200 px-4 py-3'
+        {...headerDragHandlers}
+      >
         <h2 className='text-sm font-semibold text-gray-900'>
           {totalSelected ? `Filters (${totalSelected})` : 'Filters'}
         </h2>
@@ -205,21 +266,23 @@ const ProductFiltersMobile = ({
         </button>
       </div>
       <div className='border-b border-gray-200 px-4 py-2'>
-        <div className='flex items-center justify-between gap-2'>
-          <span className='text-xs font-semibold text-gray-600'>Sort by</span>
-          <CustomSelect
-            value={sortValue}
-            onChange={(event) => onSortChange?.(event.target.value)}
-            className='rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-300'
-            aria-label='Sort products'
-          >
-            <option value='default'>Featured</option>
-            <option value='newest'>Newest Arrivals</option>
-            <option value='price_asc'>Low to High</option>
-            <option value='price_desc'>High to Low</option>
-            <option value='name_asc'>Name (A-Z)</option>
-            <option value='name_desc'>Name (Z-A)</option>
-          </CustomSelect>
+        <div className='flex items-center justify-between gap-3'>
+          <span className='shrink-0 text-xs font-semibold text-gray-600'>Sort by</span>
+          <div className='w-[152px] shrink-0'>
+            <CustomSelect
+              value={sortValue}
+              onChange={(event) => onSortChange?.(event.target.value)}
+              className='rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-gray-300'
+              aria-label='Sort products'
+            >
+              <option value='default'>Featured</option>
+              <option value='newest'>Newest Arrivals</option>
+              <option value='price_asc'>Low to High</option>
+              <option value='price_desc'>High to Low</option>
+              <option value='name_asc'>Name (A-Z)</option>
+              <option value='name_desc'>Name (Z-A)</option>
+            </CustomSelect>
+          </div>
         </div>
       </div>
 
@@ -233,15 +296,18 @@ const ProductFiltersMobile = ({
                   key={section.key}
                   type='button'
                   onClick={() => setActiveSection(section.key)}
-                  className={`flex items-center justify-between px-3 py-3 text-left text-xs font-semibold transition ${
+                  className={`relative flex items-center justify-between gap-1 px-3 py-3 text-left text-xs font-semibold transition ${
                     isActive
                       ? 'bg-white text-gray-900'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  <span>{section.label}</span>
+                  {isActive && (
+                    <span className='absolute inset-y-1.5 left-0 w-[3px] rounded-full bg-black' aria-hidden='true' />
+                  )}
+                  <span className='truncate'>{section.label}</span>
                   {section.count > 0 && (
-                    <span className='text-[10px] text-gray-400'>
+                    <span className='shrink-0 text-[10px] text-gray-400'>
                       {section.count}
                     </span>
                   )}

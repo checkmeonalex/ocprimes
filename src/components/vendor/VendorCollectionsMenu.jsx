@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import {
+  PreferenceRowList,
+  PreferenceOptionsList,
+  PREFERENCE_LABELS,
+} from '@/components/sidebar/PreferencePicker';
 
 const getInitials = (name = '') =>
   String(name || '')
@@ -82,10 +87,14 @@ export default function VendorCollectionsMenu({
   activeCategorySlug = '',
 }) {
   const [activeRoot, setActiveRoot] = useState(null);
+  const [activePreference, setActivePreference] = useState(null);
   const panelRef = useRef(null);
 
   useEffect(() => {
-    if (!isOpen) setActiveRoot(null);
+    if (!isOpen) {
+      setActiveRoot(null);
+      setActivePreference(null);
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -276,17 +285,11 @@ export default function VendorCollectionsMenu({
         </nav>
 
         {/* Region and language footer */}
-        <div className="border-t border-gray-100">
-          <div className="px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-            Region and language
-          </div>
-          <div className="flex items-center justify-between px-5 py-3.5 text-sm font-semibold text-gray-800">
-            <span>USD / EN</span>
-            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        </div>
+        <PreferenceRowList
+          sectionClassName="border-t border-gray-100"
+          titleClassName="px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400"
+          onOpenPreference={setActivePreference}
+        />
       </div>
 
       {/* Sub-category panel — only shown in grouped mode */}
@@ -366,6 +369,48 @@ export default function VendorCollectionsMenu({
           </nav>
         </div>
       )}
+
+      {/* Region/language preference panel */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={activePreference ? PREFERENCE_LABELS[activePreference] : 'Preferences'}
+        className={`fixed top-0 right-0 z-[2147483030] h-full w-80 bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
+          activePreference ? 'translate-x-0' : 'translate-x-full'
+        }`}
+      >
+        <div className="flex items-center gap-2 border-b border-gray-100 bg-[#1a140d] px-3 py-4">
+          <button
+            onClick={() => setActivePreference(null)}
+            aria-label="Back to collections"
+            className="rounded-full p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <span className="flex-1 truncate text-sm font-bold uppercase tracking-widest text-white">
+            {activePreference ? PREFERENCE_LABELS[activePreference] : ''}
+          </span>
+          <button
+            onClick={onClose}
+            aria-label="Close collections"
+            className="rounded-full p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <nav className="flex-1 overflow-y-auto px-4 py-3">
+          {activePreference ? (
+            <PreferenceOptionsList
+              preferenceKey={activePreference}
+              onSelected={() => setActivePreference(null)}
+            />
+          ) : null}
+        </nav>
+      </div>
     </>
   );
 }

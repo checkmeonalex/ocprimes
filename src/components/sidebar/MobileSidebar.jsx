@@ -2,17 +2,11 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
-import { Check, ChevronDown, ChevronRight, Globe, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ChevronRight, X } from 'lucide-react'
 import BrandLogo from '@/components/common/BrandLogo'
-import CountryFlagIcon from '@/components/common/CountryFlagIcon'
 import { useAuthUser } from '@/lib/auth/useAuthUser.ts'
-import {
-  CURRENCY_OPTIONS,
-  LOCALE_COUNTRY_OPTIONS,
-  getCurrencyMeta,
-} from '@/lib/i18n/locale-config'
-import { useUserI18n } from '@/lib/i18n/useUserI18n'
+import PreferencePickerSection from './PreferencePicker'
 import { MOBILE_SIDEBAR_SECTIONS } from './mobileSidebarSections'
 
 const isCurrentPath = (pathname, href) => {
@@ -81,71 +75,9 @@ function DrawerRow({ href, label, icon: Icon, onNavigate, isActive = false, trai
   )
 }
 
-function PreferencePickerRow({
-  icon,
-  label,
-  value,
-  isOpen,
-  onToggle,
-  children,
-}) {
-  return (
-    <div className='border-t border-slate-100 first:border-t-0'>
-      <button
-        type='button'
-        onClick={onToggle}
-        className='flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left text-[15px] text-slate-700 transition-colors hover:bg-slate-50'
-        aria-expanded={isOpen}
-      >
-        <span className='inline-flex h-11 w-11 items-center justify-center rounded-md text-gray-900'>
-          {icon}
-        </span>
-        <span className='min-w-0 flex-1'>
-          <span className='block text-xs font-semibold uppercase tracking-[0.12em] text-slate-400'>
-            {label}
-          </span>
-          <span className='mt-0.5 block truncate text-[15px] font-medium text-slate-800'>{value}</span>
-        </span>
-        <ChevronDown
-          className={`h-[18px] w-[18px] text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-          strokeWidth={1.8}
-          aria-hidden='true'
-        />
-      </button>
-      {isOpen ? <div className='bg-slate-50/80 px-4 py-2'>{children}</div> : null}
-    </div>
-  )
-}
-
-function PreferenceOption({ label, selected, onClick, leading = null }) {
-  return (
-    <button
-      type='button'
-      onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[15px] transition-colors ${
-        selected ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-600 hover:bg-white'
-      }`}
-    >
-      <span className='inline-flex h-6 w-6 items-center justify-center'>{leading}</span>
-      <span className='min-w-0 flex-1 truncate font-medium'>{label}</span>
-      {selected ? <Check className='h-[18px] w-[18px] text-slate-900' strokeWidth={2} aria-hidden='true' /> : null}
-    </button>
-  )
-}
-
-function CurrencySymbolIcon({ symbol }) {
-  return (
-    <span className='inline-flex h-6 min-w-6 items-center justify-center text-base font-semibold text-gray-900'>
-      {symbol}
-    </span>
-  )
-}
-
 export default function MobileSidebar({ isOpen, onClose, onOpenCategories }) {
   const pathname = usePathname()
   const { user } = useAuthUser()
-  const { locale, languageOptions, setLocale } = useUserI18n()
-  const [activePreference, setActivePreference] = useState(null)
   const displayName = getDisplayName(user?.email)
   const profileInitials = getProfileInitials(displayName)
   const profileBadgeColor = getProfileBadgeColor(displayName)
@@ -155,21 +87,6 @@ export default function MobileSidebar({ isOpen, onClose, onOpenCategories }) {
       : ''
   const isSignedIn = Boolean(user)
   const accountHref = isSignedIn ? '/account' : '/login?next=/account'
-  const languageLabel =
-    languageOptions.find((item) => item.code === locale.language)?.label || locale.language
-  const currencyMeta = getCurrencyMeta(locale.currency)
-  const currencyLabel = `${currencyMeta.label} (${currencyMeta.code})`
-  const currencyOptions = useMemo(
-    () =>
-      CURRENCY_OPTIONS
-        .filter((option) => option.code === 'NGN' || option.code === 'USD')
-        .map((option) => ({
-          code: option.code,
-          symbol: option.symbol,
-          label: `${option.label} (${option.code})`,
-        })),
-    [],
-  )
 
   useEffect(() => {
     if (!isOpen) return undefined
@@ -190,12 +107,6 @@ export default function MobileSidebar({ isOpen, onClose, onOpenCategories }) {
       document.removeEventListener('keydown', handleEscape)
     }
   }, [isOpen, onClose])
-
-  useEffect(() => {
-    if (!isOpen) {
-      setActivePreference(null)
-    }
-  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -333,89 +244,10 @@ export default function MobileSidebar({ isOpen, onClose, onOpenCategories }) {
             )
           })}
 
-          <section className='border-b border-slate-100 px-0 py-3'>
-            <div className='px-4 pb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400'>
-              Preferences
-            </div>
-            <div>
-              <PreferencePickerRow
-                icon={<Globe className='h-5 w-5' strokeWidth={1.8} aria-hidden='true' />}
-                label='Language'
-                value={languageLabel}
-                isOpen={activePreference === 'language'}
-                onToggle={() =>
-                  setActivePreference((current) => (current === 'language' ? null : 'language'))
-                }
-              >
-                <div className='space-y-1'>
-                  {languageOptions.map((option) => (
-                    <PreferenceOption
-                      key={option.code}
-                      label={option.label}
-                      selected={locale.language === option.code}
-                      onClick={() => {
-                        setLocale({ language: option.code })
-                        setActivePreference(null)
-                      }}
-                      leading={<Globe className='h-[18px] w-[18px] text-gray-900' strokeWidth={1.8} aria-hidden='true' />}
-                    />
-                  ))}
-                </div>
-              </PreferencePickerRow>
-              <PreferencePickerRow
-                icon={<CurrencySymbolIcon symbol={currencyMeta.symbol} />}
-                label='Store Currency'
-                value={currencyLabel}
-                isOpen={activePreference === 'currency'}
-                onToggle={() =>
-                  setActivePreference((current) => (current === 'currency' ? null : 'currency'))
-                }
-              >
-                <div className='space-y-1'>
-                  {currencyOptions.map((option) => (
-                    <PreferenceOption
-                      key={option.code}
-                      label={option.label}
-                      selected={locale.currency === option.code}
-                      onClick={() => {
-                        setLocale({
-                          currency: option.code,
-                        })
-                        setActivePreference(null)
-                      }}
-                      leading={<CurrencySymbolIcon symbol={option.symbol} />}
-                    />
-                  ))}
-                </div>
-              </PreferencePickerRow>
-              <PreferencePickerRow
-                icon={<CountryFlagIcon country={locale.country} className='h-5 w-6 rounded-[2px]' />}
-                label='Country'
-                value={locale.country}
-                isOpen={activePreference === 'country'}
-                onToggle={() =>
-                  setActivePreference((current) => (current === 'country' ? null : 'country'))
-                }
-              >
-                <div className='space-y-1'>
-                  {LOCALE_COUNTRY_OPTIONS.map((country) => (
-                    <PreferenceOption
-                      key={country}
-                      label={country}
-                      selected={locale.country === country}
-                      onClick={() => {
-                        setLocale({
-                          country,
-                        })
-                        setActivePreference(null)
-                      }}
-                      leading={<CountryFlagIcon country={country} className='h-4 w-6 rounded-[2px]' />}
-                    />
-                  ))}
-                </div>
-              </PreferencePickerRow>
-            </div>
-          </section>
+          <PreferencePickerSection
+            sectionClassName='border-b border-slate-100 px-0 py-3'
+            titleClassName='px-4 pb-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400'
+          />
         </div>
       </aside>
     </>

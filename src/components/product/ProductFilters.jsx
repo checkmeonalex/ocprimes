@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { getSwatchStyle } from './colorUtils.mjs'
 import PriceRangeSlider from './filters/PriceRangeSlider'
+import FilterThumbnail from './filters/FilterThumbnail'
 
 const EMPTY_SET = new Set()
 
@@ -94,7 +95,9 @@ const FilterSection = ({
 
 const ProductFilters = ({
   categories,
+  categoryThumbnails = new Map(),
   vendors,
+  vendorThumbnails = new Map(),
   colors = [],
   colorHexMap = {},
   sizes,
@@ -182,6 +185,15 @@ const ProductFilters = ({
           onClearSection={onClearCategory}
           isOpen={openSections.categories}
           onToggleSection={() => toggleSection('categories')}
+          renderItem={(category) => {
+            const thumb = categoryThumbnails.get(category)
+            return (
+              <span className='flex items-center gap-2'>
+                <FilterThumbnail imageUrl={thumb?.imageUrl} label={category} />
+                <span>{category}</span>
+              </span>
+            )
+          }}
         />
         <FilterSection
           title='Brand'
@@ -191,6 +203,20 @@ const ProductFilters = ({
           onClearSection={onClearVendor}
           isOpen={openSections.brand}
           onToggleSection={() => toggleSection('brand')}
+          renderItem={(vendor) => {
+            const thumb = vendorThumbnails.get(vendor)
+            return (
+              <span className='flex items-center gap-2'>
+                <FilterThumbnail
+                  imageUrl={thumb?.imageUrl}
+                  label={vendor}
+                  bg={thumb?.bg}
+                  text={thumb?.text}
+                />
+                <span>{vendor}</span>
+              </span>
+            )
+          }}
         />
         <FilterSection
           title='Color'

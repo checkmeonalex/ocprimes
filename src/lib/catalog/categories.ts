@@ -57,6 +57,25 @@ export const fetchCategoryWithChildren = async (slug: string) => {
   }
 }
 
+// Used by the top-level "All products" listing (no single parent category in
+// scope), so the category strip and filter sidebar show the main/top-level
+// category list there — matching fetchCategoryWithChildren's behavior of
+// showing a specific category's subcategories once one is selected.
+export const fetchAllCategoriesWithImages = async () => {
+  noStore()
+  const supabase = await createServerSupabaseClient()
+
+  const { data: rows } = await supabase
+    .from('admin_categories')
+    .select('id, name, slug, image_url, image_alt, is_active')
+    .is('parent_id', null)
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true })
+
+  return Array.isArray(rows) ? rows : []
+}
+
 type ProductCategoryRef = {
   id?: string
   name?: string

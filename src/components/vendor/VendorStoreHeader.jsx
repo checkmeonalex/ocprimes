@@ -6,6 +6,7 @@ import VendorCollectionsMenu from './VendorCollectionsMenu';
 import VendorMobileCollectionsDropdown from './VendorMobileCollectionsDropdown';
 import { VendorLogo } from './VendorHeaderShared';
 import VendorFloatingFollow from './VendorFloatingFollow';
+import SearchOverlay from '@/components/search/SearchOverlay';
 
 const HEADER_H = 60;
 
@@ -23,7 +24,7 @@ export default function VendorStoreHeader({
   collectionsMenuMode = 'grouped',
   activeCategorySlug = '',
 }) {
-  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isMobileDropdownOpen, setIsMobileDropdownOpen] = useState(false);
 
@@ -58,7 +59,7 @@ export default function VendorStoreHeader({
             </div>
 
             {/* CENTER — logo */}
-            <div className={`absolute left-1/2 -translate-x-1/2 transition-opacity duration-150 ${isSearchExpanded ? 'invisible opacity-0' : 'opacity-100'}`}>
+            <div className="absolute left-1/2 -translate-x-1/2">
               <Link href={`/${vendorProfile?.slug}`} className="flex items-center gap-2">
                 <VendorLogo
                   name={vendorProfile?.name || ''}
@@ -77,31 +78,14 @@ export default function VendorStoreHeader({
 
             {/* RIGHT — search + follow/edit */}
             <div className="flex items-center gap-1 shrink-0">
-              {isSearchExpanded ? (
-                <div className="flex items-center gap-1.5">
-                  <input autoFocus type="search" value={searchValue}
-                    onChange={(e) => setSearchValue?.(e.target.value)}
-                    onBlur={() => !searchValue && setIsSearchExpanded(false)}
-                    placeholder={`Search ${vendorProfile?.name}…`}
-                    className="h-8 w-36 sm:w-48 rounded-full border border-gray-200 bg-gray-50 px-3 text-sm outline-none focus:border-gray-900"
-                  />
-                  <button type="button" onClick={() => { setIsSearchExpanded(false); setSearchValue?.('') }}
-                    className="text-gray-400 hover:text-gray-700">
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                </div>
-              ) : (
-                <button type="button" onClick={() => setIsSearchExpanded(true)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 transition-colors" aria-label="Search">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" strokeLinecap="round" />
-                  </svg>
-                </button>
-              )}
+              <button type="button" onClick={() => setIsSearchOpen(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 transition-colors" aria-label="Search">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" strokeLinecap="round" />
+                </svg>
+              </button>
 
-              {!isSearchExpanded && !canEditStorefront && onMessage && (
+              {!canEditStorefront && onMessage && (
                 <>
                   <button type="button" onClick={onMessage}
                     className="hidden sm:flex h-8 items-center gap-1.5 rounded-full border border-gray-200 px-3.5 text-[11px] font-bold uppercase tracking-widest text-gray-700 hover:bg-gray-50 transition-colors">
@@ -116,13 +100,13 @@ export default function VendorStoreHeader({
                 </>
               )}
 
-              {!isSearchExpanded && canEditStorefront && (
+              {canEditStorefront && (
                 <Link href="/backend/admin/store-front"
                   className="hidden sm:flex h-8 items-center gap-1.5 rounded-full border border-gray-200 px-3.5 text-[11px] font-bold uppercase tracking-widest text-gray-700 hover:bg-gray-50 transition-colors">
                   Edit
                 </Link>
               )}
-              {!isSearchExpanded && !canEditStorefront && canFollow && (
+              {!canEditStorefront && canFollow && (
                 <button type="button" onClick={onFollow} disabled={isFollowLoading}
                   className={`hidden sm:flex h-8 rounded-full px-4 text-[11px] font-bold uppercase tracking-widest transition-all disabled:opacity-60 ${isFollowing ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-gray-900 text-white hover:bg-gray-700 shadow-sm'}`}>
                   {isFollowLoading ? '…' : isFollowing ? 'Following' : 'Follow'}
@@ -142,6 +126,16 @@ export default function VendorStoreHeader({
       <VendorMobileCollectionsDropdown isOpen={isMobileDropdownOpen} onClose={() => setIsMobileDropdownOpen(false)}
         categoryTree={categoryTree} vendorSlug={vendorProfile?.slug} storeName={vendorProfile?.name || ''}
         mode={collectionsMenuMode} activeCategorySlug={activeCategorySlug} />
+
+      <SearchOverlay
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        value={searchValue}
+        onChange={setSearchValue}
+        onSubmit={() => setIsSearchOpen(false)}
+        placeholder={`Search ${vendorProfile?.name || 'store'}…`}
+        theme="light"
+      />
 
       <VendorFloatingFollow
         vendorName={vendorProfile?.name || ''}

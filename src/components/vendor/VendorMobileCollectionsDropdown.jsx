@@ -2,6 +2,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import {
+  PreferenceRowList,
+  PreferenceOptionsList,
+  PREFERENCE_LABELS,
+} from '@/components/sidebar/PreferencePicker';
 
 const getInitials = (name = '') =>
   String(name || '')
@@ -57,10 +62,14 @@ export default function VendorMobileCollectionsDropdown({
   activeCategorySlug = '',
 }) {
   const [activeRoot, setActiveRoot] = useState(null);
+  const [activePreference, setActivePreference] = useState(null);
   const panelRef = useRef(null);
 
   useEffect(() => {
-    if (!isOpen) setActiveRoot(null);
+    if (!isOpen) {
+      setActiveRoot(null);
+      setActivePreference(null);
+    }
   }, [isOpen]);
 
   useEffect(() => {
@@ -109,7 +118,7 @@ export default function VendorMobileCollectionsDropdown({
         aria-label="Collections menu"
         className="fixed inset-0 z-[2147483050] flex flex-col bg-white md:hidden"
       >
-        {!activeRoot ? (
+        {!activeRoot && !activePreference ? (
           <>
             {/* Panel header */}
             <div className="flex items-center justify-between border-b border-gray-100 bg-[#1a140d] px-5 py-4">
@@ -242,19 +251,13 @@ export default function VendorMobileCollectionsDropdown({
             </nav>
 
             {/* Region and language footer */}
-            <div className="border-t border-gray-100">
-              <div className="px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
-                Region and language
-              </div>
-              <div className="flex items-center justify-between px-5 py-3.5 text-sm font-semibold text-gray-800">
-                <span>USD / EN</span>
-                <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
-            </div>
+            <PreferenceRowList
+              sectionClassName="border-t border-gray-100"
+              titleClassName="px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400"
+              onOpenPreference={setActivePreference}
+            />
           </>
-        ) : (
+        ) : activeRoot ? (
           <>
             {/* Sub-category panel */}
             <div className="flex items-center gap-2 border-b border-gray-100 bg-[#1a140d] px-3 py-4">
@@ -321,6 +324,41 @@ export default function VendorMobileCollectionsDropdown({
                   />
                 ))}
               </div>
+            </nav>
+          </>
+        ) : (
+          <>
+            {/* Region/language preference panel */}
+            <div className="flex items-center gap-2 border-b border-gray-100 bg-[#1a140d] px-3 py-4">
+              <button
+                type="button"
+                onClick={() => setActivePreference(null)}
+                aria-label="Back to collections"
+                className="rounded-full p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <span className="flex-1 truncate text-sm font-bold uppercase tracking-widest text-white">
+                {PREFERENCE_LABELS[activePreference] || ''}
+              </span>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close collections"
+                className="rounded-full p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <nav className="flex-1 overflow-y-auto px-4 py-3">
+              <PreferenceOptionsList
+                preferenceKey={activePreference}
+                onSelected={() => setActivePreference(null)}
+              />
             </nav>
           </>
         )}

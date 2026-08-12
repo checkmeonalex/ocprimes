@@ -6,6 +6,7 @@ import ColorOptions from './ColorOptions' // Import new component
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { buildColorHexMap, buildSwatchImages, deriveOptionsFromVariations } from './variationUtils.mjs'
+import { getVendorBadgeColors } from './vendorBadgeColors.mjs'
 import ProductVariantQuickAddModal from './ProductVariantQuickAddModal'
 import { useOptionalCart } from '../../context/CartContext'
 import QuantityControl from '../cart/QuantityControl'
@@ -59,6 +60,10 @@ const ProductCard = ({
   const colorHexMap = React.useMemo(
     () => product.colorHexMap || buildColorHexMap(product.variations, ['color', 'colour']),
     [product.colorHexMap, product.variations],
+  )
+  const vendorBadgeColors = React.useMemo(
+    () => getVendorBadgeColors(product.vendorId || product.vendor),
+    [product.vendorId, product.vendor],
   )
 
   React.useEffect(() => {
@@ -314,40 +319,68 @@ const ProductCard = ({
         </div>
 
         {imageLoaded && (
-          <div className={`${wishlistMode ? 'p-2.5 sm:p-3' : 'p-3'} rounded-b-[5px] bg-white`}>
-            {/* Brand/Name and Trending */}
-            <div>
-              <div className='flex items-center justify-between mb-1'>
-                {product.isTrending && (
-                  <div className='bg-gradient-to-r from-pink-500 to-purple-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm flex items-center gap-1'>
-                    <svg
-                      width='10'
-                      height='10'
-                      viewBox='0 0 24 24'
+          <div className='flex items-center justify-between gap-1' style={{ marginTop: '2px' }}>
+            <button
+              type='button'
+              onClick={handleVendorClick}
+              className='flex max-w-full items-center gap-1 rounded-r-full py-1 pr-1.5 transition-opacity hover:opacity-90'
+              style={{ backgroundColor: vendorBadgeColors.bg, color: vendorBadgeColors.text }}
+            >
+              {product.vendorVerified && (
+                <span className='flex shrink-0 items-center gap-0.5 rounded-r-full bg-green-600 py-0.5 pl-1.5 pr-1 text-white'>
+                  <svg viewBox='0 0 32 32' className='h-3 w-3 shrink-0' aria-hidden='true'>
+                    <polyline
+                      fill='none'
+                      stroke='currentColor'
+                      strokeWidth='3'
+                      strokeMiterlimit='10'
+                      points='28,8 16,20 11,15'
+                    />
+                    <path
                       fill='currentColor'
-                    >
-                      <path d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z' />
-                    </svg>
-                    Star Seller
-                  </div>
-                )}
-
-                <div className='flex items-center gap-1 text-green-600'>
-                  <svg
-                    width='12'
-                    height='12'
-                    viewBox='0 0 24 24'
-                    fill='currentColor'
-                    className='text-green-600'
-                  >
-                    <path d='M19.152,14a1,1,0,0,0,1-1V9.752a4.019,4.019,0,0,0,.3-.3,4,4,0,0,0,.732-3.456L20.121,1.758A1,1,0,0,0,19.152,1h-16a1,1,0,0,0-.97.757L1.122,5.994A4,4,0,0,0,1.855,9.45a3.838,3.838,0,0,0,.3.3V22a1,1,0,0,0,1,1H14.3a1,1,0,0,0,0-2H4.151V10.9A3.955,3.955,0,0,0,8.063,9.589c.03.035.051.076.082.11A4.04,4.04,0,0,0,11.11,11h.083a4.036,4.036,0,0,0,2.964-1.3c.032-.034.052-.076.082-.11A3.957,3.957,0,0,0,18.152,10.9V13A1,1,0,0,0,19.152,14ZM7.386,3.134l-.292,3.5v0l-.041.5A2.041,2.041,0,0,1,5.031,9A2.029,2.029,0,0,1,3.062,6.479L3.932,3H7.4Zm5.3,5.211A2.009,2.009,0,0,1,11.193,9H11.11A2.028,2.028,0,0,1,9.088,6.807L9.4,3H12.9l.317,3.8A2.013,2.013,0,0,1,12.686,8.345ZM17.272,9a2.042,2.042,0,0,1-2.023-1.86L14.9,3H18.37l.87,3.479A2.029,2.029,0,0,1,17.272,9Zm3.061,8.667L23,18.056l-2.222,1.833L21.472,23,19,21.222,16.528,23l.694-3.111L15,18.056l2.667-.389L19,15Z' />
+                      d='M26.7,13.5c0.2,0.8,0.3,1.6,0.3,2.5c0,6.1-4.9,11-11,11S5,22.1,5,16S9.9,5,16,5c3,0,5.7,1.2,7.6,3.1l1.4-1.4 C22.7,4.4,19.5,3,16,3C8.8,3,3,8.8,3,16s5.8,13,13,13s13-5.8,13-13c0-1.4-0.2-2.8-0.7-4.1L26.7,13.5z'
+                    />
                   </svg>
-                  <button type='button' onClick={handleVendorClick} className='text-xs font-medium text-green-600 hover:underline'>
-                    {product.vendor}
-                  </button>
-                </div>
-              </div>
+                  <span className='text-[9.5px] font-bold leading-none'>Verified</span>
+                </span>
+              )}
+              <span className={`flex min-w-0 shrink items-center gap-0.5 ${product.vendorVerified ? '' : 'pl-2'}`}>
+                <svg viewBox='0 0 24 24' fill='none' className='h-3.5 w-3.5 shrink-0'>
+                  <path d='M22 22H2' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+                  <path opacity='0.5' d='M20 22V11' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+                  <path opacity='0.5' d='M4 22V11' stroke='currentColor' strokeWidth='1.5' strokeLinecap='round' />
+                  <path
+                    d='M16.5278 2H7.47214C6.26932 2 5.66791 2 5.18461 2.2987C4.7013 2.5974 4.43234 3.13531 3.89443 4.21114L2.49081 7.75929C2.16652 8.57905 1.88279 9.54525 2.42867 10.2375C2.79489 10.7019 3.36257 11 3.99991 11C5.10448 11 5.99991 10.1046 5.99991 9C5.99991 10.1046 6.89534 11 7.99991 11C9.10448 11 9.99991 10.1046 9.99991 9C9.99991 10.1046 10.8953 11 11.9999 11C13.1045 11 13.9999 10.1046 13.9999 9C13.9999 10.1046 14.8953 11 15.9999 11C17.1045 11 17.9999 10.1046 17.9999 9C17.9999 10.1046 18.8953 11 19.9999 11C20.6373 11 21.205 10.7019 21.5712 10.2375C22.1171 9.54525 21.8334 8.57905 21.5091 7.75929L20.1055 4.21114C19.5676 3.13531 19.2986 2.5974 18.8153 2.2987C18.332 2 17.7306 2 16.5278 2Z'
+                    stroke='currentColor'
+                    strokeWidth='1.5'
+                    strokeLinejoin='round'
+                  />
+                  <path
+                    opacity='0.5'
+                    d='M9.5 21.5V18.5C9.5 17.5654 9.5 17.0981 9.70096 16.75C9.83261 16.522 10.022 16.3326 10.25 16.201C10.5981 16 11.0654 16 12 16C12.9346 16 13.4019 16 13.75 16.201C13.978 16.3326 14.1674 16.522 14.299 16.75C14.5 17.0981 14.5 17.5654 14.5 18.5V21.5'
+                    stroke='currentColor'
+                    strokeWidth='1.5'
+                    strokeLinecap='round'
+                  />
+                </svg>
+                <span className='truncate text-[10.5px] font-semibold leading-none'>{product.vendor}</span>
+              </span>
+            </button>
 
+            {product.isTrending && (
+              <div className='mr-3 shrink-0 flex items-center gap-1 rounded-full bg-gradient-to-r from-pink-500 to-purple-500 px-1.5 py-0.5 text-[10px] font-bold text-white shadow-sm'>
+                <svg width='10' height='10' viewBox='0 0 24 24' fill='currentColor'>
+                  <path d='M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z' />
+                </svg>
+                Star Seller
+              </div>
+            )}
+          </div>
+        )}
+
+        {imageLoaded && (
+          <div className={`${wishlistMode ? 'px-2.5 pb-2.5 sm:px-3 sm:pb-3' : 'px-3 pb-3'} rounded-b-[5px] bg-white`}>
+            <div>
               <h3 className='text-[12px] sm:text-[13px] font-normal text-gray-900 line-clamp-1 leading-tight'>
                 {product.name}
               </h3>
@@ -366,11 +399,8 @@ const ProductCard = ({
               </div>
             ) : null}
 
-            {/* Almost Sold Out Badge — reserves its line height even when hidden,
-                so cards in the same row don't have their price/cart row jump
-                around depending on whether this product opted into the warning. */}
-            <div className='mb-0.5 h-4'>
-              {(isOutOfStock || (product?.showLowStockWarning && stockCount <= 3 && hasStockDropped)) && (
+            {(isOutOfStock || (product?.showLowStockWarning && stockCount <= 3 && hasStockDropped)) && (
+              <div className='mb-0.5 h-4'>
                 <span
                   className={`flex items-center gap-1 text-xs font-semibold ${
                     isOutOfStock ? 'text-red-600' : 'text-orange-600'
@@ -388,8 +418,8 @@ const ProductCard = ({
                   </svg>
                   <span className='font-mono text-[10px]'>{isOutOfStock ? 'Out of stock' : `Only ${stockCount} left in stock`}</span>
                 </span>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Price and Add to Cart */}
             <div className='space-y-1'>

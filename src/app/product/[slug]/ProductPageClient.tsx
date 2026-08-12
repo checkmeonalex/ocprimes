@@ -1835,9 +1835,11 @@ function ProductContent({
         categorySlug={categorySlug}
         sizeGuide={sizeGuide}
         onOpenSizeGuide={() => setIsSizeGuideOpen(true)}
+        vendorCategoryTree={vendorCategoryTree}
+        vendorCollectionsMenuMode={vendorCollectionsMenuMode}
       />
       {isSizeGuideOpen && sizeGuide && (
-        <SizeGuideModal guide={sizeGuide} onClose={() => setIsSizeGuideOpen(false)} currentSlug={product?.slug} formatMoney={formatMoney} onSizeSelect={(size) => setSelectedSize(resolveSizeToOption(size))} />
+        <SizeGuideModal theme='dark' guide={sizeGuide} onClose={() => setIsSizeGuideOpen(false)} currentSlug={product?.slug} formatMoney={formatMoney} onSizeSelect={(size) => setSelectedSize(resolveSizeToOption(size))} />
       )}
       </>
     )
