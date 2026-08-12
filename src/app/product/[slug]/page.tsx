@@ -181,6 +181,7 @@ export default async function ProductPage({
         DEFAULT_VENDOR_VERIFIED_BADGE_PATH,
       social: {
         whatsapp: String(vp?.social_whatsapp || '').trim(),
+        whatsappBuyEnabled: Boolean(vp?.whatsapp_buy_enabled),
         instagramUrl: String(vp?.social_instagram_url || '').trim(),
         instagramHandle: String(vp?.social_instagram_handle || '').trim(),
         facebookUrl: String(vp?.social_facebook_url || '').trim(),

@@ -33,6 +33,7 @@ import { formatVariationToken } from '@/lib/product/variation-label.mjs'
 import { useWishlist } from '../../../context/WishlistContext'
 import { getTemplate } from '@/templates/index.mjs'
 import BiadProductLayout from '@/templates/biad/ProductLayout'
+import WhatsAppBuyButton, { buildWhatsAppOrderUrl } from '@/components/product/WhatsAppBuyButton'
 import { useVendorPage } from '@/context/VendorPageContext'
 import Navbar from '@/components/Navbar'
 import MobileNavbar from '@/components/mobile/Navbar'
@@ -1690,6 +1691,18 @@ function ProductContent({
         ? 'Add to Cart'
         : 'Select an option'
   const isWishlisted = isRecentlySaved(product?.id)
+  const whatsappSocial = vendorHeaderProfile?.social
+  const isWhatsappBuyEnabled = Boolean(whatsappSocial?.whatsappBuyEnabled && whatsappSocial?.whatsapp)
+  const whatsappOrderUrl = isWhatsappBuyEnabled
+    ? buildWhatsAppOrderUrl({
+        phone: whatsappSocial.whatsapp,
+        productName: product?.name,
+        variant: [selectedColor, selectedSize].filter(Boolean).join(' / '),
+        quantity: displayQuantity,
+        formattedPrice: typeof formatMoney === 'function' ? formatMoney(activePrice) : '',
+        url: typeof window !== 'undefined' ? window.location.href : '',
+      })
+    : ''
   const shouldShowMobileFloatingCart =
     isMobile &&
     showFloatingCart &&
@@ -2192,6 +2205,10 @@ function ProductContent({
                     {variationError && <p className='text-xs text-rose-600'>{variationError}</p>}
                   </div>
 
+                  {isWhatsappBuyEnabled && (
+                    <WhatsAppBuyButton href={whatsappOrderUrl} />
+                  )}
+
                   {/* Share */}
                   <button type='button' onClick={() => setShowShareModal(true)} className='inline-flex items-center gap-1.5 text-xs text-stone-400 hover:text-stone-700 transition'>
                     <svg className='h-3.5 w-3.5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
@@ -2351,6 +2368,9 @@ function ProductContent({
                 ) : ctaLabel}
               </button>
             </div>
+            {isWhatsappBuyEnabled && (
+              <WhatsAppBuyButton href={whatsappOrderUrl} size='compact' className='mt-2' />
+            )}
           </div>
         )}
 
@@ -2934,6 +2954,9 @@ function ProductContent({
                     {variationError && (
                       <p className='mt-2 text-xs text-rose-600'>{variationError}</p>
                     )}
+                    {!isBiad && isWhatsappBuyEnabled && (
+                      <WhatsAppBuyButton href={whatsappOrderUrl} size='compact' className='relative mt-2' />
+                    )}
                   </div>
 
                   {isMobile && (
@@ -3195,6 +3218,9 @@ function ProductContent({
               )}
             </button>
           </div>
+          {!isBiad && isWhatsappBuyEnabled && (
+            <WhatsAppBuyButton href={whatsappOrderUrl} size='compact' className='mt-2' />
+          )}
         </div>
       )}
 

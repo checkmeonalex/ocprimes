@@ -7,6 +7,7 @@ import { Share2, Minus, Plus, Heart } from 'lucide-react'
 import RelatedProductsSection from '@/components/product/RelatedProductsSection'
 import RecentlyViewedSection from '@/components/product/RecentlyViewedSection'
 import FitRecommendationBadge from '@/components/product/FitRecommendationBadge'
+import WhatsAppBuyButton, { buildWhatsAppOrderUrl } from '@/components/product/WhatsAppBuyButton'
 
 export default function BiadProductLayout({
   product,
@@ -61,6 +62,19 @@ export default function BiadProductLayout({
 }) {
   const vendorName = String(product.vendor || vendorHeaderProfile?.name || '').trim()
   const vendorSlug = product.vendorSlug || vendorHeaderProfile?.slug || ''
+
+  const whatsappSocial = vendorHeaderProfile?.social
+  const isWhatsappBuyEnabled = Boolean(whatsappSocial?.whatsappBuyEnabled && whatsappSocial?.whatsapp)
+  const whatsappOrderUrl = isWhatsappBuyEnabled
+    ? buildWhatsAppOrderUrl({
+        phone: whatsappSocial.whatsapp,
+        productName: product?.name,
+        variant: [selectedColor, selectedSize].filter(Boolean).join(' / '),
+        quantity: displayQuantity,
+        formattedPrice: typeof formatMoney === 'function' ? formatMoney(activePrice) : '',
+        url: typeof window !== 'undefined' ? window.location.href : '',
+      })
+    : ''
 
   // BiadProductLayout only shows images — skip video URLs that can't render in <Image>.
   const isVideoSrc = (src) => Boolean(src) && /\.(mp4|webm|ogg|mov|avi)(\?|#|$)/i.test(src)
@@ -480,12 +494,16 @@ export default function BiadProductLayout({
                     : 'Add to Cart'}
               </button>
 
-              <button
-                type='button'
-                className='w-full h-12 border border-white/20 bg-transparent text-white text-xs font-black uppercase tracking-[0.2em] hover:border-white/60 hover:bg-white/5 transition'
-              >
-                Buy it Now
-              </button>
+              {isWhatsappBuyEnabled ? (
+                <WhatsAppBuyButton href={whatsappOrderUrl} />
+              ) : (
+                <button
+                  type='button'
+                  className='w-full h-12 border border-white/20 bg-transparent text-white text-xs font-black uppercase tracking-[0.2em] hover:border-white/60 hover:bg-white/5 transition'
+                >
+                  Buy it Now
+                </button>
+              )}
             </div>
 
             {/* Wishlist + Share row */}

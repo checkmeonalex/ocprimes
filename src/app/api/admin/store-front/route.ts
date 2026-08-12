@@ -200,6 +200,7 @@ const updateSchema = z.object({
   storefront_section_order: z.array(z.enum(['banner_grid', 'storefront_filter'])).max(10).optional(),
   storefront_blocks: z.array(storefrontBlockSchema).max(50).optional(),
   social_whatsapp: optionalTrimmedString(30),
+  whatsapp_buy_enabled: z.boolean().optional(),
   social_instagram_url: optionalUrlString(),
   social_instagram_handle: optionalTrimmedString(60),
   social_facebook_url: optionalUrlString(),
@@ -237,6 +238,7 @@ type StoreFrontUpdates = {
   storefront_section_order?: string[]
   storefront_blocks?: Array<{ id: string; type: string; template?: string; config: Record<string, unknown> }>
   social_whatsapp?: string | null
+  whatsapp_buy_enabled?: boolean
   social_instagram_url?: string | null
   social_instagram_handle?: string | null
   social_facebook_url?: string | null
@@ -254,7 +256,7 @@ type StoreFrontUpdates = {
 const LEGACY_UPDATE_FIELDS = new Set(['name', 'slug', 'logo_url'])
 
 const selectColumns =
-  'id, name, slug, description, logo_url, logo_full_url, logo_font, logo_size_desktop, logo_size_mobile, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, collections_menu_mode, banner_grid, storefront_section_order, storefront_blocks, template, social_whatsapp, social_instagram_url, social_instagram_handle, social_facebook_url, social_facebook_handle, social_x_url, social_x_handle, social_twitch_url, social_twitch_handle, social_tiktok_url, social_tiktok_handle, social_pinterest_url, social_pinterest_handle'
+  'id, name, slug, description, logo_url, logo_full_url, logo_font, logo_size_desktop, logo_size_mobile, banner_slider_urls, banner_slider_keys, banner_slider_mobile_urls, banner_slider_mobile_keys, banner_slider_links, storefront_filter_mode, storefront_filter_category_ids, storefront_filter_tag_ids, storefront_filter_title, storefront_filter_product_limit, collections_menu_mode, banner_grid, storefront_section_order, storefront_blocks, template, social_whatsapp, whatsapp_buy_enabled, social_instagram_url, social_instagram_handle, social_facebook_url, social_facebook_handle, social_x_url, social_x_handle, social_twitch_url, social_twitch_handle, social_tiktok_url, social_tiktok_handle, social_pinterest_url, social_pinterest_handle'
 const selectColumnsLegacy = 'id, name, slug, description, logo_url'
 const MISSING_COLUMN_CODE = '42703'
 
@@ -647,6 +649,9 @@ export async function PATCH(request: NextRequest) {
     if (parsed.data[field] !== undefined) {
       updates[field] = parsed.data[field]
     }
+  }
+  if (parsed.data.whatsapp_buy_enabled !== undefined) {
+    updates.whatsapp_buy_enabled = parsed.data.whatsapp_buy_enabled
   }
 
   if (!Object.keys(updates).length) {

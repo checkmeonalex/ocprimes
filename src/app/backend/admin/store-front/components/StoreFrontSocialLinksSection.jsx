@@ -34,6 +34,7 @@ const FIELDS_BY_PLATFORM = {
 function PlatformRow({ platform, brand, isSaving, onSave }) {
   const { Icon, color, label, key: platformKey } = platform;
   const fields = FIELDS_BY_PLATFORM[platformKey];
+  const isWhatsapp = platformKey === 'whatsapp';
   const [open, setOpen] = useState(false);
   const [drafts, setDrafts] = useState(() =>
     Object.fromEntries(fields.map((f) => [f.key, String(brand?.[f.key] || '')])),
@@ -45,6 +46,7 @@ function PlatformRow({ platform, brand, isSaving, onSave }) {
   }, [brand]);
 
   const isConnected = fields.some((f) => String(brand?.[f.key] || '').trim());
+  const isBuyOnWhatsappEnabled = Boolean(brand?.whatsapp_buy_enabled);
 
   const handleSave = async () => {
     const patch = {};
@@ -58,8 +60,13 @@ function PlatformRow({ platform, brand, isSaving, onSave }) {
   const handleRemove = async () => {
     const patch = {};
     fields.forEach((f) => { patch[f.key] = null; });
+    if (isWhatsapp) patch.whatsapp_buy_enabled = false;
     setDrafts(Object.fromEntries(fields.map((f) => [f.key, ''])));
     await onSave(patch);
+  };
+
+  const handleToggleBuyOnWhatsapp = async () => {
+    await onSave({ whatsapp_buy_enabled: !isBuyOnWhatsappEnabled });
   };
 
   return (
@@ -123,6 +130,33 @@ function PlatformRow({ platform, brand, isSaving, onSave }) {
               </button>
             )}
           </div>
+
+          {isWhatsapp && isConnected && (
+            <div className="mt-1 flex items-center justify-between gap-3 rounded-xl border border-emerald-100 bg-emerald-50/60 px-3 py-2.5">
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold text-emerald-900">Buy on WhatsApp</span>
+                <span className="block text-[11px] text-emerald-700/80">
+                  Show an &quot;Order on WhatsApp&quot; button on your product pages.
+                </span>
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={isBuyOnWhatsappEnabled}
+                onClick={handleToggleBuyOnWhatsapp}
+                disabled={isSaving}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:opacity-50 ${
+                  isBuyOnWhatsappEnabled ? 'bg-emerald-500' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow transition ${
+                    isBuyOnWhatsappEnabled ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
