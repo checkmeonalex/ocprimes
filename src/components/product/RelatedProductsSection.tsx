@@ -176,15 +176,15 @@ const RelatedProductsSection = ({
               data-next-navigation='true'
               className='group min-w-0'
             >
-              <div className={`relative h-full min-w-0 overflow-hidden p-2 transition sm:p-3 ${
+              <div className={`relative h-full min-w-0 overflow-hidden transition ${
                 dark ? 'bg-white/[0.04] hover:bg-white/[0.07]' :
                 prestige ? 'bg-white border border-stone-100 hover:border-stone-300' :
                 'bg-white shadow-sm hover:shadow-md'
               }`}>
-                <div className={`relative aspect-[3/4] overflow-hidden border ${
-                  dark ? 'border-white/10 bg-white/10' :
-                  prestige ? 'border-stone-100 bg-[#ede9e3]' :
-                  'border-gray-200 bg-gray-100'
+                <div className={`relative aspect-[3/4] overflow-hidden ${
+                  dark ? 'bg-white/10' :
+                  prestige ? 'bg-[#ede9e3]' :
+                  'bg-gray-100'
                 }`}>
                   {isNewProduct ? (
                     <div className='absolute left-2 top-2 z-10 inline-flex items-center rounded-full bg-yellow-300 px-2.5 py-1 text-[10px] font-semibold text-yellow-900'>
@@ -233,7 +233,7 @@ const RelatedProductsSection = ({
                   </button>
                 </div>
 
-                <div className='mt-2 min-w-0 flex flex-col'>
+                <div className='mt-2 min-w-0 flex flex-col px-2 pb-2 sm:px-3 sm:pb-3'>
                   <h3 className={`line-clamp-2 leading-tight ${
                     dark ? 'text-sm font-semibold text-white' :
                     prestige ? 'text-sm font-light tracking-wide text-stone-800' :
@@ -241,51 +241,27 @@ const RelatedProductsSection = ({
                   }`}>
                     {product.name}
                   </h3>
-                  <div className='mt-1 min-w-0 flex flex-wrap items-baseline gap-1.5'>
-                    <span className={`font-mono text-sm font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
-                      {formatMoney(product.price)}
-                    </span>
-                    {product.originalPrice ? (
-                      <span className={`font-mono text-xs font-normal line-through ${dark ? 'text-white/60' : 'text-gray-400'}`}>
-                        {formatMoney(product.originalPrice)}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className='mt-1 min-h-[18px]'>
-                    {savingsAmount > 0 ? (
-                      <span className={`text-xs font-semibold ${
-                        dark ? 'text-green-400' : prestige ? 'text-emerald-700' : 'text-green-600'
-                      }`}>
-                        Save {formatMoney(savingsAmount)}
-                      </span>
-                    ) : null}
-                  </div>
-                  {showRating ? (
-                    <div className={`mt-1 min-w-0 flex items-center gap-2 text-xs ${
-                      dark ? 'text-white/50' : prestige ? 'text-stone-400' : 'text-gray-500'
-                    }`}>
-                      <Star className='h-4 w-4 text-amber-500 fill-amber-500' />
-                      <span className={`font-semibold ${
-                        dark ? 'text-white/80' : prestige ? 'text-stone-700' : 'text-gray-800'
-                      }`}>
-                        {rating.toFixed(1)}
-                      </span>
-                      {reviews > 0 ? <span>({reviews})</span> : null}
+                  <div className='mt-1 flex items-end justify-between gap-2'>
+                    <div className='min-w-0 flex flex-col'>
+                      <div className='min-w-0 flex flex-wrap items-baseline gap-1.5'>
+                        <span className={`font-mono text-sm font-semibold ${dark ? 'text-white' : 'text-gray-900'}`}>
+                          {formatMoney(product.price)}
+                        </span>
+                        {product.originalPrice ? (
+                          <span className={`font-mono text-xs font-normal line-through ${dark ? 'text-white/60' : 'text-gray-400'}`}>
+                            {formatMoney(product.originalPrice)}
+                          </span>
+                        ) : null}
+                      </div>
+                      {savingsAmount > 0 ? (
+                        <span className={`text-xs font-semibold ${
+                          dark ? 'text-green-400' : prestige ? 'text-emerald-700' : 'text-green-600'
+                        }`}>
+                          Save {formatMoney(savingsAmount)}
+                        </span>
+                      ) : null}
                     </div>
-                  ) : null}
-                  {showLowStockWarning ? (
-                    <div className='mt-1'>
-                      <span className={`flex items-center gap-1 text-xs font-semibold ${
-                        dark ? 'text-orange-400' : prestige ? 'text-amber-700' : 'text-orange-600'
-                      }`}>
-                        <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
-                          <path d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' />
-                        </svg>
-                        Only {stockCount} left in stock
-                      </span>
-                    </div>
-                  ) : null}
-                  <div className='mt-1 flex items-center justify-end gap-2'>
+
                     {quantity > 0 ? (
                       <div className='shrink-0'>
                         <QuantityControl
@@ -330,6 +306,31 @@ const RelatedProductsSection = ({
                       </button>
                     )}
                   </div>
+                  {showRating ? (
+                    <div className={`mt-1 min-w-0 flex items-center gap-2 text-xs ${
+                      dark ? 'text-white/50' : prestige ? 'text-stone-400' : 'text-gray-500'
+                    }`}>
+                      <Star className='h-4 w-4 text-amber-500 fill-amber-500' />
+                      <span className={`font-semibold ${
+                        dark ? 'text-white/80' : prestige ? 'text-stone-700' : 'text-gray-800'
+                      }`}>
+                        {rating.toFixed(1)}
+                      </span>
+                      {reviews > 0 ? <span>({reviews})</span> : null}
+                    </div>
+                  ) : null}
+                  {showLowStockWarning ? (
+                    <div className='mt-1'>
+                      <span className={`flex items-center gap-1 text-xs font-semibold ${
+                        dark ? 'text-orange-400' : prestige ? 'text-amber-700' : 'text-orange-600'
+                      }`}>
+                        <svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2'>
+                          <path d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' />
+                        </svg>
+                        Only {stockCount} left in stock
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </Link>

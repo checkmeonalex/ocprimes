@@ -393,19 +393,6 @@ const ProductCard = ({
 
             {/* Price and Add to Cart */}
             <div className='space-y-1'>
-              <div className='flex flex-col'>
-                <div className='flex flex-wrap items-baseline gap-x-2 gap-y-0.5'>
-                  <span className='font-mono text-sm font-semibold text-gray-900' style={{ fontFeatureSettings: '"tnum"' }}>
-                    {formatMoney(priceValue)}
-                  </span>
-                  {hasDiscount ? (
-                    <span className='font-mono text-xs font-normal text-gray-400 line-through' style={{ fontFeatureSettings: '"tnum"' }}>
-                      {formatMoney(originalPriceValue)}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-
               <ProductDealCountdown
                 variant='card'
                 expiresAt={dealExpiresAt}
@@ -415,26 +402,36 @@ const ProductCard = ({
                 initialStock={initialStockCount}
               />
 
-              <div
-                ref={actionRowRef}
-                className={`flex gap-2 pt-0.5 ${
-                  quantity > 0 && !isOutOfStock && shouldWrapQuantityRow
-                    ? 'flex-wrap items-start'
-                    : 'items-center'
-                }`}
-              >
-                {discountPercentage ? (
-                  <span
-                    className={`font-mono min-w-0 font-normal leading-tight text-green-600 ${
-                      quantity > 0 && !isOutOfStock && shouldWrapQuantityRow
-                        ? 'w-full text-[10px]'
-                        : 'flex-1 whitespace-nowrap text-[10px]'
-                    }`}
-                    style={{ fontFeatureSettings: '"tnum"' }}
-                  >
-                    Save {formatMoney(originalPriceValue - priceValue)}
-                  </span>
-                ) : null}
+              <div className='flex items-end justify-between gap-2'>
+                <div className='flex min-w-0 flex-col gap-0.5'>
+                  <div className='flex flex-wrap items-baseline gap-x-2 gap-y-0.5'>
+                    <span className='font-mono text-sm font-semibold text-gray-900' style={{ fontFeatureSettings: '"tnum"' }}>
+                      {formatMoney(priceValue)}
+                    </span>
+                    {hasDiscount ? (
+                      <span className='font-mono text-xs font-normal text-gray-400 line-through' style={{ fontFeatureSettings: '"tnum"' }}>
+                        {formatMoney(originalPriceValue)}
+                      </span>
+                    ) : null}
+                  </div>
+                  {discountPercentage ? (
+                    <span
+                      className='font-mono min-w-0 whitespace-nowrap font-normal leading-tight text-green-600 text-[10px]'
+                      style={{ fontFeatureSettings: '"tnum"' }}
+                    >
+                      Save {formatMoney(originalPriceValue - priceValue)}
+                    </span>
+                  ) : null}
+                </div>
+
+                <div
+                  ref={actionRowRef}
+                  className={`flex shrink-0 gap-2 ${
+                    quantity > 0 && !isOutOfStock && shouldWrapQuantityRow
+                      ? 'flex-wrap items-end justify-end'
+                      : 'items-center'
+                  }`}
+                >
                 {wishlistMode ? (
                   <button
                     type='button'
@@ -526,6 +523,7 @@ const ProductCard = ({
                     </svg>
                   </button>
                 )}
+                </div>
               </div>
             </div>
           </div>

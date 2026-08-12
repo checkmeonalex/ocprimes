@@ -199,7 +199,7 @@ export default async function ProductPage({
 
   let vendorCategoryTree: Awaited<ReturnType<typeof buildVendorCategoryTree>> = []
   let vendorCollectionsMenuMode: 'grouped' | 'flat' = 'grouped'
-  if (vendorTemplate === 'prestige' && vendorBrand?.slug) {
+  if (vendorTemplate !== 'default' && vendorBrand?.slug) {
     try {
       const [vendorListing, vendorMeta] = await Promise.all([
         fetchProductListingPayload({

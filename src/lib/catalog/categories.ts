@@ -67,6 +67,7 @@ type ProductCategoryRef = {
 type ProductWithCategories = {
   categories?: ProductCategoryRef[]
   primary_category_path?: Array<{ id?: string; label?: string; slug?: string }>
+  image_url?: string | null
 }
 
 type CategoryGraphRow = {
@@ -223,7 +224,9 @@ export type VendorCategoryTreeNode = {
   id: string
   name: string
   slug: string
-  children: { id: string; name: string; slug: string }[]
+  image_url: string
+  image_alt: string
+  children: { id: string; name: string; slug: string; image_url: string; image_alt: string }[]
 }
 
 export const buildVendorCategoryTree = async (
@@ -249,6 +252,30 @@ export const buildVendorCategoryTree = async (
   const ids = Array.from(
     new Set(leafCategories.map((e) => String(e.id || '').trim()).filter(Boolean)),
   )
+
+  // Product images per category id — used as a fallback when a category
+  // (and its ancestors) have no admin-uploaded image. A leaf product may
+  // link to several categories, so every linked category id gets credited
+  // with that product's image.
+  const productImagesByCategoryId = new Map<string, string[]>()
+  products.forEach((item) => {
+    const imageUrl = String(item?.image_url || '').trim()
+    if (!imageUrl) return
+    const linked = Array.isArray(item?.categories) ? item.categories : []
+    linked.forEach((ref) => {
+      const categoryId = String(ref?.id || '').trim()
+      if (!categoryId) return
+      const list = productImagesByCategoryId.get(categoryId) || []
+      list.push(imageUrl)
+      productImagesByCategoryId.set(categoryId, list)
+    })
+  })
+
+  const pickRandomProductImage = (categoryId: string) => {
+    const list = productImagesByCategoryId.get(categoryId)
+    if (!list || !list.length) return ''
+    return list[Math.floor(Math.random() * list.length)]
+  }
 
   const graph = new Map<string, CategoryGraphRow>()
 
@@ -278,8 +305,33 @@ export const buildVendorCategoryTree = async (
     }
   }
 
+  // Resolve a display image for a category: its own admin image, then its
+  // nearest ancestor's admin image, then a random image from a product
+  // actually linked to that category (never an ancestor's products — the
+  // fallback should represent this specific category).
+  const resolveNodeImage = (categoryId: string, chain: CategoryGraphRow[]) => {
+    const ownOrAncestor = chain.find((row) => Boolean(String(row.image_url || '').trim()))
+    if (ownOrAncestor) {
+      return {
+        image_url: String(ownOrAncestor.image_url || '').trim(),
+        image_alt: String(ownOrAncestor.image_alt || '').trim(),
+      }
+    }
+    const productImage = pickRandomProductImage(categoryId)
+    return { image_url: productImage, image_alt: '' }
+  }
+
   // For each leaf, walk up to find root and its direct child toward the leaf
-  type TreeEntry = { rootId: string; rootName: string; rootSlug: string; childId?: string; childName?: string; childSlug?: string }
+  type TreeEntry = {
+    rootId: string
+    rootName: string
+    rootSlug: string
+    rootImage: { image_url: string; image_alt: string }
+    childId?: string
+    childName?: string
+    childSlug?: string
+    childImage?: { image_url: string; image_alt: string }
+  }
   const entries: TreeEntry[] = []
 
   for (const leaf of leafCategories) {
@@ -303,14 +355,20 @@ export const buildVendorCategoryTree = async (
     const root = chain[0]
     // child toward leaf = immediate child of root (index 1), or undefined if leaf IS root
     const directChild = chain.length > 1 ? chain[1] : undefined
+    // Ancestor chain for image lookup: from a given node upward to root (reverse of `chain`,
+    // which is root-first) — e.g. for root itself, just [root]; for directChild, [directChild, root].
+    const rootChain = [root]
+    const childChain = directChild ? [directChild, root] : []
 
     entries.push({
       rootId: root.id,
       rootName: String(root.name || '').trim(),
       rootSlug: String(root.slug || '').trim(),
+      rootImage: resolveNodeImage(root.id, rootChain),
       childId: directChild?.id,
       childName: directChild ? String(directChild.name || '').trim() : undefined,
       childSlug: directChild ? String(directChild.slug || '').trim() : undefined,
+      childImage: directChild ? resolveNodeImage(directChild.id, childChain) : undefined,
     })
   }
 
@@ -320,13 +378,26 @@ export const buildVendorCategoryTree = async (
   for (const entry of entries) {
     if (!entry.rootName) continue
     if (!treeMap.has(entry.rootId)) {
-      treeMap.set(entry.rootId, { id: entry.rootId, name: entry.rootName, slug: entry.rootSlug, children: [] })
+      treeMap.set(entry.rootId, {
+        id: entry.rootId,
+        name: entry.rootName,
+        slug: entry.rootSlug,
+        image_url: entry.rootImage.image_url,
+        image_alt: entry.rootImage.image_alt,
+        children: [],
+      })
     }
     const node = treeMap.get(entry.rootId)!
     if (entry.childId && entry.childName) {
       const alreadyHasChild = node.children.some((c) => c.id === entry.childId)
       if (!alreadyHasChild) {
-        node.children.push({ id: entry.childId, name: entry.childName, slug: entry.childSlug || '' })
+        node.children.push({
+          id: entry.childId,
+          name: entry.childName,
+          slug: entry.childSlug || '',
+          image_url: entry.childImage?.image_url || '',
+          image_alt: entry.childImage?.image_alt || '',
+        })
       }
     }
   }

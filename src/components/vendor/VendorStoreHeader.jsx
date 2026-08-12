@@ -137,10 +137,11 @@ export default function VendorStoreHeader({
       <div style={{ height: HEADER_H }} />
 
       <VendorCollectionsMenu isOpen={isCollectionsOpen} onClose={() => setIsCollectionsOpen(false)}
-        categoryTree={categoryTree} vendorSlug={vendorProfile?.slug}
+        categoryTree={categoryTree} vendorSlug={vendorProfile?.slug} storeName={vendorProfile?.name || ''}
         mode={collectionsMenuMode} activeCategorySlug={activeCategorySlug} />
       <VendorMobileCollectionsDropdown isOpen={isMobileDropdownOpen} onClose={() => setIsMobileDropdownOpen(false)}
-        categoryTree={categoryTree} vendorSlug={vendorProfile?.slug} activeCategorySlug={activeCategorySlug} />
+        categoryTree={categoryTree} vendorSlug={vendorProfile?.slug} storeName={vendorProfile?.name || ''}
+        mode={collectionsMenuMode} activeCategorySlug={activeCategorySlug} />
 
       <VendorFloatingFollow
         vendorName={vendorProfile?.name || ''}

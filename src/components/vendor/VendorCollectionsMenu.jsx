@@ -3,11 +3,81 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
+const getInitials = (name = '') =>
+  String(name || '')
+    .trim()
+    .slice(0, 2)
+    .toUpperCase();
+
+function CategoryAvatar({ name, imageUrl, imageAlt, size = 'sm' }) {
+  const dimension = size === 'lg' ? 'h-16 w-16' : 'h-9 w-9';
+  const textSize = size === 'lg' ? 'text-lg' : 'text-[11px]';
+
+  if (imageUrl) {
+    return (
+      <span className={`relative ${dimension} shrink-0 overflow-hidden rounded-full bg-gray-100`}>
+        <img
+          src={imageUrl}
+          alt={imageAlt || name || ''}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={`flex ${dimension} shrink-0 items-center justify-center rounded-full bg-gray-100 ${textSize} font-bold uppercase text-gray-500`}
+      aria-hidden="true"
+    >
+      {getInitials(name)}
+    </span>
+  );
+}
+
+function CategoryTile({ name, imageUrl, imageAlt, href, active, onClick }) {
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="flex flex-col items-center gap-2 text-center group"
+    >
+      <span
+        className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-gray-100 ring-2 transition sm:h-[72px] sm:w-[72px] ${
+          active ? 'ring-gray-900' : 'ring-transparent group-hover:ring-gray-300'
+        }`}
+      >
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={imageAlt || name || ''}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center text-base font-bold uppercase text-gray-500">
+            {getInitials(name)}
+          </span>
+        )}
+      </span>
+      <span
+        className={`text-[11px] font-semibold leading-tight transition ${
+          active ? 'text-gray-900' : 'text-gray-700 group-hover:text-gray-900'
+        }`}
+      >
+        {name}
+      </span>
+    </Link>
+  );
+}
+
 export default function VendorCollectionsMenu({
   isOpen,
   onClose,
   categoryTree = [],
   vendorSlug,
+  storeName = '',
   mode = 'grouped',
   activeCategorySlug = '',
 }) {
@@ -46,11 +116,11 @@ export default function VendorCollectionsMenu({
   const flatItems = mode === 'flat'
     ? categoryTree.flatMap((node) => {
         if (!node.children || node.children.length === 0) {
-          return [{ type: 'leaf', id: node.id, name: node.name, slug: node.slug }];
+          return [{ type: 'leaf', id: node.id, name: node.name, slug: node.slug, image_url: node.image_url, image_alt: node.image_alt }];
         }
         return [
           { type: 'header', id: `h-${node.id}`, name: node.name, slug: node.slug },
-          ...node.children.map((c) => ({ type: 'child', id: c.id, name: c.name, slug: c.slug })),
+          ...node.children.map((c) => ({ type: 'child', id: c.id, name: c.name, slug: c.slug, image_url: c.image_url, image_alt: c.image_alt })),
         ];
       })
     : [];
@@ -72,35 +142,26 @@ export default function VendorCollectionsMenu({
         role="dialog"
         aria-modal="true"
         aria-label="Collections"
-        className={`fixed top-0 right-0 z-[2147483020] h-full w-72 bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
+        className={`fixed top-0 right-0 z-[2147483020] h-full w-80 bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <span className="text-xs font-bold uppercase tracking-widest text-gray-900">Collections</span>
+        <div className="flex items-center justify-between border-b border-gray-100 bg-[#1a140d] px-5 py-4">
+          <span className="text-sm font-bold uppercase tracking-widest text-white">Menu</span>
+          {storeName ? (
+            <span className="truncate px-3 text-xs font-semibold text-white/50">{storeName}</span>
+          ) : null}
           <button
             onClick={onClose}
             aria-label="Close collections"
-            className="p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition"
+            className="rounded-full p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-
-        {/* Back to home */}
-        <Link
-          href={`/${vendorSlug}`}
-          onClick={onClose}
-          className="flex items-center gap-3 px-5 py-3.5 bg-[#e0f4f4] text-teal-900 text-xs font-semibold uppercase tracking-wider hover:bg-[#c8ecec] transition"
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Home
-        </Link>
 
         {/* Category list */}
         <nav className="flex-1 overflow-y-auto">
@@ -109,6 +170,16 @@ export default function VendorCollectionsMenu({
           ) : mode === 'flat' ? (
             /* ── FLAT MODE ── */
             <ul>
+              <li className="border-b border-gray-100">
+                <Link
+                  href={buildHref('')}
+                  onClick={onClose}
+                  className="flex items-center gap-3 px-5 py-3.5 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+                >
+                  <CategoryAvatar name={storeName || 'Home'} />
+                  Home
+                </Link>
+              </li>
               {flatItems.map((item) => {
                 if (item.type === 'header') {
                   return (
@@ -125,21 +196,18 @@ export default function VendorCollectionsMenu({
                     </li>
                   );
                 }
-                const indent = item.type === 'child' ? 'pl-8' : 'pl-5';
                 return (
                   <li key={item.id} className="border-b border-gray-100 last:border-0">
                     <Link
                       href={buildHref(item.slug)}
                       onClick={onClose}
-                      className={`flex w-full items-center ${indent} pr-5 py-3.5 text-xs font-semibold uppercase tracking-wider transition ${
+                      className={`flex w-full items-center gap-3 pl-8 pr-5 py-3 text-sm font-semibold transition ${
                         isActive(item.slug)
                           ? 'text-black bg-gray-50'
                           : 'text-gray-800 hover:bg-gray-50'
                       }`}
                     >
-                      {isActive(item.slug) && (
-                        <span className="mr-2 h-1.5 w-1.5 rounded-full bg-black flex-shrink-0" />
-                      )}
+                      <CategoryAvatar name={item.name} imageUrl={item.image_url} imageAlt={item.image_alt} />
                       {item.name}
                     </Link>
                   </li>
@@ -149,29 +217,39 @@ export default function VendorCollectionsMenu({
           ) : (
             /* ── GROUPED MODE (drill-down) ── */
             <ul>
+              <li className="border-b border-gray-100">
+                <Link
+                  href={buildHref('')}
+                  onClick={onClose}
+                  className="flex items-center gap-3 px-5 py-3.5 text-sm font-semibold text-gray-800 hover:bg-gray-50"
+                >
+                  <CategoryAvatar name={storeName || 'Home'} />
+                  Home
+                </Link>
+              </li>
               {categoryTree.map((node) => {
                 const hasChildren = node.children && node.children.length > 0;
                 const nodeActive = isActive(node.slug);
                 return (
                   <li key={node.id} className="border-b border-gray-100 last:border-0">
                     {hasChildren ? (
-                      /* Split row: name = link to category, arrow = open sub-panel */
+                      /* Split row: name = link to category, chevron = open sub-panel */
                       <div className={`flex items-center ${nodeActive ? 'bg-gray-50' : ''}`}>
                         <Link
                           href={buildHref(node.slug)}
                           onClick={onClose}
-                          className={`flex flex-1 items-center gap-2 pl-5 py-4 text-xs font-semibold uppercase tracking-wider transition hover:bg-gray-50 ${
+                          className={`flex flex-1 items-center gap-3 pl-5 py-3.5 text-sm font-semibold transition hover:bg-gray-50 ${
                             nodeActive ? 'text-black' : 'text-gray-800'
                           }`}
                         >
-                          {nodeActive && <span className="h-1.5 w-1.5 rounded-full bg-black flex-shrink-0" />}
+                          <CategoryAvatar name={node.name} imageUrl={node.image_url} imageAlt={node.image_alt} />
                           {node.name}
                         </Link>
                         <button
                           type="button"
                           onClick={() => setActiveRoot(node)}
                           aria-label={`See ${node.name} subcategories`}
-                          className="flex h-full items-center px-4 py-4 text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition border-l border-gray-100"
+                          className="flex h-full items-center px-4 py-3.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition border-l border-gray-100"
                         >
                           <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -182,11 +260,11 @@ export default function VendorCollectionsMenu({
                       <Link
                         href={buildHref(node.slug)}
                         onClick={onClose}
-                        className={`flex w-full items-center px-5 py-4 text-xs font-semibold uppercase tracking-wider transition hover:bg-gray-50 ${
+                        className={`flex w-full items-center gap-3 px-5 py-3.5 text-sm font-semibold transition hover:bg-gray-50 ${
                           nodeActive ? 'text-black bg-gray-50' : 'text-gray-800'
                         }`}
                       >
-                        {nodeActive && <span className="mr-2 h-1.5 w-1.5 rounded-full bg-black flex-shrink-0" />}
+                        <CategoryAvatar name={node.name} imageUrl={node.image_url} imageAlt={node.image_alt} />
                         {node.name}
                       </Link>
                     )}
@@ -196,6 +274,19 @@ export default function VendorCollectionsMenu({
             </ul>
           )}
         </nav>
+
+        {/* Region and language footer */}
+        <div className="border-t border-gray-100">
+          <div className="px-5 py-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
+            Region and language
+          </div>
+          <div className="flex items-center justify-between px-5 py-3.5 text-sm font-semibold text-gray-800">
+            <span>USD / EN</span>
+            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </div>
       </div>
 
       {/* Sub-category panel — only shown in grouped mode */}
@@ -204,18 +295,27 @@ export default function VendorCollectionsMenu({
           role="dialog"
           aria-modal="true"
           aria-label={activeRoot ? `${activeRoot.name} subcategories` : 'Subcategories'}
-          className={`fixed top-0 right-0 z-[2147483030] h-full w-72 bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
+          className={`fixed top-0 right-0 z-[2147483030] h-full w-80 bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
             activeRoot ? 'translate-x-0' : 'translate-x-full'
           }`}
         >
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <span className="text-xs font-bold uppercase tracking-widest text-gray-900">
+          <div className="flex items-center gap-2 border-b border-gray-100 bg-[#1a140d] px-3 py-4">
+            <button
+              onClick={() => setActiveRoot(null)}
+              aria-label="Back to collections"
+              className="rounded-full p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <span className="flex-1 truncate text-sm font-bold uppercase tracking-widest text-white">
               {activeRoot?.name || ''}
             </span>
             <button
               onClick={onClose}
               aria-label="Close collections"
-              className="p-1.5 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition"
+              className="rounded-full p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -223,22 +323,24 @@ export default function VendorCollectionsMenu({
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setActiveRoot(null)}
-            className="flex items-center gap-3 px-5 py-3.5 bg-[#e0f4f4] text-teal-900 text-xs font-semibold uppercase tracking-wider hover:bg-[#c8ecec] transition text-left"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Collections
-          </button>
+          {activeRoot?.image_url ? (
+            <Link href={buildHref(activeRoot.slug)} onClick={onClose} className="block">
+              <div className="relative h-32 w-full overflow-hidden bg-gray-100">
+                <img
+                  src={activeRoot.image_url}
+                  alt={activeRoot.image_alt || activeRoot.name || ''}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+            </Link>
+          ) : null}
 
           {activeRoot && (
             <Link
               href={buildHref(activeRoot.slug)}
               onClick={onClose}
-              className={`flex items-center px-5 py-3.5 border-b border-gray-100 text-xs font-semibold uppercase tracking-wider transition ${
+              className={`flex items-center px-5 py-3 border-b border-gray-100 text-xs font-semibold uppercase tracking-wider transition ${
                 isActive(activeRoot.slug) ? 'text-black bg-gray-50' : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
@@ -247,23 +349,20 @@ export default function VendorCollectionsMenu({
             </Link>
           )}
 
-          <nav className="flex-1 overflow-y-auto">
-            <ul>
+          <nav className="flex-1 overflow-y-auto px-5 py-5">
+            <div className="grid grid-cols-3 gap-x-3 gap-y-5">
               {(activeRoot?.children || []).map((child) => (
-                <li key={child.id} className="border-b border-gray-100 last:border-0">
-                  <Link
-                    href={buildHref(child.slug)}
-                    onClick={onClose}
-                    className={`flex w-full items-center px-5 py-4 text-xs font-semibold uppercase tracking-wider transition ${
-                      isActive(child.slug) ? 'text-black bg-gray-50' : 'text-gray-800 hover:bg-gray-50'
-                    }`}
-                  >
-                    {isActive(child.slug) && <span className="mr-2 h-1.5 w-1.5 rounded-full bg-black flex-shrink-0" />}
-                    {child.name}
-                  </Link>
-                </li>
+                <CategoryTile
+                  key={child.id}
+                  name={child.name}
+                  imageUrl={child.image_url}
+                  imageAlt={child.image_alt}
+                  href={buildHref(child.slug)}
+                  active={isActive(child.slug)}
+                  onClick={onClose}
+                />
               ))}
-            </ul>
+            </div>
           </nav>
         </div>
       )}

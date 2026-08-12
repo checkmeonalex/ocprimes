@@ -285,7 +285,7 @@ export default function BiadVendorHeader({
       <div style={{ height: HEADER_H + MARQUEE_H }} />
 
       <VendorCollectionsMenu isOpen={isCollectionsOpen} onClose={() => setIsCollectionsOpen(false)}
-        categoryTree={categoryTree} vendorSlug={vendorProfile?.slug}
+        categoryTree={categoryTree} vendorSlug={vendorProfile?.slug} storeName={storeName}
         mode={collectionsMenuMode} activeCategorySlug={activeCategorySlug} />
 
       <style jsx global>{`

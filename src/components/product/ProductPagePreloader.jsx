@@ -1,73 +1,71 @@
 'use client'
 
+import { BrandLogoFull } from '@/components/common/BrandLogo'
+
+const SkeletonBlock = ({ className = '' }) => (
+  <div className={`animate-pulse rounded-md bg-gray-200/80 ${className}`.trim()} />
+)
+
 export default function ProductPagePreloader({ className = '' }) {
   return (
-    <div className={`flex min-h-[calc(100vh-6rem)] items-center justify-center bg-white lg:min-h-[calc(100vh-6.625rem)] ${className}`.trim()}>
-      <div className='product-route-loader' aria-label='Loading product' role='status' />
-      <style>{`
-        .product-route-loader {
-          position: relative;
-          box-sizing: border-box;
-          width: 120px;
-          height: 120px;
-          border-radius: 50%;
-          border: 4px solid rgba(0, 0, 0, 0.56);
-          filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.62));
-          transform-origin: 50% 50%;
-          transform: perspective(200px) rotateX(66deg);
-          animation: product-loader-wiggle 1.2s infinite;
-        }
+    <div className={`min-h-screen bg-white ${className}`.trim()}>
+      {/* Header skeleton — shows the real site logo (not a placeholder) so
+          nothing appears to "disappear" once the real vendor/site header
+          mounts with resolved data. */}
+      <div className='sticky top-0 z-10 border-b border-gray-200 bg-white'>
+        <div className='mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8'>
+          <SkeletonBlock className='h-6 w-6 rounded sm:hidden' />
+          <BrandLogoFull tone='dark' className='h-auto w-[120px] sm:w-[150px]' />
+          <div className='flex items-center gap-3'>
+            <SkeletonBlock className='h-6 w-6 rounded-full' />
+            <SkeletonBlock className='hidden h-6 w-6 rounded-full sm:block' />
+            <SkeletonBlock className='h-6 w-6 rounded-full' />
+          </div>
+        </div>
+      </div>
 
-        .product-route-loader::before,
-        .product-route-loader::after {
-          content: "";
-          position: absolute;
-          inset: -4px;
-          border-radius: 50%;
-          box-sizing: border-box;
-          border: 4px solid transparent;
-          animation:
-            product-loader-spin 1.2s cubic-bezier(0.6, 0.2, 0, 0.8) infinite,
-            product-loader-fade 1.2s linear infinite;
-        }
+      {/* Body skeleton — mirrors the gallery / product-info split */}
+      <div className='mx-auto grid max-w-7xl gap-6 px-4 py-4 sm:px-6 md:grid-cols-[55%_45%] md:gap-10 lg:px-8 xl:grid-cols-[60%_40%]'>
+        {/* Gallery */}
+        <div className='space-y-3'>
+          <SkeletonBlock className='aspect-[4/5] w-full' />
+          <div className='flex gap-2'>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonBlock key={i} className='h-16 w-16 shrink-0' />
+            ))}
+          </div>
+        </div>
 
-        .product-route-loader::before {
-          border-top-color: #fff;
-          filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.95));
-        }
+        {/* Product info */}
+        <div className='space-y-4 py-2'>
+          <SkeletonBlock className='h-3 w-24' />
+          <SkeletonBlock className='h-6 w-4/5' />
+          <SkeletonBlock className='h-6 w-2/5' />
+          <div className='flex items-center gap-3 pt-1'>
+            <SkeletonBlock className='h-6 w-20' />
+            <SkeletonBlock className='h-5 w-16' />
+          </div>
+          <SkeletonBlock className='h-4 w-32' />
 
-        .product-route-loader::after {
-          border-top-color: rgb(0 0 0);
-          filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.95));
-          animation-delay: 0.4s;
-        }
+          <div className='space-y-2 pt-4'>
+            <SkeletonBlock className='h-3 w-16' />
+            <div className='flex gap-2'>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <SkeletonBlock key={i} className='h-9 w-14' />
+              ))}
+            </div>
+          </div>
 
-        @keyframes product-loader-spin {
-          100% {
-            transform: rotate(360deg);
-          }
-        }
+          <SkeletonBlock className='mt-6 h-11 w-full' />
+          <SkeletonBlock className='h-11 w-full' />
 
-        @keyframes product-loader-fade {
-          25%,
-          75% {
-            opacity: 0.28;
-          }
-          50% {
-            opacity: 1;
-          }
-        }
-
-        @keyframes product-loader-wiggle {
-          0%,
-          100% {
-            transform: perspective(200px) rotateX(66deg) rotateZ(0deg);
-          }
-          50% {
-            transform: perspective(200px) rotateX(66deg) rotateZ(7deg);
-          }
-        }
-      `}</style>
+          <div className='space-y-2 pt-6'>
+            <SkeletonBlock className='h-3 w-full' />
+            <SkeletonBlock className='h-3 w-full' />
+            <SkeletonBlock className='h-3 w-2/3' />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

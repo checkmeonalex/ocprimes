@@ -485,7 +485,6 @@ function ProductContent({
   const template = getTemplate(vendorTemplate)
   const isPrestige = template.config.id !== 'default'
   const isBiad = template.config.id === 'biad'
-  const isPrestigeTemplate = template.config.id === 'prestige'
   const TemplateVendorHeader = template.VendorHeader as unknown as React.ComponentType<any>
   const product: any = useMemo(() => mapApiProduct(initialItem), [initialItem])
 
@@ -1862,8 +1861,8 @@ function ProductContent({
                 isFollowLoading={vendorFollowState.isSaving}
                 canFollow={vendorFollowState.canFollow}
                 canEditStorefront={vendorFollowState.canEditStorefront}
-                categoryTree={isPrestigeTemplate ? vendorCategoryTree : []}
-                showCollectionsMenu={isPrestigeTemplate}
+                categoryTree={isPrestige ? vendorCategoryTree : []}
+                showCollectionsMenu={isPrestige}
                 collectionsMenuMode={vendorCollectionsMenuMode}
                 activeCategorySlug=''
                 searchValue=''
@@ -2330,7 +2329,7 @@ function ProductContent({
 
         {isMobile && (
           <div
-            className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0a0a0a] border-t border-black px-4 py-3 shadow-[0_-6px_20px_rgba(0,0,0,0.15)] transition-all duration-300 ease-out ${
+            className={`lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-3 shadow-[0_-6px_20px_rgba(0,0,0,0.08)] transition-all duration-300 ease-out ${
               shouldShowMobileFloatingCart ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0 pointer-events-none'
             }`}
           >
@@ -2339,13 +2338,13 @@ function ProductContent({
               <button
                 onClick={() => handleAddToCart(displayQuantity)}
                 disabled={isAddToCartLoading}
-                className='flex-1 h-11 bg-white text-[#0a0a0a] text-xs tracking-[0.18em] uppercase font-semibold transition hover:bg-stone-100 disabled:opacity-70 disabled:cursor-not-allowed'
+                className='flex-1 h-11 bg-[#0a0a0a] text-white text-xs tracking-[0.18em] uppercase font-semibold transition hover:bg-gray-900 disabled:opacity-70 disabled:cursor-not-allowed'
               >
                 {isAddToCartLoading ? (
                   <span className='inline-flex items-center gap-1.5 justify-center w-full'>
-                    <span className='h-1.5 w-1.5 rounded-full bg-[#0a0a0a] animate-[oc-dot-bounce_1s_infinite]' />
-                    <span className='h-1.5 w-1.5 rounded-full bg-[#0a0a0a] animate-[oc-dot-bounce_1s_infinite] [animation-delay:120ms]' />
-                    <span className='h-1.5 w-1.5 rounded-full bg-[#0a0a0a] animate-[oc-dot-bounce_1s_infinite] [animation-delay:240ms]' />
+                    <span className='h-1.5 w-1.5 rounded-full bg-white animate-[oc-dot-bounce_1s_infinite]' />
+                    <span className='h-1.5 w-1.5 rounded-full bg-white animate-[oc-dot-bounce_1s_infinite] [animation-delay:120ms]' />
+                    <span className='h-1.5 w-1.5 rounded-full bg-white animate-[oc-dot-bounce_1s_infinite] [animation-delay:240ms]' />
                   </span>
                 ) : ctaLabel}
               </button>
@@ -2409,8 +2408,8 @@ function ProductContent({
             isFollowLoading={vendorFollowState.isSaving}
             canFollow={vendorFollowState.canFollow}
             canEditStorefront={vendorFollowState.canEditStorefront}
-            categoryTree={isPrestigeTemplate ? vendorCategoryTree : []}
-            showCollectionsMenu={isPrestigeTemplate}
+            categoryTree={isPrestige ? vendorCategoryTree : []}
+            showCollectionsMenu={isPrestige}
             collectionsMenuMode={vendorCollectionsMenuMode}
             activeCategorySlug=''
             searchValue=''

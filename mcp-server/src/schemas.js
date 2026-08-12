@@ -295,3 +295,53 @@ export const updateSizeGuideInput = {
 export const deleteSizeGuideInput = {
   id: z.string().uuid().describe('Size guide UUID to delete. Fails if still assigned to a category or product.'),
 }
+
+// ── Shipping / logistics ────────────────────────────────────────────────────
+
+const etaKeyInput = z
+  .enum([
+    'express_2_24_hours',
+    'express_1_3_days',
+    'express_3_7_days',
+    'standard_1_2_days',
+    'standard_1_3_days',
+    'standard_2_5_days',
+    'express',
+    'standard',
+  ])
+  .optional()
+  .describe(
+    'ETA preset shown at checkout. Precise keys: express_2_24_hours (same day), express_1_3_days, express_3_7_days, standard_1_2_days, standard_1_3_days, standard_2_5_days. The loose aliases "standard"/"express" also work and map to a sane default. Omit to keep the current ETA.',
+  )
+
+export const getShippingSettingsInput = {
+  state: z
+    .string()
+    .max(80)
+    .optional()
+    .describe(
+      'Nigerian state to fetch per-city rates for, e.g. "Lagos". Case-insensitive, accepts common abbreviations. Omit to default to the first state — call this first with no state to see the full list of valid state names in the response.',
+    ),
+}
+
+const shippingCityRateInput = z.object({
+  city: z.string().min(1).max(120).describe('City name within the target state, e.g. "Ikeja". Must be a recognized city for that state — call get_shipping_settings first to see valid city names.'),
+  standard_price: z.number().min(0).max(10000000).describe('Standard delivery fee in NGN for this city.'),
+  express_price: z.number().min(0).max(10000000).describe('Express delivery fee in NGN for this city.'),
+  standard_eta_key: etaKeyInput,
+  express_eta_key: etaKeyInput,
+})
+
+export const updateShippingRatesInput = {
+  state: z.string().min(1).max(80).describe('Nigerian state these rates apply to, e.g. "Lagos". Call get_shipping_settings first to confirm the exact state name.'),
+  rates: z
+    .array(shippingCityRateInput)
+    .min(1)
+    .max(60)
+    .describe('One entry per city being updated in this state. Only cities included here are changed — other cities in the state keep their existing rates.'),
+}
+
+export const updateWorldwideShippingFeeInput = {
+  fixed_price_usd: z.number().min(0).max(100000).describe('Flat shipping fee in USD charged for orders shipping outside Nigeria.'),
+  eta_key: etaKeyInput,
+}
