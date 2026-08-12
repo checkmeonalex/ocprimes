@@ -4,6 +4,9 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { buildCanonicalProductSlug, loadPublicProductItem } from '@/lib/catalog/product-route'
 import { DEFAULT_VENDOR_VERIFIED_BADGE_PATH } from '@/lib/catalog/vendor-verification'
 import { getCachedTopCategories } from '@/lib/catalog/top-categories-server'
+import { buildVendorCategoryTree } from '@/lib/catalog/categories'
+import { fetchProductListingPayload } from '@/lib/catalog/product-listing'
+import { fetchBrandBySlugOrId } from '@/lib/catalog/brands'
 import { BRAND_NAME } from '@/lib/brand'
 import { SITE_URL } from '@/lib/seo'
 import ProductContent from './ProductPageClient'
@@ -194,6 +197,26 @@ export default async function ProductPage({
     }
   }
 
+  let vendorCategoryTree: Awaited<ReturnType<typeof buildVendorCategoryTree>> = []
+  let vendorCollectionsMenuMode: 'grouped' | 'flat' = 'grouped'
+  if (vendorTemplate === 'prestige' && vendorBrand?.slug) {
+    try {
+      const [vendorListing, vendorMeta] = await Promise.all([
+        fetchProductListingPayload({
+          vendor: String(vendorBrand.slug),
+          page: 1,
+          perPage: 30,
+          fields: 'card',
+        }),
+        fetchBrandBySlugOrId(String(vendorBrand.slug)),
+      ])
+      vendorCategoryTree = await buildVendorCategoryTree(vendorListing.items)
+      vendorCollectionsMenuMode = vendorMeta?.collections_menu_mode === 'flat' ? 'flat' : 'grouped'
+    } catch {
+      vendorCategoryTree = []
+    }
+  }
+
   const productName = String(initialItem?.name || 'Product').trim()
   const description = buildProductDescription(initialItem)
   const vendorName = String(
@@ -276,6 +299,8 @@ export default async function ProductPage({
         initialItem={initialItem}
         vendorTemplate={vendorTemplate}
         vendorHeaderProfile={vendorHeaderProfile}
+        vendorCategoryTree={vendorCategoryTree}
+        vendorCollectionsMenuMode={vendorCollectionsMenuMode}
         initialAuthUser={initialAuthUser}
         initialTopCategories={initialTopCategories}
       />

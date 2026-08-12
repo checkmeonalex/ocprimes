@@ -466,6 +466,8 @@ type ProductPageClientProps = {
   initialItem: any
   vendorTemplate?: string
   vendorHeaderProfile?: Record<string, any> | null
+  vendorCategoryTree?: any[]
+  vendorCollectionsMenuMode?: 'grouped' | 'flat'
   initialAuthUser?: any
   initialTopCategories?: any[]
 }
@@ -475,12 +477,15 @@ function ProductContent({
   initialItem,
   vendorTemplate = 'default',
   vendorHeaderProfile = null,
+  vendorCategoryTree = [],
+  vendorCollectionsMenuMode = 'grouped',
   initialAuthUser = null,
   initialTopCategories = [],
 }: ProductPageClientProps) {
   const template = getTemplate(vendorTemplate)
   const isPrestige = template.config.id !== 'default'
   const isBiad = template.config.id === 'biad'
+  const isPrestigeTemplate = template.config.id === 'prestige'
   const TemplateVendorHeader = template.VendorHeader as unknown as React.ComponentType<any>
   const product: any = useMemo(() => mapApiProduct(initialItem), [initialItem])
 
@@ -1857,12 +1862,13 @@ function ProductContent({
                 isFollowLoading={vendorFollowState.isSaving}
                 canFollow={vendorFollowState.canFollow}
                 canEditStorefront={vendorFollowState.canEditStorefront}
-                categoryTree={[]}
-                showCollectionsMenu={false}
-                collectionsMenuMode='grouped'
+                categoryTree={isPrestigeTemplate ? vendorCategoryTree : []}
+                showCollectionsMenu={isPrestigeTemplate}
+                collectionsMenuMode={vendorCollectionsMenuMode}
                 activeCategorySlug=''
                 searchValue=''
                 setSearchValue={() => {}}
+                floatingFollowBottomOffset={shouldShowMobileFloatingCart ? 76 : 0}
               />
             )}
 
@@ -2403,12 +2409,13 @@ function ProductContent({
             isFollowLoading={vendorFollowState.isSaving}
             canFollow={vendorFollowState.canFollow}
             canEditStorefront={vendorFollowState.canEditStorefront}
-            categoryTree={[]}
-            showCollectionsMenu={false}
-            collectionsMenuMode='grouped'
+            categoryTree={isPrestigeTemplate ? vendorCategoryTree : []}
+            showCollectionsMenu={isPrestigeTemplate}
+            collectionsMenuMode={vendorCollectionsMenuMode}
             activeCategorySlug=''
             searchValue=''
             setSearchValue={() => {}}
+            floatingFollowBottomOffset={shouldShowMobileFloatingCart ? 76 : 0}
           />
         )}
         <main className={`min-h-screen overflow-x-hidden w-full md:overflow-x-visible ${isBiad ? 'bg-[#0a0a0a]' : 'bg-white'}`}>

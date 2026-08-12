@@ -25,6 +25,7 @@ export default function BiadVendorHeader({
   activeCategorySlug = '',
   searchValue = '',
   setSearchValue,
+  floatingFollowBottomOffset = 0,
 }) {
   const [isCollectionsOpen, setIsCollectionsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -301,6 +302,7 @@ export default function BiadVendorHeader({
         isFollowLoading={isFollowLoading}
         canFollow={canFollow}
         onFollow={onFollow}
+        bottomOffset={floatingFollowBottomOffset}
         social={vendorProfile?.social}
       />
     </>
