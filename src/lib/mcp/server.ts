@@ -30,6 +30,9 @@ import {
   createSizeGuideInput,
   updateSizeGuideInput,
   deleteSizeGuideInput,
+  getShippingSettingsInput,
+  updateShippingRatesInput,
+  updateWorldwideShippingFeeInput,
 } from './schemas'
 
 const storefrontBaseUrl = () => (process.env.APP_BASE_URL || '').replace(/\/+$/, '')
@@ -87,9 +90,9 @@ const adminApiRequest = async (
 
 /**
  * Builds a fresh McpServer per request. Mirrors mcp-server/src/index.js's tool
- * set, except upload_media here takes a URL/base64 (not a local file path,
- * which has no meaning for a remote caller) — keep the two in sync by hand
- * when tools change.
+ * set (including shipping tools), except upload_media here takes a URL/base64
+ * (not a local file path, which has no meaning for a remote caller) — keep
+ * the two in sync by hand when tools change.
  */
 export function createOcprimesMcpServer() {
   const server = new McpServer({ name: 'ocprimes-admin', version: '0.1.0' })
@@ -737,6 +740,99 @@ export function createOcprimesMcpServer() {
         return textResult(
           await adminApiRequest('/api/admin/home', { method: 'PUT', body: { home_blocks: nextBlocks } }),
         )
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'get_shipping_settings',
+    {
+      title: 'Get shipping settings',
+      description:
+        'Fetch shipping configuration: the list of valid Nigerian states, per-city standard/express rates for one state (call with no `state` to see all valid state names plus rates for the first state), the flat worldwide (non-Nigeria) fee, and pickup locations. Call this before update_shipping_rates or update_worldwide_shipping_fee to see current values and valid state/city names.',
+      inputSchema: getShippingSettingsInput,
+    },
+    async ({ state }: any) => {
+      try {
+        const params = new URLSearchParams()
+        if (state) params.set('state', state)
+        return textResult(await adminApiRequest(`/api/admin/logistics-settings?${params.toString()}`))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'update_shipping_rates',
+    {
+      title: 'Update shipping rates for a Nigerian state',
+      description:
+        'Set standard/express delivery fees per city within one Nigerian state. Only the cities listed in `rates` are changed — other cities already saved for that state are left untouched. If a city omits `standard_eta_key`/`express_eta_key`, its existing ETA is preserved (falling back to a default only for a brand-new city). Call get_shipping_settings first to see the state\'s current rates and confirm valid city names.',
+      inputSchema: updateShippingRatesInput,
+    },
+    async ({ state, rates }: any) => {
+      try {
+        const needsEtaLookup = rates.some((rate: any) => !rate.standard_eta_key || !rate.express_eta_key)
+        let existingByCity = new Map<string, any>()
+        if (needsEtaLookup) {
+          const params = new URLSearchParams({ state })
+          const current = await adminApiRequest(`/api/admin/logistics-settings?${params.toString()}`)
+          existingByCity = new Map(
+            (current?.rates || []).map((row: any) => [String(row.city || '').toLowerCase(), row]),
+          )
+        }
+
+        const data = await adminApiRequest('/api/admin/logistics-settings', {
+          method: 'PATCH',
+          body: {
+            scope: 'nigeria',
+            state,
+            rates: rates.map((rate: any) => {
+              const existing = existingByCity.get(String(rate.city || '').toLowerCase())
+              return {
+                city: rate.city,
+                standardPrice: rate.standard_price,
+                expressPrice: rate.express_price,
+                standardEtaKey: rate.standard_eta_key || existing?.standardEtaKey || 'standard_1_3_days',
+                expressEtaKey: rate.express_eta_key || existing?.expressEtaKey || 'express_2_24_hours',
+              }
+            }),
+          },
+        })
+        return textResult(data)
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'update_worldwide_shipping_fee',
+    {
+      title: 'Update the worldwide (non-Nigeria) shipping fee',
+      description:
+        'Set the single flat shipping fee (in USD) charged for orders shipping outside Nigeria. This is one platform-wide value, not per-country. If `eta_key` is omitted, the current ETA is preserved (not reset).',
+      inputSchema: updateWorldwideShippingFeeInput,
+    },
+    async ({ fixed_price_usd, eta_key }: any) => {
+      try {
+        let resolvedEtaKey = eta_key
+        if (!resolvedEtaKey) {
+          const current = await adminApiRequest('/api/admin/logistics-settings?scope=worldwide')
+          resolvedEtaKey = current?.worldwideSettings?.etaKey
+        }
+        const data = await adminApiRequest('/api/admin/logistics-settings', {
+          method: 'PATCH',
+          body: {
+            scope: 'worldwide',
+            fixedPriceUsd: fixed_price_usd,
+            etaKey: resolvedEtaKey,
+          },
+        })
+        return textResult(data)
       } catch (error) {
         return errorResult(error)
       }
