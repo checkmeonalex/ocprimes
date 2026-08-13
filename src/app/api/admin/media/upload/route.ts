@@ -22,6 +22,12 @@ const formSchema = z.object({
   // route's own admin UI (and the app's Store Library) group pushed
   // images by their originating batch, same as the app's Local Library.
   source_batch_id: z.string().max(120).optional(),
+  // The app's own short image id (e.g. IMG-8F42K91). product_images.id
+  // stays the real uuid primary key — this is stored separately purely so
+  // the same id is traceable from local pick/scrape through to the live
+  // store's "Copy IDs" instead of the app showing one id and the site
+  // showing an unrelated generated uuid.
+  local_image_id: z.string().max(60).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -56,6 +62,7 @@ export async function POST(request: NextRequest) {
     alt_text: formData.get('alt_text') || undefined,
     sort_order: formData.get('sort_order') || undefined,
     source_batch_id: formData.get('source_batch_id') || undefined,
+    local_image_id: formData.get('local_image_id') || undefined,
   })
   if (!parsed.success) {
     return jsonError('Invalid metadata.', 400)
@@ -84,15 +91,16 @@ export async function POST(request: NextRequest) {
       alt_text: parsed.data.alt_text || null,
       sort_order: parsed.data.sort_order ?? 0,
       source_batch_id: parsed.data.source_batch_id || null,
+      local_image_id: parsed.data.local_image_id || null,
       created_by: user.id,
     })
-    .select('id, r2_key, url, alt_text, sort_order, product_id, source_batch_id')
+    .select('id, r2_key, url, alt_text, sort_order, product_id, source_batch_id, local_image_id')
     .single()
   if (error) {
     console.error('DB insert failed:', error.message)
     const errorCode = (error as { code?: string })?.code
     if (errorCode === '42703') {
-      return jsonError('Media ownership column missing. Run migration 042_vendor_access.sql or 117_product_images_source_batch.sql.', 500)
+      return jsonError('Media ownership column missing. Run migration 042_vendor_access.sql, 117_product_images_source_batch.sql, or 118_product_images_local_id.sql.', 500)
     }
     return jsonError('Saved file, but DB insert failed.', 500)
   }
@@ -105,6 +113,7 @@ export async function POST(request: NextRequest) {
     sort_order: data?.sort_order ?? 0,
     product_id: data?.product_id || null,
     source_batch_id: data?.source_batch_id || null,
+    local_image_id: data?.local_image_id || null,
   })
   applyCookies(response)
   return response
