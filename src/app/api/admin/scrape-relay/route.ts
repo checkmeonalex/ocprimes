@@ -49,7 +49,18 @@ function zyteRequest(apiKey: string, targetUrl: string) {
     body: JSON.stringify({
       url: targetUrl,
       product: true,
-      productOptions: { extractFrom: 'httpResponseBody' },
+      // extractFrom: "httpResponseBody" (a prior version of this route)
+      // skips JS rendering entirely — fine for simple server-rendered
+      // pages, but silently thin/wrong on JS-heavy ones like AliExpress
+      // (price, full image gallery, and variants only appear after JS
+      // runs). "browserHtml" renders with a headless browser first, then
+      // runs product extraction against the real DOM — this is also
+      // Zyte's own documented default when extractFrom is omitted, so
+      // being explicit here just makes that intent clear rather than
+      // relying on an unstated default. Costs more per request than
+      // httpResponseBody, but correctness matters more than the delta
+      // for a product-import feature.
+      productOptions: { extractFrom: 'browserHtml' },
     }),
   })
 }
