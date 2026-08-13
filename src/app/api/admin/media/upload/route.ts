@@ -17,6 +17,11 @@ const formSchema = z.object({
     (value) => (value === undefined || value === null || value === '' ? undefined : Number(value)),
     z.number().int().min(0).max(1000).optional(),
   ),
+  // Alxora Workplace app's local batch id (see imageStore.js), forwarded
+  // when the app pushes a batch it picked/scraped locally — lets this
+  // route's own admin UI (and the app's Store Library) group pushed
+  // images by their originating batch, same as the app's Local Library.
+  source_batch_id: z.string().max(120).optional(),
 })
 
 export async function POST(request: NextRequest) {
@@ -50,6 +55,7 @@ export async function POST(request: NextRequest) {
     product_id: formData.get('product_id') || undefined,
     alt_text: formData.get('alt_text') || undefined,
     sort_order: formData.get('sort_order') || undefined,
+    source_batch_id: formData.get('source_batch_id') || undefined,
   })
   if (!parsed.success) {
     return jsonError('Invalid metadata.', 400)
@@ -77,15 +83,16 @@ export async function POST(request: NextRequest) {
       url: url,
       alt_text: parsed.data.alt_text || null,
       sort_order: parsed.data.sort_order ?? 0,
+      source_batch_id: parsed.data.source_batch_id || null,
       created_by: user.id,
     })
-    .select('id, r2_key, url, alt_text, sort_order, product_id')
+    .select('id, r2_key, url, alt_text, sort_order, product_id, source_batch_id')
     .single()
   if (error) {
     console.error('DB insert failed:', error.message)
     const errorCode = (error as { code?: string })?.code
     if (errorCode === '42703') {
-      return jsonError('Media ownership column missing. Run migration 042_vendor_access.sql.', 500)
+      return jsonError('Media ownership column missing. Run migration 042_vendor_access.sql or 117_product_images_source_batch.sql.', 500)
     }
     return jsonError('Saved file, but DB insert failed.', 500)
   }
@@ -97,6 +104,7 @@ export async function POST(request: NextRequest) {
     alt_text: data?.alt_text || null,
     sort_order: data?.sort_order ?? 0,
     product_id: data?.product_id || null,
+    source_batch_id: data?.source_batch_id || null,
   })
   applyCookies(response)
   return response
