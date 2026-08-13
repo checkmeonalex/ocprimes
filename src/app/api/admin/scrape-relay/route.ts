@@ -31,8 +31,23 @@ function firecrawlRequest(apiKey: string, targetUrl: string) {
     },
     body: JSON.stringify({
       url: targetUrl,
-      formats: ['markdown', 'html'],
-      onlyMainContent: true,
+      // "product" is Firecrawl's purpose-built, deterministic product
+      // extractor (reads JSON-LD/schema.org/embedded state — no LLM, no
+      // hallucination risk) and is the primary source for title/price/
+      // description/variants/images. "images" is a plain deterministic
+      // list of every image URL on the page, kept as a supplement/
+      // fallback for galleries the structured extractor misses.
+      // "markdown" stays as a last-resort text fallback.
+      //
+      // onlyMainContent: false — the default (true) applies a
+      // headers/nav/footer content filter that was found to also strip
+      // out product image galleries/carousels on real pages (verified:
+      // a Jumia scrape came back with the page's generic meta
+      // description and zero images with onlyMainContent left at its
+      // default). Full page needed so nothing product-relevant gets
+      // filtered out as "chrome".
+      formats: ['markdown', 'images', 'product'],
+      onlyMainContent: false,
     }),
   })
 }
