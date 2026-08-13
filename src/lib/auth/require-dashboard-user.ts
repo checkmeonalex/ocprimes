@@ -4,7 +4,11 @@ import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 import { getMcpServiceUserId, isMcpAdminRequest } from '@/lib/auth/mcp-token'
 
-function isWorkplaceAppRequest(request: NextRequest): boolean {
+// Exported so middleware.ts can exempt Workplace-app requests from its own
+// cookie-based auth gate the same way it already does for isMcpAdminRequest
+// — otherwise middleware 401s these requests before they ever reach this
+// function or the route handler.
+export function isWorkplaceAppRequest(request: NextRequest): boolean {
   const secret = process.env.ALXORA_WORKPLACE_API_TOKEN
   if (!secret) return false
   const header = request.headers.get('x-alxora-workplace-token') || ''
@@ -14,8 +18,10 @@ function isWorkplaceAppRequest(request: NextRequest): boolean {
 // Extracts a bearer token from the Authorization header, if present. Used
 // for the mobile-app auth path below — distinct from isMcpAdminRequest,
 // which compares against a static shared secret rather than verifying a
-// real per-user Supabase session.
-function extractBearerToken(request: NextRequest): string | null {
+// real per-user Supabase session. Exported so middleware.ts can check
+// "is there a bearer token at all" without duplicating the regex — actual
+// verification still only happens here via supabase.auth.getUser().
+export function extractBearerToken(request: NextRequest): string | null {
   const header = request.headers.get('authorization') || ''
   const match = /^Bearer\s+(.+)$/i.exec(header)
   return match ? match[1] : null

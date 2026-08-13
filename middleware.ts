@@ -4,6 +4,7 @@ import { createMiddlewareSupabaseClient } from '@/lib/supabase/middleware'
 import { getUserRoleSafe } from '@/lib/auth/roles'
 import { resolveCustomerRedirect, resolveRequestCustomerDeviceType } from '@/lib/auth/navigation'
 import { isMcpAdminRequest } from '@/lib/auth/mcp-token'
+import { extractBearerToken, isWorkplaceAppRequest } from '@/lib/auth/require-dashboard-user'
 
 const ADMIN_PREFIXES = ['/backend/admin', '/admin', '/api/admin']
 const ADMIN_PUBLIC_PATHS = ['/admin/login', '/admin/signup']
@@ -66,7 +67,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  if (isApiRequest && isMcpAdminRequest(request)) {
+  if (isApiRequest && (isMcpAdminRequest(request) || isWorkplaceAppRequest(request) || extractBearerToken(request))) {
     return NextResponse.next()
   }
 
