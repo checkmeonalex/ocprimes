@@ -1185,7 +1185,6 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
       } else if (stepId === 'commercial') {
         if (!hasValue(form.regular_price || form.price)) missing.push('Base price');
         if (!selectedCategories.length && !pendingCategoryRequestIds.length) missing.push('Category');
-        if (!selectedTags.length) missing.push('Tag');
       } else if (stepId === 'configuration') {
         if (variationEnabled && !variations.length) missing.push('At least one variation');
       } else if (stepId === 'metadata') {
@@ -1194,7 +1193,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
 
       return missing;
     },
-    [form.condition_check, form.image_id, form.name, form.price, form.regular_price, pendingCategoryRequestIds.length, selectedCategories.length, selectedTags.length, variationEnabled, variations.length],
+    [form.condition_check, form.image_id, form.name, form.price, form.regular_price, pendingCategoryRequestIds.length, selectedCategories.length, variationEnabled, variations.length],
   );
   const mobileStepIndex = Math.min(currentStepIndex, MOBILE_STEP_META.length - 1);
   const canDraftSave = Boolean(
@@ -1783,10 +1782,6 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     }
     if (!selectedCategories.length && !pendingCategoryRequestIds.length) {
       setError('Select at least one category or request a new category.');
-      return;
-    }
-    if (!selectedTags.length) {
-      setError('Select at least one tag.');
       return;
     }
     if (!form.condition_check) {
