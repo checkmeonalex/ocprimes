@@ -71,6 +71,27 @@ const decodeListCursor = (cursor: string) => {
   }
 }
 
+// Used instead of encodeListCursor/decodeListCursor when a non-default sort
+// forces offset pagination — the (id, created_at) cursor shape only makes
+// sense for the default created_at-ordered feed, so a sorted "load more"
+// instead just opaquely carries the next page number.
+const encodeOffsetCursor = (page: number) =>
+  Buffer.from(JSON.stringify({ page }), 'utf8').toString('base64')
+
+const decodeOffsetCursor = (cursor: string) => {
+  const raw = String(cursor || '').trim()
+  if (!raw) return null
+  try {
+    const decoded = Buffer.from(raw, 'base64').toString('utf8')
+    const parsed = JSON.parse(decoded)
+    const page = Number(parsed?.page)
+    if (!Number.isFinite(page) || page < 1) return null
+    return { page }
+  } catch {
+    return null
+  }
+}
+
 const buildSearchDisjunction = (term: string) =>
   `or(name.ilike.${term},slug.ilike.${term},sku.ilike.${term})`
 
@@ -339,6 +360,57 @@ const normalizeVariationAttributeKey = (value = '') => {
 }
 
 const normalizeVariationOptionValue = (value = '') => String(value || '').trim().toLowerCase()
+
+const VARIATION_ATTRIBUTE_KEY_ALIASES: Record<string, string[]> = {
+  color: ['color', 'colour'],
+  size: ['size'],
+}
+
+// Filters products by a variation attribute (color/size) that lives in the
+// product_variations.attributes JSONB blob with inconsistent key casing/
+// aliases (color vs colour, pa_color, etc.) — a plain PostgREST eq() on the
+// JSONB path can't reliably match every stored shape, so this pulls
+// candidate rows and matches them in JS using the same normalization
+// deriveOptionsFromVariations/extractVariationValue use for display.
+const fetchPublicProductIdsByVariationAttribute = async ({
+  supabase,
+  attribute,
+  values,
+}: {
+  supabase: any
+  attribute: 'color' | 'size'
+  values: string[]
+}) => {
+  const wantedValues = new Set(
+    values.map((value) => normalizeVariationOptionValue(value)).filter(Boolean),
+  )
+  if (!wantedValues.size) return []
+
+  const attributeKeys = VARIATION_ATTRIBUTE_KEY_ALIASES[attribute] || [attribute]
+
+  const { data, error } = await supabase.from(VARIATIONS_TABLE).select('product_id, attributes')
+  if (error) {
+    console.error('variation attribute lookup failed:', error.message)
+    return []
+  }
+
+  const productIds = new Set<string>()
+  ;(data || []).forEach((row: any) => {
+    const attributes = row?.attributes
+    if (!attributes || typeof attributes !== 'object') return
+    for (const [rawKey, rawValue] of Object.entries(attributes)) {
+      const normalizedKey = normalizeVariationAttributeKey(rawKey)
+      if (!attributeKeys.includes(normalizedKey)) continue
+      const normalizedValue = normalizeVariationOptionValue(String(rawValue ?? ''))
+      if (normalizedValue && wantedValues.has(normalizedValue)) {
+        productIds.add(String(row.product_id))
+      }
+      break
+    }
+  })
+
+  return Array.from(productIds)
+}
 
 const attachPrimaryCategoryPath = async (supabase, item) => {
   if (!item) return item
@@ -670,13 +742,42 @@ export async function listPublicProducts(request: NextRequest) {
     return jsonError('Invalid query.', 400)
   }
 
-  const { page, per_page, cursor, fields, search, category, tag, vendor } = parseResult.data
-  const cursorToken = cursor ? decodeListCursor(cursor) : null
-  if (cursor && !cursorToken) {
-    return jsonError('Invalid cursor.', 400)
+  const {
+    page,
+    per_page,
+    cursor,
+    fields,
+    search,
+    category,
+    tag,
+    vendor,
+    category_ids: categoryIds,
+    vendor_ids: vendorIds,
+    colors,
+    sizes,
+    sort,
+  } = parseResult.data
+  // Non-default sorts change the ORDER BY away from created_at/id, which the
+  // (id, created_at) cursor's comparison logic (buildCursorDisjunction)
+  // assumes — so any sort other than "newest" paginates by page number
+  // instead, opaquely encoded into the same `cursor` field the client
+  // already round-trips.
+  const usesOffsetCursor = Boolean(sort) && sort !== 'newest'
+
+  let cursorToken: { id: string; createdAt: string } | null = null
+  let offsetCursorToken: { page: number } | null = null
+  if (cursor) {
+    if (usesOffsetCursor) {
+      offsetCursorToken = decodeOffsetCursor(cursor)
+      if (!offsetCursorToken) return jsonError('Invalid cursor.', 400)
+    } else {
+      cursorToken = decodeListCursor(cursor)
+      if (!cursorToken) return jsonError('Invalid cursor.', 400)
+    }
   }
   const isCursorPagination = Boolean(cursorToken)
   const pageSize = Math.max(1, Number(per_page) || 12)
+  const effectivePage = offsetCursorToken ? offsetCursorToken.page : page
 
   const signalParse = personalizationSignalsSchema.safeParse(
     Object.fromEntries(request.nextUrl.searchParams.entries()),
@@ -685,16 +786,25 @@ export async function listPublicProducts(request: NextRequest) {
     return jsonError('Invalid personalization signals.', 400)
   }
   const personalizationSignals = toPersonalizationSignals(signalParse.data)
-  const from = (page - 1) * pageSize
+  const from = (effectivePage - 1) * pageSize
   const to = from + pageSize - 1
   const queryLimit = isCursorPagination ? pageSize + 1 : pageSize
 
+  const hasCategoryIds = Array.isArray(categoryIds) && categoryIds.length > 0
+  const hasVendorIds = Array.isArray(vendorIds) && vendorIds.length > 0
+  const hasColors = Array.isArray(colors) && colors.length > 0
+  const hasSizes = Array.isArray(sizes) && sizes.length > 0
+
   let productIds = null
   let skipDb = false
-  if (category || tag || vendor) {
+  if (category || tag || vendor || hasCategoryIds || hasVendorIds || hasColors || hasSizes) {
     let categoryProductIds: string[] | null = null
     let tagProductIds: string[] | null = null
     let vendorProductIds: string[] | null = null
+    let categoryIdsProductIds: string[] | null = null
+    let vendorIdsProductIds: string[] | null = null
+    let colorProductIds: string[] | null = null
+    let sizeProductIds: string[] | null = null
 
     if (category) {
       const categoryId = await resolvePublicTaxonomyIdBySlugOrId({
@@ -738,9 +848,60 @@ export async function listPublicProducts(request: NextRequest) {
       }
     }
 
-    const activeIdLists = [categoryProductIds, tagProductIds, vendorProductIds].filter(
-      (list): list is string[] => Array.isArray(list),
-    )
+    if (hasCategoryIds) {
+      const resolvedIds = await Promise.all(
+        categoryIds!.map((value) =>
+          resolvePublicTaxonomyIdBySlugOrId({ table: CATEGORY_TABLE, value, supabase }),
+        ),
+      )
+      categoryIdsProductIds = await fetchPublicLinkedProductIds({
+        table: CATEGORY_LINKS,
+        column: 'category_id',
+        values: resolvedIds,
+        supabase,
+      })
+    }
+
+    if (hasVendorIds) {
+      const brandIdLists = await Promise.all(
+        vendorIds!.map((value) => resolveVendorBrandIds(supabase, value)),
+      )
+      const brandIds = Array.from(new Set(brandIdLists.flat()))
+      vendorIdsProductIds = brandIds.length
+        ? await fetchPublicLinkedProductIds({
+            table: BRAND_LINKS,
+            column: 'brand_id',
+            values: brandIds,
+            supabase,
+          })
+        : []
+    }
+
+    if (hasColors) {
+      colorProductIds = await fetchPublicProductIdsByVariationAttribute({
+        supabase,
+        attribute: 'color',
+        values: colors!,
+      })
+    }
+
+    if (hasSizes) {
+      sizeProductIds = await fetchPublicProductIdsByVariationAttribute({
+        supabase,
+        attribute: 'size',
+        values: sizes!,
+      })
+    }
+
+    const activeIdLists = [
+      categoryProductIds,
+      tagProductIds,
+      vendorProductIds,
+      categoryIdsProductIds,
+      vendorIdsProductIds,
+      colorProductIds,
+      sizeProductIds,
+    ].filter((list): list is string[] => Array.isArray(list))
 
     if (activeIdLists.length === 1) {
       productIds = activeIdLists[0]
@@ -762,8 +923,18 @@ export async function listPublicProducts(request: NextRequest) {
     .from(PRODUCT_TABLE)
     .select(fields === 'card' ? PRODUCT_LIST_CARD_SELECT : PRODUCT_LIST_FULL_SELECT)
     .eq('status', 'publish')
-    .order('created_at', { ascending: false })
-    .order('id', { ascending: false })
+
+  if (sort === 'price_asc') {
+    query = query.order('price', { ascending: true }).order('id', { ascending: false })
+  } else if (sort === 'price_desc') {
+    query = query.order('price', { ascending: false }).order('id', { ascending: false })
+  } else if (sort === 'name_asc') {
+    query = query.order('name', { ascending: true }).order('id', { ascending: false })
+  } else if (sort === 'name_desc') {
+    query = query.order('name', { ascending: false }).order('id', { ascending: false })
+  } else {
+    query = query.order('created_at', { ascending: false }).order('id', { ascending: false })
+  }
 
   if (productIds) {
     query = query.in('id', productIds)
@@ -834,10 +1005,15 @@ export async function listPublicProducts(request: NextRequest) {
   }
 
   if (!isCursorPagination) {
-    hasMore = totalCount > 0 ? page * pageSize < totalCount : false
+    hasMore = totalCount > 0 ? effectivePage * pageSize < totalCount : false
   }
 
-  const nextCursor = hasMore && pagedData.length ? encodeListCursor(pagedData[pagedData.length - 1]) : ''
+  const nextCursor =
+    hasMore && pagedData.length
+      ? usesOffsetCursor
+        ? encodeOffsetCursor(effectivePage + 1)
+        : encodeListCursor(pagedData[pagedData.length - 1])
+      : ''
 
   const dbItems = await attachRelations(supabase, pagedData ?? [])
   const rankedItems = rankProductsWithSignals(dbItems, personalizationSignals)
@@ -846,8 +1022,8 @@ export async function listPublicProducts(request: NextRequest) {
   const response = jsonOk({
     items: rankedItems,
     pages: totalPages,
-    page: Math.max(1, Number(page) || 1),
-    total_count: isCursorPagination ? null : totalCount || null,
+    page: Math.max(1, Number(effectivePage) || 1),
+    total_count: totalCount || null,
     next_cursor: nextCursor || null,
     has_more: Boolean(hasMore && nextCursor),
   })

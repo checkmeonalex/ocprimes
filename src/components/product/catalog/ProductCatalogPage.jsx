@@ -199,6 +199,10 @@ const ProductCatalogPage = ({
         ? products.length >= PAGE_SIZE
         : false
   )
+  // Total matching the current server-side filters/sort (from the API's
+  // total_count), so "Showing N" reflects the whole catalog, not just
+  // whatever's been loaded into the DOM via infinite scroll.
+  const [serverTotalCount, setServerTotalCount] = useState(null)
   const loadMoreRef = useRef(null)
   const loadMoreAbortRef = useRef(null)
   const vendorSearchAbortRef = useRef(null)
@@ -214,6 +218,7 @@ const ProductCatalogPage = ({
     setLoadedProducts(initial)
     setNextCursor(String(initialNextCursor || '').trim())
     setHasMoreFromServer(initialHasMoreValue)
+    setServerTotalCount(null)
     loadMoreInFlightRef.current = false
   }, [
     products,
@@ -315,9 +320,34 @@ const ProductCatalogPage = ({
       const resolvedSearch = String(search || '').trim()
       if (resolvedSearch) params.set('search', resolvedSearch)
 
+      if (selectedCategories.size) {
+        params.set('category_ids', Array.from(selectedCategories).join(','))
+      }
+      if (selectedVendors.size) {
+        params.set('vendor_ids', Array.from(selectedVendors).join(','))
+      }
+      if (selectedColors.size) {
+        params.set('colors', Array.from(selectedColors).join(','))
+      }
+      if (selectedSizes.size) {
+        params.set('sizes', Array.from(selectedSizes).join(','))
+      }
+      if (sortValue && sortValue !== 'default') {
+        params.set('sort', sortValue)
+      }
+
       return params
     },
-    [listingQuery?.category, listingQuery?.tag, listingQuery?.vendor],
+    [
+      listingQuery?.category,
+      listingQuery?.tag,
+      listingQuery?.vendor,
+      selectedCategories,
+      selectedVendors,
+      selectedColors,
+      selectedSizes,
+      sortValue,
+    ],
   )
 
   const parseListingPagination = useCallback((payload, fallbackLength = 0) => {
@@ -335,11 +365,26 @@ const ProductCatalogPage = ({
     }
   }, [])
 
-  useEffect(() => {
-    if (!vendorProfile) return
+  // True on mount, so the very first render (which already has the correct
+  // SSR-provided `products` for the "no filters selected" state) doesn't
+  // trigger a redundant refetch.
+  const isInitialFilterRenderRef = useRef(true)
+  const hasActiveServerFilters =
+    selectedCategories.size > 0 ||
+    selectedVendors.size > 0 ||
+    selectedColors.size > 0 ||
+    selectedSizes.size > 0 ||
+    (sortValue && sortValue !== 'default')
 
-    const searchQuery = activeStoreSearchQuery
-    if (!searchQuery) {
+  useEffect(() => {
+    if (isInitialFilterRenderRef.current) {
+      isInitialFilterRenderRef.current = false
+      if (!hasActiveServerFilters && !(vendorProfile && activeStoreSearchQuery)) return
+    }
+
+    const searchQuery = vendorProfile ? activeStoreSearchQuery : ''
+
+    if (!hasActiveServerFilters && !searchQuery) {
       const initial = Array.isArray(products) ? products : []
       const initialHasMoreValue =
         typeof initialHasMore === 'boolean'
@@ -349,6 +394,7 @@ const ProductCatalogPage = ({
       setLoadedProducts(initial)
       setNextCursor(String(initialNextCursor || '').trim())
       setHasMoreFromServer(initialHasMoreValue)
+      setServerTotalCount(null)
       setIsSearchingStoreProducts(false)
       setIsLoadingMore(false)
       return
@@ -373,12 +419,16 @@ const ProductCatalogPage = ({
         setLoadedProducts(nextItems)
         setNextCursor(pagination.nextCursor)
         setHasMoreFromServer(pagination.hasMore)
+        setServerTotalCount(
+          typeof payload?.total_count === 'number' ? payload.total_count : null,
+        )
       })
       .catch((error) => {
         if (controller.signal.aborted || error?.name === 'AbortError') return
         setLoadedProducts([])
         setNextCursor('')
         setHasMoreFromServer(false)
+        setServerTotalCount(null)
       })
       .finally(() => {
         if (controller.signal.aborted) return
@@ -390,6 +440,7 @@ const ProductCatalogPage = ({
     }
   }, [
     activeStoreSearchQuery,
+    hasActiveServerFilters,
     buildCatalogParams,
     parseListingPagination,
     vendorProfile,
@@ -579,22 +630,6 @@ const ProductCatalogPage = ({
     })
   }
 
-  const selectedCategoryKeys = useMemo(
-    () => new Set([...selectedCategories].map(normalizeKey)),
-    [selectedCategories]
-  )
-  const selectedVendorKeys = useMemo(
-    () => new Set([...selectedVendors].map(normalizeKey)),
-    [selectedVendors]
-  )
-  const selectedColorKeys = useMemo(
-    () => new Set([...selectedColors].map(normalizeKey)),
-    [selectedColors]
-  )
-  const selectedSizeKeys = useMemo(
-    () => new Set([...selectedSizes].map(normalizeKey)),
-    [selectedSizes]
-  )
   const selectedDynamicKeys = useMemo(() => {
     const map = {}
     dynamicFilterSections.forEach((section) => {
@@ -605,39 +640,12 @@ const ProductCatalogPage = ({
     return map
   }, [dynamicFilterSections, selectedDynamicFilters])
 
+  // Category/vendor/color/size/sort are now applied server-side (see
+  // buildCatalogParams + the refetch effect above), so `normalized` already
+  // only contains matching, correctly-ordered items for those dimensions.
+  // Price range and the dynamic attribute filters stay client-side here.
   const filteredProducts = useMemo(() => {
     return normalized.filter((product) => {
-      if (selectedCategoryKeys.size) {
-        const productCategoryKeys = new Set(
-          getProductCategoryNames(product).map((value) => normalizeKey(value)),
-        )
-        const hasCategoryMatch = [...selectedCategoryKeys].some((value) =>
-          productCategoryKeys.has(value),
-        )
-        if (!hasCategoryMatch) return false
-      }
-
-      const vendorKey = normalizeKey(product.vendor)
-      if (selectedVendorKeys.size && !selectedVendorKeys.has(vendorKey)) {
-        return false
-      }
-
-      if (selectedColorKeys.size) {
-        const productColors = Array.isArray(product.colors) ? product.colors : []
-        const hasMatch = productColors.some((color) =>
-          selectedColorKeys.has(normalizeKey(color))
-        )
-        if (!hasMatch) return false
-      }
-
-      if (selectedSizeKeys.size) {
-        const productSizes = Array.isArray(product.sizes) ? product.sizes : []
-        const hasMatch = productSizes.some((size) =>
-          selectedSizeKeys.has(normalizeKey(size))
-        )
-        if (!hasMatch) return false
-      }
-
       const priceValue = Number(product.price) || 0
       if (priceValue < priceRange.min || priceValue > priceRange.max) {
         return false
@@ -665,44 +673,16 @@ const ProductCatalogPage = ({
     })
   }, [
     normalized,
-    selectedCategoryKeys,
-    selectedVendorKeys,
-    selectedColorKeys,
-    selectedSizeKeys,
     dynamicFilterSections,
     selectedDynamicKeys,
     priceRange.min,
     priceRange.max,
   ])
 
-  const sortedProducts = useMemo(() => {
-    const items = [...filteredProducts]
-    if (sortValue === 'newest') {
-      items.sort((a, b) => {
-        const aTime = new Date(a?.createdAt || 0).getTime()
-        const bTime = new Date(b?.createdAt || 0).getTime()
-        return bTime - aTime
-      })
-      return items
-    }
-    if (sortValue === 'price_asc') {
-      items.sort((a, b) => (Number(a?.price) || 0) - (Number(b?.price) || 0))
-      return items
-    }
-    if (sortValue === 'price_desc') {
-      items.sort((a, b) => (Number(b?.price) || 0) - (Number(a?.price) || 0))
-      return items
-    }
-    if (sortValue === 'name_asc') {
-      items.sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')))
-      return items
-    }
-    if (sortValue === 'name_desc') {
-      items.sort((a, b) => String(b?.name || '').localeCompare(String(a?.name || '')))
-      return items
-    }
-    return items
-  }, [filteredProducts, sortValue])
+  // Sorting is applied server-side; this is a straight pass-through kept so
+  // the rest of the component (counts, grid rendering) doesn't need to
+  // change what array it reads from.
+  const sortedProducts = filteredProducts
 
   const loadMoreFromServer = useCallback(() => {
     const cursor = String(nextCursor || '').trim()
@@ -751,6 +731,9 @@ const ProductCatalogPage = ({
 
         setHasMoreFromServer(pagination.hasMore)
         setNextCursor(pagination.nextCursor)
+        if (typeof payload?.total_count === 'number') {
+          setServerTotalCount(payload.total_count)
+        }
       })
       .catch((error) => {
         if (controller.signal.aborted || error?.name === 'AbortError') return
@@ -962,7 +945,13 @@ const ProductCatalogPage = ({
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const cleanTitle = String(title || '').trim() || 'Products'
   const cleanSubtitle = String(subtitle || '').trim()
-  const showingLabel = formatShowingCount(sortedProducts.length)
+  const hasActiveClientOnlyFilters =
+    hasActivePrice || Object.values(selectedDynamicKeys).some((set) => set.size > 0)
+  const showingCount =
+    !hasActiveClientOnlyFilters && typeof serverTotalCount === 'number'
+      ? serverTotalCount
+      : sortedProducts.length
+  const showingLabel = formatShowingCount(showingCount)
   const activeCategoryName = useMemo(() => {
     if (!activeCategorySlug || !Array.isArray(categoryTree)) return ''
     for (const node of categoryTree) {
@@ -1611,7 +1600,7 @@ const ProductCatalogPage = ({
                 {activeCategoryName || 'All Drops'}
               </h1>
               <p className='mt-3 text-xs font-bold uppercase tracking-[0.2em] text-white/40'>
-                {sortedProducts.length} Products
+                {showingCount} Products
               </p>
             </div>
 
