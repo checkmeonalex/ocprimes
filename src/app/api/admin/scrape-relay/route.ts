@@ -36,8 +36,12 @@ function firecrawlRequest(apiKey: string, targetUrl: string) {
       // hallucination risk) and is the primary source for title/price/
       // description/variants/images. "images" is a plain deterministic
       // list of every image URL on the page, kept as a supplement/
-      // fallback for galleries the structured extractor misses.
-      // "markdown" stays as a last-resort text fallback.
+      // fallback for galleries the structured extractor misses. "html"
+      // is kept too — some sites (verified on Temu) lazy-load gallery
+      // images as CSS background-image / data-src attributes rather than
+      // plain <img src>, which Firecrawl's own "images" format also
+      // misses; the app scans this raw HTML as a last-resort supplement
+      // for exactly that case. "markdown" stays as a text fallback.
       //
       // onlyMainContent: false — the default (true) applies a
       // headers/nav/footer content filter that was found to also strip
@@ -46,7 +50,7 @@ function firecrawlRequest(apiKey: string, targetUrl: string) {
       // description and zero images with onlyMainContent left at its
       // default). Full page needed so nothing product-relevant gets
       // filtered out as "chrome".
-      formats: ['markdown', 'images', 'product'],
+      formats: ['markdown', 'html', 'images', 'product'],
       onlyMainContent: false,
     }),
   })
@@ -76,6 +80,12 @@ function zyteRequest(apiKey: string, targetUrl: string) {
       // httpResponseBody, but correctness matters more than the delta
       // for a product-import feature.
       productOptions: { extractFrom: 'browserHtml' },
+      // Raw rendered HTML alongside the structured product extraction —
+      // some sites (verified on Temu) lazy-load gallery images as CSS
+      // background-image/data-src rather than plain <img src>, which
+      // Zyte's own product.images array can miss; the app scans this as
+      // a last-resort image supplement, same as it does for Firecrawl.
+      browserHtml: true,
     }),
   })
 }
