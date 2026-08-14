@@ -17,6 +17,7 @@ import {
   loadUserProfileBootstrap,
   primeUserProfileBootstrap,
 } from '@/lib/user/profile-bootstrap-client'
+import { useAuthUser } from '@/lib/auth/useAuthUser'
 
 const DEFAULT_COUNTRY = 'Nigeria'
 const INTERNATIONAL_COUNTRY = 'International'
@@ -175,6 +176,7 @@ const CHECKOUT_SELECTION_STORAGE_KEY = 'ocprimes_checkout_selection'
 const ShippingDetailsPage = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user, isLoading: isAuthLoading } = useAuthUser()
   const { formatMoney } = useUserI18n()
   const { items, summary, isReady, isServerReady, updateQuantity, removeItem } = useCart()
   const selectedParamRaw = String(searchParams?.get('selected') || '').trim()
@@ -647,6 +649,15 @@ const ShippingDetailsPage = () => {
   ])
 
   const openAddressModal = () => {
+    if (isAuthLoading) {
+      setAddressError('Checking your account. Please wait a moment.')
+      return
+    }
+    if (!user) {
+      setAddressError('Sign in to add a delivery address.')
+      router.push(`/login?next=${encodeURIComponent('/checkout/shipping')}`)
+      return
+    }
     if (addresses.length >= 5) {
       setAddressError('You can only save up to 5 addresses. Remove one to add another.')
       return
