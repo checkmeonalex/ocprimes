@@ -177,6 +177,14 @@ export const deleteMediaInput = {
   id: z.string().uuid().describe('Media/image UUID to delete (from list_media). Also removes the underlying storage object.'),
 }
 
+export const fetchImageInput = {
+  url: z
+    .string()
+    .url()
+    .max(2000)
+    .describe('Public https URL of an image to fetch and view (e.g. a url from list_media or a product photo link). Not for arbitrary/non-image URLs.'),
+}
+
 export const listOrdersInput = {
   page: z.number().int().min(1).optional(),
   perPage: z.number().int().min(1).max(50).optional(),

@@ -19,6 +19,7 @@ import {
   uploadMediaInput,
   listMediaInput,
   deleteMediaInput,
+  fetchImageInput,
   listOrdersInput,
   getOrderInput,
   updateOrderStatusInput,
@@ -599,6 +600,27 @@ server.registerTool(
     try {
       const data = await adminApiRequest(`/api/admin/media/${id}`, { method: 'DELETE' })
       return textResult(data)
+    } catch (error) {
+      return errorResult(error)
+    }
+  },
+)
+
+server.registerTool(
+  'fetch_image',
+  {
+    title: 'Fetch and view an image',
+    description:
+      'Fetch an image (e.g. a url from list_media, or another https image link) and return it so you can view it directly. Only https URLs to image content are allowed; not a general-purpose URL fetcher.',
+    inputSchema: fetchImageInput,
+  },
+  async ({ url }) => {
+    try {
+      const { mimeType, data } = await adminApiRequest('/api/admin/media/fetch-image', {
+        method: 'POST',
+        body: { url },
+      })
+      return { content: [{ type: 'image', data, mimeType }] }
     } catch (error) {
       return errorResult(error)
     }

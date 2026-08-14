@@ -69,6 +69,7 @@ Add the same shape to `claude_desktop_config.json` under `mcpServers`.
 | `delete_product` | Permanently delete a product |
 | `list_categories` / `list_tags` / `list_brands` | Look up UUIDs to pass into `category_ids`/`tag_ids`/`brand_ids` |
 | `list_media` / `upload_media` | Browse the media library, or upload a local image file (returns an image id for `image_ids`/`main_image_id`) |
+| `fetch_image` | Fetch an https image URL (e.g. from `list_media`) and view it directly |
 | `list_orders` / `get_order` | Browse and inspect customer orders |
 | `update_order_status` | Change an order's status (notifies the customer) |
 | `list_vendors` | List vendors with their `vendor_id` (needed for storefront tools) |
