@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
 
   let query = db
     .from('product_images')
-    .select('id, product_id, r2_key, url, alt_text, sort_order, created_at')
+    .select('id, product_id, r2_key, url, alt_text, sort_order, created_at, local_image_id, source_batch_id')
     .order('created_at', { ascending: false })
     .range(from, to)
   if (isVendor) {

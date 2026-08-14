@@ -446,7 +446,8 @@ export function createOcprimesMcpServer() {
     'list_media',
     {
       title: 'List media library',
-      description: 'List uploaded product images/media, optionally filtered to unattached or stale items.',
+      description:
+        'List uploaded product images/media, optionally filtered to unattached or stale items. Each item includes the site\'s uuid (id) plus, when the image came from the Alxora Workplace app, local_image_id (its IMG-... id) and source_batch_id — use these to match an image back to what the app shows.',
       inputSchema: listMediaInput,
     },
     async ({ page, per_page, filter }: any) => {
