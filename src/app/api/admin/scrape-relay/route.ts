@@ -4,7 +4,7 @@ import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { jsonError, jsonOk } from '@/lib/http/response'
 
 // Thin, stateless relay for the Alxora Workplace app's product-import
-// scraping pipeline (Firecrawl / Zyte API / Bright Data). These vendors
+// scraping pipeline (Firecrawl / Zyte API / Oxylabs). These vendors
 // don't send CORS headers permitting arbitrary browser origins, so a
 // direct call from Expo web fails at the preflight stage — this route
 // exists purely to get around that by making the same call server-to-
@@ -14,12 +14,14 @@ import { jsonError, jsonOk } from '@/lib/http/response'
 // app builds don't strictly need this (no CORS there), but route through
 // it anyway for one consistent code path.
 const bodySchema = z.object({
-  service: z.enum(['firecrawl', 'zyte', 'brightdata']),
+  service: z.enum(['firecrawl', 'zyte', 'oxylabs']),
   apiKey: z.string().min(1),
   url: z.string().url(),
-  // Bright Data's Web Unlocker API requires a zone name in addition to
-  // the API key — irrelevant for the other two services.
-  zone: z.string().optional(),
+  // Oxylabs' Web Scraper API authenticates with a username + password
+  // pair (Basic auth), not a single bearer key — apiKey carries the
+  // username, password carries the password. Irrelevant for the other
+  // two services.
+  password: z.string().optional(),
 })
 
 function firecrawlRequest(apiKey: string, targetUrl: string) {
@@ -90,18 +92,25 @@ function zyteRequest(apiKey: string, targetUrl: string) {
   })
 }
 
-function brightDataRequest(apiKey: string, targetUrl: string, zone: string) {
-  return fetch('https://api.brightdata.com/request', {
+function oxylabsRequest(username: string, password: string, targetUrl: string) {
+  // Oxylabs' Realtime Web Scraper API — source: "universal" works against
+  // any public site, render: "html" runs a headless browser first so
+  // JS-heavy pages (React/Next storefronts, lazy-loaded galleries) come
+  // back fully rendered rather than the pre-JS server HTML. Response body
+  // is { results: [{ content: "<html>...</html>", ... }] } — the raw
+  // rendered HTML, same shape the app's generic HTML fallback parser
+  // already expects from Bright Data's old format:"raw" response.
+  const basic = Buffer.from(`${username}:${password}`).toString('base64')
+  return fetch('https://realtime.oxylabs.io/v1/queries', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Basic ${basic}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      zone,
+      source: 'universal',
       url: targetUrl,
-      format: 'raw',
-      method: 'GET',
+      render: 'html',
     }),
   })
 }
@@ -123,7 +132,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return jsonError('Invalid request.', 400)
   }
-  const { service, apiKey, url, zone } = parsed.data
+  const { service, apiKey, url, password } = parsed.data
 
   try {
     let upstream: Response
@@ -132,8 +141,8 @@ export async function POST(request: NextRequest) {
     } else if (service === 'zyte') {
       upstream = await zyteRequest(apiKey, url)
     } else {
-      if (!zone) return jsonError('Bright Data requires a zone name.', 400)
-      upstream = await brightDataRequest(apiKey, url, zone)
+      if (!password) return jsonError('Oxylabs requires a password in addition to the username.', 400)
+      upstream = await oxylabsRequest(apiKey, password, url)
     }
 
     const text = await upstream.text()
@@ -141,7 +150,9 @@ export async function POST(request: NextRequest) {
     try {
       json = JSON.parse(text)
     } catch {
-      // Bright Data's format:"raw" returns a plain HTML string, not JSON.
+      // Defensive fallback — every current vendor (Firecrawl, Zyte,
+      // Oxylabs) returns real JSON, but keep this so a non-JSON response
+      // still surfaces as usable raw HTML instead of a hard parse error.
       json = { raw: text }
     }
 
