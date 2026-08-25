@@ -54,12 +54,12 @@ export default async function OAuthAuthorizePage({ searchParams }) {
   }
 
   const roleInfo = await getUserRoleInfoSafe(supabase, user.id, user.email || '')
-  if (!roleInfo.isAdmin) {
+  if (!roleInfo.isAdmin && !roleInfo.isVendor) {
     return (
       <div className='mx-auto max-w-md px-6 py-16 text-center'>
         <h1 className='text-xl font-semibold text-gray-900'>Not authorized</h1>
         <p className='mt-2 text-sm text-gray-600'>
-          Only the store admin account can connect this integration.
+          Only admin or vendor accounts can connect this integration.
         </p>
       </div>
     )
@@ -83,13 +83,16 @@ export default async function OAuthAuthorizePage({ searchParams }) {
     )
   }
 
+  const scopeDescription = roleInfo.isAdmin
+    ? 'full admin access to your store — it will be able to view and edit products, orders, and vendor storefronts'
+    : 'access to your own store only — it will be able to view and edit your own products, media, and storefront, exactly as you can from your dashboard. It cannot see or change any other vendor’s data'
+
   return (
     <div className='mx-auto max-w-md px-6 py-16'>
-      <h1 className='text-xl font-semibold text-gray-900'>Connect to OCPrimes admin</h1>
+      <h1 className='text-xl font-semibold text-gray-900'>Connect to OCPrimes</h1>
       <p className='mt-2 text-sm text-gray-600'>
-        <strong>{client.client_name || 'This app'}</strong> is requesting full admin access to
-        your store &mdash; it will be able to view and edit products, orders, and vendor
-        storefronts, signed in as <strong>{user.email}</strong>.
+        <strong>{client.client_name || 'This app'}</strong> is requesting {scopeDescription}, signed
+        in as <strong>{user.email}</strong>.
       </p>
       <form action='/oauth/authorize/approve' method='POST' className='mt-8 flex gap-3'>
         <input type='hidden' name='client_id' value={clientId} />

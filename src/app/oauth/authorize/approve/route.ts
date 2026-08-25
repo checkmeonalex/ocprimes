@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
   }
 
   const roleInfo = await getUserRoleInfoSafe(supabase, user.id, user.email || '')
-  if (!roleInfo.isAdmin) {
+  if (!roleInfo.isAdmin && !roleInfo.isVendor) {
     return new Response('Forbidden.', { status: 403 })
   }
 

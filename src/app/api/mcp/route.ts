@@ -2,8 +2,12 @@ import type { NextRequest } from 'next/server'
 import { timingSafeEqual } from 'crypto'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import { createOcprimesMcpServer } from '@/lib/mcp/server'
+import { createOcprimesVendorMcpServer } from '@/lib/mcp/vendor-server'
 import { isMcpAdminRequest } from '@/lib/auth/mcp-token'
+import { mintMcpUserToken } from '@/lib/auth/mcp-user-token'
 import { verifyOAuthAccessToken } from '@/lib/mcp/verify-oauth-token'
+import { getUserRoleInfoSafe } from '@/lib/auth/roles'
+import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { OAUTH_ISSUER } from '@/lib/mcp/oauth-config'
 
 const safeCompare = (a: string, b: string) => {
@@ -42,25 +46,53 @@ const unauthorized = () =>
     },
   })
 
-async function isAuthorized(request: NextRequest): Promise<boolean> {
-  if (isMcpAdminRequest(request)) return true
+// Resolves who is calling and what server they should get. The static
+// admin token and the URL-token fallback always resolve to the full admin
+// server (matches existing behavior). A verified OAuth token resolves to
+// whichever server matches the REAL signed-in user's role — an admin's
+// OAuth token gets the full admin server, a vendor's gets the small
+// vendor-scoped server, each vendor call carrying that vendor's own
+// identity (never the shared admin secret) into the underlying REST
+// routes. Unauthenticated is null.
+type ResolvedCaller = { kind: 'admin' } | { kind: 'vendor'; userId: string }
+
+async function resolveCaller(request: NextRequest): Promise<ResolvedCaller | null> {
+  if (isMcpAdminRequest(request)) return { kind: 'admin' }
 
   const header = request.headers.get('authorization') || ''
   const match = /^Bearer\s+(.+)$/i.exec(header)
   if (match) {
     const verified = await verifyOAuthAccessToken(match[1])
-    if (verified) return true
+    if (verified) {
+      const db = createAdminSupabaseClient()
+      const roleInfo = await getUserRoleInfoSafe(db, verified.userId, '')
+      if (roleInfo.isAdmin) return { kind: 'admin' }
+      if (roleInfo.isVendor) return { kind: 'vendor', userId: verified.userId }
+      return null
+    }
   }
 
-  return isValidUrlToken(request)
+  if (isValidUrlToken(request)) return { kind: 'admin' }
+
+  return null
 }
 
 async function handle(request: NextRequest) {
-  if (!(await isAuthorized(request))) {
+  const caller = await resolveCaller(request)
+  if (!caller) {
     return unauthorized()
   }
 
-  const server = createOcprimesMcpServer()
+  let server
+  if (caller.kind === 'admin') {
+    server = createOcprimesMcpServer()
+  } else {
+    const userToken = mintMcpUserToken(caller.userId)
+    if (!userToken) {
+      throw new Error('MCP_INTERNAL_SIGNING_SECRET is not configured.')
+    }
+    server = createOcprimesVendorMcpServer(userToken)
+  }
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined, // stateless: each request is independent (serverless-safe)
   })

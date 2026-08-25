@@ -3,6 +3,7 @@ import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import { getUserRoleInfoSafe } from '@/lib/auth/roles'
 import { getMcpServiceUserId, isMcpAdminRequest } from '@/lib/auth/mcp-token'
+import { verifyMcpUserToken } from '@/lib/auth/mcp-user-token'
 
 // Exported so middleware.ts can exempt Workplace-app requests from its own
 // cookie-based auth gate the same way it already does for isMcpAdminRequest
@@ -52,6 +53,36 @@ export async function requireDashboardUser(request: NextRequest) {
     }
   }
 
+  // Vendor-scoped MCP auth path: /api/mcp verifies a vendor's own mcpat_
+  // OAuth token, resolves the real user_id it belongs to, then mints a
+  // short-lived signed internal token (mcpuser_...) carrying that user_id
+  // — never a synthetic admin identity like isMcpAdminRequest. Verifying
+  // the signature here (not trusting the header value directly) proves the
+  // request actually came from our own /api/mcp route, not a forged
+  // header from the vendor's own client. The real role lookup below still
+  // applies, so this can never grant more than the resolved user's actual
+  // isAdmin/isVendor status — it's purely an identity carrier, not a
+  // privilege grant.
+  const bearerToken = extractBearerToken(request)
+  if (bearerToken) {
+    const mcpUserToken = verifyMcpUserToken(bearerToken)
+    if (mcpUserToken) {
+      const adminSupabase = createAdminSupabaseClient()
+      const roleInfo = await getUserRoleInfoSafe(adminSupabase, mcpUserToken.userId, '')
+      const isAdmin = roleInfo.isAdmin
+      const isVendor = roleInfo.isVendor && !isAdmin
+      return {
+        supabase: adminSupabase,
+        applyCookies: () => {},
+        user: { id: mcpUserToken.userId, email: '' } as any,
+        role: roleInfo.role,
+        isAdmin,
+        isVendor,
+        canManageCatalog: isAdmin || isVendor,
+      }
+    }
+  }
+
   // Mobile app (Alxora Workplace) auth path: it holds a real Supabase
   // session (signed in via supabase.auth.signInWithPassword) rather than
   // the dashboard's browser cookies, so it sends its access token as a
@@ -62,7 +93,6 @@ export async function requireDashboardUser(request: NextRequest) {
   // for cookie-authenticated dashboard sessions. Falls through to the
   // cookie path if the header is absent or the token doesn't verify, so
   // existing dashboard behavior is unchanged.
-  const bearerToken = extractBearerToken(request)
   if (bearerToken) {
     const adminSupabase = createAdminSupabaseClient()
     const { data, error } = await adminSupabase.auth.getUser(bearerToken)

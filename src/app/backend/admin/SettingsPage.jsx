@@ -16,6 +16,7 @@ const navItems = [
   { id: 'profile', label: 'Profile' },
   { id: 'security', label: 'Security' },
   { id: 'social', label: 'Social profile' },
+  { id: 'connections', label: 'Connections' },
   { id: 'notifications', label: 'Notifications' },
   { id: 'delete', label: 'Delete account' },
 ]
@@ -94,16 +95,17 @@ const buildSafeProfilePayload = (profile, patch = {}) => {
   }
 }
 
-const sectionTitleClass = 'text-3xl font-semibold tracking-tight text-slate-900'
-const blockTitleClass = 'text-[34px] font-semibold tracking-tight text-slate-900'
+const sectionTitleClass = 'text-3xl font-semibold tracking-tight text-slate-900 dark:text-white'
+const blockTitleClass = 'text-[34px] font-semibold tracking-tight text-slate-900 dark:text-white'
 const inputClass =
-  'h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400'
-const labelClass = 'mb-1.5 block text-xs font-semibold text-slate-500'
-const skeletonClass = 'animate-pulse rounded-xl bg-slate-200/85'
+  'h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-900 outline-none transition focus:border-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white/25'
+const labelClass = 'mb-1.5 block text-xs font-semibold text-slate-500 dark:text-zinc-400'
+const skeletonClass = 'animate-pulse rounded-xl bg-slate-200/85 dark:bg-white/10'
 
 export default function SettingsPage() {
   const pathname = usePathname()
   const router = useRouter()
+  const [isAdmin, setIsAdmin] = useState(false)
   const [activeTab, setActiveTab] = useState('profile')
   const [isLoading, setIsLoading] = useState(true)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
@@ -116,6 +118,7 @@ export default function SettingsPage() {
   const [isProfileQuickMenuOpen, setIsProfileQuickMenuOpen] = useState(false)
   const [mobileSection, setMobileSection] = useState('menu')
   const [expandedMobileMenuSections, setExpandedMobileMenuSections] = useState({})
+  const [mcpUrlCopied, setMcpUrlCopied] = useState(false)
 
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -218,6 +221,24 @@ export default function SettingsPage() {
   }, [])
 
   useEffect(() => {
+    let active = true
+    const loadRole = async () => {
+      try {
+        const response = await fetch('/api/auth/role', { cache: 'no-store', credentials: 'include' })
+        const payload = await response.json().catch(() => null)
+        if (active && response.ok) setIsAdmin(Boolean(payload?.is_admin))
+      } catch {
+        // Non-fatal: admin-only sections just stay hidden.
+      }
+    }
+    loadRole()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isAdmin) return
     let cancelled = false
     const loadSiteSocials = async () => {
       try {
@@ -239,7 +260,7 @@ export default function SettingsPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [isAdmin])
 
   useEffect(() => {
     if (!avatarPreview) return undefined
@@ -520,6 +541,18 @@ export default function SettingsPage() {
     router.push('/login')
   }
 
+  const mcpEndpointUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/mcp` : '/api/mcp'
+
+  const copyMcpUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(mcpEndpointUrl)
+      setMcpUrlCopied(true)
+      setTimeout(() => setMcpUrlCopied(false), 2000)
+    } catch {
+      // Clipboard API unavailable — the URL is still visible to copy manually.
+    }
+  }
+
   const openSectionFromQuickMenu = (sectionId) => {
     setIsProfileQuickMenuOpen(false)
     setActiveTab(sectionId)
@@ -540,27 +573,27 @@ export default function SettingsPage() {
               {mobileSection === 'menu' ? (
                 <>
                   <div className='px-4'>
-                    <h1 className='text-xl font-semibold text-slate-900'>Profile</h1>
+                    <h1 className='text-xl font-semibold text-slate-900 dark:text-white'>Profile</h1>
                   </div>
 
-                  <div className='flex items-center justify-between bg-white px-3 py-3'>
+                  <div className='flex items-center justify-between bg-white px-3 py-3 dark:bg-[#000000]'>
                     <div className='flex min-w-0 items-center gap-3'>
                       {isLoading ? (
                         <>
-                          <div className='h-10 w-10 animate-pulse rounded-full bg-slate-200/85' />
+                          <div className='h-10 w-10 animate-pulse rounded-full bg-slate-200/85 dark:bg-white/10' />
                           <div className='min-w-0 space-y-2'>
-                            <div className='h-3.5 w-28 animate-pulse rounded-md bg-slate-200/85' />
-                            <div className='h-3 w-20 animate-pulse rounded-md bg-slate-200/80' />
+                            <div className='h-3.5 w-28 animate-pulse rounded-md bg-slate-200/85 dark:bg-white/10' />
+                            <div className='h-3 w-20 animate-pulse rounded-md bg-slate-200/80 dark:bg-white/10' />
                           </div>
                         </>
                       ) : (
                         <>
-                          <div className='h-10 w-10 overflow-hidden rounded-full bg-slate-200'>
+                          <div className='h-10 w-10 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10'>
                             {avatarSrc ? <img src={avatarSrc} alt='Profile avatar' className='h-full w-full object-cover' /> : null}
                           </div>
                           <div className='min-w-0'>
-                            <p className='truncate text-sm font-semibold text-slate-900'>{mobileDisplayName || '--'}</p>
-                            <p className='truncate text-xs text-slate-500'>{mobileSubtitle || '--'}</p>
+                            <p className='truncate text-sm font-semibold text-slate-900 dark:text-white'>{mobileDisplayName || '--'}</p>
+                            <p className='truncate text-xs text-slate-500 dark:text-zinc-400'>{mobileSubtitle || '--'}</p>
                           </div>
                         </>
                       )}
@@ -569,7 +602,7 @@ export default function SettingsPage() {
                       type='button'
                       onClick={() => setIsProfileQuickMenuOpen(true)}
                       disabled={isLoading}
-                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-600'
+                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-600 dark:border-white/10 dark:text-zinc-300'
                       aria-label='Edit profile'
                     >
                       <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8'>
@@ -579,11 +612,11 @@ export default function SettingsPage() {
                     </button>
                   </div>
 
-                  <div className='overflow-hidden bg-white'>
+                  <div className='overflow-hidden bg-white dark:bg-[#000000]'>
                     {mobileMenuItems.map((item) => {
                       const isActive = pathname === item.href || pathname?.startsWith(`${item.href}/`)
-                      const rowClass = `flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 ${
-                        isActive ? 'bg-slate-50 text-slate-900' : 'text-slate-700'
+                      const rowClass = `flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 dark:border-white/5 ${
+                        isActive ? 'bg-slate-50 text-slate-900 dark:bg-white/10 dark:text-white' : 'text-slate-700 dark:text-zinc-300'
                       }`
                       return (
                         <Link
@@ -592,7 +625,7 @@ export default function SettingsPage() {
                           className={rowClass}
                         >
                           <span className='font-medium'>{item.label}</span>
-                          <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                          <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400 dark:text-zinc-500' fill='none' stroke='currentColor' strokeWidth='1.8'>
                             <path d='m9 6 6 6-6 6' />
                           </svg>
                         </Link>
@@ -606,16 +639,16 @@ export default function SettingsPage() {
                     const hasMoreItems = section.items.length > 3
 
                     return (
-                      <div key={section.id} className='overflow-hidden bg-white'>
-                        <div className='flex items-center justify-between border-b border-slate-100 px-4 py-3'>
-                          <span className='text-xs font-semibold uppercase tracking-[0.18em] text-slate-400'>
+                      <div key={section.id} className='overflow-hidden bg-white dark:bg-[#000000]'>
+                        <div className='flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-white/5'>
+                          <span className='text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-zinc-500'>
                             {section.title}
                           </span>
                           {hasMoreItems ? (
                             <button
                               type='button'
                               onClick={() => toggleMobileMenuSection(section.id)}
-                              className='inline-flex items-center gap-1 text-xs font-semibold text-slate-500'
+                              className='inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-zinc-400'
                             >
                               <span>{isExpanded ? 'Show less' : 'Show all'}</span>
                               <svg
@@ -636,12 +669,12 @@ export default function SettingsPage() {
                             <Link
                               key={item.href}
                               href={item.href}
-                              className={`flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 ${
-                                isActive ? 'bg-slate-50 text-slate-900' : 'text-slate-700'
+                              className={`flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm last:border-b-0 dark:border-white/5 ${
+                                isActive ? 'bg-slate-50 text-slate-900 dark:bg-white/10 dark:text-white' : 'text-slate-700 dark:text-zinc-300'
                               }`}
                             >
                               <span className='font-medium'>{item.label}</span>
-                              <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                              <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400 dark:text-zinc-500' fill='none' stroke='currentColor' strokeWidth='1.8'>
                                 <path d='m9 6 6 6-6 6' />
                               </svg>
                             </Link>
@@ -651,15 +684,15 @@ export default function SettingsPage() {
                     )
                   })}
 
-                  <div className='overflow-hidden rounded-2xl bg-white'>
+                  <div className='overflow-hidden rounded-2xl bg-white dark:bg-[#000000]'>
                     {mobileSupportItems.map((item) => (
                       <Link
                         key={item.label}
                         href={item.href}
-                        className='flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm text-slate-700 last:border-b-0'
+                        className='flex items-center justify-between border-b border-slate-100 px-4 py-3 text-sm text-slate-700 last:border-b-0 dark:border-white/5 dark:text-zinc-300'
                       >
                         <span className='font-medium'>{item.label}</span>
-                        <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                        <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400 dark:text-zinc-500' fill='none' stroke='currentColor' strokeWidth='1.8'>
                           <path d='m9 6 6 6-6 6' />
                         </svg>
                       </Link>
@@ -667,10 +700,10 @@ export default function SettingsPage() {
                     <button
                       type='button'
                       onClick={() => setIsLogoutConfirmOpen(true)}
-                      className='flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-slate-700'
+                      className='flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-zinc-300'
                     >
                       <span>Log out</span>
-                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400 dark:text-zinc-500' fill='none' stroke='currentColor' strokeWidth='1.8'>
                         <path d='m9 6 6 6-6 6' />
                       </svg>
                     </button>
@@ -684,20 +717,20 @@ export default function SettingsPage() {
                     <button
                       type='button'
                       onClick={() => setMobileSection('menu')}
-                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600'
+                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#000000] dark:text-zinc-300'
                       aria-label='Back'
                     >
                       <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8'>
                         <path d='m15 6-6 6 6 6' />
                       </svg>
                     </button>
-                    <h2 className='text-3xl font-semibold tracking-tight text-slate-900'>Profile</h2>
+                    <h2 className='text-3xl font-semibold tracking-tight text-slate-900 dark:text-white'>Profile</h2>
                   </div>
 
                   {isLoading ? (
                     <div className='space-y-4'>
                       <div className='flex items-center gap-3'>
-                        <div className='h-14 w-14 animate-pulse rounded-full bg-slate-200/85' />
+                        <div className='h-14 w-14 animate-pulse rounded-full bg-slate-200/85 dark:bg-white/10' />
                         <div className='flex-1 space-y-2'>
                           <div className={`h-3.5 w-3/4 ${skeletonClass}`} />
                           <div className={`h-3 w-1/2 ${skeletonClass}`} />
@@ -716,14 +749,14 @@ export default function SettingsPage() {
                   ) : (
                     <>
                       <div className='flex items-center gap-3'>
-                        <div className='h-14 w-14 overflow-hidden rounded-full bg-slate-200'>
+                        <div className='h-14 w-14 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10'>
                           {avatarSrc ? <img src={avatarSrc} alt='Profile avatar' className='h-full w-full object-cover' /> : null}
                         </div>
                         <div>
-                          <p className='text-xs text-slate-500'>
+                          <p className='text-xs text-slate-500 dark:text-zinc-400'>
                             Update your avatar by clicking the image 288x288 px size recommended in PNG or JPG format only.
                           </p>
-                          <label className='mt-2 inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50'>
+                          <label className='mt-2 inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10'>
                             {isUploadingAvatar ? 'Uploading...' : 'Upload avatar'}
                             <input
                               type='file'
@@ -797,9 +830,9 @@ export default function SettingsPage() {
                       >
                         {isSavingProfile ? 'Saving...' : 'Save profile'}
                       </button>
-                      <div className='space-y-3 rounded-2xl border border-rose-200 bg-rose-50/70 p-4'>
-                        <h3 className='text-sm font-semibold text-rose-700'>Delete account</h3>
-                        <p className='text-xs text-rose-600'>
+                      <div className='space-y-3 rounded-2xl border border-rose-200 bg-rose-50/70 p-4 dark:border-rose-900/40 dark:bg-rose-950/20'>
+                        <h3 className='text-sm font-semibold text-rose-700 dark:text-rose-400'>Delete account</h3>
+                        <p className='text-xs text-rose-600 dark:text-rose-400/80'>
                           This is permanent. It removes your account and related data from this platform.
                         </p>
                         <div>
@@ -831,14 +864,14 @@ export default function SettingsPage() {
                     <button
                       type='button'
                       onClick={() => setMobileSection('menu')}
-                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600'
+                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#000000] dark:text-zinc-300'
                       aria-label='Back'
                     >
                       <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8'>
                         <path d='m15 6-6 6 6 6' />
                       </svg>
                     </button>
-                    <h2 className='text-3xl font-semibold tracking-tight text-slate-900'>Security</h2>
+                    <h2 className='text-3xl font-semibold tracking-tight text-slate-900 dark:text-white'>Security</h2>
                   </div>
 
                   <div>
@@ -888,14 +921,14 @@ export default function SettingsPage() {
                     <button
                       type='button'
                       onClick={() => setMobileSection('menu')}
-                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600'
+                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#000000] dark:text-zinc-300'
                       aria-label='Back'
                     >
                       <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8'>
                         <path d='m15 6-6 6 6 6' />
                       </svg>
                     </button>
-                    <h2 className='text-3xl font-semibold tracking-tight text-slate-900'>Social profiles</h2>
+                    <h2 className='text-3xl font-semibold tracking-tight text-slate-900 dark:text-white'>Social profiles</h2>
                   </div>
                   <div className='grid gap-4 sm:grid-cols-2'>
                     <div>
@@ -936,36 +969,36 @@ export default function SettingsPage() {
             </section>
             {isProfileQuickMenuOpen ? (
               <div className='fixed inset-0 z-[72] flex items-end bg-slate-900/40 lg:hidden'>
-                <div className='w-full rounded-t-3xl bg-white px-5 pb-6 pt-4 shadow-[0_-10px_30px_rgba(15,23,42,0.2)]'>
-                  <h3 className='text-center text-lg font-semibold text-slate-900'>Edit profile</h3>
+                <div className='w-full rounded-t-3xl bg-white px-5 pb-6 pt-4 shadow-[0_-10px_30px_rgba(15,23,42,0.2)] dark:bg-[#0a0a0a]'>
+                  <h3 className='text-center text-lg font-semibold text-slate-900 dark:text-white'>Edit profile</h3>
                   <div className='mt-4 space-y-2'>
                     <button
                       type='button'
                       onClick={() => openSectionFromQuickMenu('profile')}
-                      className='flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-800'
+                      className='flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-800 dark:border-white/10 dark:text-zinc-200'
                     >
                       <span>Profile</span>
-                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400 dark:text-zinc-500' fill='none' stroke='currentColor' strokeWidth='1.8'>
                         <path d='m9 6 6 6-6 6' />
                       </svg>
                     </button>
                     <button
                       type='button'
                       onClick={() => openSectionFromQuickMenu('security')}
-                      className='flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-800'
+                      className='flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-800 dark:border-white/10 dark:text-zinc-200'
                     >
                       <span>Security</span>
-                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400 dark:text-zinc-500' fill='none' stroke='currentColor' strokeWidth='1.8'>
                         <path d='m9 6 6 6-6 6' />
                       </svg>
                     </button>
                     <button
                       type='button'
                       onClick={() => openSectionFromQuickMenu('social')}
-                      className='flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-800'
+                      className='flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-800 dark:border-white/10 dark:text-zinc-200'
                     >
                       <span>Social profile</span>
-                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400 dark:text-zinc-500' fill='none' stroke='currentColor' strokeWidth='1.8'>
                         <path d='m9 6 6 6-6 6' />
                       </svg>
                     </button>
@@ -973,7 +1006,7 @@ export default function SettingsPage() {
                   <button
                     type='button'
                     onClick={() => setIsProfileQuickMenuOpen(false)}
-                    className='mt-4 h-11 w-full rounded-full border border-slate-300 text-sm font-semibold text-slate-700'
+                    className='mt-4 h-11 w-full rounded-full border border-slate-300 text-sm font-semibold text-slate-700 dark:border-white/15 dark:text-zinc-200'
                   >
                     Cancel
                   </button>
@@ -982,15 +1015,15 @@ export default function SettingsPage() {
             ) : null}
             {isLogoutConfirmOpen ? (
               <div className='fixed inset-0 z-[70] flex items-end bg-slate-900/40 lg:hidden'>
-                <div className='w-full rounded-t-3xl bg-white px-5 pb-6 pt-4 shadow-[0_-10px_30px_rgba(15,23,42,0.2)]'>
-                  <h3 className='text-center text-lg font-semibold text-slate-900'>Logout</h3>
-                  <div className='my-3 border-t border-slate-200' />
-                  <p className='text-center text-sm text-slate-500'>Are you sure you want to log out?</p>
+                <div className='w-full rounded-t-3xl bg-white px-5 pb-6 pt-4 shadow-[0_-10px_30px_rgba(15,23,42,0.2)] dark:bg-[#0a0a0a]'>
+                  <h3 className='text-center text-lg font-semibold text-slate-900 dark:text-white'>Logout</h3>
+                  <div className='my-3 border-t border-slate-200 dark:border-white/10' />
+                  <p className='text-center text-sm text-slate-500 dark:text-zinc-400'>Are you sure you want to log out?</p>
                   <div className='mt-5 grid grid-cols-2 gap-3'>
                     <button
                       type='button'
                       onClick={() => setIsLogoutConfirmOpen(false)}
-                      className='h-11 rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700'
+                      className='h-11 rounded-full border border-slate-300 bg-white text-sm font-semibold text-slate-700 dark:border-white/15 dark:bg-transparent dark:text-zinc-200'
                     >
                       Cancel
                     </button>
@@ -1007,7 +1040,7 @@ export default function SettingsPage() {
             ) : null}
             <div className='hidden gap-6 lg:grid lg:grid-cols-[220px_minmax(0,1fr)]'>
               <aside className='lg:sticky lg:top-6 lg:self-start'>
-                <div className='space-y-2 rounded-3xl border border-slate-200 bg-white p-3'>
+                <div className='space-y-2 rounded-3xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-[#000000]'>
                   {navItems.map((item) => (
                     <button
                       key={item.id}
@@ -1015,8 +1048,8 @@ export default function SettingsPage() {
                       onClick={() => jumpToSection(item.id)}
                       className={`w-full rounded-full border px-4 py-2 text-left text-sm font-medium transition ${
                         activeTab === item.id
-                          ? 'border-sky-500 bg-sky-50 text-sky-700'
-                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:border-sky-500/60 dark:bg-sky-500/10 dark:text-sky-300'
+                          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:bg-transparent dark:text-zinc-300 dark:hover:bg-white/5'
                       }`}
                     >
                       {item.label}
@@ -1028,11 +1061,11 @@ export default function SettingsPage() {
               <div className='space-y-12'>
                 <div>
                   <h1 className={blockTitleClass}>Account settings</h1>
-                  <p className='mt-2 text-sm text-slate-500'>Manage your profile, security, social links, and notifications.</p>
+                  <p className='mt-2 text-sm text-slate-500 dark:text-zinc-400'>Manage your profile, security, social links, and notifications.</p>
                 </div>
 
-                {error ? <p className='rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700'>{error}</p> : null}
-                {success ? <p className='rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700'>{success}</p> : null}
+                {error ? <p className='rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-400'>{error}</p> : null}
+                {success ? <p className='rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-400'>{success}</p> : null}
 
                 <section id='settings-profile' className='space-y-5'>
                   <h2 className={sectionTitleClass}>Profile</h2>
@@ -1059,14 +1092,14 @@ export default function SettingsPage() {
                   ) : (
                     <>
                       <div className='flex flex-col gap-4 sm:flex-row sm:items-center'>
-                        <div className='h-16 w-16 overflow-hidden rounded-full bg-slate-200'>
+                        <div className='h-16 w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10'>
                           {avatarSrc ? (
                             <img src={avatarSrc} alt='Profile avatar' className='h-full w-full object-cover' />
                           ) : null}
                         </div>
                         <div>
-                          <p className='text-xs text-slate-500'>Update your avatar by clicking the image 288x288 px size recommended in PNG or JPG format only.</p>
-                          <label className='mt-2 inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50'>
+                          <p className='text-xs text-slate-500 dark:text-zinc-400'>Update your avatar by clicking the image 288x288 px size recommended in PNG or JPG format only.</p>
+                          <label className='mt-2 inline-flex cursor-pointer items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10'>
                             {isUploadingAvatar ? 'Uploading...' : 'Upload avatar'}
                             <input
                               type='file'
@@ -1228,66 +1261,99 @@ export default function SettingsPage() {
                   </button>
                 </section>
 
-                <section id='settings-footer-social' className='space-y-4'>
+                {isAdmin ? (
+                  <section id='settings-footer-social' className='space-y-4'>
+                    <div>
+                      <h2 className={sectionTitleClass}>Footer social links</h2>
+                      <p className='mt-1 text-sm text-slate-500'>
+                        Shown in the storefront footer on every page. Leave a field blank to hide that icon.
+                      </p>
+                    </div>
+                    <div className='grid gap-4 sm:grid-cols-2'>
+                      <div>
+                        <label className={labelClass}>Instagram</label>
+                        <input
+                          className={inputClass}
+                          value={siteSocialForm.instagram_url}
+                          onChange={(event) => setSiteSocialForm((prev) => ({ ...prev, instagram_url: event.target.value }))}
+                          placeholder='https://instagram.com/alxora'
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>TikTok</label>
+                        <input
+                          className={inputClass}
+                          value={siteSocialForm.tiktok_url}
+                          onChange={(event) => setSiteSocialForm((prev) => ({ ...prev, tiktok_url: event.target.value }))}
+                          placeholder='https://tiktok.com/@alxora'
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Twitter / X</label>
+                        <input
+                          className={inputClass}
+                          value={siteSocialForm.x_url}
+                          onChange={(event) => setSiteSocialForm((prev) => ({ ...prev, x_url: event.target.value }))}
+                          placeholder='https://x.com/alxora'
+                        />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Facebook</label>
+                        <input
+                          className={inputClass}
+                          value={siteSocialForm.facebook_url}
+                          onChange={(event) => setSiteSocialForm((prev) => ({ ...prev, facebook_url: event.target.value }))}
+                          placeholder='https://facebook.com/alxora'
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type='button'
+                      onClick={saveSiteSocialSection}
+                      disabled={isSavingSiteSocial}
+                      className='rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60'
+                    >
+                      {isSavingSiteSocial ? 'Saving...' : 'Save footer social links'}
+                    </button>
+                  </section>
+                ) : null}
+
+                <section id='settings-connections' className='space-y-4'>
                   <div>
-                    <h2 className={sectionTitleClass}>Footer social links</h2>
-                    <p className='mt-1 text-sm text-slate-500'>
-                      Shown in the storefront footer on every page. Leave a field blank to hide that icon.
+                    <h2 className={sectionTitleClass}>Connections</h2>
+                    <p className='mt-1 text-sm text-slate-500 dark:text-zinc-400'>
+                      Connect an AI tool (like Claude) to your store using this address. You'll sign in and
+                      approve the connection with your own account — it will only ever be able to see and
+                      manage {isAdmin ? 'the full store' : 'your own products, media, and storefront'}, the
+                      same as what you can already do from this dashboard.
                     </p>
                   </div>
-                  <div className='grid gap-4 sm:grid-cols-2'>
-                    <div>
-                      <label className={labelClass}>Instagram</label>
-                      <input
-                        className={inputClass}
-                        value={siteSocialForm.instagram_url}
-                        onChange={(event) => setSiteSocialForm((prev) => ({ ...prev, instagram_url: event.target.value }))}
-                        placeholder='https://instagram.com/alxora'
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>TikTok</label>
-                      <input
-                        className={inputClass}
-                        value={siteSocialForm.tiktok_url}
-                        onChange={(event) => setSiteSocialForm((prev) => ({ ...prev, tiktok_url: event.target.value }))}
-                        placeholder='https://tiktok.com/@alxora'
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Twitter / X</label>
-                      <input
-                        className={inputClass}
-                        value={siteSocialForm.x_url}
-                        onChange={(event) => setSiteSocialForm((prev) => ({ ...prev, x_url: event.target.value }))}
-                        placeholder='https://x.com/alxora'
-                      />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Facebook</label>
-                      <input
-                        className={inputClass}
-                        value={siteSocialForm.facebook_url}
-                        onChange={(event) => setSiteSocialForm((prev) => ({ ...prev, facebook_url: event.target.value }))}
-                        placeholder='https://facebook.com/alxora'
-                      />
-                    </div>
+                  <div className='flex flex-col gap-2 sm:flex-row sm:items-center'>
+                    <input
+                      readOnly
+                      value={mcpEndpointUrl}
+                      onFocus={(event) => event.target.select()}
+                      className={`${inputClass} sm:max-w-md`}
+                    />
+                    <button
+                      type='button'
+                      onClick={copyMcpUrl}
+                      className='h-12 shrink-0 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10'
+                    >
+                      {mcpUrlCopied ? 'Copied!' : 'Copy'}
+                    </button>
                   </div>
-                  <button
-                    type='button'
-                    onClick={saveSiteSocialSection}
-                    disabled={isSavingSiteSocial}
-                    className='rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60'
-                  >
-                    {isSavingSiteSocial ? 'Saving...' : 'Save footer social links'}
-                  </button>
+                  <p className='text-xs text-slate-400 dark:text-zinc-500'>
+                    Paste this address into your AI tool's MCP or connector settings. It will ask you to sign
+                    in here and approve access before it can do anything.
+                  </p>
                 </section>
 
                 <section id='settings-notifications' className='space-y-4'>
                   <h2 className={sectionTitleClass}>Notifications</h2>
                   <div className='space-y-3'>
-                    <label className='flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3'>
-                      <span className='text-sm font-medium text-slate-700'>Email updates</span>
+                    <label className='flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/5'>
+                      <span className='text-sm font-medium text-slate-700 dark:text-zinc-200'>Email updates</span>
                       <input
                         type='checkbox'
                         checked={Boolean(notificationsForm.emailUpdates)}
@@ -1296,8 +1362,8 @@ export default function SettingsPage() {
                         }
                       />
                     </label>
-                    <label className='flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3'>
-                      <span className='text-sm font-medium text-slate-700'>Product review alerts</span>
+                    <label className='flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/5'>
+                      <span className='text-sm font-medium text-slate-700 dark:text-zinc-200'>Product review alerts</span>
                       <input
                         type='checkbox'
                         checked={Boolean(notificationsForm.productReviewAlerts)}
@@ -1306,8 +1372,8 @@ export default function SettingsPage() {
                         }
                       />
                     </label>
-                    <label className='flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3'>
-                      <span className='text-sm font-medium text-slate-700'>Security alerts</span>
+                    <label className='flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-white/5'>
+                      <span className='text-sm font-medium text-slate-700 dark:text-zinc-200'>Security alerts</span>
                       <input
                         type='checkbox'
                         checked={Boolean(notificationsForm.securityAlerts)}
@@ -1329,7 +1395,7 @@ export default function SettingsPage() {
 
                 <section id='settings-delete' className='space-y-4 pb-8'>
                   <h2 className={sectionTitleClass}>Delete account</h2>
-                  <p className='text-sm text-slate-500'>This is permanent. It removes your account and related data from this platform.</p>
+                  <p className='text-sm text-slate-500 dark:text-zinc-400'>This is permanent. It removes your account and related data from this platform.</p>
                   <div className='max-w-sm'>
                     <label className={labelClass}>Type DELETE to confirm</label>
                     <input
