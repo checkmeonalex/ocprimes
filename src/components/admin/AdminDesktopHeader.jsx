@@ -45,6 +45,8 @@ const HEADER_META = [
   { match: '/admin/templates', title: 'Templates', subtitle: 'Pick the look and feel of your store.' },
   { match: '/backend/admin/settings', title: 'Settings', subtitle: 'Configure store and admin preferences' },
   { match: '/admin/settings', title: 'Settings', subtitle: 'Configure store and admin preferences' },
+  { match: '/backend/admin/permissions', title: 'Permissions', subtitle: 'Control what vendors can see' },
+  { match: '/admin/permissions', title: 'Permissions', subtitle: 'Control what vendors can see' },
   { match: '/backend/admin/admin/users', title: 'Admin Users', subtitle: 'Manage administrator access' },
   { match: '/backend/admin/admin/brands', title: 'Admin Brands', subtitle: 'Manage internal brand directory' },
 ];
@@ -70,6 +72,41 @@ export default function AdminDesktopHeader({ noMargin = false }) {
   const profileInitials = getProfileIdentityInitials(profileIdentity?.displayName)
   const profileImageUrl = getProfileIdentityImageUrl(profileIdentity)
   const { isDark, toggleTheme } = useAdminTheme()
+  const [role, setRole] = useState('');
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const profileMenuRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/auth/role', { cache: 'no-store', credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (active && payload?.role) setRole(payload.role);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) setIsProfileMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleProfileSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await fetch('/api/auth/signout', { method: 'POST' });
+    } finally {
+      const destination = role === 'vendor' ? '/vendor/login' : role === 'admin' ? '/admin/login' : '/login';
+      router.push(destination);
+    }
+  };
 
   // --- Global search ---
   const ADMIN_PAGES = [
@@ -173,7 +210,7 @@ export default function AdminDesktopHeader({ noMargin = false }) {
 
   return (
     <header
-      className={`sticky top-0 z-20 hidden border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/75 dark:border-zinc-700/60 dark:bg-[#242426]/95 dark:supports-[backdrop-filter]:bg-[#242426]/90 sm:px-6 lg:flex lg:px-10 ${
+      className={`sticky top-0 z-20 hidden border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/75 dark:border-zinc-700/60 dark:bg-[#0a0a0a]/95 dark:supports-[backdrop-filter]:bg-[#0a0a0a]/90 sm:px-6 lg:flex lg:px-10 ${
         noMargin ? 'mb-0' : 'mb-4'
       }`}
     >
@@ -185,7 +222,7 @@ export default function AdminDesktopHeader({ noMargin = false }) {
 
         <div className="flex min-w-[280px] flex-1 items-center justify-end gap-3">
           <div ref={searchRef} className="relative w-full max-w-[360px]">
-            <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 dark:border-zinc-600/50 dark:bg-[#2c2c2e]">
+            <div className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 dark:border-zinc-600/50 dark:bg-[#141414]">
               {searchLoading ? (
                 <svg viewBox="0 0 24 24" className="h-4 w-4 animate-spin text-slate-400" fill="none" stroke="currentColor" strokeWidth="1.8">
                   <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
@@ -215,7 +252,7 @@ export default function AdminDesktopHeader({ noMargin = false }) {
             </div>
 
             {showDropdown && (
-              <div className="absolute left-0 right-0 top-full z-50 mt-1.5 rounded-2xl border border-slate-200 bg-white shadow-xl flex flex-col max-h-[420px] dark:border-zinc-600/50 dark:bg-[#2c2c2e]">
+              <div className="absolute left-0 right-0 top-full z-50 mt-1.5 rounded-2xl border border-slate-200 bg-white shadow-xl flex flex-col max-h-[420px] dark:border-zinc-600/50 dark:bg-[#141414]">
                 <div className="overflow-y-auto flex-1 min-h-0 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb:hover]:bg-slate-300">
                 {!hasResults && !searchLoading && (
                   <p className="px-4 py-5 text-center text-xs text-slate-400">No results for "{searchQuery}"</p>
@@ -355,15 +392,61 @@ export default function AdminDesktopHeader({ noMargin = false }) {
               </span>
             ) : null}
           </button>
-          <div
-            className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-xs font-semibold text-white"
-            title={profileIdentity?.displayName || 'Admin User'}
-            aria-label={profileIdentity?.displayName || 'Admin User'}
-          >
-            {profileImageUrl ? (
-              <img src={profileImageUrl} alt={profileIdentity.displayName || 'Profile'} className="h-full w-full object-cover" />
-            ) : (
-              profileInitials
+          <div ref={profileMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setIsProfileMenuOpen((open) => !open)}
+              className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-xs font-semibold text-white"
+              title={profileIdentity?.displayName || 'Admin User'}
+              aria-label={profileIdentity?.displayName || 'Admin User'}
+            >
+              {profileImageUrl ? (
+                <img src={profileImageUrl} alt={profileIdentity.displayName || 'Profile'} className="h-full w-full object-cover" />
+              ) : (
+                profileInitials
+              )}
+            </button>
+
+            {isProfileMenuOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-zinc-600/50 dark:bg-[#141414]">
+                <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 dark:border-zinc-700/60">
+                  <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-xs font-semibold text-white">
+                    {profileImageUrl ? (
+                      <img src={profileImageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      profileInitials
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                      {profileIdentity?.displayName || 'Admin User'}
+                    </p>
+                    {profileIdentity?.email && (
+                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">{profileIdentity.email}</p>
+                    )}
+                    {role && (
+                      <span className="mt-1 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                        {role}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setIsProfileMenuOpen(false); router.push('/admin/settings'); }}
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-[#3a3a3c]"
+                >
+                  Settings
+                </button>
+                <button
+                  type="button"
+                  onClick={handleProfileSignOut}
+                  disabled={isSigningOut}
+                  className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-zinc-700/60 dark:hover:bg-red-950/30"
+                >
+                  {isSigningOut ? 'Signing out…' : 'Sign out'}
+                </button>
+              </div>
             )}
           </div>
           <button type="button" onClick={() => router.push('/admin/settings')} aria-label="Settings" className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import useAdminProfileIdentity from '@/components/admin/useAdminProfileIdentity'
 import { getProfileIdentityImageUrl, getProfileIdentityInitials } from '@/lib/user/profile-identity-cache'
@@ -31,6 +31,8 @@ const TITLE_BY_PATH = {
   '/admin/pages/home': 'Home Editor',
   '/backend/admin/pages/home': 'Home Editor',
   '/admin/extra': 'Extra',
+  '/admin/permissions': 'Permissions',
+  '/backend/admin/permissions': 'Permissions',
   '/backend/admin/orders': 'Orders',
   '/backend/admin/messages': 'Messages',
   '/backend/admin/products': 'Products',
@@ -94,6 +96,32 @@ export default function AdminMobileHeader() {
   const profileImageUrl = getProfileIdentityImageUrl(profileIdentity)
   const title = useMemo(() => resolveTitleFromPath(pathname), [pathname])
   const { isDark, toggleTheme } = useAdminTheme()
+  const [role, setRole] = useState('')
+  const [isProfileSheetOpen, setIsProfileSheetOpen] = useState(false)
+  const [isSigningOut, setIsSigningOut] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/auth/role', { cache: 'no-store', credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (active && payload?.role) setRole(payload.role)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const handleProfileSignOut = async () => {
+    setIsSigningOut(true)
+    try {
+      await fetch('/api/auth/signout', { method: 'POST' })
+    } finally {
+      const destination = role === 'vendor' ? '/vendor/login' : role === 'admin' ? '/admin/login' : '/login'
+      router.push(destination)
+    }
+  }
   const isProductEditorRoute = useMemo(() => {
     if (!pathname) return false
     if (pathname === '/backend/admin/products/new' || pathname === '/admin/products/new') return true
@@ -110,7 +138,8 @@ export default function AdminMobileHeader() {
   }
 
   return (
-    <header className='fixed inset-x-0 top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur dark:border-zinc-700/50 dark:bg-[#242426]/95 lg:hidden'>
+    <>
+    <header className='fixed inset-x-0 top-0 z-50 border-b border-slate-200/80 bg-white/95 backdrop-blur dark:border-zinc-700/50 dark:bg-[#0a0a0a]/95 lg:hidden'>
       <div className='mx-auto flex h-12 w-full items-center justify-between px-4'>
         <h1 className='text-xl font-semibold tracking-tight text-slate-900 dark:text-white'>{title}</h1>
         <div className='flex items-center gap-2'>
@@ -167,7 +196,9 @@ export default function AdminMobileHeader() {
             </svg>
             <span className='absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500' />
           </button>
-          <div
+          <button
+            type='button'
+            onClick={() => setIsProfileSheetOpen(true)}
             className='flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-[11px] font-semibold uppercase tracking-[0.04em] text-white dark:bg-slate-700'
             title={profileIdentity?.displayName || 'Admin User'}
             aria-label={profileIdentity?.displayName || 'Admin User'}
@@ -177,9 +208,66 @@ export default function AdminMobileHeader() {
             ) : (
               profileInitials
             )}
-          </div>
+          </button>
         </div>
       </div>
     </header>
+
+    {isProfileSheetOpen ? (
+        <div
+          className='fixed inset-0 z-[9999] flex items-end bg-slate-900/40'
+          onClick={() => setIsProfileSheetOpen(false)}
+        >
+          <div
+            className='w-full rounded-t-3xl bg-white px-5 pb-6 pt-4 shadow-[0_-10px_30px_rgba(15,23,42,0.2)] dark:bg-[#0a0a0a]'
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className='mx-auto mb-3 h-1 w-10 rounded-full bg-slate-200 dark:bg-zinc-700' />
+            <div className='flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-zinc-700/60'>
+              <div className='flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-xs font-semibold text-white dark:bg-slate-700'>
+                {profileImageUrl ? (
+                  <img src={profileImageUrl} alt='' className='h-full w-full object-cover' />
+                ) : (
+                  profileInitials
+                )}
+              </div>
+              <div className='min-w-0'>
+                <p className='truncate text-sm font-semibold text-slate-900 dark:text-white'>
+                  {profileIdentity?.displayName || 'Admin User'}
+                </p>
+                {profileIdentity?.email && (
+                  <p className='truncate text-xs text-slate-500 dark:text-slate-400'>{profileIdentity.email}</p>
+                )}
+                {role && (
+                  <span className='mt-1 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:bg-white/10 dark:text-slate-300'>
+                    {role}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className='mt-3 space-y-2'>
+              <button
+                type='button'
+                onClick={() => { setIsProfileSheetOpen(false); router.push('/admin/settings') }}
+                className='flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-800 dark:border-zinc-700/60 dark:text-slate-200'
+              >
+                <span>Settings</span>
+                <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                  <path d='m9 6 6 6-6 6' />
+                </svg>
+              </button>
+              <button
+                type='button'
+                onClick={handleProfileSignOut}
+                disabled={isSigningOut}
+                className='flex w-full items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 disabled:opacity-60 dark:border-red-900/40 dark:bg-red-950/30'
+              >
+                {isSigningOut ? 'Signing out…' : 'Sign out'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   )
 }
