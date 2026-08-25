@@ -9,9 +9,11 @@
     "userInterfaceStyle": "light",
     "backgroundColor": "#000000",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.alxora.app"
     },
     "android": {
+      "package": "com.alxora.app",
       "adaptiveIcon": {
         "backgroundColor": "#000000",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -36,6 +38,13 @@
         }
       ],
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a61ad1a2-68f6-4ed0-92d5-95f466f78dec"
+      }
+    },
+    "owner": "alx-dev"
   }
 }
