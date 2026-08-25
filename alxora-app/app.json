@@ -37,7 +37,8 @@
           "imageWidth": 220
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font"
     ],
     "extra": {
       "router": {},
