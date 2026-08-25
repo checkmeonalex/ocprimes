@@ -1,6 +1,7 @@
-'use client';
-import CategoryTreePage from '../components/CategoryTreePage';
+import { requireAdminOrPublicPage } from '@/lib/auth/require-page-access'
+import CategoryTreePage from '../components/CategoryTreePage'
 
-export default function AdminCategoriesPage() {
-  return <CategoryTreePage />;
+export default async function AdminCategoriesPage() {
+  await requireAdminOrPublicPage('categories', '/backend/admin/categories')
+  return <CategoryTreePage />
 }

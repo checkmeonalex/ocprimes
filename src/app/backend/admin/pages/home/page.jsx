@@ -1,14 +1,10 @@
-import { redirect } from 'next/navigation'
-import { requireDashboardAccess } from '@/lib/auth/dashboard-access'
+import { requireAdminOrPublicPage } from '@/lib/auth/require-page-access'
 import AdminSidebar from '@/components/AdminSidebar'
 import AdminDesktopHeader from '@/components/admin/AdminDesktopHeader';
 import HomePageEditorClient from './components/HomePageEditorClient'
 
 export default async function AdminHomePageRoute() {
-  const { role } = await requireDashboardAccess('/backend/admin/pages/home')
-  if (role !== 'admin') {
-    redirect('/backend/admin/dashboard')
-  }
+  await requireAdminOrPublicPage('pages', '/backend/admin/pages/home')
 
   return (
     <div className='flex h-screen overflow-hidden bg-slate-50 text-slate-900'>

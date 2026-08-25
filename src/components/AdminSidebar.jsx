@@ -27,6 +27,7 @@ const NAV_GROUPS = [
         href: '/admin/pages',
         icon: 'pages',
         adminOnly: true,
+        navKey: 'pages',
         subItems: [{ label: 'Home', href: '/admin/pages/home' }],
       },
       { label: 'Library', href: '/admin/library', icon: 'library' },
@@ -37,7 +38,7 @@ const NAV_GROUPS = [
     id: 'customers',
     label: 'Customers',
     items: [
-      { label: 'Customers', href: '/admin/customers', icon: 'customers', adminOnly: true },
+      { label: 'Customers', href: '/admin/customers', icon: 'customers', adminOnly: true, navKey: 'customers' },
       { label: 'Reviews', href: '/admin/reviews', icon: 'reviews' },
       { label: 'Messages', href: '/admin/messages', icon: 'messages' },
       { label: 'Notifications', href: '/admin/notifications', icon: 'notifications' },
@@ -47,8 +48,8 @@ const NAV_GROUPS = [
     id: 'catalog',
     label: 'Catalog',
     items: [
-      { label: 'Categories', href: '/admin/categories', icon: 'categories', adminOnly: true },
-      { label: 'Brands', href: '/admin/brands', icon: 'brands', adminOnly: true },
+      { label: 'Categories', href: '/admin/categories', icon: 'categories', adminOnly: true, navKey: 'categories' },
+      { label: 'Brands', href: '/admin/brands', icon: 'brands', adminOnly: true, navKey: 'brands' },
       { label: 'Attributes', href: '/admin/attributes', icon: 'attributes' },
       { label: 'Tags', href: '/admin/tags', icon: 'tags' },
     ],
@@ -58,15 +59,17 @@ const NAV_GROUPS = [
     label: 'Configuration',
     items: [
       { label: 'Settings', href: '/admin/settings', icon: 'settings' },
-      { label: 'Logistics', href: '/admin/logistics', icon: 'logistics', adminOnly: true },
-      { label: 'Extra', href: '/admin/extra', icon: 'extra', adminOnly: true },
+      { label: 'Logistics', href: '/admin/logistics', icon: 'logistics', adminOnly: true, navKey: 'logistics' },
+      { label: 'Extra', href: '/admin/extra', icon: 'extra', adminOnly: true, navKey: 'extra' },
       { label: 'Shortcut', href: '/admin/shortcut', icon: 'shortcut' },
+      { label: 'Permissions', href: '/admin/permissions', icon: 'permissions', adminOnly: true },
     ],
   },
   {
     id: 'platform',
     label: 'Platform',
     adminOnly: true,
+    navKey: 'platform',
     items: [
       { label: 'Manage Sellers', href: '/backend/admin/admin/brands', icon: 'adminBrands' },
     ],
@@ -219,6 +222,13 @@ const NavIcon = ({ icon }) => {
           <path d="M9 12h6" />
         </svg>
       );
+    case 'permissions':
+      return (
+        <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M12 3.5 5 6.5v5c0 4.5 3 7.5 7 9 4-1.5 7-4.5 7-9v-5Z" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="m9.5 12 1.8 1.8 3.2-3.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
     case 'adminUsers':
       return (
         <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -243,6 +253,7 @@ const AdminSidebar = () => {
   const router = useRouter();
   const [expandedItems, setExpandedItems] = useState([]);
   const [role, setRole] = useState('unknown');
+  const [publicNavKeys, setPublicNavKeys] = useState([]);
   const [isMobileDockVisible, setIsMobileDockVisible] = useState(true);
   const profileIdentity = useAdminProfileIdentity();
   const profileInitials = getProfileIdentityInitials(profileIdentity?.displayName);
@@ -261,6 +272,7 @@ const AdminSidebar = () => {
         const payload = await response.json().catch(() => null);
         if (!isMounted) return;
         if (!response.ok) { setRole('unknown'); return; }
+        setPublicNavKeys(Array.isArray(payload?.public_nav_keys) ? payload.public_nav_keys : []);
         if (payload?.is_admin) { setRole('admin'); return; }
         if (payload?.is_vendor) { setRole('vendor'); return; }
         setRole(payload?.role === 'admin' || payload?.role === 'vendor' ? payload.role : 'unknown');
@@ -296,11 +308,13 @@ const AdminSidebar = () => {
 
   const visibleGroups = useMemo(() => {
     if (role === 'admin') return NAV_GROUPS;
+    const publicKeySet = new Set(publicNavKeys);
+    const isAllowed = (navKey, adminOnly) => !adminOnly || (navKey && publicKeySet.has(navKey));
     return NAV_GROUPS
-      .filter((g) => !g.adminOnly)
-      .map((g) => ({ ...g, items: g.items.filter((item) => !item.adminOnly) }))
+      .filter((g) => isAllowed(g.navKey, g.adminOnly))
+      .map((g) => ({ ...g, items: g.items.filter((item) => isAllowed(item.navKey, item.adminOnly)) }))
       .filter((g) => g.items.length > 0);
-  }, [role]);
+  }, [role, publicNavKeys]);
 
   const activeKey = useMemo(() => {
     if (pathname?.startsWith('/backend/admin/orders')) return 'orders';
@@ -320,7 +334,7 @@ const AdminSidebar = () => {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-[240px] flex-col border-r border-slate-200 bg-white px-3 py-4 dark:border-zinc-700/40 dark:bg-[#242426] lg:flex">
+      <aside className="sticky top-0 hidden h-screen w-[240px] flex-col border-r border-slate-200 bg-white px-3 py-4 dark:border-zinc-700/40 dark:bg-[#0a0a0a] lg:flex">
         {/* Store identity */}
         <Link
           href="/"
@@ -331,7 +345,7 @@ const AdminSidebar = () => {
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">Alxora</p>
-            <p className="text-[10px] font-medium text-slate-400 dark:text-white/35">Admin panel</p>
+            <p className="text-[10px] font-medium text-slate-400 dark:text-white/70">Admin panel</p>
           </div>
         </Link>
 
@@ -340,7 +354,7 @@ const AdminSidebar = () => {
           {visibleGroups.map((group, groupIndex) => (
             <div key={group.id} className={groupIndex > 0 ? 'mt-4' : ''}>
               {group.label && (
-                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/30">
+                <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400 dark:text-white/60">
                   {group.label}
                 </p>
               )}
@@ -355,7 +369,7 @@ const AdminSidebar = () => {
                           className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm font-medium transition ${
                             isItemActive(item.href) || expandedItems.includes(item.href)
                               ? 'bg-slate-900 text-white dark:bg-white/10 dark:text-white'
-                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-white/50 dark:hover:bg-white/[0.06] dark:hover:text-white/90'
+                              : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-white/85 dark:hover:bg-white/[0.08] dark:hover:text-white'
                           }`}
                         >
                           <span className="flex items-center gap-3">
@@ -381,7 +395,7 @@ const AdminSidebar = () => {
                                 className={`block rounded-md px-2 py-1.5 text-xs font-medium transition ${
                                   isItemActive(subItem.href)
                                     ? 'text-slate-900 dark:text-white'
-                                    : 'text-slate-500 hover:text-slate-900 dark:text-white/65 dark:hover:text-white'
+                                    : 'text-slate-500 hover:text-slate-900 dark:text-white/85 dark:hover:text-white'
                                 }`}
                               >
                                 {subItem.label}
@@ -396,7 +410,7 @@ const AdminSidebar = () => {
                         className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                           isItemActive(item.href)
                             ? 'bg-slate-900 text-white dark:bg-white/10 dark:text-white'
-                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-white/50 dark:hover:bg-white/[0.06] dark:hover:text-white/90'
+                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-white/85 dark:hover:bg-white/[0.08] dark:hover:text-white'
                         }`}
                       >
                         <NavIcon icon={item.icon} />
@@ -421,8 +435,8 @@ const AdminSidebar = () => {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-slate-700 dark:text-white/80">{profileIdentity?.displayName || 'Admin'}</p>
-              <p className="text-[10px] capitalize text-slate-400 dark:text-white/35">{role === 'unknown' ? 'user' : role}</p>
+              <p className="truncate text-xs font-semibold text-slate-700 dark:text-white">{profileIdentity?.displayName || 'Admin'}</p>
+              <p className="text-[10px] capitalize text-slate-400 dark:text-white/70">{role === 'unknown' ? 'user' : role}</p>
             </div>
             <button
               type="button"

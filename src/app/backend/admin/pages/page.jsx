@@ -1,12 +1,7 @@
-import { redirect } from 'next/navigation'
-import { requireDashboardAccess } from '@/lib/auth/dashboard-access'
+import { requireAdminOrPublicPage } from '@/lib/auth/require-page-access'
 import PagesIndexPage from './PagesIndexPage'
 
 export default async function AdminPagesPage() {
-  const { role } = await requireDashboardAccess('/backend/admin/pages')
-  if (role !== 'admin') {
-    redirect('/backend/admin/dashboard')
-  }
-
+  await requireAdminOrPublicPage('pages', '/backend/admin/pages')
   return <PagesIndexPage />
 }
