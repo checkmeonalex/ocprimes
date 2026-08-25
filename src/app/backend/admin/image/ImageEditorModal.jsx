@@ -7,7 +7,7 @@ import BouncingDotsLoader from '../components/BouncingDotsLoader';
 import { useImageEnhancer } from './hooks/useImageEnhancer';
 import { toSafeName } from './utils/imageUtils';
 import { renderEditedImageToCanvas, buildCanvasFilter } from './utils/editorCanvas.mjs';
-import { canvasToWebpBlob, MAX_UPLOAD_BYTES } from './utils/webpUtils.mjs';
+import { canvasToWebpBlob, convertFileToWebpBlob, MAX_UPLOAD_BYTES } from './utils/webpUtils.mjs';
 import LoadingButton from '../../../../components/LoadingButton';
 
 const TOOL_OPTIONS = [
@@ -51,7 +51,26 @@ const TOOL_OPTIONS = [
       </svg>
     ),
   },
+  {
+    key: 'background',
+    label: 'Background',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="3" y="3" width="18" height="18" rx="3" strokeDasharray="3 3" />
+        <circle cx="9" cy="9" r="2" />
+        <path d="m21 15-4.5-4.5a2 2 0 0 0-2.83 0L5 19" />
+      </svg>
+    ),
+  },
 ];
+
+const TOOL_PANEL_COPY = {
+  crop: { title: 'Crop', subtitle: 'Set ratio and drag the crop box.' },
+  rotate: { title: 'Rotate', subtitle: 'Rotate or fine-tune the angle.' },
+  enhance: { title: 'Enhance', subtitle: 'Pick a filter preset.' },
+  resize: { title: 'Resize', subtitle: 'Set export dimensions.' },
+  background: { title: 'Background', subtitle: 'Remove the background automatically.' },
+};
 
 const ASPECT_OPTIONS = [
   { key: 'free', label: 'Free', value: 'free' },
@@ -61,6 +80,13 @@ const ASPECT_OPTIONS = [
   { key: 'story', label: '9:16', value: 9 / 16 },
   { key: 'wide', label: '16:9', value: 16 / 9 },
 ];
+
+const IMAGE_ID_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const generateImageId = () => {
+  let id = 'IMG-';
+  for (let i = 0; i < 7; i++) id += IMAGE_ID_ALPHABET[Math.floor(Math.random() * IMAGE_ID_ALPHABET.length)];
+  return id;
+};
 
 const clampDimension = (value, fallback = 1) => {
   const normalized = Number(value);
@@ -127,6 +153,16 @@ function ImageEditorModal({ media, onClose, onSaved }) {
   const [statusMessage, setStatusMessage] = useState('');
   const [error, setError] = useState('');
   const [isReplacing, setIsReplacing] = useState(false);
+  const [isRemovingBackground, setIsRemovingBackground] = useState(false);
+  const [backgroundRemoved, setBackgroundRemoved] = useState(false);
+  const [brushMode, setBrushMode] = useState('restore');
+  const [brushSize, setBrushSize] = useState(40);
+  const [isPainting, setIsPainting] = useState(false);
+  const bgOriginalCanvasRef = useRef(null);
+  const bgMaskCanvasRef = useRef(null);
+  const bgPreviewCanvasRef = useRef(null);
+  const bgPaintingRef = useRef(false);
+  const bgLastPointRef = useRef(null);
   const {
     presets, presetKey, setPresetKey, appliedFilters, resetEnhancer,
     brightness, setManualBrightness,
@@ -190,9 +226,14 @@ function ImageEditorModal({ media, onClose, onSaved }) {
     sessionPreviewUrlRef.current = '';
   }, []);
 
+  // Resets the whole editor UI only on a genuine media switch — the
+  // incoming `media` prop, not our own preview-blob updates (crop apply,
+  // background removal/touch-up), which also change activeMedia.url via
+  // sessionMedia but must NOT kick the user back to the Crop tool or wipe
+  // whatever tool state they're mid-edit on.
   useEffect(() => {
-    if (!activeMediaId && !activeMedia?.url) return;
-    setImageName(activeMediaTitle || `image-${activeMediaId}`);
+    if (!media?.id && !media?.url) return;
+    setImageName(media?.title || `image-${media?.id || ''}`);
     setActiveTool('crop');
     setIsCropActive(false);
     setCrop({ x: 0, y: 0 });
@@ -206,8 +247,11 @@ function ImageEditorModal({ media, onClose, onSaved }) {
     setHasCustomResize(false);
     setStatusMessage('');
     setError('');
+    setBackgroundRemoved(false);
+    bgOriginalCanvasRef.current = null;
+    bgMaskCanvasRef.current = null;
     resetEnhancer();
-  }, [activeMedia?.url, activeMediaId, activeMediaTitle, resetEnhancer]);
+  }, [media?.id, media?.url, media?.title, resetEnhancer]);
 
   useEffect(() => {
     if (!activeMedia) return undefined;
@@ -271,6 +315,10 @@ function ImageEditorModal({ media, onClose, onSaved }) {
     });
   }, [imageObj]);
 
+  // Leaves room around the fitted image so crop-box drag handles (which
+  // straddle the box border) never render clipped against the container edge.
+  const CROP_HANDLE_INSET = 10;
+
   const syncCanvasAndCropToContain = useCallback((cropperInstance, ratioOverride = activeAspect) => {
     if (!cropperInstance) return;
 
@@ -280,9 +328,12 @@ function ImageEditorModal({ media, onClose, onSaved }) {
       return;
     }
 
+    const availableWidth = Math.max(1, containerData.width - CROP_HANDLE_INSET * 2);
+    const availableHeight = Math.max(1, containerData.height - CROP_HANDLE_INSET * 2);
+
     const fittedScale = Math.min(
-      containerData.width / imageData.naturalWidth,
-      containerData.height / imageData.naturalHeight,
+      availableWidth / imageData.naturalWidth,
+      availableHeight / imageData.naturalHeight,
     );
 
     const canvasData = {
@@ -308,6 +359,16 @@ function ImageEditorModal({ media, onClose, onSaved }) {
     syncCanvasAndCropToContain(cropper, activeAspect);
   }, [activeAspect, isCropActive, syncCanvasAndCropToContain]);
 
+  useEffect(() => {
+    if (!isCropActive) return undefined;
+    const handleResize = () => {
+      const cropper = cropperRef.current?.cropper;
+      if (cropper) syncCanvasAndCropToContain(cropper, activeAspect);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [activeAspect, isCropActive, syncCanvasAndCropToContain]);
+
   const resetEdits = () => {
     const cropper = cropperRef.current?.cropper;
     if (sessionPreviewUrlRef.current) {
@@ -323,6 +384,9 @@ function ImageEditorModal({ media, onClose, onSaved }) {
     setCroppedAreaPixels(null);
     setLockAspectRatio(true);
     setHasCustomResize(false);
+    setBackgroundRemoved(false);
+    bgOriginalCanvasRef.current = null;
+    bgMaskCanvasRef.current = null;
     setResizeWidth(imageObj?.naturalWidth ? String(imageObj.naturalWidth) : '');
     setResizeHeight(imageObj?.naturalHeight ? String(imageObj.naturalHeight) : '');
     if (cropper) {
@@ -376,6 +440,199 @@ function ImageEditorModal({ media, onClose, onSaved }) {
     }
   };
 
+  // Redraws the live preview canvas as original-pixels × current mask alpha,
+  // then pushes the result into the same preview pipeline crop/rotate use.
+  const renderBgComposite = useCallback(() => {
+    const original = bgOriginalCanvasRef.current;
+    const mask = bgMaskCanvasRef.current;
+    const preview = bgPreviewCanvasRef.current;
+    if (!original || !mask || !preview) return;
+
+    const w = original.width;
+    const h = original.height;
+    preview.width = w;
+    preview.height = h;
+    const previewCtx = preview.getContext('2d');
+    const maskCtx = mask.getContext('2d');
+    if (!previewCtx || !maskCtx) return;
+
+    previewCtx.clearRect(0, 0, w, h);
+    previewCtx.drawImage(original, 0, 0);
+    const maskData = maskCtx.getImageData(0, 0, w, h);
+    const outData = previewCtx.getImageData(0, 0, w, h);
+    for (let i = 0; i < outData.data.length; i += 4) {
+      outData.data[i + 3] = maskData.data[i]; // mask channels are all equal (grayscale)
+    }
+    previewCtx.putImageData(outData, 0, 0);
+  }, []);
+
+  const pushBgPreviewAsSession = useCallback(async () => {
+    const preview = bgPreviewCanvasRef.current;
+    if (!preview) return;
+    const blob = await canvasToWebpBlob(preview);
+    if (!blob) return;
+    if (sessionPreviewUrlRef.current) {
+      URL.revokeObjectURL(sessionPreviewUrlRef.current);
+    }
+    const nextUrl = URL.createObjectURL(blob);
+    sessionPreviewUrlRef.current = nextUrl;
+    setSessionMedia({ url: nextUrl, title: imageName });
+  }, [imageName]);
+
+  // Runs the first composite once the touch-up <canvas> DOM node mounts
+  // (it only renders while activeTool === 'background' && backgroundRemoved,
+  // so this can't run inside applyBackgroundRemoval itself — the node
+  // doesn't exist yet at that point).
+  useEffect(() => {
+    if (!backgroundRemoved || activeTool !== 'background') return;
+    if (!bgPreviewCanvasRef.current || !bgOriginalCanvasRef.current || !bgMaskCanvasRef.current) return;
+    renderBgComposite();
+    pushBgPreviewAsSession();
+  }, [activeTool, backgroundRemoved, renderBgComposite, pushBgPreviewAsSession]);
+
+  const applyBackgroundRemoval = async () => {
+    if (!imageObj || isRemovingBackground) return;
+    setIsRemovingBackground(true);
+    setError('');
+    setStatusMessage('Removing background…');
+
+    try {
+      // Draw the already-loaded image to a canvas and hand the library a
+      // Blob directly, rather than a URL — passing a URL makes the library
+      // do its own fetch() internally, which can come back with an HTML
+      // error/redirect page (auth gate, 404) instead of the image and
+      // fail with "Invalid format: text/html".
+      const sourceCanvas = document.createElement('canvas');
+      sourceCanvas.width = imageObj.naturalWidth;
+      sourceCanvas.height = imageObj.naturalHeight;
+      const sourceCtx = sourceCanvas.getContext('2d');
+      if (!sourceCtx) throw new Error('Canvas is not available.');
+      sourceCtx.drawImage(imageObj, 0, 0);
+      const sourceBlob = await canvasToWebpBlob(sourceCanvas);
+      if (!sourceBlob) throw new Error('Unable to prepare image for background removal.');
+
+      // The model files are fetched from imgly's CDN on first use. If that
+      // request is blocked (network filtering, an ad-blocker, a browser
+      // extension) the fetch can resolve with an HTML page instead of the
+      // expected binary/JSON, which the library then fails to parse with a
+      // cryptic "Invalid format: text/html" error. Check reachability first
+      // so we can surface a clear, actionable message instead of that.
+      try {
+        const probeRes = await fetch(
+          'https://staticimgly.com/@imgly/background-removal-data/1.7.0/dist/resources.json',
+          { method: 'GET', mode: 'cors', cache: 'no-store' },
+        );
+        const probeType = probeRes.headers.get('content-type') || '';
+        if (!probeRes.ok || !probeType.includes('json')) {
+          throw new Error('blocked');
+        }
+      } catch {
+        throw new Error(
+          'Background removal needs to download a one-time AI model from staticimgly.com, but that request is being blocked (by your network, an ad-blocker, or a browser extension). Try disabling ad-blocking extensions for this site, switching networks, or allowing staticimgly.com.',
+        );
+      }
+
+      // segmentForeground/alphamask returns just the mask (a white image
+      // whose alpha channel is the segmentation) instead of the final
+      // composited cutout — keeping mask and original pixels separate is
+      // what lets the touch-up brush restore/erase by editing the mask
+      // alone, without re-running the model.
+      //
+      // device: 'gpu' + proxyToWorker: true runs inference on WebGPU inside
+      // a worker instead of blocking the main thread with WASM — without
+      // this the tab can freeze/"Page Unresponsive" for several seconds
+      // while the model runs. The library auto-falls-back to CPU/main-thread
+      // if WebGPU isn't available in this browser.
+      const { segmentForeground } = await import('@imgly/background-removal');
+      const maskBlob = await segmentForeground(sourceBlob, {
+        device: 'gpu',
+        proxyToWorker: true,
+      });
+      const maskImg = await loadImageObject(URL.createObjectURL(maskBlob));
+
+      bgOriginalCanvasRef.current = sourceCanvas;
+
+      const maskCanvas = document.createElement('canvas');
+      maskCanvas.width = sourceCanvas.width;
+      maskCanvas.height = sourceCanvas.height;
+      const maskCtx = maskCanvas.getContext('2d');
+      if (!maskCtx) throw new Error('Canvas is not available.');
+      maskCtx.drawImage(maskImg, 0, 0, maskCanvas.width, maskCanvas.height);
+      bgMaskCanvasRef.current = maskCanvas;
+
+      setBackgroundRemoved(true);
+      setStatusMessage('Background removed. Touch up or save when ready.');
+    } catch (removalError) {
+      setError(removalError?.message || 'Unable to remove background.');
+      setStatusMessage('');
+    } finally {
+      setIsRemovingBackground(false);
+    }
+  };
+
+  // Converts a pointer event on the displayed <canvas> into mask-pixel
+  // coordinates (the canvas backing store can be a different resolution
+  // than its on-screen CSS size).
+  const bgEventToMaskPoint = useCallback((event) => {
+    const canvas = event.currentTarget;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (event.clientX - rect.left) * scaleX,
+      y: (event.clientY - rect.top) * scaleY,
+    };
+  }, []);
+
+  const paintMaskStroke = useCallback((from, to) => {
+    const mask = bgMaskCanvasRef.current;
+    if (!mask) return;
+    const ctx = mask.getContext('2d');
+    if (!ctx) return;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = brushMode === 'restore' ? '#fff' : '#000';
+    ctx.fillStyle = ctx.strokeStyle;
+    ctx.lineWidth = brushSize;
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(to.x, to.y, brushSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    renderBgComposite();
+  }, [brushMode, brushSize, renderBgComposite]);
+
+  const handleBrushPointerDown = useCallback((event) => {
+    if (!bgMaskCanvasRef.current) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    bgPaintingRef.current = true;
+    setIsPainting(true);
+    const point = bgEventToMaskPoint(event);
+    bgLastPointRef.current = point;
+    paintMaskStroke(point, point);
+  }, [bgEventToMaskPoint, paintMaskStroke]);
+
+  const handleBrushPointerMove = useCallback((event) => {
+    if (!bgPaintingRef.current) return;
+    const point = bgEventToMaskPoint(event);
+    const from = bgLastPointRef.current || point;
+    paintMaskStroke(from, point);
+    bgLastPointRef.current = point;
+  }, [bgEventToMaskPoint, paintMaskStroke]);
+
+  const handleBrushPointerUp = useCallback(async (event) => {
+    if (!bgPaintingRef.current) return;
+    event.currentTarget?.releasePointerCapture?.(event.pointerId);
+    bgPaintingRef.current = false;
+    bgLastPointRef.current = null;
+    setIsPainting(false);
+    await pushBgPreviewAsSession();
+  }, [pushBgPreviewAsSession]);
+
   const handleWidthChange = (nextValue) => {
     setResizeWidth(nextValue);
     setHasCustomResize(true);
@@ -415,6 +672,7 @@ function ImageEditorModal({ media, onClose, onSaved }) {
         filters: appliedFilters,
         outputWidth: clampDimension(resizeWidth, cropPixelWidth || imageObj.naturalWidth),
         outputHeight: clampDimension(resizeHeight, cropPixelHeight || imageObj.naturalHeight),
+        background: backgroundRemoved ? 'transparent' : '#ffffff',
       });
 
       const blob = await canvasToWebpBlob(exportCanvas);
@@ -429,6 +687,7 @@ function ImageEditorModal({ media, onClose, onSaved }) {
       const file = new File([blob], filename, { type: 'image/webp' });
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('local_image_id', generateImageId());
 
       const response = await fetch('/api/admin/media/upload', {
         method: 'POST',
@@ -441,6 +700,7 @@ function ImageEditorModal({ media, onClose, onSaved }) {
 
       const savedItem = {
         id: payload?.id || payload?.key || `${Date.now()}`,
+        local_image_id: payload?.local_image_id || '',
         url: payload?.url || '',
         title: filename,
         unattached: true,
@@ -470,6 +730,7 @@ function ImageEditorModal({ media, onClose, onSaved }) {
         filters: appliedFilters,
         outputWidth: clampDimension(resizeWidth, cropPixelWidth || imageObj.naturalWidth),
         outputHeight: clampDimension(resizeHeight, cropPixelHeight || imageObj.naturalHeight),
+        background: backgroundRemoved ? 'transparent' : '#ffffff',
       });
 
       const blob = await canvasToWebpBlob(exportCanvas);
@@ -530,126 +791,338 @@ function ImageEditorModal({ media, onClose, onSaved }) {
     }`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-0 sm:p-4">
       {/* Backdrop */}
       <button type="button" onClick={onClose} className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" aria-label="Close" />
 
-      {/* Modal shell */}
-      <div className="relative z-10 flex h-full w-full flex-col overflow-hidden bg-white sm:h-[calc(100vh-32px)] sm:max-w-6xl sm:rounded-2xl sm:shadow-2xl">
+      {/* ══════════════ Mobile shell (< lg) ══════════════ */}
+      <div className="fixed inset-0 z-10 flex h-dvh w-full flex-col overflow-hidden bg-white lg:hidden">
 
-        {/* ── Top bar ── */}
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 bg-white px-3 py-2.5 sm:px-5">
-          {/* Left: close + reset */}
-          <div className="flex shrink-0 items-center gap-1.5">
-            <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200" aria-label="Close">
+        {/* Top bar */}
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 pb-2.5 pt-3.5">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600"
+              aria-label="Close"
+            >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" /></svg>
             </button>
-            <button type="button" onClick={resetEdits} className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition hover:bg-slate-200" aria-label="Reset">
+            <button
+              type="button"
+              onClick={resetEdits}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600"
+              aria-label="Reset"
+            >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 12a8 8 0 1 0 3-6.3" /><path d="M4 4v5h5" /></svg>
             </button>
-            <span className="hidden max-w-[120px] truncate text-xs font-semibold text-slate-700 sm:block">{imageName || 'Untitled'}</span>
           </div>
+          <LoadingButton
+            type="button"
+            onClick={saveEditedImage}
+            isLoading={isSaving}
+            disabled={!canSave}
+            className="rounded-full bg-slate-900 px-5 py-2 text-[13px] font-bold text-white disabled:opacity-40"
+          >
+            Save
+          </LoadingButton>
+        </div>
 
-          {/* Center: tool tabs — icons only on mobile, icons+labels on sm+ */}
-          <div className="flex min-w-0 items-center gap-0.5 rounded-xl border border-slate-100 bg-slate-50 p-0.5">
+        {/* Canvas */}
+        <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-1">
+          {isLoadingImage ? (
+            <BouncingDotsLoader className="text-slate-400" dotClassName="bg-slate-400" />
+          ) : imageObj && activeTool === 'crop' ? (
+            <div className="alxora-admin-cropper-shell relative aspect-square w-full max-w-[420px] overflow-hidden rounded-2xl bg-slate-100">
+              <div className="h-full w-full" style={{ filter: filterStyle }}>
+                <Cropper
+                  ref={cropperRef}
+                  src={editorImageSrc}
+                  className="h-full w-full"
+                  style={{ height: '100%', width: '100%' }}
+                  guides center highlight={false} background={false} responsive
+                  autoCrop={false} autoCropArea={0.9} viewMode={1} dragMode="move"
+                  cropBoxMovable cropBoxResizable movable
+                  zoomable={false} scalable={false} rotatable={false}
+                  toggleDragModeOnDblclick={false} checkOrientation={false}
+                  aspectRatio={activeAspect || NaN}
+                  ready={() => {
+                    const c = cropperRef.current?.cropper;
+                    if (!c) return;
+                    c.crop();
+                    // Mobile skips the desktop's explicit "Activate crop" step —
+                    // the crop box is always live as soon as the tool mounts, so
+                    // mark it active here too, otherwise applyCropToPreview's
+                    // isCropActive guard would silently no-op on mobile.
+                    setIsCropActive(true);
+                    syncCanvasAndCropToContain(c, activeAspect);
+                    requestAnimationFrame(() => {
+                      const cropper = cropperRef.current?.cropper;
+                      if (cropper) syncCanvasAndCropToContain(cropper, activeAspect);
+                    });
+                  }}
+                  cropend={() => syncCropPixelsFromInstance(cropperRef.current?.cropper)}
+                  cropmove={() => syncCropPixelsFromInstance(cropperRef.current?.cropper)}
+                />
+              </div>
+            </div>
+          ) : imageObj && activeTool === 'background' && backgroundRemoved ? (
+            <div
+              className="flex aspect-square w-full max-w-[420px] items-center justify-center overflow-hidden rounded-2xl"
+              style={{
+                backgroundImage:
+                  'linear-gradient(45deg, #e2e8f0 25%, transparent 25%), linear-gradient(-45deg, #e2e8f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e2e8f0 75%), linear-gradient(-45deg, transparent 75%, #e2e8f0 75%)',
+                backgroundSize: '20px 20px',
+                backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
+                backgroundColor: '#f8fafc',
+              }}
+            >
+              <canvas
+                ref={(node) => {
+                  bgPreviewCanvasRef.current = node;
+                  if (node && bgOriginalCanvasRef.current && bgMaskCanvasRef.current) {
+                    renderBgComposite();
+                  }
+                }}
+                width={imageObj.naturalWidth}
+                height={imageObj.naturalHeight}
+                className="block max-h-full max-w-full touch-none object-contain"
+                onPointerDown={handleBrushPointerDown}
+                onPointerMove={handleBrushPointerMove}
+                onPointerUp={handleBrushPointerUp}
+                onPointerLeave={handleBrushPointerUp}
+              />
+            </div>
+          ) : imageObj ? (
+            <div className="relative aspect-square w-full max-w-[420px] overflow-hidden rounded-2xl">
+              <EasyCropper
+                image={editorImageSrc} crop={crop} zoom={zoom} rotation={rotation}
+                aspect={1} showGrid={false}
+                onCropChange={setCrop} onZoomChange={setZoom} onRotationChange={setRotation}
+                objectFit="contain"
+                style={{
+                  containerStyle: { backgroundColor: 'transparent' },
+                  mediaStyle: { filter: filterStyle },
+                  cropAreaStyle: { border: 'none', boxShadow: 'none' },
+                }}
+              />
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">Unable to load image.</p>
+          )}
+        </div>
+
+        {/* Aspect ratio row — only meaningful for Crop */}
+        {activeTool === 'crop' && (
+          <div className="flex shrink-0 gap-4 overflow-x-auto px-5 pb-1 pt-3 [&::-webkit-scrollbar]:hidden">
+            {ASPECT_OPTIONS.filter((o) => ['free', 'original', 'square', 'wide', 'story'].includes(o.key)).map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => setAspectKey(opt.key)}
+                className="flex shrink-0 flex-col items-center gap-1.5"
+              >
+                <span className={`flex h-9 w-9 items-center justify-center rounded-[10px] border-[1.5px] ${
+                  aspectKey === opt.key ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 text-slate-400'
+                }`}>
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="5" y="5" width="14" height="14" rx="2" /></svg>
+                </span>
+                <span className={`text-[10px] ${aspectKey === opt.key ? 'font-bold text-slate-900' : 'font-medium text-slate-400'}`}>
+                  {opt.key === 'free' ? 'Custom' : opt.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Slider strip — angle for Rotate, brush size for Background touch-up */}
+        {(activeTool === 'rotate' || (activeTool === 'background' && backgroundRemoved)) && (
+          <div className="flex shrink-0 flex-col items-center gap-2 px-5 pb-3 pt-2">
+            <span className="flex h-6 w-8 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">
+              {activeTool === 'rotate' ? Math.round(rotation > 180 ? rotation - 360 : rotation) : brushSize}
+            </span>
+            {activeTool === 'rotate' ? (
+              <input
+                type="range" min="-180" max="180" step="1"
+                value={rotation > 180 ? rotation - 360 : rotation}
+                onChange={(e) => setRotation(((Number(e.target.value) % 360) + 360) % 360)}
+                className="w-full accent-slate-900"
+              />
+            ) : (
+              <input
+                type="range" min="8" max="150" step="1"
+                value={brushSize}
+                onChange={(e) => setBrushSize(Number(e.target.value))}
+                className="w-full accent-slate-900"
+              />
+            )}
+          </div>
+        )}
+
+        {(statusMessage || error) && (
+          <div className="shrink-0 px-5 pb-1">
+            {statusMessage && <p className="text-[11px] font-medium text-emerald-600">{statusMessage}</p>}
+            {error && <p className="text-[11px] font-medium text-rose-500">{error}</p>}
+          </div>
+        )}
+
+        {/* Mobile-only extra controls that don't fit the dock/slider pattern above */}
+        {activeTool === 'crop' && (
+          <div className="flex shrink-0 justify-center gap-3 px-5 pb-3">
+            <button type="button" onClick={applyCropToPreview} className="rounded-full bg-slate-900 px-5 py-2 text-xs font-bold text-white">
+              Apply crop
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const c = cropperRef.current?.cropper;
+                if (c) syncCanvasAndCropToContain(c, activeAspect);
+              }}
+              className="rounded-full border border-slate-200 px-5 py-2 text-xs font-bold text-slate-600"
+            >
+              Reset
+            </button>
+          </div>
+        )}
+        {activeTool === 'enhance' && (
+          <div className="flex shrink-0 gap-2 overflow-x-auto px-5 pb-3 [&::-webkit-scrollbar]:hidden">
+            {presets.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => setPresetKey(p.key)}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold ${
+                  presetKey === p.key && !isManual ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {activeTool === 'resize' && (
+          <div className="flex shrink-0 gap-2 overflow-x-auto px-5 pb-3 [&::-webkit-scrollbar]:hidden">
+            {[
+              { label: 'Square', w: 800, h: 800 },
+              { label: 'Portrait', w: 800, h: 1000 },
+              { label: 'Wide', w: 1200, h: 630 },
+              { label: 'Thumb', w: 400, h: 400 },
+            ].map((p) => (
+              <button
+                key={p.label}
+                type="button"
+                onClick={() => { handleWidthChange(String(p.w)); setResizeHeight(String(p.h)); setHasCustomResize(true); }}
+                className="shrink-0 rounded-full bg-slate-100 px-3.5 py-1.5 text-[11px] font-semibold text-slate-600"
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {activeTool === 'background' && !backgroundRemoved && (
+          <div className="flex shrink-0 justify-center px-5 pb-3">
+            <LoadingButton
+              type="button"
+              onClick={applyBackgroundRemoval}
+              isLoading={isRemovingBackground}
+              disabled={!imageObj}
+              className="rounded-full bg-slate-900 px-6 py-2.5 text-xs font-bold text-white disabled:opacity-40"
+            >
+              {isRemovingBackground ? 'Removing background…' : 'Remove background'}
+            </LoadingButton>
+          </div>
+        )}
+        {activeTool === 'background' && backgroundRemoved && (
+          <div className="flex shrink-0 justify-center gap-2 px-5 pb-3">
+            <button
+              type="button"
+              onClick={() => setBrushMode('restore')}
+              className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-[11px] font-semibold ${
+                brushMode === 'restore' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              Restore
+            </button>
+            <button
+              type="button"
+              onClick={() => setBrushMode('erase')}
+              className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-[11px] font-semibold ${
+                brushMode === 'erase' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20 20H9l-6-6a2 2 0 0 1 0-2.83l8-8a2 2 0 0 1 2.83 0l6 6a2 2 0 0 1 0 2.83L13 19" /></svg>
+              Erase
+            </button>
+          </div>
+        )}
+
+        {/* Bottom icon dock */}
+        <div className="flex shrink-0 items-center justify-around border-t border-slate-100 px-2 pb-6 pt-2">
+          {TOOL_OPTIONS.map((tool) => (
+            <button
+              key={tool.key}
+              type="button"
+              onClick={() => setActiveTool(tool.key)}
+              aria-label={tool.label}
+              className={`flex h-[46px] w-[46px] items-center justify-center rounded-full ${
+                activeTool === tool.key ? 'bg-slate-900 text-white' : 'text-slate-400'
+              }`}
+            >
+              {tool.icon}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ══════════════ Desktop shell (lg+) ══════════════ */}
+      <div className="relative z-10 hidden h-full w-full flex-col overflow-hidden bg-white sm:h-[calc(100vh-32px)] sm:max-w-6xl sm:rounded-2xl sm:shadow-2xl lg:flex">
+
+        {/* ── Top bar ── */}
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 bg-white px-4 py-3 sm:px-5">
+          <p className="truncate text-base font-bold text-slate-900 sm:text-lg">Edit image</p>
+          <button type="button" onClick={onClose} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600" aria-label="Close">
+            <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6 6 18M6 6l12 12" strokeLinecap="round" /></svg>
+          </button>
+        </div>
+
+        {/* ── Body: rail + panel + canvas ── */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+
+          {/* Icon rail */}
+          <div className="flex shrink-0 items-center gap-1 border-b border-slate-100 px-3 py-2 lg:flex-col lg:justify-start lg:gap-1.5 lg:border-b-0 lg:border-r lg:px-0 lg:py-4">
             {TOOL_OPTIONS.map((tool) => (
               <button
                 key={tool.key}
                 type="button"
                 onClick={() => setActiveTool(tool.key)}
                 title={tool.label}
-                className={`flex items-center justify-center gap-1 rounded-lg p-2 sm:px-2.5 sm:py-1.5 text-[11px] font-semibold transition ${
-                  activeTool === tool.key ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                aria-label={tool.label}
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${
+                  activeTool === tool.key ? 'bg-slate-900 text-white' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
                 }`}
               >
                 {tool.icon}
-                <span className="hidden sm:inline">{tool.label}</span>
               </button>
             ))}
           </div>
 
-          {/* Right: actions */}
-          <div className="flex shrink-0 items-center gap-1.5">
-            <LoadingButton type="button" onClick={replaceEditedImage} isLoading={isReplacing} disabled={!canReplace}
-              className="hidden rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 sm:block">
-              Replace
-            </LoadingButton>
-            <LoadingButton type="button" onClick={saveEditedImage} isLoading={isSaving} disabled={!canSave}
-              className="whitespace-nowrap rounded-xl bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-slate-700 disabled:opacity-40">
-              Save
-            </LoadingButton>
-          </div>
-        </div>
-
-        {/* ── Body: canvas + panel ── */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
-
-          {/* Canvas */}
-          <div className="relative flex-1 bg-[#f0f2f5]" style={{ minHeight: '45vw' }}>
-            {isLoadingImage ? (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <BouncingDotsLoader className="text-slate-400" dotClassName="bg-slate-400" />
-              </div>
-            ) : imageObj && activeTool === 'crop' ? (
-              <div className="absolute inset-0 flex items-center justify-center overflow-hidden p-4">
-                <div className="alxora-admin-cropper-shell relative flex h-full w-full items-center justify-center overflow-hidden">
-                  {isCropActive ? (
-                    <div className="h-full w-full" style={{ filter: filterStyle }}>
-                      <Cropper
-                        ref={cropperRef}
-                        src={editorImageSrc}
-                        className="h-full w-full"
-                        style={{ height: '100%', width: '100%' }}
-                        guides center highlight={false} background={false} responsive
-                        autoCrop={false} autoCropArea={0.9} viewMode={1} dragMode="move"
-                        cropBoxMovable cropBoxResizable movable
-                        zoomable={false} scalable={false} rotatable={false}
-                        toggleDragModeOnDblclick={false} checkOrientation={false}
-                        aspectRatio={activeAspect || NaN}
-                        ready={() => { const c = cropperRef.current?.cropper; if (!c) return; c.crop(); syncCanvasAndCropToContain(c, activeAspect); }}
-                        cropend={() => syncCropPixelsFromInstance(cropperRef.current?.cropper)}
-                        cropmove={() => syncCropPixelsFromInstance(cropperRef.current?.cropper)}
-                      />
-                    </div>
-                  ) : (
-                    <img src={editorImageSrc} alt={imageName || 'Media'} className="block max-h-full max-w-full object-contain" style={previewImageStyle} />
-                  )}
-                </div>
-              </div>
-            ) : imageObj ? (
-              <EasyCropper
-                image={editorImageSrc} crop={crop} zoom={zoom} rotation={rotation}
-                aspect={activeAspect} showGrid
-                onCropChange={setCrop} onZoomChange={setZoom} onRotationChange={setRotation}
-                objectFit="contain"
-                style={{
-                  containerStyle: { backgroundColor: '#f0f2f5' },
-                  mediaStyle: { filter: filterStyle },
-                  cropAreaStyle: { border: '2px solid rgba(255,255,255,0.9)', boxShadow: '0 0 0 9999px rgba(15,23,42,0.5)' },
-                }}
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400">
-                Unable to load image.
-              </div>
-            )}
-          </div>
-
-          {/* ── Right panel ── */}
-          <div className="flex w-full shrink-0 flex-col overflow-hidden border-t border-slate-100 bg-white lg:w-72 lg:border-l lg:border-t-0">
+          {/* ── Left tool panel ── */}
+          <div className="flex w-full shrink-0 flex-col overflow-hidden border-b border-slate-100 bg-white lg:w-64 lg:border-b-0 lg:border-r">
 
             {/* Panel header */}
-            <div className="shrink-0 border-b border-slate-100 px-4 py-3">
-              <p className="text-sm font-bold text-slate-900">
-                {activeTool === 'crop' ? 'Crop & Frame' : activeTool === 'rotate' ? 'Rotate' : activeTool === 'enhance' ? 'Enhance' : 'Resize'}
+            <div className="shrink-0 px-5 pb-1 pt-4 lg:pt-5">
+              <p className="text-base font-bold text-slate-900 lg:text-lg">
+                {TOOL_PANEL_COPY[activeTool]?.title}
               </p>
               <p className="mt-0.5 text-[11px] text-slate-400">
-                {activeTool === 'crop' ? 'Set ratio and drag the crop box.' : activeTool === 'rotate' ? 'Rotate or fine-tune the angle.' : activeTool === 'enhance' ? 'Pick a filter preset.' : 'Set export dimensions.'}
+                {TOOL_PANEL_COPY[activeTool]?.subtitle}
               </p>
             </div>
 
             {/* Panel controls */}
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-slate-200">
 
               {/* ══ CROP ══ */}
               {activeTool === 'crop' && (
@@ -928,22 +1401,221 @@ function ImageEditorModal({ media, onClose, onSaved }) {
                   </div>
                 </div>
               )}
+
+              {/* ══ BACKGROUND ══ */}
+              {activeTool === 'background' && (
+                <div className="space-y-5">
+                  <p className="text-[11px] leading-5 text-slate-400">
+                    Automatically cuts out the subject and makes the background transparent. Runs entirely in your browser — nothing is uploaded to a third-party service.
+                  </p>
+
+                  {!backgroundRemoved ? (
+                    <>
+                      <LoadingButton
+                        type="button"
+                        onClick={applyBackgroundRemoval}
+                        isLoading={isRemovingBackground}
+                        disabled={!imageObj}
+                        className="w-full rounded-xl bg-slate-900 py-2.5 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:opacity-40"
+                      >
+                        {isRemovingBackground ? 'Removing background…' : 'Remove background'}
+                      </LoadingButton>
+                      {isRemovingBackground && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-slate-400">First use downloads a small on-device model — this can take a moment.</p>
+                          <p className="text-[10px] leading-4 text-amber-600">
+                            The tab may look frozen for a few seconds on browsers without WebGPU support — that's expected, not a crash. Please wait.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                        <div className="flex items-center gap-2">
+                          <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-emerald-500" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12l5 5L20 7" strokeLinecap="round" /></svg>
+                          <p className="text-[11px] font-semibold text-emerald-700">Background removed</p>
+                        </div>
+                        <p className="mt-1 text-[10px] text-emerald-600">Save when ready, or reset to undo.</p>
+                      </div>
+
+                      <div>
+                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Touch up</p>
+                        <p className="mb-3 text-[11px] leading-5 text-slate-400">
+                          Paint on the image to fix spots that were removed or kept by mistake.
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setBrushMode('restore')}
+                            className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-semibold transition ${
+                              brushMode === 'restore'
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'
+                            }`}
+                          >
+                            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 12l5 5L20 7" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                            Restore
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBrushMode('erase')}
+                            className={`flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-[11px] font-semibold transition ${
+                              brushMode === 'erase'
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'
+                            }`}
+                          >
+                            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M20 20H9l-6-6a2 2 0 0 1 0-2.83l8-8a2 2 0 0 1 2.83 0l6 6a2 2 0 0 1 0 2.83L13 19" /></svg>
+                            Erase
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="mb-1 flex items-center justify-between">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Brush size</p>
+                          <span className="font-mono text-[10px] text-slate-500">{brushSize}px</span>
+                        </div>
+                        <input
+                          type="range" min="8" max="150" step="1"
+                          value={brushSize}
+                          onChange={(e) => setBrushSize(Number(e.target.value))}
+                          className="w-full accent-slate-900"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Canvas + rotation strip ── */}
+          <div className="flex min-h-[70vh] flex-1 flex-col sm:min-h-0">
+            <div className="relative min-h-0 flex-1 bg-[#f0f2f5]">
+              {isLoadingImage ? (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <BouncingDotsLoader className="text-slate-400" dotClassName="bg-slate-400" />
+                </div>
+              ) : imageObj && activeTool === 'crop' ? (
+                <div className="absolute inset-0 flex items-center justify-center overflow-hidden p-4">
+                  <div className="alxora-admin-cropper-shell relative flex h-full w-full items-center justify-center overflow-hidden">
+                    {isCropActive ? (
+                      <div className="h-full w-full" style={{ filter: filterStyle }}>
+                        <Cropper
+                          ref={cropperRef}
+                          src={editorImageSrc}
+                          className="h-full w-full"
+                          style={{ height: '100%', width: '100%' }}
+                          guides center highlight={false} background={false} responsive
+                          autoCrop={false} autoCropArea={0.9} viewMode={1} dragMode="move"
+                          cropBoxMovable cropBoxResizable movable
+                          zoomable={false} scalable={false} rotatable={false}
+                          toggleDragModeOnDblclick={false} checkOrientation={false}
+                          aspectRatio={activeAspect || NaN}
+                          ready={() => {
+                            const c = cropperRef.current?.cropper;
+                            if (!c) return;
+                            c.crop();
+                            syncCanvasAndCropToContain(c, activeAspect);
+                            // The flex layout (rail + panel + canvas) can still be settling
+                            // when `ready` fires, so the first measurement is sometimes stale
+                            // (e.g. a wide default box on a portrait image). Re-sync once more
+                            // after layout has genuinely finished.
+                            requestAnimationFrame(() => {
+                              const cropper = cropperRef.current?.cropper;
+                              if (cropper) syncCanvasAndCropToContain(cropper, activeAspect);
+                            });
+                          }}
+                          cropend={() => syncCropPixelsFromInstance(cropperRef.current?.cropper)}
+                          cropmove={() => syncCropPixelsFromInstance(cropperRef.current?.cropper)}
+                        />
+                      </div>
+                    ) : (
+                      <img src={editorImageSrc} alt={imageName || 'Media'} className="block max-h-full max-w-full object-contain" style={previewImageStyle} />
+                    )}
+                  </div>
+                </div>
+              ) : imageObj && activeTool === 'background' && backgroundRemoved ? (
+                <div
+                  className="absolute inset-0 flex items-center justify-center p-4"
+                  style={{
+                    backgroundImage:
+                      'linear-gradient(45deg, #d8dee6 25%, transparent 25%), linear-gradient(-45deg, #d8dee6 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #d8dee6 75%), linear-gradient(-45deg, transparent 75%, #d8dee6 75%)',
+                    backgroundSize: '20px 20px',
+                    backgroundPosition: '0 0, 0 10px, 10px -10px, -10px 0px',
+                  }}
+                >
+                  <canvas
+                    ref={(node) => {
+                      bgPreviewCanvasRef.current = node;
+                      if (node && bgOriginalCanvasRef.current && bgMaskCanvasRef.current) {
+                        renderBgComposite();
+                      }
+                    }}
+                    width={imageObj.naturalWidth}
+                    height={imageObj.naturalHeight}
+                    className="block max-h-full max-w-full touch-none object-contain"
+                    style={{ cursor: 'crosshair' }}
+                    onPointerDown={handleBrushPointerDown}
+                    onPointerMove={handleBrushPointerMove}
+                    onPointerUp={handleBrushPointerUp}
+                    onPointerLeave={handleBrushPointerUp}
+                  />
+                </div>
+              ) : imageObj ? (
+                <EasyCropper
+                  image={editorImageSrc} crop={crop} zoom={zoom} rotation={rotation}
+                  aspect={activeAspect} showGrid
+                  onCropChange={setCrop} onZoomChange={setZoom} onRotationChange={setRotation}
+                  objectFit="contain"
+                  style={{
+                    containerStyle: { backgroundColor: '#f0f2f5' },
+                    mediaStyle: { filter: filterStyle },
+                    cropAreaStyle: { border: '2px solid rgba(255,255,255,0.9)', boxShadow: '0 0 0 9999px rgba(15,23,42,0.5)' },
+                  }}
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-sm text-slate-400">
+                  Unable to load image.
+                </div>
+              )}
             </div>
 
-            {/* Panel footer — status + mobile Replace button */}
-            <div className="shrink-0 border-t border-slate-100 px-4 py-3 space-y-2">
-              {statusMessage && <p className="text-[11px] font-semibold text-emerald-600">{statusMessage}</p>}
-              {error && <p className="text-[11px] text-rose-500">{error}</p>}
-              <LoadingButton
-                type="button"
-                onClick={replaceEditedImage}
-                isLoading={isReplacing}
-                disabled={!canReplace}
-                className="w-full rounded-xl border border-slate-200 py-2 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40 lg:hidden"
-              >
-                Replace original
-              </LoadingButton>
-            </div>
+            {/* Rotation readout strip — visible while on the Rotate tool */}
+            {activeTool === 'rotate' && (
+              <div className="flex shrink-0 flex-col items-center gap-1 border-t border-slate-100 py-3">
+                <span className="text-xs font-semibold text-slate-500">{Math.round(rotation > 180 ? rotation - 360 : rotation)}°</span>
+                <input
+                  type="range" min="-180" max="180" step="1"
+                  value={rotation > 180 ? rotation - 360 : rotation}
+                  onChange={(e) => setRotation(((Number(e.target.value) % 360) + 360) % 360)}
+                  className="w-40 accent-slate-900 sm:w-56"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Bottom bar ── */}
+        <div className="flex shrink-0 flex-col gap-2 border-t border-slate-100 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div className="flex min-h-[16px] items-center gap-3">
+            {statusMessage && <p className="text-[11px] font-semibold text-emerald-600">{statusMessage}</p>}
+            {error && <p className="text-[11px] text-rose-500">{error}</p>}
+          </div>
+          <div className="flex shrink-0 items-center justify-end gap-2">
+            <button type="button" onClick={resetEdits} className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600" aria-label="Reset">
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 12a8 8 0 1 0 3-6.3" /><path d="M4 4v5h5" /></svg>
+            </button>
+            <LoadingButton type="button" onClick={replaceEditedImage} isLoading={isReplacing} disabled={!canReplace}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:opacity-40">
+              Replace
+            </LoadingButton>
+            <LoadingButton type="button" onClick={saveEditedImage} isLoading={isSaving} disabled={!canSave}
+              className="whitespace-nowrap rounded-xl bg-slate-900 px-5 py-2 text-xs font-semibold text-white transition hover:bg-slate-700 disabled:opacity-40">
+              Save
+            </LoadingButton>
           </div>
         </div>
       </div>
