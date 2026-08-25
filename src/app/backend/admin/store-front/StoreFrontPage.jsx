@@ -19,8 +19,76 @@ const toInitials = (value = '') => {
   return cleaned.slice(0, 2);
 };
 
+const SOCIAL_KEYS = [
+  'social_whatsapp',
+  'social_instagram_url', 'social_instagram_handle',
+  'social_facebook_url', 'social_facebook_handle',
+  'social_x_url', 'social_x_handle',
+  'social_twitch_url', 'social_twitch_handle',
+  'social_tiktok_url', 'social_tiktok_handle',
+  'social_pinterest_url', 'social_pinterest_handle',
+];
+
+// ── Icons ────────────────────────────────────────────────────────────────
+const IcoBack = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="m15 18-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const IcoBrand = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <rect x="3" y="3" width="8" height="8" rx="2" />
+    <path d="M15 3h6v6M12 12l9-9M15 21h6v-6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const IcoNav = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M4 6h16M4 12h10M4 18h16" strokeLinecap="round" />
+  </svg>
+);
+const IcoConnect = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" />
+    <path d="m8.2 10.8 7.6-3.6M8.2 13.2l7.6 3.6" strokeLinecap="round" />
+  </svg>
+);
+const IcoSections = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <rect x="3" y="4" width="18" height="6" rx="1.5" />
+    <rect x="3" y="14" width="8" height="6" rx="1.5" />
+    <rect x="13" y="14" width="8" height="6" rx="1.5" />
+  </svg>
+);
+const IcoChevron = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="m9 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+function SettingCard({ icon, title, summary, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md sm:p-5"
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold text-slate-900">{title}</span>
+        <span className="mt-0.5 block truncate text-xs text-slate-500">{summary}</span>
+      </span>
+      <span className="mt-1.5 shrink-0 text-slate-300">
+        <IcoChevron />
+      </span>
+    </button>
+  );
+}
+
 export default function StoreFrontPage() {
   const { pushAlert } = useAlerts();
+  const [view, setView] = useState('home'); // 'home' | 'branding' | 'navigation' | 'connect' | 'sections'
   const [isLoading, setIsLoading] = useState(true);
   const [isLogoSaving, setIsLogoSaving] = useState(false);
   const [isLogoFullSaving, setIsLogoFullSaving] = useState(false);
@@ -47,6 +115,10 @@ export default function StoreFrontPage() {
   const logoSizeDesktop = Number(brand?.logo_size_desktop) || null;
   const logoSizeMobile = Number(brand?.logo_size_mobile) || null;
   const initials = useMemo(() => toInitials(brandName), [brandName]);
+
+  const isAnySaving =
+    isLogoSaving || isLogoFullSaving || isFontSaving || isSizeSaving ||
+    isSavingCollectionsMode || isSavingSocial || isNameSaving;
 
   const notifyError = useCallback(
     (message) =>
@@ -309,28 +381,70 @@ export default function StoreFrontPage() {
     [saveStoreFront, notifySuccess, notifyError],
   );
 
+  // ── Summaries shown on the home grid cards ──────────────────────────────
+  const brandingSummary = logoFullUrl || logoUrl
+    ? 'Logo set'
+    : logoFont
+      ? `${brandName} in a custom font`
+      : 'No logo yet';
+
+  const navigationSummary = brand?.collections_menu_mode === 'flat' ? 'Flat list' : 'Grouped';
+
+  const connectedCount = SOCIAL_KEYS.filter((key) => String(brand?.[key] || '').trim()).length
+    ? new Set(
+        SOCIAL_KEYS.filter((key) => String(brand?.[key] || '').trim()).map((key) =>
+          key.replace(/^social_/, '').replace(/_(url|handle)$/, ''),
+        ),
+      ).size
+    : 0;
+  const connectSummary = connectedCount > 0 ? `${connectedCount} platform${connectedCount > 1 ? 's' : ''} connected` : 'Not connected yet';
+
+  const blockCount = Array.isArray(brand?.storefront_blocks) ? brand.storefront_blocks.length : 0;
+  const sectionsSummary = blockCount > 0 ? `${blockCount} section${blockCount > 1 ? 's' : ''}` : 'No sections yet';
+
+  const viewMeta = {
+    branding: { title: 'Branding', subtitle: 'Logo, header logo, and store name font.' },
+    navigation: { title: 'Navigation', subtitle: 'How categories appear in the Collections menu.' },
+    connect: { title: 'Connect', subtitle: 'Social links shoppers can find on your storefront.' },
+    sections: { title: 'Sections', subtitle: 'Build and arrange your storefront layout.' },
+  }[view];
+
   return (
     <AdminShell>
-      <div className="mx-auto w-full max-w-5xl space-y-8">
-            <section className="px-1">
-              <div className="flex items-center gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Store front</p>
-                {String(brand?.slug || '').trim() ? (
-                  <a
-                    href={`/${String(brand.slug).trim()}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50"
-                  >
-                    <span>View storefront</span>
-                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M14 5h5v5" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="m10 14 9-9" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M19 14v5H5V5h5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </a>
-                ) : null}
-              </div>
+      <div className={view === 'sections' ? 'mx-auto w-full max-w-[1400px] space-y-6' : 'mx-auto w-full max-w-5xl space-y-6'}>
+
+        {/* ── Store name header — always visible ─────────────────────── */}
+        <section className="px-1">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Store front</p>
+              {isAnySaving && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+                  Saving…
+                </span>
+              )}
+            </div>
+
+            {String(brand?.slug || '').trim() ? (
+              <a
+                href={`/${String(brand.slug).trim()}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                <span>View store</span>
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M14 5h5v5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="m10 14 9-9" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M19 14v5H5V5h5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </a>
+            ) : null}
+          </div>
+
+          {view === 'home' ? (
+            <>
               <div className="mt-2">
                 {isEditingName ? (
                   <div className="flex items-center gap-2">
@@ -381,8 +495,38 @@ export default function StoreFrontPage() {
               <p className="mt-2 text-sm text-slate-500">
                 Add your logo and make your store feel like yours.
               </p>
-            </section>
+            </>
+          ) : (
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setView('home')}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
+                aria-label="Back to Store front"
+              >
+                <IcoBack />
+              </button>
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">{viewMeta?.title}</h2>
+                <p className="text-sm text-slate-500">{viewMeta?.subtitle}</p>
+              </div>
+            </div>
+          )}
+        </section>
 
+        {/* ── Home: grid of setting cards, Shopify Settings-home style ─── */}
+        {view === 'home' && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <SettingCard icon={<IcoBrand />} title="Branding" summary={brandingSummary} onClick={() => setView('branding')} />
+            <SettingCard icon={<IcoNav />} title="Navigation" summary={navigationSummary} onClick={() => setView('navigation')} />
+            <SettingCard icon={<IcoConnect />} title="Connect" summary={connectSummary} onClick={() => setView('connect')} />
+            <SettingCard icon={<IcoSections />} title="Sections" summary={sectionsSummary} onClick={() => setView('sections')} />
+          </div>
+        )}
+
+        {/* ── Branding ─────────────────────────────────────────────────── */}
+        {view === 'branding' && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
             <StoreFrontLogoSection
               isLoading={isLoading}
               brand={brand}
@@ -408,29 +552,39 @@ export default function StoreFrontPage() {
               isSizeSaving={isSizeSaving}
               onSizeChange={handleSizeChange}
             />
+          </section>
+        )}
 
-            <StoreFrontCollectionsMenuSection
-              isLoading={isLoading}
-              brand={brand}
-              isSaving={isSavingCollectionsMode}
-              onChangeMode={handleChangeCollectionsMenuMode}
-            />
+        {/* ── Navigation ───────────────────────────────────────────────── */}
+        {view === 'navigation' && (
+          <StoreFrontCollectionsMenuSection
+            isLoading={isLoading}
+            brand={brand}
+            isSaving={isSavingCollectionsMode}
+            onChangeMode={handleChangeCollectionsMenuMode}
+          />
+        )}
 
-            <StoreFrontSocialLinksSection
-              isLoading={isLoading}
-              brand={brand}
-              isSaving={isSavingSocial}
-              onSave={handleSaveSocial}
-            />
+        {/* ── Connect ──────────────────────────────────────────────────── */}
+        {view === 'connect' && (
+          <StoreFrontSocialLinksSection
+            isLoading={isLoading}
+            brand={brand}
+            isSaving={isSavingSocial}
+            onSave={handleSaveSocial}
+          />
+        )}
 
-            <StoreFrontPageBuilder
-              isLoading={isLoading}
-              brand={brand}
-              onSave={saveStoreFront}
-              categoryOptions={categoryOptions}
-              tags={tags}
-            />
-
+        {/* ── Sections (page builder + live preview) ──────────────────── */}
+        {view === 'sections' && (
+          <StoreFrontPageBuilder
+            isLoading={isLoading}
+            brand={brand}
+            onSave={saveStoreFront}
+            categoryOptions={categoryOptions}
+            tags={tags}
+          />
+        )}
       </div>
 
       <MediaLibraryModal

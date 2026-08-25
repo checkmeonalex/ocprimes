@@ -397,7 +397,13 @@ export default function StoreFrontPageBuilder({ isLoading, brand, onSave, catego
   const [expandedId, setExpandedId] = useState(null);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState('desktop');
+  const [mobileTab, setMobileTab] = useState('sections');
+  const [previewKey, setPreviewKey] = useState(0);
   const savedRef = useRef([]);
+
+  const storeSlug = String(brand?.slug || '').trim();
+  const previewUrl = storeSlug ? `/${storeSlug}` : '';
 
   useEffect(() => {
     const raw = Array.isArray(brand?.storefront_blocks) ? brand.storefront_blocks : [];
@@ -443,18 +449,20 @@ export default function StoreFrontPageBuilder({ isLoading, brand, onSave, catego
       await onSave({ storefront_blocks: blocks });
       savedRef.current = blocks;
       setIsDirty(false);
+      // Reflect the save in the preview — the iframe shows the real live
+      // page, so a save is the only thing that changes what it renders.
+      setPreviewKey((k) => k + 1);
     } finally {
       setIsSaving(false);
     }
   };
 
-  return (
-    <>
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+  const blockListPanel = (
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
         <div>
-          <h3 className="text-base font-semibold text-slate-900">Storefront Layout</h3>
+          <h3 className="text-base font-semibold text-slate-900">Sections</h3>
           <p className="mt-0.5 text-xs text-slate-500">
-            Build the top of your store page. Grab any block and drag it to rearrange.
+            Add and arrange sections below. Drag to reorder — the preview updates after each save.
           </p>
         </div>
 
@@ -465,7 +473,7 @@ export default function StoreFrontPageBuilder({ isLoading, brand, onSave, catego
           renderEditor={renderEditor}
           expandedId={expandedId}
           onExpandedIdChange={setExpandedId}
-          pickerTitle="Add Component"
+          pickerTitle="Add section"
           groupBy={(b) => (b.template ? b.template : null)}
           renderGroupHeader={(groupKey, groupBlocks) => (
             groupKey ? (
@@ -499,17 +507,17 @@ export default function StoreFrontPageBuilder({ isLoading, brand, onSave, catego
               <p className="text-xs text-slate-400">Click + Add Component below to get started.</p>
             </div>
           }
-          renderAddTrigger={(openPicker) => (
+          renderTopAddTrigger={(openPicker) => (
             <button
               type="button"
               onClick={openPicker}
               disabled={isLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-3 text-xs font-bold uppercase tracking-widest text-slate-500 transition hover:border-slate-500 hover:text-slate-700 mt-2"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-[1.5px] border-dashed border-slate-300 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-slate-500 hover:text-slate-900 mb-1"
             >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
-              Add Component
+              Add section
             </button>
           )}
         />
@@ -528,7 +536,110 @@ export default function StoreFrontPageBuilder({ isLoading, brand, onSave, catego
             </button>
           </div>
         )}
-      </section>
-    </>
+    </section>
+  );
+
+  const previewPanel = (
+    <section className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+        <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 p-1">
+          <button
+            type="button"
+            onClick={() => setPreviewDevice('desktop')}
+            aria-label="Desktop preview"
+            className={`flex h-7 w-9 items-center justify-center rounded-full transition ${
+              previewDevice === 'desktop' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'
+            }`}
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="4" width="20" height="14" rx="2" /><path d="M8 20h8" /></svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreviewDevice('mobile')}
+            aria-label="Mobile preview"
+            className={`flex h-7 w-9 items-center justify-center rounded-full transition ${
+              previewDevice === 'mobile' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400'
+            }`}
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="6" y="2" width="12" height="20" rx="2" /><path d="M10 18h4" /></svg>
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPreviewKey((k) => k + 1)}
+            className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 12a8 8 0 1 0 3-6.3" /><path d="M4 4v5h5" /></svg>
+            Refresh
+          </button>
+          {previewUrl && (
+            <a
+              href={previewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-50"
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><path d="M15 3h6v6" strokeLinecap="round" strokeLinejoin="round" /><path d="m10 14 9-9" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              Open
+            </a>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-1 items-start justify-center overflow-y-auto bg-slate-100 p-4">
+        {!previewUrl ? (
+          <p className="mt-10 text-center text-xs text-slate-400">Set up your store to see a preview.</p>
+        ) : (
+          <div
+            className={`overflow-hidden rounded-xl bg-white shadow-sm transition-all ${
+              previewDevice === 'mobile' ? 'w-[375px] max-w-full' : 'w-full'
+            }`}
+          >
+            <iframe
+              key={previewKey}
+              src={previewUrl}
+              title="Storefront preview"
+              className="h-[900px] w-full border-0"
+            />
+          </div>
+        )}
+      </div>
+    </section>
+  );
+
+  return (
+    <div className="space-y-3">
+      {/* Mobile tab switcher — side-by-side doesn't fit small screens */}
+      <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1 lg:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileTab('sections')}
+          className={`flex-1 rounded-full py-2 text-xs font-semibold transition ${
+            mobileTab === 'sections' ? 'bg-slate-900 text-white' : 'text-slate-500'
+          }`}
+        >
+          Sections
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('preview')}
+          className={`flex-1 rounded-full py-2 text-xs font-semibold transition ${
+            mobileTab === 'preview' ? 'bg-slate-900 text-white' : 'text-slate-500'
+          }`}
+        >
+          Preview
+        </button>
+      </div>
+
+      <div className="lg:hidden">
+        {mobileTab === 'sections' ? blockListPanel : <div className="h-[70vh]">{previewPanel}</div>}
+      </div>
+
+      <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-5">
+        {blockListPanel}
+        <div className="sticky top-4 h-[calc(100vh-140px)]">{previewPanel}</div>
+      </div>
+    </div>
   );
 }

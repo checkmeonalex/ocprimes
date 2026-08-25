@@ -23,11 +23,11 @@ function usePreloadFonts() {
 function Accordion({ title, hint, children, defaultOpen = false }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+    <div>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+        className="flex w-full items-center justify-between gap-4 py-4 text-left"
       >
         <div>
           <p className="text-sm font-semibold text-slate-800">{title}</p>
@@ -40,7 +40,7 @@ function Accordion({ title, hint, children, defaultOpen = false }) {
           <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      {open && <div className="border-t border-slate-100 px-5 pb-5 pt-4">{children}</div>}
+      {open && <div className="pb-5">{children}</div>}
     </div>
   );
 }
@@ -105,7 +105,7 @@ export default function StoreFrontLogoSection({
   const noLogo = !brand;
 
   if (isLoading) return (
-    <section className="border-t border-slate-200 pt-6 space-y-5">
+    <section className="space-y-5">
       {[160, 130, 200].map((w) => (
         <div key={w} className="h-10 animate-pulse rounded-xl bg-slate-100" style={{ width: w }} />
       ))}
@@ -113,7 +113,7 @@ export default function StoreFrontLogoSection({
   );
 
   return (
-    <section className="border-t border-slate-200 pt-6 space-y-2">
+    <section className="divide-y divide-slate-100">
 
       {/* ── Store Icon ─────────────────────────────────────── */}
       <Accordion title="Store Icon" hint="Shows next to your store name across the platform.">
