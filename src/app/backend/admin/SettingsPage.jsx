@@ -3,7 +3,7 @@
 import CustomSelect from '@/components/common/CustomSelect'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import AdminShell from '@/components/admin/AdminShell'
 import { ACCEPTED_COUNTRIES } from '@/lib/user/accepted-countries'
 import { toProfileIdentity, writeProfileIdentityCache } from '@/lib/user/profile-identity-cache'
@@ -102,11 +102,17 @@ const inputClass =
 const labelClass = 'mb-1.5 block text-xs font-semibold text-slate-500 dark:text-zinc-400'
 const skeletonClass = 'animate-pulse rounded-xl bg-slate-200/85 dark:bg-white/10'
 
+const MOBILE_SECTION_KEYS = new Set(['profile', 'security', 'social', 'connections'])
+
 export default function SettingsPage() {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isAdmin, setIsAdmin] = useState(false)
-  const [activeTab, setActiveTab] = useState('profile')
+  const [isVendor, setIsVendor] = useState(false)
+  const [storeIdentity, setStoreIdentity] = useState({ name: '', logoUrl: '' })
+  const initialDesktopTab = searchParams.get('section') || 'profile'
+  const [activeTab, setActiveTab] = useState(initialDesktopTab)
   const [isLoading, setIsLoading] = useState(true)
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
   const [isSavingProfile, setIsSavingProfile] = useState(false)
@@ -116,7 +122,10 @@ export default function SettingsPage() {
   const [isDeletingAccount, setIsDeletingAccount] = useState(false)
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false)
   const [isProfileQuickMenuOpen, setIsProfileQuickMenuOpen] = useState(false)
-  const [mobileSection, setMobileSection] = useState('menu')
+  const initialMobileSection = MOBILE_SECTION_KEYS.has(searchParams.get('section'))
+    ? searchParams.get('section')
+    : 'menu'
+  const [mobileSection, setMobileSection] = useState(initialMobileSection)
   const [expandedMobileMenuSections, setExpandedMobileMenuSections] = useState({})
   const [mcpUrlCopied, setMcpUrlCopied] = useState(false)
 
@@ -226,7 +235,10 @@ export default function SettingsPage() {
       try {
         const response = await fetch('/api/auth/role', { cache: 'no-store', credentials: 'include' })
         const payload = await response.json().catch(() => null)
-        if (active && response.ok) setIsAdmin(Boolean(payload?.is_admin))
+        if (active && response.ok) {
+          setIsAdmin(Boolean(payload?.is_admin))
+          setIsVendor(Boolean(payload?.is_vendor))
+        }
       } catch {
         // Non-fatal: admin-only sections just stay hidden.
       }
@@ -236,6 +248,30 @@ export default function SettingsPage() {
       active = false
     }
   }, [])
+
+  // A vendor's identity usually lives on their store/brand record, not the
+  // personal profile fields below (which they're never required to fill
+  // in) — fall back to their store name/logo so Profile isn't just blank
+  // dashes for every vendor who hasn't set a personal display name.
+  useEffect(() => {
+    if (!isVendor) return undefined
+    let active = true
+    fetch('/api/admin/store-front', { cache: 'no-store', credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (!active) return
+        const item = payload?.item
+        if (!item) return
+        setStoreIdentity({
+          name: String(item.name || '').trim(),
+          logoUrl: String(item.logo_url || item.logo_full_url || '').trim(),
+        })
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [isVendor])
 
   useEffect(() => {
     if (!isAdmin) return
@@ -531,9 +567,22 @@ export default function SettingsPage() {
     if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const avatarSrc = avatarPreview || avatarUrl
-  const mobileDisplayName = String(profileForm.displayName || profileForm.authorName || '').trim()
-  const mobileSubtitle = String(profileForm.location || '').trim()
+  // Deep-link support so a card elsewhere (e.g. the storefront's "AI
+  // connector" card) can jump straight to a specific section instead of
+  // always landing on the top of the page / mobile menu list.
+  useEffect(() => {
+    const section = searchParams.get('section')
+    if (!section) return
+    const node = document.getElementById(`settings-${section}`)
+    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const avatarSrc = avatarPreview || avatarUrl || storeIdentity.logoUrl
+  const mobileDisplayName = String(
+    profileForm.displayName || profileForm.authorName || storeIdentity.name || '',
+  ).trim()
+  const mobileSubtitle = String(profileForm.location || (storeIdentity.name ? 'Vendor' : '')).trim()
 
   const handleSignOut = async () => {
     await fetch('/api/auth/signout', { method: 'POST' })

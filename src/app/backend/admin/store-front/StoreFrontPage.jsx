@@ -533,7 +533,7 @@ export default function StoreFrontPage() {
               icon={<IcoAi />}
               title="AI connector"
               summary="Connect Claude or another AI tool to manage your store"
-              onClick={() => router.push('/admin/settings')}
+              onClick={() => router.push('/admin/settings?section=connections')}
             />
           </div>
         )}
