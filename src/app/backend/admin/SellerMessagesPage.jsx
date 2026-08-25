@@ -1024,7 +1024,10 @@ export default function SellerMessagesPage() {
       isConversationClosedBlocked
     ) {
       if (text && isHelpCenterOpen && !destinationConversationId) {
-        setPageError('Unable to connect Help Center chat. Please try again.');
+        // connectHelpCenterConversation() already sets a specific error
+        // message (the real server response) when it fails — don't clobber
+        // it with this generic fallback unless nothing was set at all.
+        setPageError((current) => current || 'Unable to connect Help Center chat. Please try again.');
       }
       return;
     }
@@ -1203,7 +1206,7 @@ export default function SellerMessagesPage() {
       isConversationClosedBlocked
     ) {
       if (isHelpCenterOpen && !destinationConversationId) {
-        setPageError('Unable to connect Help Center chat. Please try again.');
+        setPageError((current) => current || 'Unable to connect Help Center chat. Please try again.');
       }
       return;
     }

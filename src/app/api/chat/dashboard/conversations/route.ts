@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
 
     const result = await listDashboardConversations()
     if (result.error) {
+      console.error('listDashboardConversations failed:', result.error)
       return jsonError('Unable to load conversations.', 500)
     }
 

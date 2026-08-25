@@ -107,6 +107,30 @@ const resolveSupportProductId = async (
     return { data: safeText(existingSupport.data.id), error: null }
   }
 
+  // products.vendor_id is NOT NULL and enforced by a DB trigger (see
+  // 104_products_vendor_id_lock.sql) — this system-generated anchor product
+  // needs a resolvable vendor just like any admin-authored product does
+  // (src/lib/admin/product-route.ts uses the same house-vendor fallback).
+  let houseVendorId = process.env.HOUSE_VENDOR_ID || ''
+  if (!houseVendorId) {
+    const { data: houseVendorRow, error: houseVendorError } = await adminDb
+      .from('vendors')
+      .select('id')
+      .eq('slug', 'ocprimax')
+      .maybeSingle()
+    if (houseVendorError || !houseVendorRow?.id) {
+      return {
+        data: '',
+        error:
+          houseVendorError ||
+          new Error(
+            'No house vendor configured for the Help Center support product. Set HOUSE_VENDOR_ID or ensure a vendor with slug "ocprimax" exists.',
+          ),
+      }
+    }
+    houseVendorId = houseVendorRow.id
+  }
+
   const insertedSupport = await adminDb
     .from('products')
     .insert({
@@ -119,6 +143,7 @@ const resolveSupportProductId = async (
       stock_quantity: 1,
       status: 'draft',
       created_by: safeAdminUserId,
+      vendor_id: houseVendorId,
     })
     .select('id')
     .maybeSingle()
