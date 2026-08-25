@@ -6,7 +6,7 @@ import AdminSidebar from '@/components/AdminSidebar';
 
 function ProductEditorDesktopLayout({ children }) {
   return (
-    <div className="min-h-screen bg-slate-50 lg:flex">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#000000] lg:flex">
       <div className="hidden lg:block">
         <AdminSidebar />
       </div>
@@ -74,13 +74,13 @@ function ProductEditorPage() {
     return (
       <ProductEditorDesktopLayout>
         <div className="px-6 py-10">
-          <div className="mx-auto w-full max-w-3xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <h1 className="text-lg font-semibold text-slate-900">Product editor</h1>
-            <p className="mt-3 text-sm text-slate-500">{error}</p>
+          <div className="mx-auto w-full max-w-3xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm dark:border-white/10 dark:bg-[#000000]">
+            <h1 className="text-lg font-semibold text-slate-900 dark:text-white">Product editor</h1>
+            <p className="mt-3 text-sm text-slate-500 dark:text-zinc-400">{error}</p>
             <button
               type="button"
               onClick={() => router.push('/backend/admin/products')}
-              className="mt-6 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500"
+              className="mt-6 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 dark:border-white/10 dark:text-zinc-400"
             >
               Back to products
             </button>
@@ -93,7 +93,7 @@ function ProductEditorPage() {
   return (
     <ProductEditorDesktopLayout>
       {isLoading && (
-        <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">
+        <div className="flex min-h-screen items-center justify-center text-sm text-slate-400 dark:text-zinc-500">
           Loading product...
         </div>
       )}

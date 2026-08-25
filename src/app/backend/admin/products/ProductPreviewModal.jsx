@@ -2033,13 +2033,13 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   const useFixedMobileStepHeader = isFullPage;
   const isCompactDrawerMode = !isFullPage;
   const cardClass =
-    'rounded-3xl bg-white/95 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] ring-1 ring-slate-100/70';
+    'rounded-3xl bg-white/95 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.06)] ring-1 ring-slate-100/70 dark:bg-white/5 dark:shadow-none dark:ring-white/10';
   const sectionClass =
-    'rounded-3xl bg-white/95 p-5 shadow-[0_12px_34px_rgba(15,23,42,0.07)] ring-1 ring-slate-100/70';
+    'rounded-3xl bg-white/95 p-5 shadow-[0_12px_34px_rgba(15,23,42,0.07)] ring-1 ring-slate-100/70 dark:bg-white/5 dark:shadow-none dark:ring-white/10';
   const bodyCardClass =
-    'rounded-none bg-transparent p-0 shadow-none ring-0 sm:rounded-3xl sm:bg-white/95 sm:p-4 sm:shadow-[0_10px_30px_rgba(15,23,42,0.06)] sm:ring-1 sm:ring-slate-100/70';
+    'rounded-none bg-transparent p-0 shadow-none ring-0 sm:rounded-3xl sm:bg-white/95 sm:p-4 sm:shadow-[0_10px_30px_rgba(15,23,42,0.06)] sm:ring-1 sm:ring-slate-100/70 dark:sm:bg-white/5 dark:sm:shadow-none dark:sm:ring-white/10';
   const bodySectionClass =
-    'rounded-none bg-transparent p-0 shadow-none ring-0 sm:rounded-3xl sm:bg-white/95 sm:p-5 sm:shadow-[0_12px_34px_rgba(15,23,42,0.07)] sm:ring-1 sm:ring-slate-100/70';
+    'rounded-none bg-transparent p-0 shadow-none ring-0 sm:rounded-3xl sm:bg-white/95 sm:p-5 sm:shadow-[0_12px_34px_rgba(15,23,42,0.07)] sm:ring-1 sm:ring-slate-100/70 dark:sm:bg-white/5 dark:sm:shadow-none dark:sm:ring-white/10';
   const detailsContentClass = isCommercialStep ? bodySectionClass : sectionClass;
   const detailsCardClass = (isCommercialStep || isConfigurationStep || isMetadataStep)
     ? bodyCardClass
@@ -2058,7 +2058,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
       ? 'text-rose-500'
       : autoSaveState === 'saved'
         ? 'text-emerald-600'
-        : 'text-slate-500';
+        : 'text-slate-500 dark:text-zinc-400';
   const mobileSaveStatus = useMemo(() => {
     if (isDraftSaving || autoSaveState === 'saving') {
       return {
@@ -2177,7 +2177,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
   const renderActionsTriggerIcon = () => (
     <span className="relative inline-flex h-8 w-8 items-center justify-center rounded-full">
       {(mobileSaveStatus.key === 'saving' || isSaving) && (
-        <span className="absolute inset-0 rounded-full border-2 border-slate-300 border-t-slate-700 animate-spin" />
+        <span className="absolute inset-0 rounded-full border-2 border-slate-300 border-t-slate-700 dark:border-white/20 dark:border-t-white animate-spin" />
       )}
       {mobileSaveStatus.key === 'saved' && !isSaving && (
         <svg viewBox="0 0 24 24" className="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2207,7 +2207,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
     <div
       className={
         isFullPage
-          ? 'min-h-screen bg-slate-50'
+          ? 'min-h-screen bg-slate-50 dark:bg-[#000000]'
           : 'fixed inset-0 z-50 flex items-end justify-center lg:items-stretch lg:justify-end'
       }
     >
@@ -2220,7 +2220,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         />
       )}
       <div
-        className={`relative flex w-full flex-col overflow-x-hidden bg-gradient-to-b from-slate-50 to-slate-100 shadow-2xl ${
+        className={`relative flex w-full flex-col overflow-x-hidden bg-gradient-to-b from-slate-50 to-slate-100 shadow-2xl dark:from-[#000000] dark:to-[#000000] ${
           isFullPage
             ? 'min-h-screen max-w-none rounded-none'
             : `max-h-[calc(100vh-24px)] max-w-6xl rounded-t-[32px] transition-transform duration-300 ${
@@ -2229,7 +2229,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         }`}
       >
         <div
-          className={`z-30 shrink-0 border-b border-slate-200 bg-white/95 backdrop-blur-md ${
+          className={`z-30 shrink-0 border-b border-slate-200 bg-white/95 backdrop-blur-md dark:border-white/10 dark:bg-[#000000]/95 ${
             isCompactDrawerMode ? '' : 'sm:hidden'
           } ${
             useFixedMobileStepHeader ? 'fixed inset-x-0 top-0 z-50' : 'sticky top-0'
@@ -2243,27 +2243,27 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             <button
               type="button"
               onClick={closeEditor}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 dark:text-zinc-300 dark:hover:bg-white/10"
               aria-label="Go back"
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="m15 18-6-6 6-6" />
               </svg>
             </button>
-            <h2 className="truncate px-2 text-base font-semibold text-slate-900">
+            <h2 className="truncate px-2 text-base font-semibold text-slate-900 dark:text-white">
               {isEditing ? 'Edit Product' : 'Create Product'}
             </h2>
             <button
               type="button"
               onClick={() => setIsMobileActionsOpen((prev) => !prev)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 dark:text-zinc-300 dark:hover:bg-white/10"
               aria-label="More actions"
             >
               {renderActionsTriggerIcon()}
             </button>
           </div>
           <div className="no-scrollbar overflow-x-auto px-3 pb-3">
-            <div className="flex min-w-max items-center gap-1 rounded-full bg-slate-100 p-1">
+            <div className="flex min-w-max items-center gap-1 rounded-full bg-slate-100 p-1 dark:bg-white/10">
               {MOBILE_STEP_META.map((step, index) => {
                 const isActive = index === mobileStepIndex;
                 const isComplete = index < mobileStepIndex;
@@ -2276,8 +2276,8 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       isActive
                         ? 'bg-blue-600 text-white'
                         : isComplete
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : 'text-slate-600'
+                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                          : 'text-slate-600 dark:text-zinc-400'
                     }`}
                   >
                     <span>{index + 1}</span>
@@ -2296,11 +2296,11 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
               className="absolute inset-0 bg-slate-900/25"
               aria-label="Close actions menu"
             />
-            <div className="absolute right-3 top-14 z-[59] w-[min(92vw,20rem)] rounded-2xl border border-slate-200 bg-white p-2 shadow-xl sm:right-6 sm:top-[5.25rem] sm:w-80">
+            <div className="absolute right-3 top-14 z-[59] w-[min(92vw,20rem)] rounded-2xl border border-slate-200 bg-white p-2 shadow-xl sm:right-6 sm:top-[5.25rem] sm:w-80 dark:border-white/10 dark:bg-[#141414]">
               <button
                 type="button"
                 onClick={handleShowSaveStatus}
-                className="flex w-full items-start gap-2 rounded-xl px-3 py-2 text-left hover:bg-slate-50"
+                className="flex w-full items-start gap-2 rounded-xl px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-white/5"
               >
                 <span
                   className={`mt-1 h-2.5 w-2.5 rounded-full ${
@@ -2314,15 +2314,15 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                   }`}
                 />
                 <span>
-                  <span className="block text-xs font-semibold text-slate-800">{mobileSaveStatus.title}</span>
-                  <span className="block text-[11px] text-slate-500">{mobileSaveStatus.message}</span>
+                  <span className="block text-xs font-semibold text-slate-800 dark:text-white">{mobileSaveStatus.title}</span>
+                  <span className="block text-[11px] text-slate-500 dark:text-zinc-400">{mobileSaveStatus.message}</span>
                 </span>
               </button>
               <button
                 type="button"
                 onClick={handleDraftAndClose}
                 disabled={isDraftSaving || isSaving}
-                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-white/5"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M4 6h16v12H4z" />
@@ -2339,7 +2339,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                   }}
                   disabled={isDraftSaving}
                   isLoading={isSaving}
-                  className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-white/5"
                 >
                   <span className="inline-flex items-center gap-2 whitespace-nowrap">
                     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2354,7 +2354,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 type="button"
                 onClick={handleDeleteCurrentProduct}
                 disabled={isDraftSaving || isSaving}
-                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-400 dark:hover:bg-rose-950/30"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M3 6h18" />
@@ -2368,7 +2368,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         )}
 
         <div
-          className={`sticky top-0 z-20 hidden flex-col gap-3 bg-white/80 px-4 py-4 backdrop-blur-md ${
+          className={`sticky top-0 z-20 hidden flex-col gap-3 bg-white/80 px-4 py-4 backdrop-blur-md dark:bg-[#000000]/80 ${
             isCompactDrawerMode ? '' : 'sm:flex sm:flex-row sm:items-center sm:justify-between sm:px-6'
           }`}
         >
@@ -2377,18 +2377,18 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
               <button
                 type="button"
                 onClick={onClose}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm ring-1 ring-slate-200/70 hover:bg-slate-50"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm ring-1 ring-slate-200/70 hover:bg-slate-50 dark:bg-white/5 dark:text-zinc-300 dark:ring-white/10 dark:hover:bg-white/10"
                 aria-label="Back to products"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="m15 18-6-6 6-6" />
                 </svg>
               </button>
-              <h2 className="text-xl font-semibold text-slate-900">
+              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
               {isEditing ? 'Edit Product' : 'Add New Product'}
               </h2>
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
               Step {currentStepIndex + 1} of {PRODUCT_EDITOR_STEPS.length}: {currentStep.label}
             </p>
             <p className={`mt-2 text-[11px] font-medium ${autoSaveTone}`}>{autoSaveLabel}</p>
@@ -2397,7 +2397,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             <button
               type="button"
               onClick={() => setIsMobileActionsOpen((prev) => !prev)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm ring-1 ring-slate-200/70 hover:bg-slate-50"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm ring-1 ring-slate-200/70 hover:bg-slate-50 dark:bg-white/5 dark:text-zinc-300 dark:ring-white/10 dark:hover:bg-white/10"
               aria-label="More actions"
             >
               {renderActionsTriggerIcon()}
@@ -2419,10 +2419,10 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                   disabled={isLocked}
                   className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                     isActive
-                      ? 'bg-slate-900 text-white shadow-sm'
+                      ? 'bg-slate-900 text-white shadow-sm dark:bg-white dark:text-black'
                       : isComplete
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-white text-slate-500 ring-1 ring-slate-200/60'
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                        : 'bg-white text-slate-500 ring-1 ring-slate-200/60 dark:bg-white/5 dark:text-zinc-400 dark:ring-white/10'
                   } ${isLocked ? 'cursor-not-allowed opacity-50' : 'hover:opacity-90'}`}
                 >
                   {index + 1}. {step.label}
@@ -2444,14 +2444,14 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
           }`}
         >
           {isReviewStep ? (
-            <div className="relative h-full min-h-[calc(100dvh-9rem)] bg-white sm:min-h-[calc(100dvh-12rem)]">
+            <div className="relative h-full min-h-[calc(100dvh-9rem)] bg-white sm:min-h-[calc(100dvh-12rem)] dark:bg-[#000000]">
               {canDraftSave && previewFrameSrc ? (
                 <>
                   <iframe
                     ref={previewIframeRef}
                     title="Draft product preview"
                     src={previewFrameSrc}
-                    className="h-[calc(100dvh-9rem)] w-full border-0 bg-white sm:h-[calc(100dvh-12rem)]"
+                    className="h-[calc(100dvh-9rem)] w-full border-0 bg-white sm:h-[calc(100dvh-12rem)] dark:bg-[#000000]"
                     onLoad={() => {
                       try {
                         const currentHref = previewIframeRef.current?.contentWindow?.location?.href || '';
@@ -2473,21 +2473,21 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                     }}
                   />
                   {isPreviewFrameLoading && (
-                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-white">
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-white dark:bg-[#000000]">
                       <div className="w-full max-w-xs px-6 text-center">
-                        <p className="text-sm font-semibold text-slate-900">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
                           Preparing a preview for your product
                         </p>
-                        <p className="mt-1 text-xs text-slate-500">
+                        <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
                           Hold on while we render your latest draft.
                         </p>
-                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200">
+                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
                           <div
-                            className="h-full rounded-full bg-slate-900 transition-all duration-200"
+                            className="h-full rounded-full bg-slate-900 transition-all duration-200 dark:bg-white"
                             style={{ width: `${Math.min(100, Math.max(0, previewLoadProgress))}%` }}
                           />
                         </div>
-                        <p className="mt-2 text-[11px] font-semibold text-slate-600">
+                        <p className="mt-2 text-[11px] font-semibold text-slate-600 dark:text-zinc-400">
                           {Math.round(Math.min(100, Math.max(0, previewLoadProgress)))}%
                         </p>
                       </div>
@@ -2495,7 +2495,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                   )}
                 </>
               ) : (
-                <div className="px-4 py-8 text-center text-xs text-slate-500">
+                <div className="px-4 py-8 text-center text-xs text-slate-500 dark:text-zinc-400">
                   {canDraftSave
                     ? 'Preparing preview URL... please wait.'
                     : 'Complete required fields to render preview.'}
@@ -2505,7 +2505,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 <button
                   type="button"
                   onClick={handleBackStep}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm"
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-300"
                 >
                   Go Back
                 </button>
@@ -2514,7 +2514,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                   onClick={handlePublishLive}
                   isLoading={isSaving}
                   disabled={isDraftSaving}
-                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm"
+                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm dark:bg-white dark:text-black"
                 >
                   Go Live
                 </LoadingButton>
@@ -2541,7 +2541,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
           >
             {(isIdentityStep || isReviewStep) && (
             <div className={isIdentityStep ? bodyCardClass : cardClass}>
-              <p className="text-xs font-semibold text-slate-500">Media</p>
+              <p className="text-xs font-semibold text-slate-500 dark:text-zinc-400">Media</p>
               <div className="mt-4 relative">
                 <button
                   type="button"
@@ -2549,13 +2549,13 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                     setImageLibraryPurpose('product');
                     setIsImageModalOpen(true);
                   }}
-                  className="flex w-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-100 px-3 py-2 text-left"
+                  className="flex w-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-100 px-3 py-2 text-left dark:border-white/10 dark:bg-white/5"
                 >
-                  <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-slate-100">
+                  <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-slate-100 dark:bg-white/5">
                     {previewImage ? (
                       <LazyImage src={previewImage} alt={form.name || 'Product'} />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-xs text-slate-400">
+                      <div className="flex h-full items-center justify-center text-xs text-slate-400 dark:text-zinc-500">
                         {hasProductVideo
                           ? 'Add image of your product'
                           : 'Add product images and a video.'}
@@ -2570,7 +2570,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       event.stopPropagation();
                       removeGalleryImage(selectedImage.id);
                     }}
-                    className="absolute bottom-3 left-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-500 shadow-sm transition hover:text-rose-600"
+                    className="absolute bottom-3 left-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/80 bg-white/95 text-slate-500 shadow-sm transition hover:text-rose-600 dark:border-white/10 dark:bg-[#141414]/95 dark:text-zinc-400"
                     aria-label="Remove current image"
                     title="Remove current image"
                   >
@@ -2588,7 +2588,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                     setImageLibraryPurpose('product');
                     setIsImageModalOpen(true);
                   }}
-                  className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700"
+                  className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300"
                 >
                   {hasProductVideo ? '1 video added' : 'Add a video'}
                 </button>
@@ -2596,7 +2596,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                   <button
                     type="button"
                     onClick={clearAllGalleryImages}
-                    className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-semibold text-rose-700"
+                    className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-semibold text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300"
                   >
                     Clear all images
                   </button>
@@ -2611,7 +2611,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                         product_video_url: '',
                       }))
                     }
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600"
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-600 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-400"
                     aria-label="Remove video"
                     title="Remove video"
                   >
@@ -2633,7 +2633,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       <div
                         key={`${image.id}-${image.url}`}
                         className={`relative h-16 w-16 overflow-hidden rounded-2xl border ${
-                          isPrimary ? 'border-blue-500 ring-1 ring-blue-200' : 'border-slate-200'
+                          isPrimary ? 'border-blue-500 ring-1 ring-blue-200 dark:ring-blue-900/50' : 'border-slate-200 dark:border-white/10'
                         }`}
                       >
                         <button
@@ -2653,15 +2653,15 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                         {image.url ? (
                           <LazyImage src={image.url} alt={image.title || 'Product'} />
                         ) : (
-                          <span className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">
+                          <span className="flex h-full w-full items-center justify-center text-[10px] text-slate-400 dark:text-zinc-500">
                             Image
                           </span>
                         )}
                         <span
                           className={`absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
                             isPrimary
-                              ? 'border-amber-400 bg-amber-100 text-amber-600'
-                              : 'border-white/80 bg-white/90 text-slate-400'
+                              ? 'border-amber-400 bg-amber-100 text-amber-600 dark:border-amber-700/50 dark:bg-amber-950/40 dark:text-amber-300'
+                              : 'border-white/80 bg-white/90 text-slate-400 dark:border-white/10 dark:bg-[#141414]/90 dark:text-zinc-500'
                           }`}
                         >
                           <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor">
@@ -2675,7 +2675,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                             event.stopPropagation();
                             removeGalleryImage(image.id);
                           }}
-                          className="absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-white/90 text-slate-400 transition group-hover:text-rose-600"
+                          className="absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-full border border-white/80 bg-white/90 text-slate-400 transition group-hover:text-rose-600 dark:border-white/10 dark:bg-[#141414]/90 dark:text-zinc-500"
                           aria-label="Remove image"
                         >
                           <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
@@ -2689,7 +2689,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                   })}
                 </div>
               )}
-              <p className="mt-3 text-[11px] text-slate-400">
+              <p className="mt-3 text-[11px] text-slate-400 dark:text-zinc-500">
                 Thumbnail previews will reflect the product gallery.
               </p>
             </div>
@@ -2697,10 +2697,10 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
 
             {(isCommercialStep || isConfigurationStep || isMetadataStep || isReviewStep) && (
               <div className={detailsCardClass}>
-                <p className="text-xs font-semibold text-slate-600">Product Details</p>
+                <p className="text-xs font-semibold text-slate-600 dark:text-zinc-300">Product Details</p>
                 {(isCommercialStep || isReviewStep) && (
                   <>
-                    <label className="mt-4 block text-[11px] text-slate-400">
+                    <label className="mt-4 block text-[11px] text-slate-400 dark:text-zinc-500">
                       Categories <span className="text-rose-500">*</span>
                     </label>
                     <ProductCategorySelector
@@ -2720,7 +2720,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       pendingCategoryRequests={pendingCategoryRequests}
                       className="mt-2 w-full"
                     />
-                    <label className="mt-4 block text-[11px] text-slate-400">Tags</label>
+                    <label className="mt-4 block text-[11px] text-slate-400 dark:text-zinc-500">Tags</label>
                     <ProductTagSelector
                       selectedTags={selectedTags}
                       onSelectTags={setSelectedTags}
@@ -2737,7 +2737,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       createTagError={createTagError}
                       className="mt-2 w-full"
                     />
-                    <label className="mt-4 block text-[11px] text-slate-400">Brands</label>
+                    <label className="mt-4 block text-[11px] text-slate-400 dark:text-zinc-500">Brands</label>
                     <ProductBrandSelector
                       selectedBrands={selectedBrands}
                       onSelectBrands={setSelectedBrands}
@@ -2752,35 +2752,35 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 )}
                 {(isConfigurationStep || isReviewStep) && (
                   <>
-                    <label className="mt-4 block text-[11px] text-slate-400">SKU</label>
+                    <label className="mt-4 block text-[11px] text-slate-400 dark:text-zinc-500">SKU</label>
                     <input
                       value={form.sku}
                       onChange={handleChange('sku')}
                       disabled={isSkuAutoGenerated}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white"
                       placeholder="Automatically Generated"
                     />
                     {isSkuAutoGenerated && (
-                      <p className="mt-1 text-[11px] text-slate-400">
+                      <p className="mt-1 text-[11px] text-slate-400 dark:text-zinc-500">
                         SKU was automatically generated and cannot be edited.
                       </p>
                     )}
-                    <label className="mt-4 block text-[11px] text-slate-400">Quantity</label>
+                    <label className="mt-4 block text-[11px] text-slate-400 dark:text-zinc-500">Quantity</label>
                     <input
                       type="number"
                       min="0"
                       step="1"
                       value={form.stock_quantity}
                       onChange={handleChange('stock_quantity')}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white"
                       placeholder="0"
                     />
                   </>
                 )}
                 {(isMetadataStep || isReviewStep) && (
                   <>
-                    <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-md">
-                      <label className="block text-[11px] text-slate-500">
+                    <div className="mt-4 rounded-2xl border border-white/70 bg-white/70 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-md dark:border-white/10 dark:bg-white/5">
+                      <label className="block text-[11px] text-slate-500 dark:text-zinc-400">
                         Condition Check <span className="text-rose-500">*</span>
                       </label>
                       <ProductConditionSelector
@@ -2794,8 +2794,8 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                         className="mt-2 w-full"
                       />
                     </div>
-                    <div className="mt-3 rounded-2xl border border-white/70 bg-white/70 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-md">
-                      <label className="block text-[11px] text-slate-500">Packaging Style</label>
+                    <div className="mt-3 rounded-2xl border border-white/70 bg-white/70 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-md dark:border-white/10 dark:bg-white/5">
+                      <label className="block text-[11px] text-slate-500 dark:text-zinc-400">Packaging Style</label>
                       <ProductPackagingSelector
                         value={form.packaging_style || 'in_wrap_nylon'}
                         onChange={(nextValue) =>
@@ -2807,8 +2807,8 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                         className="mt-2 w-full"
                       />
                     </div>
-                    <div className="mt-3 rounded-2xl border border-white/70 bg-white/70 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-md">
-                      <label className="block text-[11px] text-slate-500">Return Policy</label>
+                    <div className="mt-3 rounded-2xl border border-white/70 bg-white/70 px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-md dark:border-white/10 dark:bg-white/5">
+                      <label className="block text-[11px] text-slate-500 dark:text-zinc-400">Return Policy</label>
                       <ProductReturnPolicySelector
                         value={form.return_policy || 'not_returnable'}
                         onChange={(nextValue) =>
@@ -2832,35 +2832,35 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
           >
             {(isIdentityStep || isReviewStep) && (
             <div className={detailsContentClass}>
-              <p className="text-sm font-semibold text-slate-900">Pricing</p>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">Pricing</p>
               <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <div>
-                  <label className="block text-[11px] text-slate-400">Base Price</label>
+                  <label className="block text-[11px] text-slate-400 dark:text-zinc-500">Base Price</label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={form.regular_price}
                     onChange={handleBasePriceChange}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white"
                     placeholder="0.00"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-400">Discount Price</label>
+                  <label className="block text-[11px] text-slate-400 dark:text-zinc-500">Discount Price</label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={form.sale_price}
                     onChange={handleChange('sale_price')}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white"
                     placeholder="Optional"
                   />
                   <button
                     type="button"
                     onClick={() => setShowDealExpiryControls((prev) => !prev)}
-                    className="mt-2 inline-flex items-center gap-2 text-[11px] font-medium text-amber-700 transition hover:text-amber-800"
+                    className="mt-2 inline-flex items-center gap-2 text-[11px] font-medium text-amber-700 transition hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
                   >
                     <span>Deal ends at</span>
                     <svg
@@ -2882,12 +2882,12 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 </div>
                 {showDealExpiryControls ? (
                   <div className="sm:col-span-2 xl:col-span-1">
-                    <label className="block text-[11px] text-slate-400">Deal Expiry</label>
+                    <label className="block text-[11px] text-slate-400 dark:text-zinc-500">Deal Expiry</label>
                     <input
                       type="datetime-local"
                       value={form.deal_expires_at}
                       onChange={handleChange('deal_expires_at')}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white"
                     />
                     {form.deal_expires_at ? (
                       <button
@@ -2898,7 +2898,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                             deal_expires_at: '',
                           }))
                         }
-                        className="mt-2 inline-flex rounded-full border border-amber-300 bg-white px-3 py-1 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-50"
+                        className="mt-2 inline-flex rounded-full border border-amber-300 bg-white px-3 py-1 text-[11px] font-semibold text-amber-800 transition hover:bg-amber-50 dark:border-amber-700/40 dark:bg-white/5 dark:text-amber-300 dark:hover:bg-amber-950/30"
                       >
                         Clear
                       </button>
@@ -2911,36 +2911,36 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
 
             {(isIdentityStep || isCommercialStep || isReviewStep) && (
               <div className={isIdentityStep || isCommercialStep ? bodySectionClass : sectionClass}>
-                <p className="text-sm font-semibold text-slate-900">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">
                   {isIdentityStep ? 'Product Identity' : 'About Product'}
                 </p>
                 {(isIdentityStep || isReviewStep) && (
                   <>
-                    <label className="mt-4 block text-[11px] text-slate-400">
+                    <label className="mt-4 block text-[11px] text-slate-400 dark:text-zinc-500">
                       Product Name <span className="text-rose-500">*</span>
                     </label>
                     <input
                       value={form.name}
                       onChange={handleChange('name')}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-sm text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-white"
                       placeholder="New product name"
                     />
-                    <p className="mt-2 text-[11px] text-slate-400">
-                      Slug preview: <span className="font-semibold text-slate-600">{previewSlug || '--'}</span>
+                    <p className="mt-2 text-[11px] text-slate-400 dark:text-zinc-500">
+                      Slug preview: <span className="font-semibold text-slate-600 dark:text-zinc-300">{previewSlug || '--'}</span>
                     </p>
                     {previewUrl && (
-                      <p className="mt-2 text-[11px] text-slate-400">
+                      <p className="mt-2 text-[11px] text-slate-400 dark:text-zinc-500">
                         Live URL:{' '}
                         <button
                           type="button"
                           onClick={() => previewUrl && window.open(previewUrl, '_blank')}
-                          className="font-semibold text-blue-600 hover:underline"
+                          className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
                         >
                           {previewUrl}
                         </button>
                       </p>
                     )}
-                    <label className="mt-4 block text-[11px] text-slate-400">
+                    <label className="mt-4 block text-[11px] text-slate-400 dark:text-zinc-500">
                       Short Description <span className="text-rose-500">*</span>
                     </label>
                     <textarea
@@ -2953,17 +2953,17 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       }
                       maxLength={SHORT_DESCRIPTION_MAX}
                       rows={3}
-                      className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-600"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200"
                       placeholder="Short description for cards and previews"
                     />
-                    <p className="mt-1 text-[11px] text-slate-400">
+                    <p className="mt-1 text-[11px] text-slate-400 dark:text-zinc-500">
                       {(form.short_description || '').length}/{SHORT_DESCRIPTION_MAX}
                     </p>
                   </>
                 )}
                 {(isCommercialStep || isReviewStep) && (
                   <>
-                    <label className="mt-4 block text-[11px] text-slate-400">Description</label>
+                    <label className="mt-4 block text-[11px] text-slate-400 dark:text-zinc-500">Description</label>
                     <RichTextEditor
                       ref={mainDescriptionEditorRef}
                       value={form.description}
@@ -2991,17 +2991,17 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             <div className={variationSectionClass}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Variations</p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white">Variations</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
                     Does your product have options (e.g., color, size)?
                   </p>
                 </div>
-                <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1 text-xs font-semibold">
+                <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1 text-xs font-semibold dark:border-white/10 dark:bg-white/5">
                   <button
                     type="button"
                     onClick={() => setVariationEnabled(false)}
                     className={`rounded-full px-3 py-1 transition ${
-                      !variationEnabled ? 'bg-slate-900 text-white' : 'text-slate-600'
+                      !variationEnabled ? 'bg-slate-900 text-white dark:bg-white dark:text-black' : 'text-slate-600 dark:text-zinc-400'
                     }`}
                   >
                     No
@@ -3010,7 +3010,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                     type="button"
                     onClick={() => setVariationEnabled(true)}
                     className={`rounded-full px-3 py-1 transition ${
-                      variationEnabled ? 'bg-slate-900 text-white' : 'text-slate-600'
+                      variationEnabled ? 'bg-slate-900 text-white dark:bg-white dark:text-black' : 'text-slate-600 dark:text-zinc-400'
                     }`}
                   >
                     Yes
@@ -3021,27 +3021,27 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
               {variationEnabled ? (
                 <>
                   <div className="mt-4 space-y-4">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
                       <div className="flex items-start gap-3">
-                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white dark:bg-white dark:text-black">
                           1
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-slate-800">Choose option types</p>
-                          <p className="mt-1 text-[11px] text-slate-500">
+                          <p className="text-xs font-semibold text-slate-800 dark:text-white">Choose option types</p>
+                          <p className="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
                             Add attributes like size or color, then pick the option values.
                           </p>
                         </div>
                       </div>
 
                       {isAttributesLoading && (
-                        <p className="mt-3 text-xs text-slate-400">Loading attributes...</p>
+                        <p className="mt-3 text-xs text-slate-400 dark:text-zinc-500">Loading attributes...</p>
                       )}
                       {!isAttributesLoading && attributesError && (
-                        <p className="mt-3 text-xs text-rose-500">{attributesError}</p>
+                        <p className="mt-3 text-xs text-rose-500 dark:text-rose-400">{attributesError}</p>
                       )}
                       {!isAttributesLoading && !attributesError && availableAttributes.length === 0 && (
-                        <p className="mt-3 text-xs text-slate-400">
+                        <p className="mt-3 text-xs text-slate-400 dark:text-zinc-500">
                           No global attributes found yet.
                         </p>
                       )}
@@ -3055,7 +3055,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                             handleAddAttribute(selected);
                             event.target.value = '';
                           }}
-                          className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-xs text-slate-600"
+                          className="w-full rounded-2xl border border-slate-200 px-3 py-2.5 text-xs text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200"
                           defaultValue=""
                         >
                           <option value="" disabled>
@@ -3076,18 +3076,18 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                             return (
                             <div
                               key={attributeKey}
-                              className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3"
+                              className="rounded-2xl border border-slate-200 bg-slate-50/60 p-3 dark:border-white/10 dark:bg-white/5"
                             >
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <div>
-                                  <p className="text-xs font-semibold text-slate-700">
+                                  <p className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
                                     {attribute.label || attribute.name}
                                   </p>
-                              <p className="mt-1 text-[11px] text-slate-500">
+                              <p className="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
                                 {attribute.selectedOptionIds.length} option
                                 {attribute.selectedOptionIds.length === 1 ? '' : 's'} selected
                               </p>
-                              <p className="mt-1 text-[11px] text-slate-500">
+                              <p className="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
                                 {getAttributeGuidance(attribute)}
                               </p>
                             </div>
@@ -3095,14 +3095,14 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                                   <button
                                     type="button"
                                     onClick={() => setActiveAttributeEditorKey(attributeKey)}
-                                    className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600"
+                                    className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:border-white/10 dark:text-zinc-300"
                                   >
                                     Edit
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveAttribute(attributeKey)}
-                                    className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-500"
+                                    className="rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-500 dark:border-white/10 dark:text-zinc-400"
                                   >
                                     Remove
                                   </button>
@@ -3115,34 +3115,34 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       )}
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
                       <div className="flex items-start gap-3">
-                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white dark:bg-white dark:text-black">
                           2
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-slate-800">Build your variants</p>
-                          <p className="mt-1 text-[11px] text-slate-500">
+                          <p className="text-xs font-semibold text-slate-800 dark:text-white">Build your variants</p>
+                          <p className="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
                             Generate combinations automatically or add one variant manually.
                           </p>
                         </div>
                       </div>
                       <div className="mt-3 flex items-center justify-between gap-2 text-xs">
-                        <p className="font-semibold text-slate-700">Variants</p>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        <p className="font-semibold text-slate-700 dark:text-zinc-200">Variants</p>
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-white/10 dark:text-zinc-300">
                           {variations.length} total
                         </span>
                       </div>
                       {colorAttributeKey && colorOptionsForMapping.length > 0 && (
                         <div className="mt-3">
-                          <p className="mb-2 text-[11px] text-slate-500">
+                          <p className="mb-2 text-[11px] text-slate-500 dark:text-zinc-400">
                             Tell us which color each image belongs to.
                           </p>
                           <button
                             type="button"
                             onClick={handleOpenColorImageMap}
                             disabled={galleryImages.length === 0}
-                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-zinc-300"
                           >
                             Map image by color
                           </button>
@@ -3152,14 +3152,14 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                         <button
                           type="button"
                           onClick={handleAutoGenerateVariations}
-                          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700"
+                          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 dark:border-white/10 dark:text-zinc-300"
                         >
                           Auto-generate
                         </button>
                         <button
                           type="button"
                           onClick={handleAddManualVariation}
-                          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700"
+                          className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 dark:border-white/10 dark:text-zinc-300"
                         >
                           Add manual
                         </button>
@@ -3167,7 +3167,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                           <button
                             type="button"
                             onClick={handleClearAllVariations}
-                            className="col-span-2 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600"
+                            className="col-span-2 rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 dark:border-rose-900/40 dark:text-rose-400"
                           >
                             Clear all variants
                           </button>
@@ -3175,21 +3175,21 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
                       <div className="flex items-start gap-3">
-                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white">
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] font-bold text-white dark:bg-white dark:text-black">
                           3
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-slate-800">Edit each variant</p>
-                          <p className="mt-1 text-[11px] text-slate-500">
+                          <p className="text-xs font-semibold text-slate-800 dark:text-white">Edit each variant</p>
+                          <p className="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
                             Set price, stock, image, and attribute values for each variant.
                           </p>
                         </div>
                       </div>
 
                       {variations.length === 0 && (
-                        <div className="mt-3 rounded-xl border border-dashed border-slate-200 px-3 py-3 text-[11px] text-slate-500">
+                        <div className="mt-3 rounded-xl border border-dashed border-slate-200 px-3 py-3 text-[11px] text-slate-500 dark:border-white/10 dark:text-zinc-400">
                           No variants yet. Use Auto-generate or Add manual in Step 2.
                         </div>
                       )}
@@ -3207,16 +3207,16 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                                 key={variation.id}
                                 type="button"
                                 onClick={() => setActiveVariationEditorId(variation.id)}
-                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-3 text-left"
+                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-3 py-3 text-left dark:border-white/10 dark:bg-white/5"
                               >
                                 <div className="flex items-center justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className="truncate text-xs font-semibold text-slate-800">{variationName}</p>
-                                    <p className="mt-1 truncate text-[11px] text-slate-500">
+                                    <p className="truncate text-xs font-semibold text-slate-800 dark:text-white">{variationName}</p>
+                                    <p className="mt-1 truncate text-[11px] text-slate-500 dark:text-zinc-400">
                                       SKU: {variation.sku || 'Auto-generated'} | Qty: {variationQty} | Price: {variationPrice}
                                     </p>
                                   </div>
-                                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500">
+                                  <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-zinc-400">
                                     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
                                       <path d="m9 6 6 6-6 6" />
                                     </svg>
@@ -3231,7 +3231,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                   </div>
                 </>
               ) : (
-                <p className="mt-3 text-xs text-slate-500">
+                <p className="mt-3 text-xs text-slate-500 dark:text-zinc-400">
                   Keep this product as a single option product. Turn on <span className="font-semibold">Yes</span> to configure variations.
                 </p>
               )}
@@ -3241,8 +3241,8 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             {(isConfigurationStep || isReviewStep) && (
             <div className={variationSectionClass}>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-slate-900">Size Guide</p>
-                <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">Size Guide</p>
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-zinc-300">
                   <input
                     type="checkbox"
                     checked={sizeGuideEnabled}
@@ -3253,22 +3253,22 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                         setSelectedSizeGuideId('');
                       }
                     }}
-                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-white/20 dark:bg-white/5"
                   />
                   This product has a size guide
                 </label>
               </div>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-slate-500 dark:text-zinc-400">
                 Overrides the category&apos;s default size guide (if any) for this product only.
               </p>
               {isSizeGuidesLoading && (
-                <p className="mt-3 text-xs text-slate-400">Loading size guides...</p>
+                <p className="mt-3 text-xs text-slate-400 dark:text-zinc-500">Loading size guides...</p>
               )}
               {!isSizeGuidesLoading && sizeGuidesError && (
-                <p className="mt-3 text-xs text-rose-500">{sizeGuidesError}</p>
+                <p className="mt-3 text-xs text-rose-500 dark:text-rose-400">{sizeGuidesError}</p>
               )}
               {!isSizeGuidesLoading && !sizeGuidesError && sizeGuides.length === 0 && (
-                <p className="mt-3 text-xs text-slate-400">
+                <p className="mt-3 text-xs text-slate-400 dark:text-zinc-500">
                   No size guides found yet. Create one under Admin &gt; Size Guides.
                 </p>
               )}
@@ -3276,7 +3276,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 <CustomSelect
                   value={selectedSizeGuideId}
                   onChange={(event) => setSelectedSizeGuideId(event.target.value)}
-                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-600"
+                  className="w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200"
                   disabled={!sizeGuideEnabled || isSizeGuidesLoading}
                 >
                   <option value="">Select size guide...</option>
@@ -3293,18 +3293,18 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             {(isConfigurationStep || isReviewStep) && (
             <div className={variationSectionClass}>
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-semibold text-slate-900">Low Stock Warning</p>
-                <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">Low Stock Warning</p>
+                <label className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-zinc-300">
                   <input
                     type="checkbox"
                     checked={showLowStockWarning}
                     onChange={(event) => setShowLowStockWarning(event.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                    className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 dark:border-white/20 dark:bg-white/5"
                   />
                   Show &quot;Only X left in stock&quot; badge
                 </label>
               </div>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-slate-500 dark:text-zinc-400">
                 When on, shoppers see an urgency badge on this product once stock runs low. Off by default.
               </p>
             </div>
@@ -3319,8 +3319,8 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
         <div
           className={
             isCompactDrawerMode
-              ? 'fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md'
-              : 'fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:bottom-0 sm:z-20 sm:border-t-0 sm:bg-white/80 sm:px-6 sm:py-4 sm:pb-4'
+              ? 'fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md dark:border-white/10 dark:bg-[#000000]/90'
+              : 'fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/90 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-md sm:sticky sm:bottom-0 sm:z-20 sm:border-t-0 sm:bg-white/80 sm:px-6 sm:py-4 sm:pb-4 dark:border-white/10 dark:bg-[#000000]/90 dark:sm:bg-[#000000]/80'
           }
         >
           <div className="flex w-full items-center gap-2 sm:justify-between">
@@ -3328,7 +3328,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
               type="button"
               onClick={handleBackStep}
               disabled={currentStepIndex === 0 || isDraftSaving}
-              className="min-h-10 flex-1 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200/60 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:flex-none sm:text-xs"
+              className="min-h-10 flex-1 rounded-2xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200/60 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:flex-none sm:text-xs dark:bg-white/5 dark:text-zinc-200 dark:ring-white/10"
             >
               Back
             </button>
@@ -3339,9 +3339,9 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 disabled={isDraftSaving}
                 className={`min-h-10 flex-1 rounded-2xl px-4 py-2 text-sm font-semibold text-white transition sm:w-auto sm:flex-none sm:text-xs ${
                   canProceedCurrentStep
-                    ? 'bg-slate-900'
-                    : 'bg-slate-900/70 ring-1 ring-slate-300/40'
-                } disabled:cursor-not-allowed disabled:bg-slate-300`}
+                    ? 'bg-slate-900 dark:bg-white dark:text-black'
+                    : 'bg-slate-900/70 ring-1 ring-slate-300/40 dark:bg-white/40 dark:text-black/70 dark:ring-white/10'
+                } disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-white/10 dark:disabled:text-zinc-500`}
               >
                 Next
               </button>
@@ -3352,30 +3352,30 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
 
         {(statusMessage || error) && (
           <div className="px-4 py-3 sm:px-6">
-            {statusMessage && <p className="text-xs font-semibold text-emerald-600">{statusMessage}</p>}
-            {error && <p className="text-xs text-rose-500">{error}</p>}
+            {statusMessage && <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{statusMessage}</p>}
+            {error && <p className="text-xs text-rose-500 dark:text-rose-400">{error}</p>}
           </div>
         )}
       </div>
       {activeAttributeEditor && (
         <div className="fixed inset-0 z-[74] bg-slate-950/45 backdrop-blur-sm">
-          <div className="flex h-full flex-col bg-white">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <div className="flex h-full flex-col bg-white dark:bg-[#000000]">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/10">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-zinc-400">
                   Attribute Options
                 </p>
-                <p className="truncate text-sm font-semibold text-slate-900">
+                <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
                   {activeAttributeEditor.label || activeAttributeEditor.name}
                 </p>
-                <p className="mt-1 text-[11px] text-slate-500">
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-zinc-400">
                   {getAttributeGuidance(activeAttributeEditor)}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveAttributeEditorKey('')}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-zinc-300 dark:hover:bg-white/10"
                 aria-label="Close attribute editor"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -3387,7 +3387,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
 
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-24">
               {activeAttributeEditor.terms.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-500">
+                <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-xs text-slate-500 dark:border-white/10 dark:text-zinc-400">
                   No options available for this attribute yet.
                 </div>
               )}
@@ -3410,14 +3410,14 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                         }
                         className={`rounded-2xl border px-3 py-2 text-left text-xs font-medium transition ${
                           isSelected
-                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                            : 'border-slate-200 bg-white text-slate-700'
+                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-950/40 dark:text-emerald-300'
+                            : 'border-slate-200 bg-white text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300'
                         }`}
                       >
                         <span className="flex items-center gap-2">
                           {showColor && (
                             <span
-                              className="h-4 w-4 rounded-full border border-slate-300"
+                              className="h-4 w-4 rounded-full border border-slate-300 dark:border-white/20"
                               style={colorHex ? { backgroundColor: colorHex } : undefined}
                             />
                           )}
@@ -3433,7 +3433,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             <button
               type="button"
               onClick={() => setActiveAttributeEditorKey('')}
-              className="fixed bottom-[max(0.9rem,env(safe-area-inset-bottom))] right-4 z-[75] rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg"
+              className="fixed bottom-[max(0.9rem,env(safe-area-inset-bottom))] right-4 z-[75] rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg dark:bg-white dark:text-black"
             >
               Done
             </button>
@@ -3442,20 +3442,20 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
       )}
       {activeVariationEditor && (
         <div className="fixed inset-0 z-[76] bg-slate-950/45 backdrop-blur-sm">
-          <div className="flex h-full flex-col bg-white">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+          <div className="flex h-full flex-col bg-white dark:bg-[#000000]">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-white/10">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-zinc-400">
                   Variation
                 </p>
-                <p className="truncate text-sm font-semibold text-slate-900">
+                <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
                   {buildVariationLabel(activeVariationEditor) || `Variant ${variations.findIndex((v) => v.id === activeVariationEditor.id) + 1}`}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveVariationEditorId('')}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-zinc-300 dark:hover:bg-white/10"
                 aria-label="Close variation editor"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -3468,7 +3468,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-24">
               <div className="space-y-3">
                 <div>
-                  <label className="block text-[11px] text-slate-400">Price</label>
+                  <label className="block text-[11px] text-slate-400 dark:text-zinc-500">Price</label>
                   <input
                     type="number"
                     min="0"
@@ -3477,12 +3477,12 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                     onChange={(event) =>
                       updateVariation(activeVariationEditor.id, { regular_price: event.target.value })
                     }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white"
                     placeholder="0.00"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-400">Sale Price</label>
+                  <label className="block text-[11px] text-slate-400 dark:text-zinc-500">Sale Price</label>
                   <input
                     type="number"
                     min="0"
@@ -3491,26 +3491,26 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                     onChange={(event) =>
                       updateVariation(activeVariationEditor.id, { sale_price: event.target.value })
                     }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white"
                     placeholder="Optional"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-400">SKU</label>
+                  <label className="block text-[11px] text-slate-400 dark:text-zinc-500">SKU</label>
                   <input
                     value={activeVariationEditor.sku}
                     onChange={(event) =>
                       updateVariation(activeVariationEditor.id, { sku: event.target.value })
                     }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white"
                     placeholder="Will be auto-generated"
                   />
-                  <p className="mt-1 text-[11px] text-slate-400">
+                  <p className="mt-1 text-[11px] text-slate-400 dark:text-zinc-500">
                     Will be auto-generated if not added.
                   </p>
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-400">Quantity</label>
+                  <label className="block text-[11px] text-slate-400 dark:text-zinc-500">Quantity</label>
                   <input
                     type="number"
                     min="0"
@@ -3519,20 +3519,20 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                     onChange={(event) =>
                       updateVariation(activeVariationEditor.id, { stock_quantity: event.target.value })
                     }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white"
                     placeholder="0"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-400">Image</label>
+                  <label className="block text-[11px] text-slate-400 dark:text-zinc-500">Image</label>
                   <button
                     type="button"
                     onClick={() => setVariationImagePickerId(activeVariationEditor.id)}
-                    className="mt-2 flex h-10 w-full items-center justify-center rounded-2xl border border-dashed border-slate-300 text-xs font-semibold text-slate-500 hover:border-slate-400"
+                    className="mt-2 flex h-10 w-full items-center justify-center rounded-2xl border border-dashed border-slate-300 text-xs font-semibold text-slate-500 hover:border-slate-400 dark:border-white/15 dark:text-zinc-400 dark:hover:border-white/25"
                   >
                     {activeVariationEditor.image_id ? (
-                      <span className="flex items-center gap-2 text-slate-600">
-                        <span className="h-6 w-6 overflow-hidden rounded-md border border-slate-200 bg-white">
+                      <span className="flex items-center gap-2 text-slate-600 dark:text-zinc-300">
+                        <span className="h-6 w-6 overflow-hidden rounded-md border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
                           <LazyImage
                             src={
                               galleryImages.find((img) => String(img.id) === String(activeVariationEditor.image_id))
@@ -3556,7 +3556,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                     const attributeKey = attribute.taxonomy || attribute.name;
                     return (
                       <div key={`${activeVariationEditor.id}-${attributeKey}`}>
-                        <label className="block text-[11px] text-slate-400">
+                        <label className="block text-[11px] text-slate-400 dark:text-zinc-500">
                           {attribute.label || attribute.name}
                         </label>
                         <CustomSelect
@@ -3568,7 +3568,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                               event.target.value,
                             )
                           }
-                          className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs"
+                          className="mt-2 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs dark:border-white/10 dark:bg-white/5 dark:text-white"
                         >
                           <option value="">Select</option>
                           {attribute.selectedOptions.map((option) => (
@@ -3590,7 +3590,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 <button
                   type="button"
                   onClick={() => removeVariation(activeVariationEditor.id)}
-                  className="w-full rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600"
+                  className="w-full rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-600 dark:border-rose-900/40 dark:text-rose-400"
                 >
                   Remove variation
                 </button>
@@ -3601,7 +3601,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
               <button
                 type="button"
                 onClick={handleAddManualVariation}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-900 shadow-lg ring-1 ring-slate-200"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-900 shadow-lg ring-1 ring-slate-200 dark:bg-white/5 dark:text-white dark:ring-white/10"
                 aria-label="Add new variation"
               >
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -3612,7 +3612,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
               <button
                 type="button"
                 onClick={() => setActiveVariationEditorId('')}
-                className="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg"
+                className="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white shadow-lg dark:bg-white dark:text-black"
               >
                 Done
               </button>
@@ -3684,28 +3684,28 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             aria-label="Close variation image picker"
           />
-          <div className="relative z-10 flex h-[70vh] w-full flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl">
-            <div className="mx-auto mt-2 h-1.5 w-14 rounded-full bg-slate-200" />
-            <div className="flex items-center justify-between border-b border-slate-200/70 px-5 py-4">
+          <div className="relative z-10 flex h-[70vh] w-full flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#000000]">
+            <div className="mx-auto mt-2 h-1.5 w-14 rounded-full bg-slate-200 dark:bg-white/15" />
+            <div className="flex items-center justify-between border-b border-slate-200/70 px-5 py-4 dark:border-white/10">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400 dark:text-zinc-500">
                   Variation Image
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
+                <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-white">
                   Choose from product gallery
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setVariationImagePickerId('')}
-                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 dark:border-white/10 dark:text-zinc-300"
               >
                 Close
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
               {galleryImages.length === 0 && (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-zinc-400">
                   Upload product images to select a variation image.
                 </p>
               )}
@@ -3721,14 +3721,14 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                       }}
                       className={`group relative h-24 overflow-hidden rounded-2xl border ${
                         variations.find((item) => item.id === variationImagePickerId)?.image_id === image.id
-                          ? 'border-emerald-400 ring-2 ring-emerald-200'
-                          : 'border-slate-200 hover:border-slate-300'
+                          ? 'border-emerald-400 ring-2 ring-emerald-200 dark:ring-emerald-900/50'
+                          : 'border-slate-200 hover:border-slate-300 dark:border-white/10 dark:hover:border-white/20'
                       }`}
                     >
                       {image.url ? (
                         <LazyImage src={image.url} alt={image.title || 'Product image'} />
                       ) : (
-                        <span className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">
+                        <span className="flex h-full w-full items-center justify-center text-[10px] text-slate-400 dark:text-zinc-500">
                           Image
                         </span>
                       )}
@@ -3744,13 +3744,13 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
           : null)}
       {isDescriptionExpanded && (
         <div className="fixed inset-0 z-[73] bg-slate-950/50 backdrop-blur-sm">
-          <div className="flex h-full flex-col bg-white">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <div className="flex h-full flex-col bg-white dark:bg-[#000000]">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400 dark:text-zinc-500">
                   Description Editor
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
+                <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-white">
                   Full screen writing mode
                 </p>
               </div>
@@ -3758,7 +3758,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 <button
                   type="button"
                   onClick={() => expandedDescriptionEditorRef.current?.undo?.()}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10"
                   aria-label="Undo"
                 >
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -3769,7 +3769,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 <button
                   type="button"
                   onClick={() => expandedDescriptionEditorRef.current?.redo?.()}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10"
                   aria-label="Redo"
                 >
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -3780,7 +3780,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 <button
                   type="button"
                   onClick={() => expandedDescriptionEditorRef.current?.insertImage?.()}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10"
                   aria-label="Insert image"
                 >
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -3792,7 +3792,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 <button
                   type="button"
                   onClick={() => setIsDescriptionExpanded(false)}
-                  className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+                  className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 dark:border-white/10 dark:text-zinc-300"
                 >
                   Finish
                 </button>
@@ -3832,50 +3832,50 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             className="absolute inset-0"
             aria-label="Close color image mapper"
           />
-          <div className="relative z-10 flex h-full flex-col bg-white">
-            <div className="flex items-center justify-between border-b border-slate-200/70 px-5 py-4">
+          <div className="relative z-10 flex h-full flex-col bg-white dark:bg-[#000000]">
+            <div className="flex items-center justify-between border-b border-slate-200/70 px-5 py-4 dark:border-white/10">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400 dark:text-zinc-500">
                   Color Image Mapping
                 </p>
-                <p className="mt-1 text-sm font-semibold text-slate-800">
+                <p className="mt-1 text-sm font-semibold text-slate-800 dark:text-white">
                   Assign colors to image(s)
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsColorImageMapOpen(false)}
-                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600"
+                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 dark:border-white/10 dark:text-zinc-300"
               >
                 Close
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 pb-24">
               {galleryImages.length === 0 && (
-                <p className="text-xs text-slate-500">Upload product images first.</p>
+                <p className="text-xs text-slate-500 dark:text-zinc-400">Upload product images first.</p>
               )}
               {galleryImages.length > 0 && (
                 <div className="space-y-3">
                   {galleryImages.map((image) => (
                     <div
                       key={`color-map-${image.id}`}
-                      className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-3 sm:grid-cols-[84px_1fr]"
+                      className="grid gap-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-3 sm:grid-cols-[84px_1fr] dark:border-white/10 dark:bg-white/5"
                     >
-                      <div className="relative h-[84px] w-[84px] overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <div className="relative h-[84px] w-[84px] overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-white/5">
                         {image.url ? (
                           <LazyImage src={image.url} alt={image.title || 'Product image'} />
                         ) : (
-                          <div className="flex h-full items-center justify-center text-[10px] text-slate-400">
+                          <div className="flex h-full items-center justify-center text-[10px] text-slate-400 dark:text-zinc-500">
                             Image
                           </div>
                         )}
                       </div>
                       <div className="min-w-0">
-                        <label className="block text-[11px] text-slate-500">Color for this image</label>
+                        <label className="block text-[11px] text-slate-500 dark:text-zinc-400">Color for this image</label>
                         <CustomSelect
                           value={getMappedColorForImage(image.id)}
                           onChange={(event) => handleAssignColorToImage(image.id, event.target.value)}
-                          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"
+                          className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200"
                         >
                           <option value="">Unassigned</option>
                           {colorOptionsForMapping.map((option) => (
@@ -3894,14 +3894,14 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
               <button
                 type="button"
                 onClick={() => setIsColorImageMapOpen(false)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm"
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm dark:border-white/10 dark:bg-white/5 dark:text-zinc-200"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleApplyColorImageMap}
-                className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700"
+                className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-500"
               >
                 Done
               </button>
@@ -3917,19 +3917,19 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
             className="absolute inset-0"
             aria-label="Close preview notice"
           />
-          <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl">
-            <p className="text-sm font-semibold text-slate-900">Preview mode only</p>
-            <p className="mt-2 text-xs text-slate-600">
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-[#000000]">
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">Preview mode only</p>
+            <p className="mt-2 text-xs text-slate-600 dark:text-zinc-400">
               This is a draft preview. External navigation is blocked until the product goes live.
             </p>
             {blockedPreviewHref ? (
-              <p className="mt-2 truncate text-[11px] text-slate-500">Blocked link: {blockedPreviewHref}</p>
+              <p className="mt-2 truncate text-[11px] text-slate-500 dark:text-zinc-500">Blocked link: {blockedPreviewHref}</p>
             ) : null}
             <div className="mt-4 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsPreviewNavigationBlockedOpen(false)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700"
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200"
               >
                 Stay in preview
               </button>
@@ -3941,7 +3941,7 @@ function ProductPreviewModal({ isOpen, product, onClose, onExpand, onSaved, mode
                 }}
                 isLoading={isSaving}
                 disabled={isDraftSaving}
-                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white dark:bg-white dark:text-black"
               >
                 Go Live
               </LoadingButton>
