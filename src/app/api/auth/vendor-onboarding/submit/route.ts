@@ -8,6 +8,7 @@ import { ACCEPTED_COUNTRY_SET } from '@/lib/user/accepted-countries'
 import { buildSlug } from '@/lib/admin/taxonomy'
 import { provisionVendorAccess } from '@/lib/auth/vendor-access'
 import { enforceRateLimit } from '@/lib/security/rate-limit'
+import { isWeakPassword, PASSWORD_REQUIREMENTS_MESSAGE } from '@/lib/auth/password-strength'
 
 export async function POST(request: NextRequest) {
   const limited = enforceRateLimit(request, {
@@ -35,6 +36,10 @@ export async function POST(request: NextRequest) {
   const roleInfo = await getUserRoleInfoSafe(supabase, user.id, user.email || '')
   if (roleInfo.isAdmin || roleInfo.isVendor) {
     return jsonError('You are already set up as a seller — just sign in.', 409)
+  }
+
+  if (isWeakPassword(parsed.data.password)) {
+    return jsonError(PASSWORD_REQUIREMENTS_MESSAGE, 400)
   }
 
   const shippingCountry = parsed.data.shippingCountry.trim()
@@ -79,6 +84,19 @@ export async function POST(request: NextRequest) {
 
   if (existingByUser?.status === 'approved') {
     return jsonError('Your seller account is already active. Sign in to continue.', 409)
+  }
+
+  // The account was created passwordless in the email-verification step
+  // (auth.admin.createUser with no `password` field, relying on the OTP
+  // link only to confirm the address) — set a real password here so the
+  // vendor can actually sign in at /vendor/login afterwards, which only
+  // supports email+password.
+  const { error: passwordError } = await adminClient.auth.admin.updateUserById(user.id, {
+    password: parsed.data.password,
+  })
+  if (passwordError) {
+    console.error('Vendor password set failed:', passwordError.message)
+    return jsonError('Unable to set your password. Please try again.', 500)
   }
 
   try {

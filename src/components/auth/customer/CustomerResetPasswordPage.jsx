@@ -168,8 +168,22 @@ export default function CustomerResetPasswordPage() {
     }
 
     setMessage('Password updated. Redirecting to sign in...')
+
+    // Vendors and admins sign in at /vendor/login, not /login — check the
+    // just-authenticated session's role so a vendor resetting their password
+    // (e.g. after being created without one during onboarding) lands back
+    // on the right sign-in page instead of the customer one.
+    let destination = '/login'
+    try {
+      const roleResponse = await fetch('/api/auth/role')
+      if (roleResponse.ok) {
+        const roleData = await roleResponse.json().catch(() => null)
+        if (roleData?.is_vendor || roleData?.is_admin) destination = '/vendor/login'
+      }
+    } catch {}
+
     setTimeout(() => {
-      router.push('/login')
+      router.push(destination)
       router.refresh()
     }, 700)
   }

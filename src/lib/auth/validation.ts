@@ -48,13 +48,20 @@ export const vendorOnboardingBrandSchema = z.object({
   brandName: z.preprocess(sanitizePlainText, z.string().min(2).max(120)),
 })
 
-export const vendorOnboardingSubmitSchema = z.object({
-  phone: z.preprocess(sanitizePlainText, z.string().min(7).max(20)),
-  fullName: z.preprocess(sanitizePlainText, z.string().min(2).max(120)),
-  brandName: z.preprocess(sanitizePlainText, z.string().min(2).max(120)),
-  shippingCountry: z.enum(ACCEPTED_COUNTRIES),
-  categories: z.array(z.string().max(60)).max(20).optional().default([]),
-})
+export const vendorOnboardingSubmitSchema = z
+  .object({
+    phone: z.preprocess(sanitizePlainText, z.string().min(7).max(20)),
+    fullName: z.preprocess(sanitizePlainText, z.string().min(2).max(120)),
+    brandName: z.preprocess(sanitizePlainText, z.string().min(2).max(120)),
+    shippingCountry: z.enum(ACCEPTED_COUNTRIES),
+    categories: z.array(z.string().max(60)).max(20).optional().default([]),
+    password: passwordSchema,
+    confirmPassword: passwordSchema,
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: PASSWORD_MISMATCH_MESSAGE,
+    path: ['confirmPassword'],
+  })
 
 export const emailCodeSchema = z.object({
   code: z.preprocess(sanitizePlainText, z.string().min(6).max(6)),

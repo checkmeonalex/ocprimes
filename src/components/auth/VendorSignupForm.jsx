@@ -11,7 +11,8 @@ const STEPS = {
   PROFILE: 4,
   CATEGORIES: 5,
   SHIPPING: 6,
-  COMPLETE: 7,
+  PASSWORD: 7,
+  COMPLETE: 8,
 }
 
 const STEP_META = {
@@ -20,6 +21,7 @@ const STEP_META = {
   [STEPS.PROFILE]:    { title: 'Set up your brand',        sub: 'What should customers call your shop?' },
   [STEPS.CATEGORIES]: { title: 'What do you sell?',        sub: 'Select all categories that apply to your store.' },
   [STEPS.SHIPPING]:   { title: 'Where do you ship from?',  sub: 'Choose your primary shipping region.' },
+  [STEPS.PASSWORD]:   { title: 'Secure your account',      sub: "You'll use this to sign in to your seller dashboard." },
 }
 
 const FASHION_CATS_PRIMARY = [
@@ -116,7 +118,7 @@ function Dots() {
 
 // ── Progress dots ─────────────────────────────────────────────────────────
 function StepProgress({ step }) {
-  const steps = [STEPS.CODE, STEPS.PHONE, STEPS.PROFILE, STEPS.CATEGORIES, STEPS.SHIPPING]
+  const steps = [STEPS.CODE, STEPS.PHONE, STEPS.PROFILE, STEPS.CATEGORIES, STEPS.SHIPPING, STEPS.PASSWORD]
   return (
     <div className="mb-7 mt-6 flex items-center justify-center gap-1.5">
       {steps.map((s) => (
@@ -146,6 +148,8 @@ export default function VendorSignupForm({
   const [shippingCountry, setShippingCountry] = useState(String(ACCEPTED_COUNTRIES[0] || 'Nigeria'))
   const [selectedCategories, setSelectedCategories] = useState([])
   const [showMoreCats, setShowMoreCats] = useState(false)
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [isBusy, setIsBusy] = useState(false)
@@ -310,13 +314,27 @@ export default function VendorSignupForm({
     setStep(STEPS.SHIPPING)
   }
 
+  const handleShippingContinue = (event) => {
+    event.preventDefault()
+    if (isBusy) return
+    setError('')
+    setMessage('')
+    setStep(STEPS.PASSWORD)
+  }
+
   const handleSubmitRequest = async (event) => {
     event.preventDefault()
     if (isBusy) return
+    if (password.length < 8) { setError('Password must be at least 8 characters.'); return }
+    if (password !== confirmPassword) { setError('The passwords you entered do not match.'); return }
     setIsBusy(true)
     setError('')
     try {
-      await post('/api/auth/vendor-onboarding/submit', { phone, fullName, brandName, shippingCountry, categories: selectedCategories })
+      await post('/api/auth/vendor-onboarding/submit', {
+        phone, fullName, brandName, shippingCountry,
+        categories: selectedCategories,
+        password, confirmPassword,
+      })
       setMessage('Your seller account is now active.')
       setStep(STEPS.COMPLETE)
     } catch (err) {
@@ -343,6 +361,7 @@ export default function VendorSignupForm({
       [STEPS.PROFILE]:    () => { clear(); setStep(STEPS.PHONE) },
       [STEPS.CATEGORIES]: () => { clear(); setStep(STEPS.PROFILE) },
       [STEPS.SHIPPING]:   () => { clear(); setStep(STEPS.CATEGORIES) },
+      [STEPS.PASSWORD]:   () => { clear(); setStep(STEPS.SHIPPING) },
       [STEPS.COMPLETE]:   null,
     }
     // useState setters are stable so wrapping in a new fn avoids stale-closure issues
@@ -611,7 +630,7 @@ export default function VendorSignupForm({
 
       {/* ── STEP 6: Shipping ─────────────────────────────── */}
       {step === STEPS.SHIPPING && (
-        <form className="space-y-5" onSubmit={handleSubmitRequest}>
+        <form className="space-y-5" onSubmit={handleShippingContinue}>
           <div className="space-y-2">
             {ACCEPTED_COUNTRIES.map((country) => (
               <button
@@ -635,12 +654,47 @@ export default function VendorSignupForm({
             ))}
           </div>
           <button type="submit" disabled={isBusy} className={primaryBtnCls}>
+            Continue
+          </button>
+        </form>
+      )}
+
+      {/* ── STEP 7: Password ─────────────────────────────── */}
+      {step === STEPS.PASSWORD && (
+        <form className="space-y-5" onSubmit={handleSubmitRequest}>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-slate-700">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 8 characters"
+              autoComplete="new-password"
+              minLength={8}
+              className={inputCls}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-slate-700">Confirm password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter your password"
+              autoComplete="new-password"
+              minLength={8}
+              className={inputCls}
+              required
+            />
+          </div>
+          <button type="submit" disabled={isBusy} className={primaryBtnCls}>
             {isBusy ? 'Activating…' : 'Activate seller account'}
           </button>
         </form>
       )}
 
-      {/* ── STEP 6: Complete ─────────────────────────────── */}
+      {/* ── STEP 8: Complete ─────────────────────────────── */}
       {step === STEPS.COMPLETE && (
         message === 'You already have a seller account.' ? (
           <div className="space-y-6 text-center">
