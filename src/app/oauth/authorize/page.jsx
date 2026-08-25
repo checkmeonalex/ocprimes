@@ -85,7 +85,7 @@ export default async function OAuthAuthorizePage({ searchParams }) {
 
   const scopeDescription = roleInfo.isAdmin
     ? 'full admin access to your store — it will be able to view and edit products, orders, and vendor storefronts'
-    : 'access to your own store only — it will be able to view and edit your own products, media, and storefront, exactly as you can from your dashboard. It cannot see or change any other vendor’s data'
+    : 'access to manage your own store — products, orders, media, and your storefront, exactly as you can from your own dashboard'
 
   return (
     <div className='mx-auto max-w-md px-6 py-16'>

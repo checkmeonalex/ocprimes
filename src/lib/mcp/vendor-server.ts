@@ -6,6 +6,8 @@ import {
   updateProductInput,
   deleteProductInput,
   listMediaInput,
+  listOrdersInput,
+  getOrderInput,
 } from './schemas'
 
 const storefrontBaseUrl = () => (process.env.APP_BASE_URL || '').replace(/\/+$/, '')
@@ -187,6 +189,45 @@ export function createOcprimesVendorMcpServer(userToken: string) {
         if (per_page) params.set('per_page', String(per_page))
         if (filter) params.set('filter', filter)
         return textResult(await vendorApiRequest(`/api/admin/media?${params.toString()}`))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'list_orders',
+    {
+      title: 'List my orders',
+      description:
+        'List orders containing your products, with optional status filter and search. Customer contact details are hidden — only what you need to fulfil the order is shown, same as your dashboard.',
+      inputSchema: listOrdersInput,
+    },
+    async ({ page, perPage, status, search }: any) => {
+      try {
+        const params = new URLSearchParams()
+        if (page) params.set('page', String(page))
+        if (perPage) params.set('perPage', String(perPage))
+        if (status) params.set('status', status)
+        if (search) params.set('search', search)
+        return textResult(await vendorApiRequest(`/api/admin/orders?${params.toString()}`))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'get_order',
+    {
+      title: 'Get my order',
+      description:
+        'Fetch details for a single order that contains your products — items, status, and shipping info. Fails if the order has none of your products in it.',
+      inputSchema: getOrderInput,
+    },
+    async ({ orderId }: any) => {
+      try {
+        return textResult(await vendorApiRequest(`/api/admin/orders/${orderId}`))
       } catch (error) {
         return errorResult(error)
       }

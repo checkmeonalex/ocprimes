@@ -966,6 +966,50 @@ export default function SettingsPage() {
                   </button>
                 </div>
               ) : null}
+
+              {mobileSection === 'connections' ? (
+                <div className='space-y-4'>
+                  <div className='flex items-center gap-2'>
+                    <button
+                      type='button'
+                      onClick={() => setMobileSection('menu')}
+                      className='inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-[#000000] dark:text-zinc-300'
+                      aria-label='Back'
+                    >
+                      <svg viewBox='0 0 24 24' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                        <path d='m15 6-6 6 6 6' />
+                      </svg>
+                    </button>
+                    <h2 className='text-3xl font-semibold tracking-tight text-slate-900 dark:text-white'>Connections</h2>
+                  </div>
+                  <p className='text-sm text-slate-500 dark:text-zinc-400'>
+                    Connect an AI tool (like Claude) to your store using this address. You'll sign in and
+                    approve the connection with your own account — it will only ever be able to see and
+                    manage {isAdmin ? 'the full store' : 'your own products, media, and storefront'}, the
+                    same as what you can already do from this dashboard.
+                  </p>
+                  <div>
+                    <label className={labelClass}>MCP address</label>
+                    <input
+                      readOnly
+                      value={mcpEndpointUrl}
+                      onFocus={(event) => event.target.select()}
+                      className={inputClass}
+                    />
+                  </div>
+                  <button
+                    type='button'
+                    onClick={copyMcpUrl}
+                    className='rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:hover:bg-white/10'
+                  >
+                    {mcpUrlCopied ? 'Copied!' : 'Copy'}
+                  </button>
+                  <p className='text-xs text-slate-400 dark:text-zinc-500'>
+                    Paste this address into your AI tool's MCP or connector settings. It will ask you to sign
+                    in here and approve access before it can do anything.
+                  </p>
+                </div>
+              ) : null}
             </section>
             {isProfileQuickMenuOpen ? (
               <div className='fixed inset-0 z-[72] flex items-end bg-slate-900/40 lg:hidden'>
@@ -998,6 +1042,16 @@ export default function SettingsPage() {
                       className='flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-800 dark:border-white/10 dark:text-zinc-200'
                     >
                       <span>Social profile</span>
+                      <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400 dark:text-zinc-500' fill='none' stroke='currentColor' strokeWidth='1.8'>
+                        <path d='m9 6 6 6-6 6' />
+                      </svg>
+                    </button>
+                    <button
+                      type='button'
+                      onClick={() => openSectionFromQuickMenu('connections')}
+                      className='flex w-full items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-left text-sm font-medium text-slate-800 dark:border-white/10 dark:text-zinc-200'
+                    >
+                      <span>Connections</span>
                       <svg viewBox='0 0 24 24' className='h-4 w-4 text-slate-400 dark:text-zinc-500' fill='none' stroke='currentColor' strokeWidth='1.8'>
                         <path d='m9 6 6 6-6 6' />
                       </svg>
@@ -1322,10 +1376,7 @@ export default function SettingsPage() {
                   <div>
                     <h2 className={sectionTitleClass}>Connections</h2>
                     <p className='mt-1 text-sm text-slate-500 dark:text-zinc-400'>
-                      Connect an AI tool (like Claude) to your store using this address. You'll sign in and
-                      approve the connection with your own account — it will only ever be able to see and
-                      manage {isAdmin ? 'the full store' : 'your own products, media, and storefront'}, the
-                      same as what you can already do from this dashboard.
+                      Let an AI tool like Claude manage {isAdmin ? 'your store' : 'your own products, orders, media, and storefront'} for you.
                     </p>
                   </div>
                   <div className='flex flex-col gap-2 sm:flex-row sm:items-center'>
@@ -1343,10 +1394,11 @@ export default function SettingsPage() {
                       {mcpUrlCopied ? 'Copied!' : 'Copy'}
                     </button>
                   </div>
-                  <p className='text-xs text-slate-400 dark:text-zinc-500'>
-                    Paste this address into your AI tool's MCP or connector settings. It will ask you to sign
-                    in here and approve access before it can do anything.
-                  </p>
+                  <ol className='space-y-1.5 text-xs text-slate-500 dark:text-zinc-400'>
+                    <li>1. Copy the address above.</li>
+                    <li>2. In your AI tool, open its connector / MCP settings and paste it in.</li>
+                    <li>3. You'll be asked to sign in and approve access — it can only do what you can already do here, nothing more.</li>
+                  </ol>
                 </section>
 
                 <section id='settings-notifications' className='space-y-4'>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import AdminShell from '@/components/admin/AdminShell';
 import { useAlerts } from '@/context/AlertContext';
 import StoreFrontLogoSection from './components/StoreFrontLogoSection';
@@ -64,6 +65,12 @@ const IcoChevron = () => (
     <path d="m9 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+const IcoAi = () => (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <rect x="4" y="4" width="16" height="16" rx="4" />
+    <path d="M9 9h.01M15 9h.01M8.5 14.5c1 1 2.2 1.5 3.5 1.5s2.5-.5 3.5-1.5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 function SettingCard({ icon, title, summary, onClick }) {
   return (
@@ -87,6 +94,7 @@ function SettingCard({ icon, title, summary, onClick }) {
 }
 
 export default function StoreFrontPage() {
+  const router = useRouter();
   const { pushAlert } = useAlerts();
   const [view, setView] = useState('home'); // 'home' | 'branding' | 'navigation' | 'connect' | 'sections'
   const [isLoading, setIsLoading] = useState(true);
@@ -521,6 +529,12 @@ export default function StoreFrontPage() {
             <SettingCard icon={<IcoNav />} title="Navigation" summary={navigationSummary} onClick={() => setView('navigation')} />
             <SettingCard icon={<IcoConnect />} title="Connect" summary={connectSummary} onClick={() => setView('connect')} />
             <SettingCard icon={<IcoSections />} title="Sections" summary={sectionsSummary} onClick={() => setView('sections')} />
+            <SettingCard
+              icon={<IcoAi />}
+              title="AI connector"
+              summary="Connect Claude or another AI tool to manage your store"
+              onClick={() => router.push('/admin/settings')}
+            />
           </div>
         )}
 
