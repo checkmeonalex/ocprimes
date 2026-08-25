@@ -1,3 +1,5 @@
+'use client'
+
 import CustomSelect from '@/components/common/CustomSelect'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
