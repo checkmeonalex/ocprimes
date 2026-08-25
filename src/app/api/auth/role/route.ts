@@ -1,32 +1,27 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
-import { createRouteHandlerSupabaseClient } from '@/lib/supabase/route-handler'
-import { getUserRoleInfoSafe } from '@/lib/auth/roles'
+import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { jsonError } from '@/lib/http/response'
 import { getPublicNavKeys } from '@/lib/admin/page-visibility'
 
 export async function GET(request: NextRequest) {
-  const { supabase, applyCookies } = createRouteHandlerSupabaseClient(request)
-  const { data, error } = await supabase.auth.getUser()
+  const { applyCookies, user, role, isAdmin, isVendor } = await requireDashboardUser(request)
 
-  if (error || !data.user) {
+  if (!user) {
     return jsonError('Unauthorized.', 401)
   }
 
-  const roleInfo = await getUserRoleInfoSafe(supabase, data.user.id, data.user.email || '')
-
   // Admins already see every nav item; only vendors need to know which
   // otherwise admin-only pages an admin has marked public for them.
-  const publicNavKeys =
-    roleInfo.isVendor && !roleInfo.isAdmin ? Array.from(await getPublicNavKeys()) : []
+  const publicNavKeys = isVendor && !isAdmin ? Array.from(await getPublicNavKeys()) : []
 
   const response = NextResponse.json({
-    role: roleInfo.role,
-    is_admin: roleInfo.isAdmin,
-    is_vendor: roleInfo.isVendor,
-    roles: roleInfo.roles,
+    role,
+    is_admin: isAdmin,
+    is_vendor: isVendor,
+    roles: [role],
     public_nav_keys: publicNavKeys,
-    user_id: data.user.id,
+    user_id: user.id,
   })
   applyCookies(response)
   return response

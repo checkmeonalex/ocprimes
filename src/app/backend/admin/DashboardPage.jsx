@@ -83,8 +83,8 @@ function EmptySlate({ icon, text }) {
 
 /* ─── icons ───────────────────────────────────────────────── */
 const IcoRevenue = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" strokeLinecap="round" />
+  <svg viewBox="0 0 96 96" className="h-4 w-4" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+    <path d="M90,30H84V12a5.9966,5.9966,0,0,0-6-6H18A18.02,18.02,0,0,0,0,24V72A18.02,18.02,0,0,0,18,90H90a5.9966,5.9966,0,0,0,6-6V36A5.9966,5.9966,0,0,0,90,30ZM18,18H72V30H18a6,6,0,0,1,0-12Zm0,60a6.0078,6.0078,0,0,1-6-6V40.8948A17.7918,17.7918,0,0,0,18,42H84V78Z" />
   </svg>
 );
 const IcoOrders = () => (
