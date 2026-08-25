@@ -128,7 +128,7 @@ export async function listCategories(request: NextRequest) {
 }
 
 export async function listCategoryTree(request: NextRequest) {
-  const { applyCookies, canManageCatalog } = await requireDashboardUser(request)
+  const { applyCookies, canManageCatalog, isAdmin } = await requireDashboardUser(request)
 
   if (!canManageCatalog) {
     return jsonError('Forbidden.', 403)
@@ -152,6 +152,13 @@ export async function listCategoryTree(request: NextRequest) {
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true })
     .limit(limit)
+
+  // Vendors only see categories currently live on the storefront — matches
+  // what they'd actually be able to pick when assigning a product.
+  // Admins see everything, active or not, same as the admin dashboard.
+  if (!isAdmin) {
+    query = query.eq('is_active', true)
+  }
 
   if (search) {
     const term = `%${search}%`

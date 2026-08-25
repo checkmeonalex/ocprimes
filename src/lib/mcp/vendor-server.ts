@@ -8,6 +8,9 @@ import {
   listMediaInput,
   listOrdersInput,
   getOrderInput,
+  listTaxonomyInput,
+  getCategoryTreeInput,
+  listSizeGuidesInput,
 } from './schemas'
 
 const storefrontBaseUrl = () => (process.env.APP_BASE_URL || '').replace(/\/+$/, '')
@@ -228,6 +231,88 @@ export function createOcprimesVendorMcpServer(userToken: string) {
     async ({ orderId }: any) => {
       try {
         return textResult(await vendorApiRequest(`/api/admin/orders/${orderId}`))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  // Reference lookups needed to create/edit a product — category_ids,
+  // tag_ids, brand_ids, and size_guide_id all reference existing UUIDs.
+  // Categories are filtered to only ones currently live on the storefront
+  // (see category-route.ts's listCategoryTree) — you can't assign a
+  // product to a hidden category. Tags have no public/private concept, so
+  // you see the same shared list an admin does. Brands are scoped to your
+  // own — see taxonomy-route.ts's listTaxonomy.
+  server.registerTool(
+    'get_category_tree',
+    {
+      title: 'Get product category tree',
+      description:
+        'Fetch the nested product category tree (only categories currently live on the storefront) with parent/child relationships, ids, and slugs — use to find category_ids for create_product/update_product.',
+      inputSchema: getCategoryTreeInput,
+    },
+    async ({ search, limit }: any) => {
+      try {
+        const params = new URLSearchParams()
+        if (search) params.set('search', search)
+        if (limit) params.set('limit', String(limit))
+        return textResult(await vendorApiRequest(`/api/admin/categories/tree?${params.toString()}`))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'list_tags',
+    {
+      title: 'List tags',
+      description: 'List tags with their UUIDs, needed for tag_ids when creating/editing a product.',
+      inputSchema: listTaxonomyInput,
+    },
+    async ({ search }: any) => {
+      try {
+        const params = new URLSearchParams()
+        if (search) params.set('search', search)
+        return textResult(await vendorApiRequest(`/api/admin/tags?${params.toString()}`))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'list_brands',
+    {
+      title: 'List my brands',
+      description: 'List your own brand(s) with their UUIDs, needed for brand_ids when creating/editing a product.',
+      inputSchema: listTaxonomyInput,
+    },
+    async ({ search }: any) => {
+      try {
+        const params = new URLSearchParams()
+        if (search) params.set('search', search)
+        return textResult(await vendorApiRequest(`/api/admin/brands?${params.toString()}`))
+      } catch (error) {
+        return errorResult(error)
+      }
+    },
+  )
+
+  server.registerTool(
+    'list_size_guides',
+    {
+      title: 'List size guides',
+      description:
+        'List size guides you can attach to a product (size_guide_id) — includes guides an admin has published for everyone, plus any you created yourself.',
+      inputSchema: listSizeGuidesInput,
+    },
+    async ({ search }: any) => {
+      try {
+        const params = new URLSearchParams()
+        if (search) params.set('search', search)
+        return textResult(await vendorApiRequest(`/api/admin/size-guides?${params.toString()}`))
       } catch (error) {
         return errorResult(error)
       }
