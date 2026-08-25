@@ -73,6 +73,7 @@ export default function AdminDesktopHeader({ noMargin = false }) {
   const profileImageUrl = getProfileIdentityImageUrl(profileIdentity)
   const { isDark, toggleTheme } = useAdminTheme()
   const [role, setRole] = useState('');
+  const [storeSlug, setStoreSlug] = useState('');
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const profileMenuRef = useRef(null);
@@ -89,6 +90,20 @@ export default function AdminDesktopHeader({ noMargin = false }) {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (role !== 'vendor') return undefined;
+    let active = true;
+    fetch('/api/admin/store-front', { cache: 'no-store', credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload) => {
+        if (active && payload?.item?.slug) setStoreSlug(payload.item.slug);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [role]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -334,6 +349,20 @@ export default function AdminDesktopHeader({ noMargin = false }) {
               </div>
             )}
           </div>
+          {storeSlug ? (
+            <button
+              type="button"
+              onClick={() => router.push(`/vendors/${storeSlug}`)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+              aria-label="Back to shop"
+              title="Back to shop"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M3.5 10.5h17M5 10.5V19h14v-8.5M4.5 6h15l1 4.5h-17Z" strokeLinejoin="round" />
+                <path d="M9.5 14h5V19h-5Z" strokeLinejoin="round" />
+              </svg>
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => router.push('/admin/messages')}
