@@ -8,22 +8,22 @@ import { useParams } from 'next/navigation'
 import AdminShell from '@/components/admin/AdminShell'
 
 const STATUS_TONES = {
-  pending: 'bg-amber-100 text-amber-700',
-  awaiting_payment: 'bg-amber-100 text-amber-700',
-  payment_failed: 'bg-rose-100 text-rose-700',
-  paid: 'bg-emerald-100 text-emerald-700',
-  processing: 'bg-sky-100 text-sky-700',
-  ready_to_ship: 'bg-cyan-100 text-cyan-700',
-  out_for_delivery: 'bg-indigo-100 text-indigo-700',
-  delivered: 'bg-emerald-100 text-emerald-700',
-  refunded: 'bg-orange-100 text-orange-700',
-  cancelled: 'bg-rose-100 text-rose-700',
+  pending: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  awaiting_payment: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  payment_failed: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
+  paid: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  processing: 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300',
+  ready_to_ship: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300',
+  out_for_delivery: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300',
+  delivered: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  refunded: 'bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300',
+  cancelled: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
 }
 
 const PAYMENT_TONES = {
-  paid: 'bg-emerald-100 text-emerald-700',
-  pending: 'bg-amber-100 text-amber-700',
-  failed: 'bg-rose-100 text-rose-700',
+  paid: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  pending: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  failed: 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300',
 }
 
 const STATUS_OPTIONS = [
@@ -119,9 +119,9 @@ const EMPTY_SHIPPING_FORM = {
 
 function Card({ title, children, headerAddon = null, bodyClassName = '' }) {
   return (
-    <section className='w-full overflow-visible rounded-none border-0 bg-white shadow-none sm:overflow-hidden sm:rounded-2xl sm:border sm:border-[#e4ecf5] sm:bg-white sm:shadow-[0_1px_4px_rgba(15,23,42,0.04)]'>
-      <div className='flex items-center justify-between border-b border-[#e9eef5] px-4 py-4 sm:px-5'>
-        <p className='text-lg font-semibold text-slate-800'>{title}</p>
+    <section className='w-full overflow-visible rounded-none border-0 bg-white shadow-none sm:overflow-hidden sm:rounded-2xl sm:border sm:border-[#e4ecf5] sm:bg-white sm:shadow-[0_1px_4px_rgba(15,23,42,0.04)] dark:bg-[#000000] sm:dark:border-white/10 sm:dark:bg-[#000000] sm:dark:shadow-none'>
+      <div className='flex items-center justify-between border-b border-[#e9eef5] px-4 py-4 sm:px-5 dark:border-white/10'>
+        <p className='text-lg font-semibold text-slate-800 dark:text-white'>{title}</p>
         {headerAddon}
       </div>
       <div className={bodyClassName || 'px-4 py-4 sm:px-5'}>{children}</div>
@@ -139,7 +139,7 @@ function DetailPill({ tone, label }) {
 
 function InlineRowIcon({ children }) {
   return (
-    <span className='inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eef3ff] text-[#4d67cc]'>
+    <span className='inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eef3ff] text-[#4d67cc] dark:bg-indigo-950/40 dark:text-indigo-300'>
       {children}
     </span>
   )
@@ -491,26 +491,26 @@ export default function OrderDetailPage() {
       <div className='w-full py-5 sm:px-6 lg:px-7'>
             {isLoading ? (
               <div className='space-y-4 px-4 sm:px-0'>
-                <div className='h-10 w-72 animate-pulse rounded-lg bg-slate-200' />
+                <div className='h-10 w-72 animate-pulse rounded-lg bg-slate-200 dark:bg-white/10' />
                 <div className='grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]'>
                   <div className='space-y-4'>
-                    <div className='h-64 animate-pulse rounded-2xl bg-slate-200' />
-                    <div className='h-28 animate-pulse rounded-2xl bg-slate-200' />
-                    <div className='h-44 animate-pulse rounded-2xl bg-slate-200' />
+                    <div className='h-64 animate-pulse rounded-2xl bg-slate-200 dark:bg-white/10' />
+                    <div className='h-28 animate-pulse rounded-2xl bg-slate-200 dark:bg-white/10' />
+                    <div className='h-44 animate-pulse rounded-2xl bg-slate-200 dark:bg-white/10' />
                   </div>
-                  <div className='h-96 animate-pulse rounded-2xl bg-slate-200' />
+                  <div className='h-96 animate-pulse rounded-2xl bg-slate-200 dark:bg-white/10' />
                 </div>
               </div>
             ) : null}
 
             {!isLoading && error ? (
-              <div className='mx-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 sm:mx-0'>
+              <div className='mx-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 sm:mx-0 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300'>
                 {error}
               </div>
             ) : null}
 
             {!isLoading && !error && notice ? (
-              <div className='mx-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 sm:mx-0'>
+              <div className='mx-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 sm:mx-0 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300'>
                 {notice}
               </div>
             ) : null}
@@ -521,7 +521,7 @@ export default function OrderDetailPage() {
                   <div className='min-w-0'>
                     <Link
                       href='/backend/admin/orders'
-                      className='inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-700'
+                      className='inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-700 dark:text-zinc-400 dark:hover:text-zinc-200'
                     >
                       <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2'>
                         <path d='m12.5 4.5-5 5 5 5' strokeLinecap='round' strokeLinejoin='round' />
@@ -530,20 +530,20 @@ export default function OrderDetailPage() {
                     </Link>
 
                     <div className='mt-1 flex flex-wrap items-center gap-2'>
-                      <h1 className='break-words text-[28px] font-semibold leading-[1.02] tracking-[-0.02em] text-[#354a75] sm:text-[32px]'>
+                      <h1 className='break-words text-[28px] font-semibold leading-[1.02] tracking-[-0.02em] text-[#354a75] sm:text-[32px] dark:text-white'>
                         Order {orderNumber}
                       </h1>
                       {shouldShowPaidBadge ? (
                         <DetailPill
-                          tone={PAYMENT_TONES[String(order.paymentStatus || '').toLowerCase()] || 'bg-slate-100 text-slate-700'}
+                          tone={PAYMENT_TONES[String(order.paymentStatus || '').toLowerCase()] || 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-zinc-300'}
                           label={order.paymentStatusLabel || 'Paid'}
                         />
                       ) : null}
                       <DetailPill
-                        tone={STATUS_TONES[order.status] || 'bg-slate-100 text-slate-700'}
+                        tone={STATUS_TONES[order.status] || 'bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-zinc-300'}
                         label={order.statusLabel || 'Awaiting Payment'}
                       />
-                      <span className='inline-flex items-center gap-1 text-xs text-slate-500'>
+                      <span className='inline-flex items-center gap-1 text-xs text-slate-500 dark:text-zinc-400'>
                         <svg viewBox='0 0 20 20' className='h-3.5 w-3.5' fill='none' stroke='currentColor' strokeWidth='2'>
                           <rect x='3.5' y='4.5' width='13' height='12' rx='2' />
                           <path d='M6.5 2.5v4M13.5 2.5v4M3.5 8.5h13' />
@@ -558,7 +558,7 @@ export default function OrderDetailPage() {
                       <button
                         type='button'
                         disabled
-                        className='hidden h-8 w-8 items-center justify-center rounded-full border border-[#d9e4f3] bg-white text-slate-400 sm:inline-flex'
+                        className='hidden h-8 w-8 items-center justify-center rounded-full border border-[#d9e4f3] bg-white text-slate-400 sm:inline-flex dark:border-white/10 dark:bg-[#000000] dark:text-zinc-500'
                         aria-label='Previous order'
                       >
                         <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2'>
@@ -568,7 +568,7 @@ export default function OrderDetailPage() {
                       <button
                         type='button'
                         disabled
-                        className='hidden h-8 w-8 items-center justify-center rounded-full border border-[#d9e4f3] bg-white text-slate-400 sm:inline-flex'
+                        className='hidden h-8 w-8 items-center justify-center rounded-full border border-[#d9e4f3] bg-white text-slate-400 sm:inline-flex dark:border-white/10 dark:bg-[#000000] dark:text-zinc-500'
                         aria-label='Next order'
                       >
                         <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2'>
@@ -580,7 +580,7 @@ export default function OrderDetailPage() {
                         value={order.status}
                         disabled={isUpdating}
                         onChange={(event) => handleStatusChange(event.target.value)}
-                        className='h-9 min-w-0 flex-1 rounded-lg border border-[#d9e4f3] bg-white px-2.5 text-xs font-semibold text-slate-600 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] sm:w-[190px] sm:flex-none'
+                        className='h-9 min-w-0 flex-1 rounded-lg border border-[#d9e4f3] bg-white px-2.5 text-xs font-semibold text-slate-600 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] sm:w-[190px] sm:flex-none dark:border-white/10 dark:bg-white/5 dark:text-zinc-300'
                         aria-label='Order status'
                       >
                         {STATUS_OPTIONS.map((option) => (
@@ -607,7 +607,7 @@ export default function OrderDetailPage() {
                     <Card
                       title={`Unfulfilled ${Math.max(0, Number(order.unfulfilledCount || 0))}`}
                       headerAddon={<span className='inline-flex h-2.5 w-2.5 rounded-full bg-amber-400' />}
-                      bodyClassName='divide-y divide-[#e9eef5]'
+                      bodyClassName='divide-y divide-[#e9eef5] dark:divide-white/10'
                     >
                       {(order.items || []).map((item) => {
                         const lineTotal = formatCurrency(item.lineTotal, order.currency)
@@ -618,7 +618,7 @@ export default function OrderDetailPage() {
                                 type='button'
                                 onClick={() => handleMessageSeller(item)}
                                 disabled={Boolean(sellerMessagingByItemId[item.id]) || !item.vendorUserId}
-                                className='inline-flex h-7 items-center justify-center rounded-md border border-[#d9e4f3] bg-white px-2 text-[11px] font-semibold text-[#3f6cf4] disabled:cursor-not-allowed disabled:opacity-50'
+                                className='inline-flex h-7 items-center justify-center rounded-md border border-[#d9e4f3] bg-white px-2 text-[11px] font-semibold text-[#3f6cf4] disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-sky-400'
                               >
                                 {!item.vendorUserId
                                   ? 'Seller unavailable'
@@ -637,7 +637,7 @@ export default function OrderDetailPage() {
                                       [item.id]: String(event.target.value || ''),
                                     }))
                                   }
-                                  className='h-8 w-full rounded-md border border-[#d9e4f3] bg-white px-2 text-[11px] font-semibold text-slate-700'
+                                  className='h-8 w-full rounded-md border border-[#d9e4f3] bg-white px-2 text-[11px] font-semibold text-slate-700 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300'
                                 >
                                   {SELLER_ITEM_STATUS_OPTIONS.map((option) => (
                                     <option key={option.key} value={option.key}>
@@ -654,13 +654,13 @@ export default function OrderDetailPage() {
                                     }))
                                   }
                                   placeholder='Add note for admin (optional)'
-                                  className='h-8 w-full rounded-md border border-[#d9e4f3] px-2 text-[11px] text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff]'
+                                  className='h-8 w-full rounded-md border border-[#d9e4f3] px-2 text-[11px] text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:placeholder:text-zinc-500'
                                 />
                                 <button
                                   type='button'
                                   onClick={() => handleSellerItemStatusSave(item)}
                                   disabled={Boolean(sellerItemSavingByItemId[item.id])}
-                                  className='inline-flex h-8 w-full items-center justify-center rounded-md border border-[#d9e4f3] bg-white px-2 text-[11px] font-semibold text-indigo-700 disabled:opacity-60'
+                                  className='inline-flex h-8 w-full items-center justify-center rounded-md border border-[#d9e4f3] bg-white px-2 text-[11px] font-semibold text-indigo-700 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-indigo-300'
                                 >
                                   {sellerItemSavingByItemId[item.id] ? 'Saving...' : 'Save & Notify Admin'}
                                 </button>
@@ -674,18 +674,18 @@ export default function OrderDetailPage() {
                             key={item.id}
                             className='grid grid-cols-[56px_minmax(0,1fr)] items-start gap-x-3 gap-y-2 px-4 py-4 sm:grid-cols-[60px_minmax(0,1fr)_auto_auto_auto] sm:gap-3 sm:px-5'
                           >
-                            <div className='relative h-[56px] w-[56px] overflow-hidden rounded-lg border border-[#dfe8f3] bg-slate-100 sm:h-[60px] sm:w-[60px]'>
+                            <div className='relative h-[56px] w-[56px] overflow-hidden rounded-lg border border-[#dfe8f3] bg-slate-100 sm:h-[60px] sm:w-[60px] dark:border-white/10 dark:bg-white/5'>
                               {item.image ? (
                                 <Image src={item.image} alt={item.name} fill sizes='60px' className='object-cover' />
                               ) : null}
                             </div>
 
                             <div className='min-w-0'>
-                              <p className='line-clamp-2 text-sm font-semibold text-slate-900'>{item.name}</p>
-                              <p className='mt-1 text-xs text-slate-500'>Color: {item.variation || 'Standard option'}</p>
-                              <p className='text-xs text-slate-500'>Vendor: {item.vendor || 'Alxora'}</p>
+                              <p className='line-clamp-2 text-sm font-semibold text-slate-900 dark:text-white'>{item.name}</p>
+                              <p className='mt-1 text-xs text-slate-500 dark:text-zinc-400'>Color: {item.variation || 'Standard option'}</p>
+                              <p className='text-xs text-slate-500 dark:text-zinc-400'>Vendor: {item.vendor || 'Alxora'}</p>
                               {item.sellerStatusLabel ? (
-                                <p className='mt-1 text-[11px] font-semibold text-indigo-700'>
+                                <p className='mt-1 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300'>
                                   Seller status: {item.sellerStatusLabel}
                                 </p>
                               ) : null}
@@ -694,22 +694,22 @@ export default function OrderDetailPage() {
                             <div className='col-span-2 space-y-2 text-xs sm:hidden'>
                               {sellerControls}
                               <div className='flex items-center justify-end gap-4 pt-0.5'>
-                                <p className='min-w-10 text-center font-semibold text-slate-700'>
-                                  <span className='mr-1 text-[11px] font-medium text-slate-500'>Qty</span>
+                                <p className='min-w-10 text-center font-semibold text-slate-700 dark:text-zinc-300'>
+                                  <span className='mr-1 text-[11px] font-medium text-slate-500 dark:text-zinc-400'>Qty</span>
                                   {item.quantity}
                                 </p>
-                                <p className='font-semibold text-slate-900'>{lineTotal}</p>
+                                <p className='font-semibold text-slate-900 dark:text-white'>{lineTotal}</p>
                               </div>
                             </div>
 
                             <div className='hidden sm:col-auto sm:contents'>
                               {sellerControls}
-                              <p className='min-w-10 pt-0.5 text-center font-semibold text-slate-700'>
-                                <span className='mr-1 text-[11px] font-medium text-slate-500 sm:hidden'>Qty</span>
+                              <p className='min-w-10 pt-0.5 text-center font-semibold text-slate-700 dark:text-zinc-300'>
+                                <span className='mr-1 text-[11px] font-medium text-slate-500 sm:hidden dark:text-zinc-400'>Qty</span>
                                 {item.quantity}
                               </p>
 
-                              <p className='pt-0.5 text-right font-semibold text-slate-900'>{lineTotal}</p>
+                              <p className='pt-0.5 text-right font-semibold text-slate-900 dark:text-white'>{lineTotal}</p>
                             </div>
                           </article>
                         )
@@ -718,28 +718,28 @@ export default function OrderDetailPage() {
 
                     <Card title='Payment Summary'>
                       <div className='space-y-2 text-sm'>
-                        <div className='flex items-center justify-between text-slate-600'>
+                        <div className='flex items-center justify-between text-slate-600 dark:text-zinc-400'>
                           <span>Subtotal ({Math.max(1, Number(order.itemCount || 1))} items)</span>
-                          <span className='font-semibold text-slate-900'>{totals?.subtotal}</span>
+                          <span className='font-semibold text-slate-900 dark:text-white'>{totals?.subtotal}</span>
                         </div>
-                        <div className='flex items-center justify-between text-slate-600'>
+                        <div className='flex items-center justify-between text-slate-600 dark:text-zinc-400'>
                           <span>Delivery</span>
-                          <span className='font-semibold text-slate-900'>{totals?.shipping}</span>
+                          <span className='font-semibold text-slate-900 dark:text-white'>{totals?.shipping}</span>
                         </div>
-                        <div className='flex items-center justify-between text-slate-600'>
+                        <div className='flex items-center justify-between text-slate-600 dark:text-zinc-400'>
                           <span>Order Protection</span>
-                          <span className='font-semibold text-slate-900'>{totals?.protection}</span>
+                          <span className='font-semibold text-slate-900 dark:text-white'>{totals?.protection}</span>
                         </div>
-                        <div className='flex items-center justify-between text-slate-600'>
+                        <div className='flex items-center justify-between text-slate-600 dark:text-zinc-400'>
                           <span>Tax (included)</span>
-                          <span className='font-semibold text-slate-900'>{totals?.tax}</span>
+                          <span className='font-semibold text-slate-900 dark:text-white'>{totals?.tax}</span>
                         </div>
 
-                        <div className='mt-2 flex items-center justify-between border-t border-[#e9eef5] pt-3 text-sm'>
-                          <span className='font-semibold text-slate-900'>
+                        <div className='mt-2 flex items-center justify-between border-t border-[#e9eef5] pt-3 text-sm dark:border-white/10'>
+                          <span className='font-semibold text-slate-900 dark:text-white'>
                             {permissions.isSellerScoped ? 'Total for your products' : 'Total paid by customer'}
                           </span>
-                          <span className='font-bold text-slate-900'>{totals?.total}</span>
+                          <span className='font-bold text-slate-900 dark:text-white'>{totals?.total}</span>
                         </div>
                       </div>
                     </Card>
@@ -747,7 +747,7 @@ export default function OrderDetailPage() {
                     <Card title='Delivery'>
                       <div className='flex flex-wrap items-center justify-between gap-4 sm:flex-nowrap'>
                         <div className='inline-flex items-center gap-3'>
-                          <span className='inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e1e9f5] bg-[#f8fafe] text-[#4d67cc]'>
+                          <span className='inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e1e9f5] bg-[#f8fafe] text-[#4d67cc] dark:border-white/10 dark:bg-white/5 dark:text-indigo-300'>
                             <svg viewBox='0 0 20 20' className='h-5 w-5' fill='none' stroke='currentColor' strokeWidth='1.8'>
                               <path d='M3 6h10v8H3z' />
                               <path d='M13 8h2.5l1.5 2v4H13z' />
@@ -757,21 +757,21 @@ export default function OrderDetailPage() {
                           </span>
 
                           <div>
-                            <p className='text-sm font-semibold text-slate-800'>
+                            <p className='text-sm font-semibold text-slate-800 dark:text-white'>
                               {order.shippingAddress?.method || 'Standard delivery'}
                             </p>
-                            <p className='text-xs text-slate-500'>Delivery option selected at checkout.</p>
+                            <p className='text-xs text-slate-500 dark:text-zinc-400'>Delivery option selected at checkout.</p>
                           </div>
                         </div>
 
-                        <p className='text-sm font-semibold text-slate-900'>{totals?.shipping}</p>
+                        <p className='text-sm font-semibold text-slate-900 dark:text-white'>{totals?.shipping}</p>
                       </div>
                     </Card>
 
                     {!permissions.isSellerScoped ? (
                       <Card title='Activity'>
                         <div>
-                          <p className='mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500'>Today</p>
+                          <p className='mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-zinc-400'>Today</p>
                           <div className='space-y-3'>
                             {(order.activity || []).length > 0 ? (
                               (order.activity || []).map((entry) => (
@@ -786,14 +786,14 @@ export default function OrderDetailPage() {
                                     }`}
                                   />
                                   <div>
-                                    <p className='text-sm font-semibold text-slate-900'>{entry.title}</p>
-                                    <p className='text-xs text-slate-500'>{entry.detail}</p>
-                                    <p className='mt-0.5 text-[11px] text-slate-400'>{formatDate(entry.at)}</p>
+                                    <p className='text-sm font-semibold text-slate-900 dark:text-white'>{entry.title}</p>
+                                    <p className='text-xs text-slate-500 dark:text-zinc-400'>{entry.detail}</p>
+                                    <p className='mt-0.5 text-[11px] text-slate-400 dark:text-zinc-500'>{formatDate(entry.at)}</p>
                                   </div>
                                 </div>
                               ))
                             ) : (
-                              <p className='text-sm text-slate-500'>No activity yet.</p>
+                              <p className='text-sm text-slate-500 dark:text-zinc-400'>No activity yet.</p>
                             )}
                           </div>
                         </div>
@@ -802,9 +802,9 @@ export default function OrderDetailPage() {
                   </div>
 
                   {!permissions.isSellerScoped ? (
-                    <aside className='w-full overflow-visible rounded-none border-0 bg-white shadow-none sm:overflow-hidden sm:rounded-2xl sm:border sm:border-[#e4ecf5] sm:bg-white sm:shadow-[0_1px_4px_rgba(15,23,42,0.04)]'>
-                    <div className='border-b border-[#e9eef5] px-4 py-4 sm:px-5'>
-                      <p className='text-lg font-semibold text-slate-800'>Customer</p>
+                    <aside className='w-full overflow-visible rounded-none border-0 bg-white shadow-none sm:overflow-hidden sm:rounded-2xl sm:border sm:border-[#e4ecf5] sm:bg-white sm:shadow-[0_1px_4px_rgba(15,23,42,0.04)] dark:bg-[#000000] sm:dark:border-white/10 sm:dark:bg-[#000000] sm:dark:shadow-none'>
+                    <div className='border-b border-[#e9eef5] px-4 py-4 sm:px-5 dark:border-white/10'>
+                      <p className='text-lg font-semibold text-slate-800 dark:text-white'>Customer</p>
 
                       <button
                         type='button'
@@ -813,14 +813,14 @@ export default function OrderDetailPage() {
                         aria-expanded={isCustomerDetailsOpen}
                       >
                         <span className='flex min-w-0 items-center gap-2'>
-                          <span className='inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eef3ff] text-sm font-semibold text-[#4d67cc]'>
+                          <span className='inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#eef3ff] text-sm font-semibold text-[#4d67cc] dark:bg-indigo-950/40 dark:text-indigo-300'>
                             {String(customerDisplayName || 'C').charAt(0).toUpperCase()}
                           </span>
-                          <span className='truncate text-sm font-semibold text-slate-900'>{customerDisplayName}</span>
+                          <span className='truncate text-sm font-semibold text-slate-900 dark:text-white'>{customerDisplayName}</span>
                         </span>
                         <svg
                           viewBox='0 0 20 20'
-                          className={`h-4 w-4 text-slate-400 transition ${isCustomerDetailsOpen ? 'rotate-90' : ''}`}
+                          className={`h-4 w-4 text-slate-400 transition dark:text-zinc-500 ${isCustomerDetailsOpen ? 'rotate-90' : ''}`}
                           fill='none'
                           stroke='currentColor'
                           strokeWidth='2'
@@ -830,27 +830,27 @@ export default function OrderDetailPage() {
                       </button>
 
                       {isCustomerDetailsOpen ? (
-                        <div className='mt-3 rounded-lg border border-[#e6edf7] bg-[#f8fbff] px-3 py-2.5'>
+                        <div className='mt-3 rounded-lg border border-[#e6edf7] bg-[#f8fbff] px-3 py-2.5 dark:border-white/10 dark:bg-white/5'>
                           <div className='grid gap-2 text-xs'>
                             <div className='flex items-center justify-between gap-2'>
-                              <span className='text-slate-500'>Total orders</span>
-                              <span className='font-semibold text-slate-800'>
+                              <span className='text-slate-500 dark:text-zinc-400'>Total orders</span>
+                              <span className='font-semibold text-slate-800 dark:text-white'>
                                 {Math.max(1, Number(order.customer?.ordersCount || 1))}
                               </span>
                             </div>
                             <div className='flex items-center justify-between gap-2'>
-                              <span className='text-slate-500'>Total spent</span>
-                              <span className='font-semibold text-slate-800'>{customerTotalSpent}</span>
+                              <span className='text-slate-500 dark:text-zinc-400'>Total spent</span>
+                              <span className='font-semibold text-slate-800 dark:text-white'>{customerTotalSpent}</span>
                             </div>
                             <div className='flex items-center justify-between gap-2'>
-                              <span className='text-slate-500'>Last seen</span>
-                              <span className='font-semibold text-slate-800'>{customerLastSeenLabel}</span>
+                              <span className='text-slate-500 dark:text-zinc-400'>Last seen</span>
+                              <span className='font-semibold text-slate-800 dark:text-white'>{customerLastSeenLabel}</span>
                             </div>
                           </div>
                         </div>
                       ) : null}
 
-                      <div className='mt-3 flex items-center justify-between border-t border-[#edf2f8] pt-3'>
+                      <div className='mt-3 flex items-center justify-between border-t border-[#edf2f8] pt-3 dark:border-white/10'>
                         <div className='inline-flex items-center gap-2'>
                           <InlineRowIcon>
                             <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8'>
@@ -858,11 +858,11 @@ export default function OrderDetailPage() {
                               <path d='M8.5 3.5v-1m3 1v-1' strokeLinecap='round' />
                             </svg>
                           </InlineRowIcon>
-                          <span className='text-sm font-medium text-slate-700'>
+                          <span className='text-sm font-medium text-slate-700 dark:text-zinc-300'>
                             {Math.max(1, Number(order.customer?.ordersCount || 1))} Orders
                           </span>
                         </div>
-                        <svg viewBox='0 0 20 20' className='h-4 w-4 text-slate-400' fill='none' stroke='currentColor' strokeWidth='2'>
+                        <svg viewBox='0 0 20 20' className='h-4 w-4 text-slate-400 dark:text-zinc-500' fill='none' stroke='currentColor' strokeWidth='2'>
                           <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
                         </svg>
                       </div>
@@ -870,8 +870,8 @@ export default function OrderDetailPage() {
 
                     <div className='space-y-4 px-4 py-4 sm:px-5'>
                       <section>
-                        <p className='text-sm font-semibold text-slate-900'>Contact info</p>
-                        <div className='mt-2 space-y-1.5 text-sm text-slate-600'>
+                        <p className='text-sm font-semibold text-slate-900 dark:text-white'>Contact info</p>
+                        <div className='mt-2 space-y-1.5 text-sm text-slate-600 dark:text-zinc-400'>
                           <p className='inline-flex items-center gap-2'>
                             <InlineRowIcon>
                               <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='1.8'>
@@ -892,11 +892,11 @@ export default function OrderDetailPage() {
                         </div>
                       </section>
 
-                      <div className='h-px bg-[#e9eef5]' />
+                      <div className='h-px bg-[#e9eef5] dark:bg-white/10' />
 
                       <section>
                         <div className='flex items-center justify-between gap-2'>
-                          <p className='text-sm font-semibold text-slate-900'>Shipping Address</p>
+                          <p className='text-sm font-semibold text-slate-900 dark:text-white'>Shipping Address</p>
                           {!isEditingShipping && permissions.canEditShippingAddress ? (
                             <button
                               type='button'
@@ -904,7 +904,7 @@ export default function OrderDetailPage() {
                                 setError('')
                                 setIsEditingShipping(true)
                               }}
-                              className='inline-flex h-7 items-center justify-center rounded-md border border-[#d9e4f3] bg-white px-2.5 text-xs font-semibold text-slate-600'
+                              className='inline-flex h-7 items-center justify-center rounded-md border border-[#d9e4f3] bg-white px-2.5 text-xs font-semibold text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300'
                             >
                               Edit
                             </button>
@@ -912,8 +912,8 @@ export default function OrderDetailPage() {
                         </div>
 
                         {!isEditingShipping ? (
-                          <div className='mt-2 space-y-1 text-sm text-slate-600'>
-                            <p className='font-medium text-slate-800'>{order.shippingAddress?.name || 'Customer'}</p>
+                          <div className='mt-2 space-y-1 text-sm text-slate-600 dark:text-zinc-400'>
+                            <p className='font-medium text-slate-800 dark:text-white'>{order.shippingAddress?.name || 'Customer'}</p>
                             {shippingLines.length > 0 ? (
                               shippingLines.map((line, index) => <p key={`shipping-${index}`}>{line}</p>)
                             ) : (
@@ -926,38 +926,38 @@ export default function OrderDetailPage() {
                               value={shippingForm.fullName}
                               onChange={(event) => handleShippingInputChange('fullName', event.target.value)}
                               placeholder='Full name'
-                              className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff]'
+                              className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500'
                             />
                             <input
                               value={shippingForm.phone}
                               onChange={(event) => handleShippingInputChange('phone', event.target.value)}
                               placeholder='Phone number'
-                              className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff]'
+                              className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500'
                             />
                             <input
                               value={shippingForm.line1}
                               onChange={(event) => handleShippingInputChange('line1', event.target.value)}
                               placeholder='Address line 1'
-                              className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff]'
+                              className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500'
                             />
                             <input
                               value={shippingForm.line2}
                               onChange={(event) => handleShippingInputChange('line2', event.target.value)}
                               placeholder='Address line 2 (optional)'
-                              className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff]'
+                              className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500'
                             />
                             <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
                               <input
                                 value={shippingForm.city}
                                 onChange={(event) => handleShippingInputChange('city', event.target.value)}
                                 placeholder='City'
-                                className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff]'
+                                className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500'
                               />
                               <input
                                 value={shippingForm.state}
                                 onChange={(event) => handleShippingInputChange('state', event.target.value)}
                                 placeholder='State'
-                                className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff]'
+                                className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500'
                               />
                             </div>
                             <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
@@ -965,13 +965,13 @@ export default function OrderDetailPage() {
                                 value={shippingForm.postalCode}
                                 onChange={(event) => handleShippingInputChange('postalCode', event.target.value)}
                                 placeholder='Postal code'
-                                className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff]'
+                                className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500'
                               />
                               <input
                                 value={shippingForm.country}
                                 onChange={(event) => handleShippingInputChange('country', event.target.value)}
                                 placeholder='Country'
-                                className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff]'
+                                className='h-9 w-full rounded-md border border-[#d9e4f3] px-3 text-sm text-slate-700 outline-none focus:border-[#9cb5f8] focus:ring-2 focus:ring-[#dce7ff] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500'
                               />
                             </div>
                             <div className='flex items-center justify-end gap-2 pt-1'>
@@ -979,7 +979,7 @@ export default function OrderDetailPage() {
                                 type='button'
                                 disabled={isSavingShipping}
                                 onClick={handleCancelShippingEdit}
-                                className='inline-flex h-8 items-center justify-center rounded-md border border-[#d9e4f3] bg-white px-3 text-xs font-semibold text-slate-600 disabled:opacity-60'
+                                className='inline-flex h-8 items-center justify-center rounded-md border border-[#d9e4f3] bg-white px-3 text-xs font-semibold text-slate-600 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300'
                               >
                                 Cancel
                               </button>
@@ -996,12 +996,12 @@ export default function OrderDetailPage() {
                         )}
                       </section>
 
-                      <div className='h-px bg-[#e9eef5]' />
+                      <div className='h-px bg-[#e9eef5] dark:bg-white/10' />
 
                       <section>
-                        <p className='text-sm font-semibold text-slate-900'>Billing Address</p>
-                        <div className='mt-2 space-y-1 text-sm text-slate-600'>
-                          <p className='font-medium text-slate-800'>{order.billingAddress?.name || 'Customer'}</p>
+                        <p className='text-sm font-semibold text-slate-900 dark:text-white'>Billing Address</p>
+                        <div className='mt-2 space-y-1 text-sm text-slate-600 dark:text-zinc-400'>
+                          <p className='font-medium text-slate-800 dark:text-white'>{order.billingAddress?.name || 'Customer'}</p>
                           {billingLines.length > 0 ? (
                             billingLines.map((line, index) => <p key={`billing-${index}`}>{line}</p>)
                           ) : (
@@ -1015,7 +1015,7 @@ export default function OrderDetailPage() {
                     <aside className='space-y-4'>
                       <Card title='Activity'>
                         <div>
-                          <p className='mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500'>Today</p>
+                          <p className='mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-zinc-400'>Today</p>
                           <div className='space-y-3'>
                             {(order.activity || []).length > 0 ? (
                               (order.activity || []).map((entry) => (
@@ -1030,14 +1030,14 @@ export default function OrderDetailPage() {
                                     }`}
                                   />
                                   <div>
-                                    <p className='text-sm font-semibold text-slate-900'>{entry.title}</p>
-                                    <p className='text-xs text-slate-500'>{entry.detail}</p>
-                                    <p className='mt-0.5 text-[11px] text-slate-400'>{formatDate(entry.at)}</p>
+                                    <p className='text-sm font-semibold text-slate-900 dark:text-white'>{entry.title}</p>
+                                    <p className='text-xs text-slate-500 dark:text-zinc-400'>{entry.detail}</p>
+                                    <p className='mt-0.5 text-[11px] text-slate-400 dark:text-zinc-500'>{formatDate(entry.at)}</p>
                                   </div>
                                 </div>
                               ))
                             ) : (
-                              <p className='text-sm text-slate-500'>No activity yet.</p>
+                              <p className='text-sm text-slate-500 dark:text-zinc-400'>No activity yet.</p>
                             )}
                           </div>
                         </div>

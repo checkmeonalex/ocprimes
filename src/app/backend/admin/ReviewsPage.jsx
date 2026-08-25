@@ -23,7 +23,7 @@ const renderStars = (rating) => (
       <svg
         key={star}
         viewBox="0 0 24 24"
-        className={`h-4 w-4 ${star <= rating ? 'text-amber-500' : 'text-slate-300'}`}
+        className={`h-4 w-4 ${star <= rating ? 'text-amber-500' : 'text-slate-300 dark:text-zinc-600'}`}
         fill="currentColor"
       >
         <path d="m12 2.8 2.8 5.68 6.27.91-4.54 4.42 1.07 6.24L12 17.1 6.4 20.05l1.07-6.24L2.93 9.39l6.27-.91L12 2.8Z" />
@@ -35,21 +35,21 @@ const renderStars = (rating) => (
 const ReviewsListSkeleton = () => (
   <div className="space-y-3">
     {Array.from({ length: 4 }).map((_, index) => (
-      <div key={index} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div key={index} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 dark:border-white/10 dark:bg-white/5">
         <div className="flex flex-col gap-4 md:flex-row">
           <div className="flex min-w-0 flex-1 gap-3">
-            <div className="h-20 w-20 shrink-0 animate-pulse rounded-xl bg-slate-200/85" />
+            <div className="h-20 w-20 shrink-0 animate-pulse rounded-xl bg-slate-200/85 dark:bg-white/10" />
             <div className="min-w-0 flex-1 space-y-2 pt-1">
-              <div className="h-3.5 w-2/3 animate-pulse rounded-md bg-slate-200/85" />
-              <div className="h-3 w-1/2 animate-pulse rounded-md bg-slate-200/70" />
-              <div className="h-3 w-1/3 animate-pulse rounded-md bg-slate-200/70" />
+              <div className="h-3.5 w-2/3 animate-pulse rounded-md bg-slate-200/85 dark:bg-white/10" />
+              <div className="h-3 w-1/2 animate-pulse rounded-md bg-slate-200/70 dark:bg-white/10" />
+              <div className="h-3 w-1/3 animate-pulse rounded-md bg-slate-200/70 dark:bg-white/10" />
             </div>
           </div>
           <div className="min-w-0 flex-1 space-y-2 pt-1">
-            <div className="h-3.5 w-1/3 animate-pulse rounded-md bg-slate-200/85" />
-            <div className="h-3 w-full animate-pulse rounded-md bg-slate-200/70" />
-            <div className="h-3 w-5/6 animate-pulse rounded-md bg-slate-200/70" />
-            <div className="h-8 w-28 animate-pulse rounded-md bg-slate-200/70" />
+            <div className="h-3.5 w-1/3 animate-pulse rounded-md bg-slate-200/85 dark:bg-white/10" />
+            <div className="h-3 w-full animate-pulse rounded-md bg-slate-200/70 dark:bg-white/10" />
+            <div className="h-3 w-5/6 animate-pulse rounded-md bg-slate-200/70 dark:bg-white/10" />
+            <div className="h-8 w-28 animate-pulse rounded-md bg-slate-200/70 dark:bg-white/10" />
           </div>
         </div>
       </div>
@@ -244,23 +244,23 @@ export default function ReviewsPage() {
   return (
     <AdminShell>
       <div className="mx-auto w-full max-w-7xl space-y-6">
-            <section className="border-b border-slate-200 pb-5">
+            <section className="border-b border-slate-200 pb-5 dark:border-white/10">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Reviews</p>
-                  <h1 className="mt-1 text-2xl font-semibold text-slate-900">Product Reviews</h1>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400 dark:text-zinc-500">Reviews</p>
+                  <h1 className="mt-1 text-2xl font-semibold text-slate-900 dark:text-white">Product Reviews</h1>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400">
                     All reviews submitted for products in your catalog.
                   </p>
                 </div>
-                <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:w-auto sm:min-w-[220px]">
+                <div className="grid w-full grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:w-auto sm:min-w-[220px] dark:border-white/10 dark:bg-white/5">
                   <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Total reviews</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">{summary.total || 0}</p>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-zinc-400">Total reviews</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{summary.total || 0}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">Avg. rating</p>
-                    <p className="mt-1 text-lg font-semibold text-slate-900">{Number(summary.average_rating || 0).toFixed(2)}</p>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-zinc-400">Avg. rating</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-white">{Number(summary.average_rating || 0).toFixed(2)}</p>
                   </div>
                 </div>
               </div>
@@ -270,12 +270,12 @@ export default function ReviewsPage() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Search by reviewer, title, or comment"
-                  className="col-span-2 h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 md:col-span-1"
+                  className="col-span-2 h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 md:col-span-1 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/25"
                 />
                 <CustomSelect
                   value={ratingFilter}
                   onChange={(event) => setRatingFilter(event.target.value)}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white/25"
                 >
                   <option value="">Any rating</option>
                   <option value="5">5★</option>
@@ -287,7 +287,7 @@ export default function ReviewsPage() {
                 <CustomSelect
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value)}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white/25"
                 >
                   <option value="">Any status</option>
                   <option value="published">Published</option>
@@ -297,12 +297,12 @@ export default function ReviewsPage() {
               </div>
 
               {activeFiltersLabel ? (
-                <p className="mt-2 text-xs text-slate-500">Active: {activeFiltersLabel}</p>
+                <p className="mt-2 text-xs text-slate-500 dark:text-zinc-400">Active: {activeFiltersLabel}</p>
               ) : null}
             </section>
 
             {error ? (
-              <div className="border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
+              <div className="border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-400">{error}</div>
             ) : null}
 
             <section className="space-y-3">
@@ -310,41 +310,41 @@ export default function ReviewsPage() {
                 <ReviewsListSkeleton />
               ) : items.length ? (
                 items.map((item) => (
-                  <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                  <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 dark:border-white/10 dark:bg-white/5">
                     <div className="flex flex-col gap-4 md:flex-row">
                       <div className="flex min-w-0 flex-1 gap-3">
-                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/10">
                           {item?.product?.image_url ? (
                             <img src={item.product.image_url} alt={item?.product?.name || 'Product'} className="h-full w-full object-cover" />
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center text-[11px] text-slate-400">No image</div>
+                            <div className="flex h-full w-full items-center justify-center text-[11px] text-slate-400 dark:text-zinc-500">No image</div>
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-900">{item?.product?.name || 'Unknown product'}</p>
-                          <p className="mt-0.5 text-xs text-slate-500">/{item?.product?.slug || '--'} • {item?.product?.status || 'draft'}</p>
+                          <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{item?.product?.name || 'Unknown product'}</p>
+                          <p className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">/{item?.product?.slug || '--'} • {item?.product?.status || 'draft'}</p>
                           <div className="mt-2 flex items-center gap-2">
                             {renderStars(Number(item.rating) || 0)}
-                            <span className="text-xs font-medium text-slate-500">{formatDate(item.created_at)}</span>
+                            <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">{formatDate(item.created_at)}</span>
                           </div>
                         </div>
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-slate-900">{item.reviewer_name || 'Anonymous'}</p>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">{item.reviewer_name || 'Anonymous'}</p>
                           {item.is_verified_purchase ? (
-                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Verified purchase</span>
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">Verified purchase</span>
                           ) : null}
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">{item.status || 'published'}</span>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-white/10 dark:text-zinc-300">{item.status || 'published'}</span>
                         </div>
-                        {item.title ? <p className="mt-2 text-sm font-semibold text-slate-800">{item.title}</p> : null}
-                        <p className="mt-1 text-sm leading-relaxed text-slate-600">{item.content || 'No written review.'}</p>
+                        {item.title ? <p className="mt-2 text-sm font-semibold text-slate-800 dark:text-zinc-200">{item.title}</p> : null}
+                        <p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-zinc-300">{item.content || 'No written review.'}</p>
                         <div className="mt-3">
                           <button
                             type="button"
                             onClick={() => openEditor(item)}
-                            className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/10"
                           >
                             {permissions.can_edit_review_content ? 'Edit review' : 'Update status'}
                           </button>
@@ -354,16 +354,16 @@ export default function ReviewsPage() {
                   </article>
                 ))
               ) : (
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-                  <p className="text-sm font-semibold text-slate-700">No reviews match your filters.</p>
-                  <p className="mt-1 text-sm text-slate-500">Try changing rating, status, or search text.</p>
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center dark:border-white/15 dark:bg-white/5">
+                  <p className="text-sm font-semibold text-slate-700 dark:text-zinc-200">No reviews match your filters.</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400">Try changing rating, status, or search text.</p>
                 </div>
               )}
             </section>
 
             {!isLoading && pagination.total_pages > 1 ? (
-              <section className="flex items-center justify-between border-t border-slate-200 px-1 py-3 text-sm">
-                <p className="text-slate-600">
+              <section className="flex items-center justify-between border-t border-slate-200 px-1 py-3 text-sm dark:border-white/10">
+                <p className="text-slate-600 dark:text-zinc-300">
                   Page {pagination.page} of {pagination.total_pages}
                 </p>
                 <div className="flex gap-2">
@@ -371,7 +371,7 @@ export default function ReviewsPage() {
                     type="button"
                     disabled={pagination.page <= 1}
                     onClick={() => loadReviews(pagination.page - 1)}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-zinc-200"
                   >
                     Prev
                   </button>
@@ -379,7 +379,7 @@ export default function ReviewsPage() {
                     type="button"
                     disabled={pagination.page >= pagination.total_pages}
                     onClick={() => loadReviews(pagination.page + 1)}
-                    className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:text-zinc-200"
                   >
                     Next
                   </button>
@@ -388,15 +388,15 @@ export default function ReviewsPage() {
             ) : null}
             {editingReview ? (
               <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-3">
-                <div className="w-full max-w-xl rounded-2xl bg-white p-4 shadow-2xl sm:p-5">
+                <div className="w-full max-w-xl rounded-2xl bg-white p-4 shadow-2xl sm:p-5 dark:bg-[#0a0a0a]">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-base font-semibold text-slate-900">
+                    <h2 className="text-base font-semibold text-slate-900 dark:text-white">
                       {permissions.can_edit_review_content ? 'Edit review' : 'Update review status'}
                     </h2>
                     <button
                       type="button"
                       onClick={closeEditor}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-white/10"
                       aria-label="Close editor"
                     >
                       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -407,11 +407,11 @@ export default function ReviewsPage() {
                   <div className={`mt-3 grid gap-3 ${permissions.can_edit_review_content ? 'sm:grid-cols-2' : 'sm:grid-cols-1'}`}>
                     {permissions.can_edit_review_content ? (
                       <label className="text-sm">
-                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Rating</span>
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">Rating</span>
                         <CustomSelect
                           value={editRating}
                           onChange={(event) => setEditRating(event.target.value)}
-                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white/25"
                         >
                           <option value="5">5 stars</option>
                           <option value="4">4 stars</option>
@@ -423,11 +423,11 @@ export default function ReviewsPage() {
                     ) : null}
                     {permissions.can_change_status ? (
                       <label className="text-sm">
-                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
+                        <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">Status</span>
                         <CustomSelect
                           value={editStatus}
                           onChange={(event) => setEditStatus(event.target.value)}
-                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white/25"
                         >
                           <option value="published">Published</option>
                           <option value="pending">Pending</option>
@@ -438,12 +438,12 @@ export default function ReviewsPage() {
                   </div>
                   {permissions.can_edit_review_content ? (
                     <label className="mt-3 block text-sm">
-                      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Review content</span>
+                      <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">Review content</span>
                       <textarea
                         value={editContent}
                         onChange={(event) => setEditContent(event.target.value)}
                         maxLength={1200}
-                        className="h-36 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                        className="h-36 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-zinc-200 dark:focus:border-white/25"
                       />
                     </label>
                   ) : null}
@@ -456,7 +456,7 @@ export default function ReviewsPage() {
                           disabled={isSaving || isDeleting}
                           aria-label={isDeleting ? 'Deleting review' : 'Delete review'}
                           title={isDeleting ? 'Deleting review' : 'Delete review'}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:w-auto sm:px-3 sm:py-2 sm:text-xs"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:w-auto sm:px-3 sm:py-2 sm:text-xs dark:border-rose-900/40 dark:text-rose-400 dark:hover:bg-rose-950/20"
                         >
                           <span className="sm:hidden">
                             {isDeleting ? (
@@ -481,7 +481,7 @@ export default function ReviewsPage() {
                       onClick={closeEditor}
                       aria-label="Cancel"
                       title="Cancel"
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 sm:h-auto sm:w-auto sm:px-3 sm:py-2 sm:text-xs"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 sm:h-auto sm:w-auto sm:px-3 sm:py-2 sm:text-xs dark:border-white/10 dark:text-zinc-200 dark:hover:bg-white/10"
                     >
                       <span className="sm:hidden">
                         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -496,7 +496,7 @@ export default function ReviewsPage() {
                       disabled={isSaving || isDeleting}
                       aria-label={isSaving ? 'Saving changes' : 'Save changes'}
                       title={isSaving ? 'Saving changes' : 'Save changes'}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:w-auto sm:px-3 sm:py-2 sm:text-xs"
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:w-auto sm:px-3 sm:py-2 sm:text-xs dark:bg-white dark:text-slate-900 dark:hover:bg-zinc-200"
                     >
                       <span className="sm:hidden">
                         {isSaving ? (

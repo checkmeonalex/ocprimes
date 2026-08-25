@@ -28,13 +28,13 @@ const LogisticsSkeleton = () => (
     {Array.from({ length: 10 }).map((_, index) => (
       <div
         key={`logistics-skeleton-${index}`}
-        className='grid grid-cols-[1.15fr_0.55fr_0.75fr_0.55fr_0.75fr] gap-2 rounded-xl border border-slate-200 bg-white p-3'
+        className='grid grid-cols-[1.15fr_0.55fr_0.75fr_0.55fr_0.75fr] gap-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/5'
       >
-        <span className='h-4 animate-pulse rounded bg-slate-200/85' />
-        <span className='h-10 animate-pulse rounded-xl bg-slate-200/80' />
-        <span className='h-10 animate-pulse rounded-xl bg-slate-200/80' />
-        <span className='h-10 animate-pulse rounded-xl bg-slate-200/80' />
-        <span className='h-10 animate-pulse rounded-xl bg-slate-200/80' />
+        <span className='h-4 animate-pulse rounded bg-slate-200/85 dark:bg-white/10' />
+        <span className='h-10 animate-pulse rounded-xl bg-slate-200/80 dark:bg-white/10' />
+        <span className='h-10 animate-pulse rounded-xl bg-slate-200/80 dark:bg-white/10' />
+        <span className='h-10 animate-pulse rounded-xl bg-slate-200/80 dark:bg-white/10' />
+        <span className='h-10 animate-pulse rounded-xl bg-slate-200/80 dark:bg-white/10' />
       </div>
     ))}
   </div>
@@ -273,17 +273,17 @@ export default function LogisticsPage() {
 
   return (
     <AdminShell bg="bg-[#f4f7f9]" noBleed noPad>
-      <section className='w-full bg-transparent p-0 lg:bg-white lg:px-4 xl:px-5'>
+      <section className='w-full bg-transparent p-0 lg:bg-white lg:px-4 xl:px-5 dark:lg:bg-[#000000]'>
             <div className='pb-24 pt-0 lg:pb-10'>
               <section className='bg-transparent'>
           <div className='px-4 py-4 sm:px-5'>
             <div className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
               <div>
-                <h2 className='text-xl font-semibold text-slate-900'>Delivery logistics</h2>
-                <p className='mt-1 text-sm text-slate-500'>
+                <h2 className='text-xl font-semibold text-slate-900 dark:text-white'>Delivery logistics</h2>
+                <p className='mt-1 text-sm text-slate-500 dark:text-zinc-400'>
                   Set Standard/Express delivery price and ETA by city for each Nigerian state.
                 </p>
-                <div className='mt-3 inline-flex rounded-xl border border-slate-200 bg-white p-1 text-xs font-semibold'>
+                <div className='mt-3 inline-flex rounded-xl border border-slate-200 bg-white p-1 text-xs font-semibold dark:border-white/10 dark:bg-white/5'>
                   <button
                     type='button'
                     onClick={() => {
@@ -292,11 +292,11 @@ export default function LogisticsPage() {
                     }}
                     className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition ${
                       scope === 'nigeria'
-                        ? 'bg-slate-900 text-white'
-                        : 'text-slate-600 hover:bg-slate-50'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                        : 'text-slate-600 hover:bg-slate-50 dark:text-zinc-300 dark:hover:bg-white/10'
                     }`}
                   >
-                    <span className='inline-flex h-3.5 w-3.5 overflow-hidden rounded-[2px] border border-slate-200'>
+                    <span className='inline-flex h-3.5 w-3.5 overflow-hidden rounded-[2px] border border-slate-200 dark:border-white/10'>
                       <span className='h-full w-1/3 bg-[#118647]' />
                       <span className='h-full w-1/3 bg-white' />
                       <span className='h-full w-1/3 bg-[#118647]' />
@@ -311,8 +311,8 @@ export default function LogisticsPage() {
                     }}
                     className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition ${
                       scope === 'worldwide'
-                        ? 'bg-slate-900 text-white'
-                        : 'text-slate-600 hover:bg-slate-50'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                        : 'text-slate-600 hover:bg-slate-50 dark:text-zinc-300 dark:hover:bg-white/10'
                     }`}
                   >
                     <svg
@@ -336,8 +336,8 @@ export default function LogisticsPage() {
                     }}
                     className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition ${
                       scope === 'pickup'
-                        ? 'bg-slate-900 text-white'
-                        : 'text-slate-600 hover:bg-slate-50'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                        : 'text-slate-600 hover:bg-slate-50 dark:text-zinc-300 dark:hover:bg-white/10'
                     }`}
                   >
                     <svg
@@ -375,7 +375,7 @@ export default function LogisticsPage() {
                     autoFocusSearch={false}
                     searchPlaceholder='Search state'
                     noResultsText='No state found'
-                    className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm text-slate-900'
+                    className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white'
                   >
                     {states.map((stateName) => (
                       <option key={stateName} value={stateName}>
@@ -389,19 +389,19 @@ export default function LogisticsPage() {
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder='Search city'
-                  className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 sm:w-[220px]'
+                  className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 sm:w-[220px] dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500'
                 />
               </div>
             </div>
 
             {scope === 'nigeria' ? (
-              <div className='mt-3 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600'>
+              <div className='mt-3 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300'>
                 Configured cities: {totalActiveRates} / {rates.length}
               </div>
             ) : scope === 'worldwide' ? (
-              <div className='mt-4 max-w-md rounded-xl border border-slate-200 bg-white p-4'>
+              <div className='mt-4 max-w-md rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-white/5'>
                 <div className='flex items-center gap-2'>
-                  <span className='inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-700'>
+                  <span className='inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-zinc-200'>
                     <svg
                       viewBox='0 0 24 24'
                       className='h-4 w-4'
@@ -414,14 +414,14 @@ export default function LogisticsPage() {
                       <path d='M3 12h18M12 3c2.7 2.3 4.2 5.6 4.2 9S14.7 18.7 12 21c-2.7-2.3-4.2-5.6-4.2-9S9.3 5.3 12 3Z' />
                     </svg>
                   </span>
-                  <p className='text-sm font-semibold text-slate-900'>Worldwide fixed shipping fee</p>
+                  <p className='text-sm font-semibold text-slate-900 dark:text-white'>Worldwide fixed shipping fee</p>
                 </div>
-                <p className='mt-1 text-xs text-slate-500'>
+                <p className='mt-1 text-xs text-slate-500 dark:text-zinc-400'>
                   Applied to all non-Nigeria addresses during checkout.
                 </p>
-                <label className='mt-3 block text-xs font-medium text-slate-600'>Price (USD)</label>
+                <label className='mt-3 block text-xs font-medium text-slate-600 dark:text-zinc-400'>Price (USD)</label>
                 <div className='relative mt-1'>
-                  <span className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500'>
+                  <span className='pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500 dark:text-zinc-400'>
                     $
                   </span>
                   <input
@@ -442,10 +442,10 @@ export default function LogisticsPage() {
                           Number.isFinite(numeric) && numeric >= 0 ? numeric : 0,
                       }))
                     }}
-                    className='h-10 w-full rounded-xl border border-slate-200 bg-white pl-7 pr-3 text-sm text-slate-900'
+                    className='h-10 w-full rounded-xl border border-slate-200 bg-white pl-7 pr-3 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white'
                   />
                 </div>
-                <label className='mt-3 block text-xs font-medium text-slate-600'>ETA (Express only)</label>
+                <label className='mt-3 block text-xs font-medium text-slate-600 dark:text-zinc-400'>ETA (Express only)</label>
                 <div className='mt-1'>
                   <CustomSelect
                     value={String(worldwideSettings?.etaKey || DEFAULT_WORLDWIDE_ETA_KEY)}
@@ -456,7 +456,7 @@ export default function LogisticsPage() {
                         etaKey: nextKey || DEFAULT_WORLDWIDE_ETA_KEY,
                       }))
                     }}
-                    className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm text-slate-900'
+                    className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white'
                     autoFlip
                   >
                     {expressEtaPresets.map((preset) => (
@@ -468,7 +468,7 @@ export default function LogisticsPage() {
                 </div>
               </div>
             ) : (
-              <div className='mt-3 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600'>
+              <div className='mt-3 inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300'>
                 Pickup locations: {pickupLocations.length}
               </div>
             )}
@@ -476,7 +476,7 @@ export default function LogisticsPage() {
 
           {scope === 'nigeria' ? (
           <div className='px-4 py-4 sm:px-5'>
-            <div className='mb-2 hidden grid-cols-[1.15fr_0.55fr_0.75fr_0.55fr_0.75fr] gap-2 px-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 sm:grid'>
+            <div className='mb-2 hidden grid-cols-[1.15fr_0.55fr_0.75fr_0.55fr_0.75fr] gap-2 px-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 sm:grid dark:text-zinc-400'>
               <span>City</span>
               <span>Standard fee (NGN)</span>
               <span>ETA Standard</span>
@@ -487,7 +487,7 @@ export default function LogisticsPage() {
             {isLoading ? (
               <LogisticsSkeleton />
             ) : filteredRates.length === 0 ? (
-              <div className='rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500'>
+              <div className='rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500 dark:border-white/15 dark:bg-white/5 dark:text-zinc-400'>
                 No city rows match your search.
               </div>
             ) : (
@@ -495,15 +495,15 @@ export default function LogisticsPage() {
                 {filteredRates.map((row) => (
                   <div
                     key={`rate-row-${row.city}`}
-                    className='grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-[1.15fr_0.55fr_0.75fr_0.55fr_0.75fr]'
+                    className='grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-[1.15fr_0.55fr_0.75fr_0.55fr_0.75fr] dark:border-white/10 dark:bg-white/5'
                   >
                     <div className='min-w-0'>
-                      <p className='truncate text-sm font-semibold text-slate-900'>{row.city}</p>
-                      <p className='mt-0.5 text-xs text-slate-500'>Standard: {formatCurrency(row.standardPrice)}</p>
-                      <p className='mt-0.5 text-xs text-slate-500'>Express: {formatCurrency(row.expressPrice)}</p>
+                      <p className='truncate text-sm font-semibold text-slate-900 dark:text-white'>{row.city}</p>
+                      <p className='mt-0.5 text-xs text-slate-500 dark:text-zinc-400'>Standard: {formatCurrency(row.standardPrice)}</p>
+                      <p className='mt-0.5 text-xs text-slate-500 dark:text-zinc-400'>Express: {formatCurrency(row.expressPrice)}</p>
                     </div>
 
-                    <label className='flex items-center gap-2 text-xs text-slate-500'>
+                    <label className='flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400'>
                       <span className='sm:hidden'>Standard fee</span>
                       <input
                         type='number'
@@ -514,18 +514,18 @@ export default function LogisticsPage() {
                         onChange={(event) =>
                           handleRateChange(row.city, 'standardPrice', event.target.value)
                         }
-                        className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900'
+                        className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white'
                       />
                     </label>
 
-                    <label className='flex items-center gap-2 text-xs text-slate-500'>
+                    <label className='flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400'>
                       <span className='sm:hidden'>ETA standard</span>
                       <CustomSelect
                         value={row.standardEtaKey || 'standard_1_3_days'}
                         onChange={(event) =>
                           handleRateChange(row.city, 'standardEtaKey', event.target.value)
                         }
-                        className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm text-slate-900'
+                        className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white'
                         autoFlip
                       >
                         {standardEtaPresets.map((preset) => (
@@ -536,7 +536,7 @@ export default function LogisticsPage() {
                       </CustomSelect>
                     </label>
 
-                    <label className='flex items-center gap-2 text-xs text-slate-500'>
+                    <label className='flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400'>
                       <span className='sm:hidden'>Express fee</span>
                       <input
                         type='number'
@@ -547,18 +547,18 @@ export default function LogisticsPage() {
                         onChange={(event) =>
                           handleRateChange(row.city, 'expressPrice', event.target.value)
                         }
-                        className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900'
+                        className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white'
                       />
                     </label>
 
-                    <label className='flex items-center gap-2 text-xs text-slate-500'>
+                    <label className='flex items-center gap-2 text-xs text-slate-500 dark:text-zinc-400'>
                       <span className='sm:hidden'>ETA express</span>
                       <CustomSelect
                         value={row.expressEtaKey || 'express_2_24_hours'}
                         onChange={(event) =>
                           handleRateChange(row.city, 'expressEtaKey', event.target.value)
                         }
-                        className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm text-slate-900'
+                        className='h-10 w-full rounded-xl border border-slate-200 bg-white px-3 pr-10 text-sm text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-white'
                         autoFlip
                       >
                         {expressEtaPresets.map((preset) => (
@@ -580,8 +580,8 @@ export default function LogisticsPage() {
 
           <div className='px-4 py-2 sm:px-5'>
             <div className='min-h-5 text-xs font-medium'>
-              {error ? <span className='text-rose-600'>{error}</span> : null}
-              {!error && success ? <span className='text-emerald-700'>{success}</span> : null}
+              {error ? <span className='text-rose-600 dark:text-rose-400'>{error}</span> : null}
+              {!error && success ? <span className='text-emerald-700 dark:text-emerald-400'>{success}</span> : null}
             </div>
           </div>
               </section>
@@ -593,7 +593,7 @@ export default function LogisticsPage() {
               type='button'
               onClick={handleSave}
               disabled={isLoading || isSaving || !canSave}
-              className='pointer-events-auto inline-flex h-11 items-center justify-center rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(15,23,42,0.26)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60'
+              className='pointer-events-auto inline-flex h-11 items-center justify-center rounded-xl bg-slate-900 px-6 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(15,23,42,0.26)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-zinc-200'
             >
               {isSaving ? 'Saving...' : 'Save logistics'}
             </button>

@@ -25,7 +25,7 @@ function AdminDarkWrapper({ children }) {
     <div
       suppressHydrationWarning
       className={isDark ? 'dark' : ''}
-      style={isDark ? { backgroundColor: '#1c1c1e', colorScheme: 'dark' } : undefined}
+      style={isDark ? { backgroundColor: '#000000', colorScheme: 'dark' } : undefined}
     >
       {children}
     </div>

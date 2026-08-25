@@ -52,10 +52,10 @@ const formatCurrency = (value, currency = 'NGN') => {
 };
 
 const iconToneClasses = {
-  info: 'bg-sky-100 text-sky-700',
-  success: 'bg-emerald-100 text-emerald-700',
-  warning: 'bg-amber-100 text-amber-700',
-  error: 'bg-rose-100 text-rose-700',
+  info: 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300',
+  success: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+  warning: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  error: 'bg-rose-100 text-rose-700 dark:bg-red-950/40 dark:text-red-300',
 };
 
 const NotificationSeverityIcon = ({ severity }) => {
@@ -95,19 +95,19 @@ const NotificationSeverityIcon = ({ severity }) => {
 
 const tabStyles = (active) =>
   `inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
-    active ? 'bg-white text-indigo-700 shadow-sm' : 'text-slate-600 hover:text-slate-800'
+    active ? 'bg-white text-indigo-700 shadow-sm dark:bg-white/10 dark:text-indigo-300' : 'text-slate-600 hover:text-slate-800 dark:text-zinc-400 dark:hover:text-zinc-200'
   }`;
 
 const NotificationsSkeleton = () => (
   <div className="space-y-3">
     {Array.from({ length: 6 }).map((_, index) => (
-      <div key={index} className="rounded-2xl border border-slate-200 bg-white px-3 py-3 sm:px-4">
+      <div key={index} className="rounded-2xl border border-slate-200 bg-white px-3 py-3 sm:px-4 dark:border-white/10 dark:bg-white/5">
         <div className="flex items-start gap-3">
-          <div className="h-12 w-12 animate-pulse rounded-full bg-slate-200/85" />
+          <div className="h-12 w-12 animate-pulse rounded-full bg-slate-200/85 dark:bg-white/10" />
           <div className="min-w-0 flex-1 space-y-2 pt-1">
-            <div className="h-3.5 w-3/4 animate-pulse rounded-md bg-slate-200/85" />
-            <div className="h-3 w-full animate-pulse rounded-md bg-slate-200/70" />
-            <div className="h-3 w-1/3 animate-pulse rounded-md bg-slate-200/70" />
+            <div className="h-3.5 w-3/4 animate-pulse rounded-md bg-slate-200/85 dark:bg-white/10" />
+            <div className="h-3 w-full animate-pulse rounded-md bg-slate-200/70 dark:bg-white/10" />
+            <div className="h-3 w-1/3 animate-pulse rounded-md bg-slate-200/70 dark:bg-white/10" />
           </div>
         </div>
       </div>
@@ -265,15 +265,15 @@ export default function NotificationsPage() {
   return (
     <AdminShell>
       <div className="mx-auto w-full max-w-none p-0 lg:max-w-5xl">
-            <section className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <section className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 dark:border-white/10">
               <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Notifications ({totalCount})</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">Notifications ({totalCount})</h1>
               </div>
               <button
                 type="button"
                 disabled={!unreadCount || isMarkingAll}
                 onClick={() => markRead([], true)}
-                className="inline-flex items-center gap-2 text-base font-semibold text-indigo-700 transition hover:text-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex items-center gap-2 text-base font-semibold text-indigo-700 transition hover:text-indigo-800 disabled:cursor-not-allowed disabled:opacity-50 dark:text-indigo-300 dark:hover:text-indigo-200"
               >
                 <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="m4 13 4 4L20 5" />
@@ -282,22 +282,22 @@ export default function NotificationsPage() {
               </button>
             </section>
 
-            <section className="mt-4 flex overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50/70 p-1.5">
+            <section className="mt-4 flex overflow-x-auto rounded-2xl border border-slate-200 bg-slate-50/70 p-1.5 dark:border-white/10 dark:bg-white/5">
               <button type="button" onClick={() => setReadStatus('all')} className={tabStyles(readStatus === 'all')}>
-                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-500">{totalCount}</span>
+                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-500 dark:bg-white/10 dark:text-zinc-300">{totalCount}</span>
               </button>
               <button type="button" onClick={() => setReadStatus('unread')} className={tabStyles(readStatus === 'unread')}>
                 Unread
-                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-500">{unreadCount}</span>
+                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-500 dark:bg-white/10 dark:text-zinc-300">{unreadCount}</span>
               </button>
               <button type="button" onClick={() => setReadStatus('read')} className={tabStyles(readStatus === 'read')}>
                 Read
-                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-500">{readCount}</span>
+                <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-bold text-slate-500 dark:bg-white/10 dark:text-zinc-300">{readCount}</span>
               </button>
             </section>
 
             {error ? (
-              <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
+              <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">{error}</div>
             ) : null}
 
             <section className="mt-4 space-y-2">
@@ -339,32 +339,32 @@ export default function NotificationsPage() {
                             <span
                               className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] ${
                                 severity === 'success'
-                                  ? 'bg-emerald-100 text-emerald-700'
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                                   : severity === 'warning'
-                                    ? 'bg-amber-100 text-amber-700'
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
                                     : severity === 'error'
-                                      ? 'bg-rose-100 text-rose-700'
-                                      : 'bg-sky-100 text-sky-700'
+                                      ? 'bg-rose-100 text-rose-700 dark:bg-red-950/40 dark:text-red-300'
+                                      : 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300'
                               }`}
                             >
                               {severity}
                             </span>
                             {isCategoryRequest ? (
-                              <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-indigo-700">
+                              <span className="inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
                                 Category request
                               </span>
                             ) : null}
                           </div>
-                          <h3 className="text-base font-semibold text-slate-900">{item?.title || 'Notification'}</h3>
-                          <p className="mt-1 text-sm text-slate-700">{item?.message || ''}</p>
+                          <h3 className="text-base font-semibold text-slate-900 dark:text-white">{item?.title || 'Notification'}</h3>
+                          <p className="mt-1 text-sm text-slate-700 dark:text-zinc-300">{item?.message || ''}</p>
                           {isVendorOrderTemplate ? (
-                            <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                              <p className="text-xs font-semibold uppercase tracking-[0.06em] text-slate-500">
+                            <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+                              <p className="text-xs font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-zinc-400">
                                 Sender
                               </p>
-                              <p className="text-sm font-semibold text-slate-900">{senderName}</p>
+                              <p className="text-sm font-semibold text-slate-900 dark:text-white">{senderName}</p>
                               {orderNumber ? (
-                                <p className="mt-1 text-xs font-semibold text-indigo-700">Order {orderNumber}</p>
+                                <p className="mt-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">Order {orderNumber}</p>
                               ) : null}
                               <div className="mt-2 space-y-1.5">
                                 {(templateExpanded ? templateProducts : templateProducts.slice(0, 2)).map(
@@ -373,10 +373,10 @@ export default function NotificationsPage() {
                                       key={`${item.id}-product-${index}`}
                                       className="flex items-center justify-between gap-2 text-xs"
                                     >
-                                      <span className="truncate text-slate-700">
+                                      <span className="truncate text-slate-700 dark:text-zinc-300">
                                         {String(product?.name || 'Product')} x{Math.max(1, Number(product?.quantity || 1))}
                                       </span>
-                                      <span className="shrink-0 font-semibold text-slate-900">
+                                      <span className="shrink-0 font-semibold text-slate-900 dark:text-white">
                                         {formatCurrency(product?.line_total, templateCurrency)}
                                       </span>
                                     </div>
@@ -391,7 +391,7 @@ export default function NotificationsPage() {
                                         [String(item.id)]: !templateExpanded,
                                       }))
                                     }
-                                    className="text-xs font-semibold text-indigo-700 hover:text-indigo-800"
+                                    className="text-xs font-semibold text-indigo-700 hover:text-indigo-800 dark:text-indigo-300 dark:hover:text-indigo-200"
                                   >
                                     {templateExpanded ? 'View less' : 'View more'}
                                   </button>
@@ -400,7 +400,7 @@ export default function NotificationsPage() {
                             </div>
                           ) : null}
                           {isCategoryRequest ? (
-                            <p className="mt-1 text-xs text-slate-500">
+                            <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
                               {requesterBrandName
                                 ? `From brand: ${requesterBrandName}`
                                 : requesterUserId
@@ -409,7 +409,7 @@ export default function NotificationsPage() {
                               {requestSlug ? ` · /${requestSlug}` : ''}
                             </p>
                           ) : null}
-                          <p className="mt-1 text-sm text-slate-500">{formatDateOnly(item?.created_at)}</p>
+                          <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400">{formatDateOnly(item?.created_at)}</p>
 
                           <div className="mt-3 flex flex-wrap items-center gap-2">
                             {canReviewCategoryRequest ? (
@@ -420,7 +420,7 @@ export default function NotificationsPage() {
                                   onClick={() =>
                                     reviewCategoryRequest({ notification: item, requestId, status: 'approved' })
                                   }
-                                  className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60"
                                 >
                                   {isReviewingThis ? 'Saving...' : 'Approve'}
                                 </button>
@@ -431,7 +431,7 @@ export default function NotificationsPage() {
                                     setRejectTarget(item);
                                     setRejectReason('');
                                   }}
-                                  className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60"
                                 >
                                   Reject
                                 </button>
@@ -444,7 +444,7 @@ export default function NotificationsPage() {
                                   markRead([String(item.id)]);
                                   router.push(actionUrl);
                                 }}
-                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10"
                               >
                                 {isVendorOrderTemplate ? 'View order' : 'View'}
                               </button>
@@ -453,7 +453,7 @@ export default function NotificationsPage() {
                               <button
                                 type="button"
                                 onClick={() => markRead([String(item.id)])}
-                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10"
                               >
                                 Mark read
                               </button>
@@ -462,8 +462,8 @@ export default function NotificationsPage() {
                         </div>
 
                         <div className="ml-2 flex flex-col items-end gap-2">
-                          <span className="text-sm text-slate-500">{formatRelativeTime(item?.created_at)}</span>
-                          <span className={`inline-flex h-3.5 w-3.5 rounded-full ${item?.is_read ? 'bg-slate-300' : 'bg-indigo-600'}`} />
+                          <span className="text-sm text-slate-500 dark:text-zinc-400">{formatRelativeTime(item?.created_at)}</span>
+                          <span className={`inline-flex h-3.5 w-3.5 rounded-full ${item?.is_read ? 'bg-slate-300 dark:bg-white/20' : 'bg-indigo-600 dark:bg-indigo-400'}`} />
                         </div>
                       </div>
                     </article>
@@ -480,14 +480,14 @@ export default function NotificationsPage() {
                       className="-mt-12 h-[320px] w-[320px] object-cover"
                     />
                   </div>
-                  <p className="text-base font-semibold text-slate-900">You&apos;re all caught up</p>
-                  <p className="mt-2 text-sm text-slate-500">{emptyText}</p>
+                  <p className="text-base font-semibold text-slate-900 dark:text-white">You&apos;re all caught up</p>
+                  <p className="mt-2 text-sm text-slate-500 dark:text-zinc-400">{emptyText}</p>
                 </div>
               )}
             </section>
 
             {pagination.total_pages > 1 ? (
-              <section className="mt-3 flex items-center justify-between px-1 py-2 text-xs text-slate-600">
+              <section className="mt-3 flex items-center justify-between px-1 py-2 text-xs text-slate-600 dark:text-zinc-400">
                 <span>
                   Page {pagination.page} of {pagination.total_pages}
                 </span>
@@ -496,7 +496,7 @@ export default function NotificationsPage() {
                     type="button"
                     disabled={!canPrevious || isLoading}
                     onClick={() => loadNotifications(pagination.page - 1)}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10"
                   >
                     Previous
                   </button>
@@ -504,7 +504,7 @@ export default function NotificationsPage() {
                     type="button"
                     disabled={!canNext || isLoading}
                     onClick={() => loadNotifications(pagination.page + 1)}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10"
                   >
                     Next
                   </button>
@@ -515,14 +515,14 @@ export default function NotificationsPage() {
 
       {rejectTarget ? (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-2xl">
-            <h3 className="text-sm font-semibold text-slate-900">Reject category request</h3>
-            <p className="mt-1 text-xs text-slate-600">Add a reason that will be sent to the seller.</p>
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-2xl dark:bg-[#0a0a0a]">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Reject category request</h3>
+            <p className="mt-1 text-xs text-slate-600 dark:text-zinc-400">Add a reason that will be sent to the seller.</p>
             <textarea
               value={rejectReason}
               onChange={(event) => setRejectReason(event.target.value)}
               placeholder="Write rejection reason..."
-              className="mt-3 h-24 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+              className="mt-3 h-24 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-white dark:placeholder:text-zinc-500 dark:focus:border-white/25"
             />
             <div className="mt-3 flex justify-end gap-2">
               <button
@@ -532,7 +532,7 @@ export default function NotificationsPage() {
                   setRejectTarget(null);
                   setRejectReason('');
                 }}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
               >
                 Cancel
               </button>
@@ -554,7 +554,7 @@ export default function NotificationsPage() {
                   setRejectTarget(null);
                   setRejectReason('');
                 }}
-                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-slate-900 dark:hover:bg-zinc-200"
               >
                 {reviewingRequestId ? 'Submitting...' : 'Reject request'}
               </button>

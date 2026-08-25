@@ -136,6 +136,11 @@ export default async function RootLayout({ children }) {
   return (
     <html lang='en' className={`${outfit.variable} ${instrumentSerif.variable} ${geist.variable} ${geistMono.variable}`}>
       <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var p=location.pathname;if(p.indexOf('/admin')!==0&&p.indexOf('/backend/admin')!==0)return;var s=sessionStorage.getItem('admin-theme');var l=localStorage.getItem('admin-theme');var t=(s==='dark'||s==='light')?s:l;if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`,
+          }}
+        />
         <PwaRegistration />
         <UserLocaleProvider>
           <AlertProvider>

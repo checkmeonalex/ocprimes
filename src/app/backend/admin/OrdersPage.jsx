@@ -34,27 +34,27 @@ const STATUS_OPTIONS = [
 ]
 
 const STATUS_TONES = {
-  pending: 'bg-amber-100 text-amber-700 border border-amber-200',
-  awaiting_payment: 'bg-amber-100 text-amber-700 border border-amber-200',
-  payment_failed: 'bg-rose-100 text-rose-700 border border-rose-200',
-  processing: 'bg-sky-100 text-sky-700 border border-sky-200',
-  ready_to_ship: 'bg-cyan-100 text-cyan-700 border border-cyan-200',
-  out_for_delivery: 'bg-indigo-100 text-indigo-700 border border-indigo-200',
-  delivered: 'bg-emerald-100 text-emerald-700 border border-emerald-200',
-  refunded: 'bg-orange-100 text-orange-700 border border-orange-200',
-  cancelled: 'bg-rose-100 text-rose-700 border border-rose-200',
+  pending: 'bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60',
+  awaiting_payment: 'bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60',
+  payment_failed: 'bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/60',
+  processing: 'bg-sky-100 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900/60',
+  ready_to_ship: 'bg-cyan-100 text-cyan-700 border border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-900/60',
+  out_for_delivery: 'bg-indigo-100 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-900/60',
+  delivered: 'bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60',
+  refunded: 'bg-orange-100 text-orange-700 border border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-900/60',
+  cancelled: 'bg-rose-100 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/60',
 }
 
 const MOBILE_STATUS_TONES = {
-  pending: 'bg-amber-50 text-amber-700 border border-amber-200',
-  awaiting_payment: 'bg-amber-50 text-amber-700 border border-amber-200',
-  payment_failed: 'bg-rose-50 text-rose-700 border border-rose-200',
-  processing: 'bg-sky-50 text-sky-700 border border-sky-200',
-  ready_to_ship: 'bg-cyan-50 text-cyan-700 border border-cyan-200',
-  out_for_delivery: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
-  delivered: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-  refunded: 'bg-orange-50 text-orange-700 border border-orange-200',
-  cancelled: 'bg-rose-50 text-rose-700 border border-rose-200',
+  pending: 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60',
+  awaiting_payment: 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60',
+  payment_failed: 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/60',
+  processing: 'bg-sky-50 text-sky-700 border border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900/60',
+  ready_to_ship: 'bg-cyan-50 text-cyan-700 border border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-900/60',
+  out_for_delivery: 'bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-900/60',
+  delivered: 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60',
+  refunded: 'bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-900/60',
+  cancelled: 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/60',
 }
 
 const MOBILE_SUMMARY_CARDS = [
@@ -460,7 +460,7 @@ export default function OrdersPage() {
 
   return (
     <AdminShell bg="bg-[#f4f7f9]" noPad>
-      <section className='w-full bg-transparent p-0 lg:bg-white lg:px-4 xl:px-5'>
+      <section className='w-full bg-transparent p-0 lg:bg-white lg:px-4 xl:px-5 dark:lg:bg-[#000000]'>
             <div className='px-3 pb-3 pt-4 lg:hidden'>
               <div className='grid grid-cols-2 gap-2'>
                 {MOBILE_SUMMARY_CARDS.map((card, index) => {
@@ -477,16 +477,16 @@ export default function OrdersPage() {
                         setMobileStatusFilter(card.key)
                         setMobileActiveFilterTab('status')
                       }}
-                      className={`rounded-2xl border bg-white px-3 py-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition ${
-                        active ? 'border-orange-300 ring-1 ring-orange-200' : 'border-slate-200'
+                      className={`rounded-2xl border bg-white px-3 py-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.06)] transition dark:bg-white/5 dark:shadow-none ${
+                        active ? 'border-orange-300 ring-1 ring-orange-200 dark:border-orange-400/50 dark:ring-orange-500/30' : 'border-slate-200 dark:border-white/10'
                       } ${
                         isExpandableCard
                           ? `duration-300 ${mobileOverviewReveal ? 'opacity-100' : 'opacity-0'}`
                           : ''
                       }`}
                     >
-                      <p className='text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500'>{card.label}</p>
-                      <p className='mt-1 text-[28px] font-semibold leading-none text-slate-900'>{count}</p>
+                      <p className='text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-zinc-400'>{card.label}</p>
+                      <p className='mt-1 text-[28px] font-semibold leading-none text-slate-900 dark:text-white'>{count}</p>
                       <p className={`mt-2 inline-flex items-center gap-1.5 text-[11px] ${card.tone}`}>
                         <span className={`inline-flex h-1.5 w-1.5 rounded-full ${card.dot}`} />
                         {card.note}
@@ -499,7 +499,7 @@ export default function OrdersPage() {
                 <button
                   type='button'
                   onClick={() => setMobileOverviewExpanded((prev) => !prev)}
-                  className='inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold text-sky-600 transition hover:text-sky-500'
+                  className='inline-flex items-center gap-1.5 px-2 py-1 text-[11px] font-semibold text-sky-600 transition hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300'
                 >
                   {mobileOverviewExpanded ? (
                     <>
@@ -519,8 +519,8 @@ export default function OrdersPage() {
                 </button>
               </div>
 
-              <div className='mt-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_2px_8px_rgba(15,23,42,0.05)]'>
-                <div className='grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1'>
+              <div className='mt-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_2px_8px_rgba(15,23,42,0.05)] dark:border-white/10 dark:bg-white/5 dark:shadow-none'>
+                <div className='grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-white/10'>
                   {MOBILE_FILTER_TABS.map((tab) => {
                     const active = mobileActiveFilterTab === tab.key
                     return (
@@ -529,7 +529,7 @@ export default function OrdersPage() {
                         type='button'
                         onClick={() => setMobileActiveFilterTab(tab.key)}
                         className={`h-8 rounded-lg px-1 text-[11px] font-semibold transition ${
-                          active ? 'bg-[#ff8f4d] text-white shadow-sm' : 'text-slate-600'
+                          active ? 'bg-[#ff8f4d] text-white shadow-sm' : 'text-slate-600 dark:text-zinc-400'
                         }`}
                       >
                         {tab.label}
@@ -542,7 +542,7 @@ export default function OrdersPage() {
                   <CustomSelect
                     value={activeMobileFilterValue}
                     onChange={handleMobileActiveFilterChange}
-                    className='h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800'
+                    className='h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 dark:border-white/10 dark:bg-white/5 dark:text-white'
                   >
                     {activeMobileFilterOptions.map((option) => (
                       <option key={option.key} value={option.key}>
@@ -554,7 +554,7 @@ export default function OrdersPage() {
               </div>
 
               {error ? (
-                <div className='mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700'>
+                <div className='mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300'>
                   {error}
                 </div>
               ) : null}
@@ -562,16 +562,16 @@ export default function OrdersPage() {
               <div className='mt-3 space-y-2'>
                 {isLoading
                   ? Array.from({ length: 5 }).map((_, index) => (
-                      <div key={`mobile-orders-skeleton-${index}`} className='rounded-xl border border-slate-200 bg-white p-3'>
-                        <div className='h-3.5 w-24 animate-pulse rounded bg-slate-200' />
-                        <div className='mt-2 h-3 w-36 animate-pulse rounded bg-slate-100' />
-                        <div className='mt-3 h-5 w-20 animate-pulse rounded bg-slate-100' />
+                      <div key={`mobile-orders-skeleton-${index}`} className='rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-white/5'>
+                        <div className='h-3.5 w-24 animate-pulse rounded bg-slate-200 dark:bg-white/10' />
+                        <div className='mt-2 h-3 w-36 animate-pulse rounded bg-slate-100 dark:bg-white/10' />
+                        <div className='mt-3 h-5 w-20 animate-pulse rounded bg-slate-100 dark:bg-white/10' />
                       </div>
                     ))
                   : null}
 
                 {!isLoading && mobileOrders.length === 0 ? (
-                  <div className='rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500'>
+                  <div className='rounded-xl border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-zinc-400'>
                     No orders found.
                   </div>
                 ) : null}
@@ -581,25 +581,25 @@ export default function OrdersPage() {
                     <Link
                       key={order.id}
                       href={`/backend/admin/orders/${order.id}`}
-                      className='block rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-[0_1px_6px_rgba(15,23,42,0.04)]'
+                      className='block rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-[0_1px_6px_rgba(15,23,42,0.04)] dark:border-white/10 dark:bg-white/5 dark:shadow-none'
                     >
                       <div className='flex items-start justify-between gap-3'>
                         <div className='min-w-0'>
-                          <p className='text-[13px] font-bold text-slate-900'>
+                          <p className='text-[13px] font-bold text-slate-900 dark:text-white'>
                             {String(order.orderId || '').startsWith('#') ? String(order.orderId) : `#${order.orderId}`}
                           </p>
-                          <p className='text-[13px] text-slate-500'>Customer</p>
-                          <p className='text-[13px] leading-5 text-slate-400'>
+                          <p className='text-[13px] text-slate-500 dark:text-zinc-400'>Customer</p>
+                          <p className='text-[13px] leading-5 text-slate-400 dark:text-zinc-500'>
                             Total items bought: {Math.max(1, Number(order.itemCount || 1))}
                           </p>
                         </div>
-                        <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-tight ${MOBILE_STATUS_TONES[order.status] || 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
+                        <span className={`inline-flex whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-tight ${MOBILE_STATUS_TONES[order.status] || 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-white/10 dark:text-zinc-300 dark:border-white/10'}`}>
                           {order.statusLabel}
                         </span>
                       </div>
                       <div className='mt-2 flex items-end justify-between'>
-                        <p className='text-[13px] font-semibold leading-none text-slate-900'>{formatCurrency(order.amount, order.currency)}</p>
-                        <span className='inline-flex items-center gap-1 text-[13px] text-slate-400'>
+                        <p className='text-[13px] font-semibold leading-none text-slate-900 dark:text-white'>{formatCurrency(order.amount, order.currency)}</p>
+                        <span className='inline-flex items-center gap-1 text-[13px] text-slate-400 dark:text-zinc-500'>
                           {formatRelativeTime(order.date)}
                           <svg viewBox='0 0 20 20' className='h-3 w-3' fill='none' stroke='currentColor' strokeWidth='2'>
                             <path d='M8 5l5 5-5 5' strokeLinecap='round' strokeLinejoin='round' />
@@ -618,10 +618,10 @@ export default function OrdersPage() {
                   return (
                     <div
                       key={`desktop-summary-${card.key}`}
-                      className='rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.06)]'
+                      className='rounded-2xl border border-slate-200 bg-white px-3 py-3 text-left shadow-[0_2px_8px_rgba(15,23,42,0.06)] dark:border-white/10 dark:bg-white/5 dark:shadow-none'
                     >
-                      <p className='text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500'>{card.label}</p>
-                      <p className='mt-1 text-[28px] font-semibold leading-none text-slate-900'>{count}</p>
+                      <p className='text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-500 dark:text-zinc-400'>{card.label}</p>
+                      <p className='mt-1 text-[28px] font-semibold leading-none text-slate-900 dark:text-white'>{count}</p>
                       <p className={`mt-2 inline-flex items-center gap-1.5 text-[11px] ${card.tone}`}>
                         <span className={`inline-flex h-1.5 w-1.5 rounded-full ${card.dot}`} />
                         {card.note}
@@ -631,9 +631,9 @@ export default function OrdersPage() {
                 })}
               </div>
 
-              <div className='border-b border-slate-200 bg-white py-4'>
+              <div className='border-b border-slate-200 bg-white py-4 dark:border-white/10 dark:bg-[#000000]'>
               <div className='flex flex-wrap items-center justify-between gap-3'>
-                <h1 className='text-[30px] font-semibold text-slate-900'>Orders List</h1>
+                <h1 className='text-[30px] font-semibold text-slate-900 dark:text-white'>Orders List</h1>
                 {!capabilities.isSellerScoped ? (
                   <button
                     type='button'
@@ -658,8 +658,8 @@ export default function OrdersPage() {
                         }}
                         className={`inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-medium transition ${
                           active
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'text-slate-700 hover:bg-slate-100'
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                            : 'text-slate-700 hover:bg-slate-100 dark:text-zinc-300 dark:hover:bg-white/5'
                         }`}
                       >
                         {tab.label}
@@ -669,8 +669,8 @@ export default function OrdersPage() {
                 </div>
 
                 <div className='flex items-center gap-2'>
-                  <div className='flex h-10 min-w-[230px] items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3'>
-                    <svg viewBox='0 0 20 20' className='h-4 w-4 text-slate-500' fill='none' stroke='currentColor' strokeWidth='2'>
+                  <div className='flex h-10 min-w-[230px] items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 dark:border-white/10 dark:bg-white/5'>
+                    <svg viewBox='0 0 20 20' className='h-4 w-4 text-slate-500 dark:text-zinc-400' fill='none' stroke='currentColor' strokeWidth='2'>
                       <circle cx='9' cy='9' r='5' />
                       <path d='m13 13 4 4' strokeLinecap='round' />
                     </svg>
@@ -678,10 +678,10 @@ export default function OrdersPage() {
                       value={searchTerm}
                       onChange={(event) => setSearchTerm(event.target.value)}
                       placeholder='Search...'
-                      className='w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400'
+                      className='w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400 dark:text-white dark:placeholder:text-zinc-500'
                     />
                   </div>
-                  <button type='button' className='inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500'>
+                  <button type='button' className='inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 dark:border-white/10 dark:text-zinc-400'>
                     <svg viewBox='0 0 20 20' className='h-4 w-4' fill='none' stroke='currentColor' strokeWidth='2'>
                       <path d='M3 6h14M6 10h8M8 14h4' strokeLinecap='round' />
                     </svg>
@@ -691,15 +691,15 @@ export default function OrdersPage() {
               </div>
 
             {error ? (
-              <div className='mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700'>
+              <div className='mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300'>
                 {error}
               </div>
             ) : null}
 
-            <div className='mt-5 overflow-x-auto bg-white'>
+            <div className='mt-5 overflow-x-auto bg-white dark:bg-[#000000]'>
               <table className='min-w-full text-left'>
                 <thead>
-                  <tr className='border-b border-slate-200 text-sm font-medium text-slate-500'>
+                  <tr className='border-b border-slate-200 text-sm font-medium text-slate-500 dark:border-white/10 dark:text-zinc-400'>
                     <th className='px-3 py-3'>Product Name</th>
                     <th className='px-3 py-3'>Customer Name</th>
                     <th className='px-3 py-3'>Order Id</th>
@@ -711,20 +711,20 @@ export default function OrdersPage() {
                 <tbody>
                   {isLoading
                     ? Array.from({ length: 8 }).map((_, index) => (
-                        <tr key={`orders-skeleton-${index}`} className='border-b border-slate-100'>
-                          <td className='px-3 py-3'><div className='h-4 w-40 animate-pulse rounded bg-slate-100' /></td>
-                          <td className='px-3 py-3'><div className='h-4 w-32 animate-pulse rounded bg-slate-100' /></td>
-                          <td className='px-3 py-3'><div className='h-4 w-24 animate-pulse rounded bg-slate-100' /></td>
-                          <td className='px-3 py-3'><div className='h-4 w-28 animate-pulse rounded bg-slate-100' /></td>
-                          <td className='px-3 py-3'><div className='h-8 w-24 animate-pulse rounded-full bg-slate-100' /></td>
-                          <td className='px-3 py-3 text-right'><div className='ml-auto h-8 w-8 animate-pulse rounded bg-slate-100' /></td>
+                        <tr key={`orders-skeleton-${index}`} className='border-b border-slate-100 dark:border-white/10'>
+                          <td className='px-3 py-3'><div className='h-4 w-40 animate-pulse rounded bg-slate-100 dark:bg-white/10' /></td>
+                          <td className='px-3 py-3'><div className='h-4 w-32 animate-pulse rounded bg-slate-100 dark:bg-white/10' /></td>
+                          <td className='px-3 py-3'><div className='h-4 w-24 animate-pulse rounded bg-slate-100 dark:bg-white/10' /></td>
+                          <td className='px-3 py-3'><div className='h-4 w-28 animate-pulse rounded bg-slate-100 dark:bg-white/10' /></td>
+                          <td className='px-3 py-3'><div className='h-8 w-24 animate-pulse rounded-full bg-slate-100 dark:bg-white/10' /></td>
+                          <td className='px-3 py-3 text-right'><div className='ml-auto h-8 w-8 animate-pulse rounded bg-slate-100 dark:bg-white/10' /></td>
                         </tr>
                       ))
                     : null}
 
                   {!isLoading && orders.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className='px-3 py-10 text-center text-sm text-slate-500'>
+                      <td colSpan={6} className='px-3 py-10 text-center text-sm text-slate-500 dark:text-zinc-400'>
                         No orders found.
                       </td>
                     </tr>
@@ -732,10 +732,10 @@ export default function OrdersPage() {
 
                   {!isLoading &&
                     orders.map((order) => (
-                      <tr key={order.id} className='border-b border-slate-100'>
+                      <tr key={order.id} className='border-b border-slate-100 dark:border-white/10'>
                         <td className='px-3 py-3'>
                           <div className='flex items-center gap-2'>
-                            <div className='relative h-9 w-9 overflow-hidden rounded-md border border-slate-200 bg-slate-100'>
+                            <div className='relative h-9 w-9 overflow-hidden rounded-md border border-slate-200 bg-slate-100 dark:border-white/10 dark:bg-white/5'>
                               {order.productImage ? (
                                 <Image
                                   src={order.productImage}
@@ -747,29 +747,29 @@ export default function OrdersPage() {
                               ) : null}
                             </div>
                             <div>
-                              <p className='text-sm font-semibold text-slate-900'>{order.productName}</p>
-                              <p className='text-xs text-slate-500'>{toItemText(order.itemCount)}</p>
+                              <p className='text-sm font-semibold text-slate-900 dark:text-white'>{order.productName}</p>
+                              <p className='text-xs text-slate-500 dark:text-zinc-400'>{toItemText(order.itemCount)}</p>
                             </div>
                           </div>
                         </td>
 
                         <td className='px-3 py-3'>
-                          <p className='text-sm font-semibold text-slate-900'>{order.customerName}</p>
-                          <p className='text-xs text-slate-500'>{order.customerTag}</p>
+                          <p className='text-sm font-semibold text-slate-900 dark:text-white'>{order.customerName}</p>
+                          <p className='text-xs text-slate-500 dark:text-zinc-400'>{order.customerTag}</p>
                         </td>
 
                         <td className='px-3 py-3'>
-                          <p className='text-sm font-semibold text-slate-900'>{order.orderId}</p>
-                          <p className='text-xs text-slate-500'>{formatDate(order.date)}</p>
+                          <p className='text-sm font-semibold text-slate-900 dark:text-white'>{order.orderId}</p>
+                          <p className='text-xs text-slate-500 dark:text-zinc-400'>{formatDate(order.date)}</p>
                         </td>
 
                         <td className='px-3 py-3'>
-                          <p className='text-sm font-semibold text-slate-900'>{formatCurrency(order.amount, order.currency)}</p>
-                          <p className='text-xs text-slate-500'>{order.paymentText}</p>
+                          <p className='text-sm font-semibold text-slate-900 dark:text-white'>{formatCurrency(order.amount, order.currency)}</p>
+                          <p className='text-xs text-slate-500 dark:text-zinc-400'>{order.paymentText}</p>
                         </td>
 
                         <td className='px-3 py-3'>
-                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${STATUS_TONES[order.status] || 'bg-slate-100 text-slate-700 border border-slate-200'}`}>
+                          <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${STATUS_TONES[order.status] || 'bg-slate-100 text-slate-700 border border-slate-200 dark:bg-white/10 dark:text-zinc-300 dark:border-white/10'}`}>
                             {order.statusLabel}
                           </span>
                         </td>
@@ -778,7 +778,7 @@ export default function OrdersPage() {
                           <button
                             type='button'
                             onClick={() => setIsActionMenuOpenFor((prev) => (prev === order.id ? '' : order.id))}
-                            className='inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50'
+                            className='inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5'
                           >
                             <svg viewBox='0 0 20 20' className='h-4 w-4' fill='currentColor'>
                               <circle cx='4' cy='10' r='1.5' />
@@ -788,10 +788,10 @@ export default function OrdersPage() {
                           </button>
 
                           {isActionMenuOpenFor === order.id ? (
-                            <div className='absolute right-2 top-12 z-20 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-lg'>
+                            <div className='absolute right-2 top-12 z-20 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-[#0a0a0a]'>
                               <Link
                                 href={`/backend/admin/orders/${order.id}`}
-                                className='block rounded-md px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50'
+                                className='block rounded-md px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 dark:text-zinc-300 dark:hover:bg-white/10'
                               >
                                 View details
                               </Link>
@@ -802,7 +802,7 @@ export default function OrdersPage() {
                                       type='button'
                                       onClick={() => handleStatusUpdate(order.id, option.key)}
                                       disabled={Boolean(statusUpdatingById[order.id])}
-                                      className='block w-full rounded-md px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60'
+                                      className='block w-full rounded-md px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-60 dark:text-zinc-300 dark:hover:bg-white/10'
                                     >
                                       Mark as {option.label}
                                     </button>
@@ -817,24 +817,24 @@ export default function OrdersPage() {
               </table>
             </div>
 
-            <div className='mt-5 flex items-center justify-between bg-white px-1 py-3'>
+            <div className='mt-5 flex items-center justify-between bg-white px-1 py-3 dark:bg-[#000000]'>
               <button
                 type='button'
                 onClick={() => hasPrev && setPage((prev) => prev - 1)}
                 disabled={!hasPrev}
-                className='inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 disabled:opacity-50'
+                className='inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300'
               >
                 <span>←</span>
                 <span>Previous</span>
               </button>
 
-              <p className='text-sm font-medium text-slate-500'>{orderRangeLabel}</p>
+              <p className='text-sm font-medium text-slate-500 dark:text-zinc-400'>{orderRangeLabel}</p>
 
               <button
                 type='button'
                 onClick={() => hasNext && setPage((prev) => prev + 1)}
                 disabled={!hasNext}
-                className='inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 disabled:opacity-50'
+                className='inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 disabled:opacity-50 dark:border-white/10 dark:text-zinc-300'
               >
                 <span>Next</span>
                 <span>→</span>

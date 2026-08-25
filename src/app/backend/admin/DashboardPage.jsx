@@ -44,7 +44,7 @@ function DeltaBadge({ delta }) {
 
 function KpiCard({ label, description, value, note, delta, isMoney, icon }) {
   return (
-    <article className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white px-4 py-3.5 shadow-sm dark:border-zinc-700/50 dark:bg-[#2c2c2e]">
+    <article className="relative overflow-hidden rounded-2xl border border-slate-100 bg-white px-4 py-3.5 shadow-sm dark:border-zinc-700/50 dark:bg-[#141414]">
       <div className="flex items-start justify-between gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-50 text-slate-500 dark:bg-[#3a3a3c] dark:text-zinc-400">
           {icon}
@@ -62,7 +62,7 @@ function KpiCard({ label, description, value, note, delta, isMoney, icon }) {
 
 function SectionCard({ title, aside, children }) {
   return (
-    <article className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-zinc-700/50 dark:bg-[#2c2c2e]">
+    <article className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm dark:border-zinc-700/50 dark:bg-[#141414]">
       <div className="flex items-center justify-between border-b border-slate-50 px-4 py-3 dark:border-zinc-700/50">
         <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{title}</p>
         {aside && <span className="text-[11px] text-slate-400">{aside}</span>}
@@ -422,7 +422,7 @@ export default function DashboardPage() {
             <Link
               key={item.label}
               href={item.href}
-              className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm transition hover:border-slate-200 hover:shadow-md dark:border-zinc-700/50 dark:bg-[#2c2c2e] dark:hover:border-slate-700"
+              className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 py-3 shadow-sm transition hover:border-slate-200 hover:shadow-md dark:border-zinc-700/50 dark:bg-[#141414] dark:hover:border-slate-700"
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-500">
                 {item.icon}
