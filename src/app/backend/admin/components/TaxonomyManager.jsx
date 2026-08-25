@@ -1,5 +1,4 @@
 'use client';
-import CustomSelect from '@/components/common/CustomSelect'
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import LoadingButton from '@/components/LoadingButton';
 import ColorPicker, { defaultSwatches, getSwatchStyle } from './ColorPicker';
@@ -9,12 +8,66 @@ const PAGE_SIZE = 10;
 
 const formatDate = (value) => {
   if (!value) return '—';
-  try {
-    return new Date(value).toLocaleDateString();
-  } catch (_error) {
-    return '—';
-  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 };
+
+const emptyItemForm = { id: '', name: '', slug: '', description: '', type_id: '' };
+const emptyOptionForm = { id: '', name: '', slug: '', color_hex: '' };
+
+// ── Bottom sheet — same pattern as Tags/Categories ─────────────────────────
+function Sheet({ open, title, onClose, children, forceBottom = false }) {
+  if (!open) return null;
+  return (
+    <div
+      className={`fixed inset-0 z-[90] bg-slate-900/40 [animation:taxonomy-sheet-fade_220ms_ease-out] ${
+        forceBottom ? 'p-0 sm:p-4' : 'p-3 sm:p-4'
+      }`}
+    >
+      <div className={`mx-auto flex h-full w-full max-w-md items-end ${forceBottom ? '' : 'sm:items-center'}`}>
+        <div
+          className={`w-full overflow-hidden bg-white shadow-[0_30px_80px_rgba(15,23,42,0.26)] ${
+            forceBottom
+              ? 'h-[70dvh] rounded-t-3xl rounded-b-none [animation:taxonomy-sheet-up_260ms_cubic-bezier(0.22,1,0.36,1)] sm:h-auto sm:rounded-3xl sm:[animation:taxonomy-sheet-pop_220ms_ease-out]'
+              : 'rounded-3xl [animation:taxonomy-sheet-pop_220ms_ease-out]'
+          }`}
+        >
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+            <p className="text-sm font-semibold text-slate-900">{title}</p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100"
+              aria-label="Close"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+          <div className={`${forceBottom ? 'max-h-[calc(70dvh-57px)] sm:max-h-[70vh]' : 'max-h-[70vh]'} overflow-y-auto px-4 py-4`}>
+            {children}
+          </div>
+        </div>
+      </div>
+      <style jsx>{`
+        @keyframes taxonomy-sheet-fade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes taxonomy-sheet-up {
+          from { transform: translateY(44px); opacity: 0.9; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes taxonomy-sheet-pop {
+          from { transform: translateY(10px) scale(0.985); opacity: 0.9; }
+          to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 function TaxonomyManager({
   title,
@@ -24,135 +77,203 @@ function TaxonomyManager({
   pluralLabel,
   optionsEndpoint,
 }) {
-  const { confirmAlert } = useAlerts();
+  const { confirmAlert, pushAlert } = useAlerts();
   const [items, setItems] = useState([]);
   const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [totalCount, setTotalCount] = useState(0);
-  const [form, setForm] = useState({ name: '', slug: '', description: '', type_id: '' });
-  const [createLoading, setCreateLoading] = useState(false);
-  const [createError, setCreateError] = useState('');
-  const [createSuccess, setCreateSuccess] = useState('');
-  const [editId, setEditId] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', slug: '', description: '' });
-  const [editLoading, setEditLoading] = useState(false);
-  const [editError, setEditError] = useState('');
-  const [editSuccess, setEditSuccess] = useState('');
+
   const [types, setTypes] = useState([]);
-  const [typesLoading, setTypesLoading] = useState(false);
   const [typesError, setTypesError] = useState('');
+
+  // Item (attribute/tag/brand) create + edit share one sheet form
+  const [itemForm, setItemForm] = useState(emptyItemForm);
+  const [itemSaving, setItemSaving] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [actionOpen, setActionOpen] = useState(false);
   const [activeItem, setActiveItem] = useState(null);
-  const [options, setOptions] = useState([]);
+
+  // Expanded-in-place options (terms), nested under the attribute card —
+  // same visual idea as Categories nesting child rows under a parent.
+  const [expandedId, setExpandedId] = useState(null);
+  const [optionsByItem, setOptionsByItem] = useState({});
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [optionsError, setOptionsError] = useState('');
-  const [optionForm, setOptionForm] = useState({ name: '', slug: '', color_hex: '' });
-  const [optionCreateLoading, setOptionCreateLoading] = useState(false);
-  const [optionCreateError, setOptionCreateError] = useState('');
-  const [optionEditId, setOptionEditId] = useState(null);
-  const [optionEditForm, setOptionEditForm] = useState({ name: '', slug: '', color_hex: '' });
-  const [optionEditLoading, setOptionEditLoading] = useState(false);
-  const [optionEditError, setOptionEditError] = useState('');
-  const [deleteLoadingId, setDeleteLoadingId] = useState(null);
-  const [optionDeleteLoadingId, setOptionDeleteLoadingId] = useState(null);
 
-  const canSubmit = form.name.trim().length >= 2 && (!optionsEndpoint || form.type_id);
+  const [optionForm, setOptionForm] = useState(emptyOptionForm);
+  const [optionSaving, setOptionSaving] = useState(false);
+  const [optionCreateOpen, setOptionCreateOpen] = useState(false);
+  const [optionEditOpen, setOptionEditOpen] = useState(false);
+  const [optionActionOpen, setOptionActionOpen] = useState(false);
+  const [activeOption, setActiveOption] = useState(null);
+  const [optionParent, setOptionParent] = useState(null);
+
+  const canSaveItem = itemForm.name.trim().length >= 2 && (!optionsEndpoint || itemForm.type_id);
+  const activeItemType = types.find((t) => t.id === itemForm.type_id);
+  const isColorAttribute = (optionParent?.type?.slug || activeItemType?.slug) === 'color';
+  const canSaveOption = optionForm.name.trim().length > 0;
 
   const loadItems = useCallback(
-    async (nextPage = page) => {
+    async (nextPage = page, nextQuery = query) => {
       setLoading(true);
       setError('');
       try {
-        const params = new URLSearchParams();
-        params.set('page', String(nextPage));
-        params.set('per_page', String(PAGE_SIZE));
-        if (search.trim()) {
-          params.set('search', search.trim());
-        }
-        const response = await fetch(`${endpoint}?${params.toString()}`);
+        const params = new URLSearchParams({ page: String(nextPage), per_page: String(PAGE_SIZE) });
+        if (nextQuery.trim()) params.set('search', nextQuery.trim());
+        const response = await fetch(`${endpoint}?${params.toString()}`, { cache: 'no-store' });
         const payload = await response.json().catch(() => null);
-        if (!response.ok) {
-          throw new Error(payload?.error || `Unable to load ${pluralLabel}.`);
-        }
+        if (!response.ok) throw new Error(payload?.error || `Unable to load ${pluralLabel}.`);
         setItems(Array.isArray(payload?.items) ? payload.items : []);
-        setPages(payload?.pages || 1);
-        setPage(payload?.page || nextPage);
-        setTotalCount(
-          Number.isFinite(Number(payload?.total_count)) ? Number(payload.total_count) : 0,
-        );
+        setPage(Number(payload?.page || nextPage) || 1);
+        setPages(Number(payload?.pages || 1) || 1);
+        setTotalCount(Number(payload?.total_count || 0) || 0);
       } catch (err) {
+        setItems([]);
         setError(err?.message || `Unable to load ${pluralLabel}.`);
       } finally {
         setLoading(false);
       }
     },
-    [endpoint, page, pluralLabel, search],
+    [endpoint, page, pluralLabel, query],
   );
 
   useEffect(() => {
-    loadItems(1);
-  }, [loadItems]);
+    loadItems(1, '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!optionsEndpoint) return;
     const loadTypes = async () => {
-      setTypesLoading(true);
       setTypesError('');
       try {
         const response = await fetch('/api/admin/attribute-types');
         const payload = await response.json().catch(() => null);
-        if (!response.ok) {
-          throw new Error(payload?.error || 'Unable to load attribute types.');
-        }
+        if (!response.ok) throw new Error(payload?.error || 'Unable to load attribute types.');
         setTypes(Array.isArray(payload?.items) ? payload.items : []);
       } catch (err) {
         setTypesError(err?.message || 'Unable to load attribute types.');
         setTypes([]);
-      } finally {
-        setTypesLoading(false);
       }
     };
     loadTypes();
   }, [optionsEndpoint]);
 
-  const handleSearch = () => {
-    loadItems(1);
+  const onSearch = () => {
+    const next = search.trim();
+    setQuery(next);
+    loadItems(1, next);
   };
 
-  const handleCreate = async (event) => {
+  // ── Item CRUD ──────────────────────────────────────────────────────────
+
+  const openCreate = () => {
+    setItemForm({ ...emptyItemForm, type_id: types[0]?.id || '' });
+    setCreateOpen(true);
+  };
+
+  const openEdit = (item) => {
+    setItemForm({
+      id: String(item?.id || ''),
+      name: item?.name || '',
+      slug: item?.slug || '',
+      description: item?.description || '',
+      type_id: item?.type_id || item?.type?.id || '',
+    });
+    setEditOpen(true);
+    setActionOpen(false);
+  };
+
+  const submitCreate = async (event) => {
     event.preventDefault();
-    if (!canSubmit || createLoading) return;
-    setCreateLoading(true);
-    setCreateError('');
-    setCreateSuccess('');
+    if (!canSaveItem || itemSaving) return;
+    setItemSaving(true);
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: form.name.trim(),
-          slug: form.slug.trim(),
-          description: form.description.trim(),
-          ...(optionsEndpoint ? { type_id: form.type_id } : {}),
+          name: itemForm.name.trim(),
+          slug: itemForm.slug.trim(),
+          description: itemForm.description.trim(),
+          ...(optionsEndpoint ? { type_id: itemForm.type_id } : {}),
         }),
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || `Unable to create ${singularLabel}.`);
-      }
-      setForm({ name: '', slug: '', description: '' });
-      setCreateSuccess(`${title} created.`);
-      loadItems(1);
+      if (!response.ok) throw new Error(payload?.error || `Unable to create ${singularLabel}.`);
+      pushAlert({ type: 'success', title, message: `${title} created.` });
+      setCreateOpen(false);
+      setItemForm(emptyItemForm);
+      await loadItems(1, query);
     } catch (err) {
-      setCreateError(err?.message || `Unable to create ${singularLabel}.`);
+      pushAlert({ type: 'error', title, message: err?.message || `Unable to create ${singularLabel}.` });
     } finally {
-      setCreateLoading(false);
+      setItemSaving(false);
     }
   };
 
-  const isColorAttribute = activeItem?.type?.slug === 'color';
+  const submitEdit = async (event) => {
+    event.preventDefault();
+    if (!canSaveItem || !itemForm.id || itemSaving) return;
+    setItemSaving(true);
+    try {
+      const response = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: itemForm.id,
+          name: itemForm.name.trim(),
+          slug: itemForm.slug.trim(),
+          description: itemForm.description.trim(),
+          ...(optionsEndpoint ? { type_id: itemForm.type_id } : {}),
+        }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || `Unable to update ${singularLabel}.`);
+      pushAlert({ type: 'success', title, message: `${title} updated.` });
+      setEditOpen(false);
+      setActionOpen(false);
+      await loadItems(page, query);
+    } catch (err) {
+      pushAlert({ type: 'error', title, message: err?.message || `Unable to update ${singularLabel}.` });
+    } finally {
+      setItemSaving(false);
+    }
+  };
+
+  const deleteItem = async (item) => {
+    if (!item?.id) return;
+    const confirmed = await confirmAlert({
+      type: 'warning',
+      title: `Delete ${singularLabel}?`,
+      message: `Delete "${item.name || singularLabel}"? This cannot be undone.`,
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
+    });
+    if (!confirmed) return;
+    try {
+      const response = await fetch(endpoint, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id }),
+      });
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(payload?.error || `Unable to delete ${singularLabel}.`);
+      pushAlert({ type: 'success', title, message: `${title} deleted.` });
+      setActionOpen(false);
+      if (expandedId === item.id) setExpandedId(null);
+      await loadItems(1, query);
+    } catch (err) {
+      pushAlert({ type: 'error', title, message: err?.message || `Unable to delete ${singularLabel}.` });
+    }
+  };
+
+  // ── Options (terms) — expand a card in place, like Categories nesting children ──
 
   const loadOptions = useCallback(async (attribute) => {
     if (!optionsEndpoint || !attribute?.id) return;
@@ -162,142 +283,110 @@ function TaxonomyManager({
       const params = new URLSearchParams({ attribute_id: attribute.id });
       const response = await fetch(`${optionsEndpoint}?${params.toString()}`);
       const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Unable to load attribute options.');
-      }
-      setOptions(Array.isArray(payload?.items) ? payload.items : []);
+      if (!response.ok) throw new Error(payload?.error || 'Unable to load options.');
+      setOptionsByItem((prev) => ({ ...prev, [attribute.id]: Array.isArray(payload?.items) ? payload.items : [] }));
     } catch (err) {
-      setOptionsError(err?.message || 'Unable to load attribute options.');
-      setOptions([]);
+      setOptionsError(err?.message || 'Unable to load options.');
     } finally {
       setOptionsLoading(false);
     }
   }, [optionsEndpoint]);
 
-  const startOptions = (item) => {
-    setActiveItem(item);
-    setOptionForm({ name: '', slug: '', color_hex: '' });
-    setOptionCreateError('');
-    setOptionEditError('');
-    setOptionEditId(null);
-    setOptionEditForm({ name: '', slug: '', color_hex: '' });
-    loadOptions(item);
+  const toggleExpand = (item) => {
+    if (!optionsEndpoint) return;
+    if (expandedId === item.id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(item.id);
+    if (!optionsByItem[item.id]) loadOptions(item);
   };
 
-  const handleCreateOption = async (event) => {
+  const openOptionCreate = (attribute) => {
+    setOptionParent(attribute);
+    setOptionForm(emptyOptionForm);
+    setOptionCreateOpen(true);
+  };
+
+  const openOptionEdit = (attribute, option) => {
+    setOptionParent(attribute);
+    setActiveOption(option);
+    setOptionForm({
+      id: String(option?.id || ''),
+      name: option?.name || '',
+      slug: option?.slug || '',
+      color_hex: option?.color_hex || '',
+    });
+    setOptionEditOpen(true);
+    setOptionActionOpen(false);
+  };
+
+  const submitOptionCreate = async (event) => {
     event.preventDefault();
-    if (!activeItem?.id || !optionForm.name.trim()) return;
-    setOptionCreateLoading(true);
-    setOptionCreateError('');
+    if (!canSaveOption || !optionParent?.id || optionSaving) return;
+    setOptionSaving(true);
     try {
       const response = await fetch(optionsEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          attribute_id: activeItem.id,
+          attribute_id: optionParent.id,
           name: optionForm.name.trim(),
           slug: optionForm.slug.trim(),
           color_hex: isColorAttribute ? optionForm.color_hex.trim() : '',
         }),
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Unable to create option.');
-      }
-      setOptionForm({ name: '', slug: '', color_hex: '' });
-      loadOptions(activeItem);
+      if (!response.ok) throw new Error(payload?.error || 'Unable to create option.');
+      pushAlert({ type: 'success', title, message: 'Option created.' });
+      setOptionCreateOpen(false);
+      setOptionForm(emptyOptionForm);
+      await loadOptions(optionParent);
     } catch (err) {
-      setOptionCreateError(err?.message || 'Unable to create option.');
+      pushAlert({ type: 'error', title, message: err?.message || 'Unable to create option.' });
     } finally {
-      setOptionCreateLoading(false);
+      setOptionSaving(false);
     }
   };
 
-  const startOptionEdit = (option) => {
-    setOptionEditId(option.id);
-    setOptionEditForm({
-      name: option.name || '',
-      slug: option.slug || '',
-      color_hex: option.color_hex || '',
-    });
-    setOptionEditError('');
-  };
-
-  const handleOptionEdit = async () => {
-    if (!optionEditId || !optionEditForm.name.trim()) return;
-    setOptionEditLoading(true);
-    setOptionEditError('');
+  const submitOptionEdit = async (event) => {
+    event.preventDefault();
+    if (!canSaveOption || !optionForm.id || optionSaving) return;
+    setOptionSaving(true);
     try {
       const response = await fetch(optionsEndpoint, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: optionEditId,
-          name: optionEditForm.name.trim(),
-          slug: optionEditForm.slug.trim(),
-          color_hex: isColorAttribute ? optionEditForm.color_hex.trim() : '',
+          id: optionForm.id,
+          name: optionForm.name.trim(),
+          slug: optionForm.slug.trim(),
+          color_hex: isColorAttribute ? optionForm.color_hex.trim() : '',
         }),
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Unable to update option.');
-      }
-      setOptionEditId(null);
-      setOptionEditForm({ name: '', slug: '', color_hex: '' });
-      loadOptions(activeItem);
+      if (!response.ok) throw new Error(payload?.error || 'Unable to update option.');
+      pushAlert({ type: 'success', title, message: 'Option updated.' });
+      setOptionEditOpen(false);
+      setOptionActionOpen(false);
+      await loadOptions(optionParent);
     } catch (err) {
-      setOptionEditError(err?.message || 'Unable to update option.');
+      pushAlert({ type: 'error', title, message: err?.message || 'Unable to update option.' });
     } finally {
-      setOptionEditLoading(false);
+      setOptionSaving(false);
     }
   };
 
-  const handleDeleteItem = async (item) => {
-    if (!item?.id) return;
-    const confirmed = await confirmAlert({
-      type: 'warning',
-      title: `Delete ${singularLabel}?`,
-      message: `Delete ${item.name || singularLabel}?`,
-      confirmLabel: 'Allow',
-      cancelLabel: 'Deny',
-    });
-    if (!confirmed) return;
-    setDeleteLoadingId(item.id);
-    setEditError('');
-    try {
-      const response = await fetch(endpoint, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id }),
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || `Unable to delete ${singularLabel}.`);
-      }
-      if (activeItem?.id === item.id) {
-        setActiveItem(null);
-        setOptions([]);
-      }
-      loadItems(1);
-    } catch (err) {
-      setEditError(err?.message || `Unable to delete ${singularLabel}.`);
-    } finally {
-      setDeleteLoadingId(null);
-    }
-  };
-
-  const handleDeleteOption = async (option) => {
+  const deleteOption = async (attribute, option) => {
     if (!option?.id || !optionsEndpoint) return;
     const confirmed = await confirmAlert({
       type: 'warning',
       title: 'Delete option?',
       message: `Delete option "${option.name}"?`,
-      confirmLabel: 'Allow',
-      cancelLabel: 'Deny',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Cancel',
     });
     if (!confirmed) return;
-    setOptionDeleteLoadingId(option.id);
-    setOptionEditError('');
     try {
       const response = await fetch(optionsEndpoint, {
         method: 'DELETE',
@@ -305,616 +394,517 @@ function TaxonomyManager({
         body: JSON.stringify({ id: option.id }),
       });
       const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || 'Unable to delete option.');
-      }
-      loadOptions(activeItem);
+      if (!response.ok) throw new Error(payload?.error || 'Unable to delete option.');
+      pushAlert({ type: 'success', title, message: 'Option deleted.' });
+      setOptionActionOpen(false);
+      await loadOptions(attribute);
     } catch (err) {
-      setOptionEditError(err?.message || 'Unable to delete option.');
-    } finally {
-      setOptionDeleteLoadingId(null);
+      pushAlert({ type: 'error', title, message: err?.message || 'Unable to delete option.' });
     }
   };
 
-  const startEdit = (item) => {
-    setEditId(item.id);
-    setEditForm({
-      name: item.name || '',
-      slug: item.slug || '',
-      description: item.description || '',
-      type_id: item.type_id || item.type?.id || '',
-    });
-    setEditError('');
-    setEditSuccess('');
-  };
-
-  const cancelEdit = () => {
-    setEditId(null);
-    setEditForm({ name: '', slug: '', description: '', type_id: '' });
-    setEditError('');
-    setEditSuccess('');
-  };
-
-  const handleEdit = async () => {
-    if (!editId || !editForm.name.trim()) return;
-    setEditLoading(true);
-    setEditError('');
-    setEditSuccess('');
-    try {
-      const response = await fetch(endpoint, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: editId,
-          name: editForm.name.trim(),
-          slug: editForm.slug.trim(),
-          description: editForm.description.trim(),
-          ...(optionsEndpoint ? { type_id: editForm.type_id } : {}),
-        }),
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error || `Unable to update ${singularLabel}.`);
-      }
-      setEditSuccess(`${title} updated.`);
-      cancelEdit();
-      loadItems(page);
-    } catch (err) {
-      setEditError(err?.message || `Unable to update ${singularLabel}.`);
-    } finally {
-      setEditLoading(false);
-    }
-  };
-
-  const emptyState = useMemo(() => {
-    if (loading) return `Loading ${pluralLabel}...`;
-    return `No ${pluralLabel} yet.`;
-  }, [loading, pluralLabel]);
+  const headerHint = useMemo(
+    () => `${totalCount} total · page ${page} of ${pages}`,
+    [totalCount, page, pages],
+  );
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
-      <div className="rounded-[32px] border border-slate-200 bg-gradient-to-r from-white via-slate-50 to-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-6">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Admin Catalog</p>
-            <h1 className="mt-3 text-2xl font-semibold text-slate-900">{title}</h1>
-            <p className="mt-2 text-sm text-slate-500">{description}</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  handleSearch();
-                }
-              }}
-              placeholder={`Search ${pluralLabel}...`}
-              className="w-56 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 outline-none"
-            />
-            <LoadingButton
-              type="button"
-              isLoading={loading}
-              onClick={handleSearch}
-              className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
-            >
-              Search
-            </LoadingButton>
-          </div>
+    <div className="mx-auto w-full max-w-5xl">
+      <div className="flex items-center justify-between py-2">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
+          <p className="mt-1 text-sm text-slate-500">{description}</p>
+          <p className="mt-1 text-xs text-slate-500">{headerHint}</p>
         </div>
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              Total {pluralLabel}
-            </p>
-            <p className="mt-2 text-lg font-semibold text-slate-900">{totalCount || 0}</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              Current page
-            </p>
-            <p className="mt-2 text-lg font-semibold text-slate-900">
-              {page} / {pages}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              Live status
-            </p>
-            <p className="mt-2 text-lg font-semibold text-emerald-600">Connected</p>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={openCreate}
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white shadow-[0_10px_24px_rgba(15,23,42,0.24)] transition hover:brightness-110"
+          aria-label={`Add ${singularLabel}`}
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-              Quick create
-            </p>
-            <p className="mt-2 text-sm font-semibold text-slate-800">
-              Add a new {singularLabel} to your catalog
-            </p>
-          </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
-            {pluralLabel}
-          </span>
-        </div>
-        <form onSubmit={handleCreate} className="mt-4 grid gap-4 md:grid-cols-[1.4fr_1fr]">
-          <div>
-            <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              {singularLabel} name
-            </label>
-            <input
-              value={form.name}
-              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-              placeholder={`New ${singularLabel} name`}
-              className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
-              required
-            />
-            <label className="mt-4 block text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              slug (optional)
-            </label>
-            <input
-              value={form.slug}
-              onChange={(event) => setForm((prev) => ({ ...prev, slug: event.target.value }))}
-              placeholder="auto-generated if empty"
-              className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
-            />
-            {optionsEndpoint && (
-              <>
-                <label className="mt-4 block text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                  Attribute type
-                </label>
-                <CustomSelect
-                  value={form.type_id || ''}
-                  onChange={(event) => setForm((prev) => ({ ...prev, type_id: event.target.value }))}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
-                >
-                  <option value="">Select type</option>
-                  {types.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.name}
-                    </option>
-                  ))}
-                </CustomSelect>
-                {typesError && <p className="mt-2 text-xs text-rose-500">{typesError}</p>}
-              </>
-            )}
-          </div>
-          <div className="flex flex-col">
-            <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-              description (optional)
-            </label>
-            <textarea
-              value={form.description}
-              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-              placeholder="Add a short description"
-              className="mt-2 min-h-[140px] flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
-            />
-          </div>
-          <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-            <LoadingButton
-              type="submit"
-              isLoading={createLoading}
-              disabled={!canSubmit}
-              className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white disabled:bg-slate-300"
-            >
-              Create {singularLabel}
-            </LoadingButton>
-            {createError && <span className="text-xs text-rose-500">{createError}</span>}
-            {createSuccess && <span className="text-xs text-emerald-600">{createSuccess}</span>}
-          </div>
-        </form>
+      <div className="mt-3 flex items-center gap-2">
+        <label className="inline-flex h-11 flex-1 items-center rounded-full border border-slate-200 bg-white px-3 text-sm text-slate-700">
+          <svg className="mr-2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                onSearch();
+              }
+            }}
+            placeholder={`Search ${pluralLabel}`}
+            className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={onSearch}
+          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+        >
+          Go
+        </button>
       </div>
 
-      {error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
-          {error}
-        </div>
-      )}
+      {error ? <p className="mt-3 text-sm text-rose-600">{error}</p> : null}
 
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full border-collapse text-left text-xs">
-          <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.2em] text-slate-400">
-            <tr>
-              <th className="px-5 py-4">Name</th>
-              <th className="px-5 py-4">Slug</th>
-              <th className="px-5 py-4">Description</th>
-              <th className="px-5 py-4">Created</th>
-              <th className="px-5 py-4 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-5 py-6 text-sm text-slate-500">
-                  {emptyState}
-                </td>
-              </tr>
-            )}
+      <div className="mt-3">
+        {loading ? (
+          <ul className="space-y-2 py-2">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <li key={index} className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="h-4 w-28 animate-pulse rounded-md bg-slate-200/85" />
+                  <div className="mt-1.5 h-3 w-44 animate-pulse rounded-md bg-slate-200/70" />
+                </div>
+                <div className="h-9 w-9 animate-pulse rounded-full bg-slate-200/80" />
+              </li>
+            ))}
+          </ul>
+        ) : items.length ? (
+          <ul className="space-y-2">
             {items.map((item) => {
-              const isEditing = editId === item.id;
+              const isExpanded = expandedId === item.id;
+              const itemOptions = optionsByItem[item.id] || [];
               return (
-                <tr key={item.id} className="border-t border-slate-200 align-top">
-                  <td className="px-5 py-4">
-                    {isEditing ? (
-                      <input
-                        value={editForm.name}
-                        onChange={(event) =>
-                          setEditForm((prev) => ({ ...prev, name: event.target.value }))
-                        }
-                        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
-                      />
-                    ) : (
-                      <p className="text-sm font-semibold text-slate-800">
-                        {item.name || `Untitled ${singularLabel}`}
+                <li key={item.id} className="rounded-2xl border border-slate-200 bg-white">
+                  <div className="flex items-center gap-3 px-3 py-3">
+                    {optionsEndpoint && (
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(item)}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100"
+                        aria-label={isExpanded ? 'Collapse options' : 'Expand options'}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                          fill="none" stroke="currentColor" strokeWidth="2.5"
+                        >
+                          <path d="m9 6 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {item?.name || `Untitled ${singularLabel}`}
                       </p>
-                    )}
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">
-                    {isEditing ? (
-                      <input
-                        value={editForm.slug}
-                        onChange={(event) =>
-                          setEditForm((prev) => ({ ...prev, slug: event.target.value }))
-                        }
-                        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
-                      />
-                    ) : (
-                      item.slug || '—'
-                    )}
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">
-                    {isEditing ? (
-                      <textarea
-                        value={editForm.description}
-                        onChange={(event) =>
-                          setEditForm((prev) => ({ ...prev, description: event.target.value }))
-                        }
-                        className="min-h-[80px] w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
-                      />
-                    ) : (
-                      item.description ? item.description.slice(0, 120) : '—'
-                    )}
-                  </td>
-                  <td className="px-5 py-4 text-slate-600">{formatDate(item.created_at)}</td>
-                  <td className="px-5 py-4 text-right">
-                    {isEditing ? (
-                      <div className="flex items-center justify-end gap-2">
-                        {optionsEndpoint && (
-                          <CustomSelect
-                            value={editForm.type_id || ''}
-                            onChange={(event) =>
-                              setEditForm((prev) => ({ ...prev, type_id: event.target.value }))
-                            }
-                            className="mr-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600"
+                      <p className="mt-0.5 truncate text-xs text-slate-500">
+                        /{item?.slug || '—'} · {formatDate(item?.created_at)}
+                        {optionsEndpoint && item?.type?.name ? ` · ${item.type.name}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveItem(item);
+                        setActionOpen(true);
+                      }}
+                      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50"
+                      aria-label={`${singularLabel} actions`}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor">
+                        <circle cx="5" cy="12" r="1.8" />
+                        <circle cx="12" cy="12" r="1.8" />
+                        <circle cx="19" cy="12" r="1.8" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Nested options — same indent + dashed connector pattern
+                      Categories uses for child rows under a parent. */}
+                  {optionsEndpoint && isExpanded && (
+                    <div className="ml-6 space-y-2 border-l border-dashed border-slate-200 px-3 pb-3 pl-4">
+                      {optionsLoading && !optionsByItem[item.id] ? (
+                        <p className="py-2 text-xs text-slate-400">Loading options…</p>
+                      ) : itemOptions.length ? (
+                        itemOptions.map((option) => (
+                          <div
+                            key={option.id}
+                            className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2"
                           >
-                            <option value="">Type</option>
-                            {types.map((type) => (
-                              <option key={type.id} value={type.id}>
-                                {type.name}
-                              </option>
-                            ))}
-                          </CustomSelect>
-                        )}
-                        <LoadingButton
-                          type="button"
-                          isLoading={editLoading}
-                          onClick={handleEdit}
-                          className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white"
-                        >
-                          Save
-                        </LoadingButton>
-                        <button
-                          type="button"
-                          onClick={cancelEdit}
-                          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-end gap-2">
-                        {optionsEndpoint && (
-                          <button
-                            type="button"
-                            onClick={() => startOptions(item)}
-                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600"
-                          >
-                            <span>Options</span>
-                            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M12 5v14" />
-                              <path d="M5 12h14" />
-                            </svg>
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteItem(item)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 text-rose-500 hover:bg-rose-50"
-                          aria-label={`Delete ${singularLabel}`}
-                        >
-                          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M3 6h18" />
-                            <path d="M8 6V4h8v2" />
-                            <path d="M6 6l1 14h10l1-14" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => startEdit(item)}
-                          className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600"
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    )}
-                    {editError && isEditing && (
-                      <p className="mt-2 text-xs text-rose-500">{editError}</p>
-                    )}
-                    {editSuccess && !isEditing && (
-                      <p className="mt-2 text-xs text-emerald-600">{editSuccess}</p>
-                    )}
-                  </td>
-                </tr>
+                            {option.color_hex ? (
+                              <span
+                                className="h-4 w-4 shrink-0 rounded-full border border-slate-200"
+                                style={getSwatchStyle(option.color_hex)}
+                              />
+                            ) : null}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-semibold text-slate-800">{option.name}</p>
+                              <p className="truncate text-[11px] text-slate-400">/{option.slug || '—'}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOptionParent(item);
+                                setActiveOption(option);
+                                setOptionActionOpen(true);
+                              }}
+                              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-200/60"
+                              aria-label="Option actions"
+                            >
+                              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
+                                <circle cx="5" cy="12" r="1.6" />
+                                <circle cx="12" cy="12" r="1.6" />
+                                <circle cx="19" cy="12" r="1.6" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="py-2 text-xs text-slate-400">No options yet.</p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openOptionCreate(item)}
+                        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-400 hover:text-slate-700"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <path d="M12 5v14M5 12h14" />
+                        </svg>
+                        Add option
+                      </button>
+                      {optionsError && <p className="text-xs text-rose-500">{optionsError}</p>}
+                    </div>
+                  )}
+                </li>
               );
             })}
-          </tbody>
-        </table>
-        {deleteLoadingId && (
-          <div className="px-5 py-3 text-xs text-slate-400">Deleting...</div>
+          </ul>
+        ) : (
+          <p className="py-8 text-sm text-slate-500">No {pluralLabel} yet.</p>
         )}
       </div>
 
-      {optionsEndpoint && activeItem && (
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-                Attribute options
-              </p>
-              <h2 className="mt-2 text-lg font-semibold text-slate-900">
-                {activeItem.name}
-              </h2>
-              <p className="mt-1 text-xs text-slate-500">
-                Add and edit available values for this attribute.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => startOptions(activeItem)}
-              className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 5v14" />
-                <path d="M5 12h14" />
-              </svg>
-              Add option
-            </button>
-          </div>
-
-          <form onSubmit={handleCreateOption} className="mt-6 grid gap-4 md:grid-cols-[1fr_1fr_180px]">
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                Option name
-              </label>
-              <input
-                value={optionForm.name}
-                onChange={(event) => setOptionForm((prev) => ({ ...prev, name: event.target.value }))}
-                placeholder="e.g. Midnight Blue"
-                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                slug (optional)
-              </label>
-              <input
-                value={optionForm.slug}
-                onChange={(event) => setOptionForm((prev) => ({ ...prev, slug: event.target.value }))}
-                placeholder="auto-generated if empty"
-                className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
-              />
-            </div>
-            <div>
-              <label className="text-[11px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                Color
-              </label>
-              <ColorPicker
-                value={optionForm.color_hex}
-                onChange={(value) => setOptionForm((prev) => ({ ...prev, color_hex: value }))}
-                disabled={!isColorAttribute}
-                showSwatches={isColorAttribute}
-                showTextInput={isColorAttribute}
-                swatches={defaultSwatches}
-                inputClassName={`mt-2 h-12 w-full rounded-2xl border border-slate-200 p-1 ${
-                  !isColorAttribute ? 'opacity-40' : ''
-                }`}
-                textInputClassName="mt-3 w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-700"
-              />
-            </div>
-            <div className="md:col-span-3 flex flex-wrap items-center gap-3">
-              <LoadingButton
-                type="submit"
-                isLoading={optionCreateLoading}
-                className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white"
-              >
-                Create option
-              </LoadingButton>
-              {optionCreateError && <span className="text-xs text-rose-500">{optionCreateError}</span>}
-            </div>
-          </form>
-
-          {optionsError && (
-            <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">
-              {optionsError}
-            </div>
-          )}
-
-          <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
-            <table className="w-full border-collapse text-left text-xs">
-              <thead className="bg-slate-50 text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                <tr>
-                  <th className="px-4 py-3">Option</th>
-                  <th className="px-4 py-3">Slug</th>
-                  <th className="px-4 py-3">Color</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {optionsLoading && (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-4 text-sm text-slate-500">
-                      Loading options...
-                    </td>
-                  </tr>
-                )}
-                {!optionsLoading && options.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-4 text-sm text-slate-500">
-                      No options yet.
-                    </td>
-                  </tr>
-                )}
-                {options.map((option) => {
-                  const isOptionEditing = optionEditId === option.id;
-                  return (
-                    <tr key={option.id} className="border-t border-slate-200">
-                      <td className="px-4 py-3">
-                        {isOptionEditing ? (
-                          <input
-                            value={optionEditForm.name}
-                            onChange={(event) =>
-                              setOptionEditForm((prev) => ({ ...prev, name: event.target.value }))
-                            }
-                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
-                          />
-                        ) : (
-                          <span className="text-sm font-semibold text-slate-800">{option.name}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {isOptionEditing ? (
-                          <input
-                            value={optionEditForm.slug}
-                            onChange={(event) =>
-                              setOptionEditForm((prev) => ({ ...prev, slug: event.target.value }))
-                            }
-                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700"
-                          />
-                        ) : (
-                          option.slug || '—'
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {isOptionEditing ? (
-                          <div className="space-y-2">
-                            <ColorPicker
-                              value={optionEditForm.color_hex}
-                              onChange={(value) =>
-                                setOptionEditForm((prev) => ({ ...prev, color_hex: value }))
-                              }
-                              disabled={!isColorAttribute}
-                              showSwatches={isColorAttribute}
-                              showTextInput={isColorAttribute}
-                              swatches={defaultSwatches}
-                              inputClassName={`h-10 w-14 rounded-xl border border-slate-200 p-1 ${
-                                !isColorAttribute ? 'opacity-40' : ''
-                              }`}
-                              textInputClassName="w-full rounded-2xl border border-slate-200 px-3 py-2 text-xs text-slate-700"
-                            />
-                          </div>
-                        ) : option.color_hex ? (
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="h-5 w-5 rounded-full border border-slate-200"
-                              style={getSwatchStyle(option.color_hex)}
-                            />
-                            <span className="text-xs text-slate-500">{option.color_hex}</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {isOptionEditing ? (
-                          <div className="flex items-center justify-end gap-2">
-                            <LoadingButton
-                              type="button"
-                              isLoading={optionEditLoading}
-                              onClick={handleOptionEdit}
-                              className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white"
-                            >
-                              Save
-                            </LoadingButton>
-                            <button
-                              type="button"
-                              onClick={() => setOptionEditId(null)}
-                              className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteOption(option)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 text-rose-500 hover:bg-rose-50"
-                              aria-label="Delete option"
-                              disabled={optionDeleteLoadingId === option.id}
-                            >
-                              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M3 6h18" />
-                                <path d="M8 6V4h8v2" />
-                                <path d="M6 6l1 14h10l1-14" />
-                              </svg>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => startOptionEdit(option)}
-                              className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600"
-                            >
-                              Edit
-                            </button>
-                          </div>
-                        )}
-                        {optionEditError && isOptionEditing && (
-                          <p className="mt-2 text-xs text-rose-500">{optionEditError}</p>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      <div className="flex items-center justify-between text-xs text-slate-500">
+      <div className="mt-4 flex items-center justify-between text-xs text-slate-500">
         <button
           type="button"
-          className="rounded-full border border-slate-200 px-3 py-1 font-semibold disabled:opacity-50"
-          onClick={() => loadItems(Math.max(1, page - 1))}
+          className="rounded-full border border-slate-200 px-3 py-1.5 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => loadItems(Math.max(1, page - 1), query)}
           disabled={page <= 1 || loading}
         >
           Previous
         </button>
-        <span>
-          Page {page} of {pages}
-        </span>
+        <span>Page {page} of {pages}</span>
         <button
           type="button"
-          className="rounded-full border border-slate-200 px-3 py-1 font-semibold disabled:opacity-50"
-          onClick={() => loadItems(Math.min(pages, page + 1))}
+          className="rounded-full border border-slate-200 px-3 py-1.5 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => loadItems(Math.min(pages, page + 1), query)}
           disabled={page >= pages || loading}
         >
           Next
         </button>
       </div>
+
+      {/* ── Item sheets ────────────────────────────────────────────────── */}
+
+      <Sheet open={createOpen} title={`Create ${singularLabel}`} onClose={() => !itemSaving && setCreateOpen(false)} forceBottom>
+        <form onSubmit={submitCreate} className="space-y-3">
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">Name</span>
+            <input
+              value={itemForm.name}
+              onChange={(event) => setItemForm((prev) => ({ ...prev, name: event.target.value }))}
+              className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none"
+              required
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">Slug (optional)</span>
+            <input
+              value={itemForm.slug}
+              onChange={(event) => setItemForm((prev) => ({ ...prev, slug: event.target.value }))}
+              placeholder="auto-generated if empty"
+              className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none"
+            />
+          </label>
+          {optionsEndpoint && (
+            <div>
+              <span className="text-xs font-semibold text-slate-600">Type</span>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {types.map((type) => {
+                  const selected = itemForm.type_id === type.id;
+                  return (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => setItemForm((prev) => ({ ...prev, type_id: type.id }))}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        selected
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'
+                      }`}
+                    >
+                      {type.name}
+                    </button>
+                  );
+                })}
+              </div>
+              {typesError && <p className="mt-2 text-xs text-rose-500">{typesError}</p>}
+            </div>
+          )}
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">Description (optional)</span>
+            <textarea
+              value={itemForm.description}
+              onChange={(event) => setItemForm((prev) => ({ ...prev, description: event.target.value }))}
+              className="mt-1 h-24 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none"
+            />
+          </label>
+          <LoadingButton
+            type="submit"
+            isLoading={itemSaving}
+            disabled={!canSaveItem}
+            className="w-full rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            Create {singularLabel}
+          </LoadingButton>
+        </form>
+      </Sheet>
+
+      <Sheet open={editOpen} title={`Edit ${singularLabel}`} onClose={() => !itemSaving && setEditOpen(false)} forceBottom>
+        <form onSubmit={submitEdit} className="space-y-3">
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">Name</span>
+            <input
+              value={itemForm.name}
+              onChange={(event) => setItemForm((prev) => ({ ...prev, name: event.target.value }))}
+              className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none"
+              required
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">Slug (optional)</span>
+            <input
+              value={itemForm.slug}
+              onChange={(event) => setItemForm((prev) => ({ ...prev, slug: event.target.value }))}
+              className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none"
+            />
+          </label>
+          {optionsEndpoint && (
+            <div>
+              <span className="text-xs font-semibold text-slate-600">Type</span>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {types.map((type) => {
+                  const selected = itemForm.type_id === type.id;
+                  return (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => setItemForm((prev) => ({ ...prev, type_id: type.id }))}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        selected
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'
+                      }`}
+                    >
+                      {type.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">Description (optional)</span>
+            <textarea
+              value={itemForm.description}
+              onChange={(event) => setItemForm((prev) => ({ ...prev, description: event.target.value }))}
+              className="mt-1 h-24 w-full resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 outline-none"
+            />
+          </label>
+          <LoadingButton
+            type="submit"
+            isLoading={itemSaving}
+            disabled={!canSaveItem}
+            className="w-full rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            Save changes
+          </LoadingButton>
+        </form>
+      </Sheet>
+
+      <Sheet open={actionOpen} title={activeItem?.name || title} onClose={() => setActionOpen(false)}>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => openEdit(activeItem)}
+            className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Edit
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M14.06 4.94l3.75 3.75" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          {optionsEndpoint && (
+            <button
+              type="button"
+              onClick={() => {
+                setActionOpen(false);
+                if (expandedId !== activeItem?.id) toggleExpand(activeItem);
+              }}
+              className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+            >
+              View options
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => deleteItem(activeItem)}
+            className="flex w-full items-center justify-between rounded-2xl border border-rose-200 px-3 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
+          >
+            Delete
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M4 7h16" strokeLinecap="round" />
+              <path d="M9 7V5h6v2" strokeLinecap="round" />
+              <path d="M7 7l1 12h8l1-12" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+      </Sheet>
+
+      {/* ── Option sheets ──────────────────────────────────────────────── */}
+
+      <Sheet
+        open={optionCreateOpen}
+        title={`Add option${optionParent?.name ? ` — ${optionParent.name}` : ''}`}
+        onClose={() => !optionSaving && setOptionCreateOpen(false)}
+        forceBottom
+      >
+        <form onSubmit={submitOptionCreate} className="space-y-3">
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">Option name</span>
+            <input
+              value={optionForm.name}
+              onChange={(event) => setOptionForm((prev) => ({ ...prev, name: event.target.value }))}
+              placeholder="e.g. Midnight Blue"
+              className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none"
+              required
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">Slug (optional)</span>
+            <input
+              value={optionForm.slug}
+              onChange={(event) => setOptionForm((prev) => ({ ...prev, slug: event.target.value }))}
+              placeholder="auto-generated if empty"
+              className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none"
+            />
+          </label>
+          {isColorAttribute && (
+            <div>
+              <span className="text-xs font-semibold text-slate-600">Color</span>
+              <ColorPicker
+                value={optionForm.color_hex}
+                onChange={(value) => setOptionForm((prev) => ({ ...prev, color_hex: value }))}
+                showSwatches
+                showTextInput
+                swatches={defaultSwatches}
+                inputClassName="mt-1.5 h-12 w-full rounded-xl border border-slate-200 p-1"
+                textInputClassName="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700"
+              />
+            </div>
+          )}
+          <LoadingButton
+            type="submit"
+            isLoading={optionSaving}
+            disabled={!canSaveOption}
+            className="w-full rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            Create option
+          </LoadingButton>
+        </form>
+      </Sheet>
+
+      <Sheet
+        open={optionEditOpen}
+        title={`Edit option${optionParent?.name ? ` — ${optionParent.name}` : ''}`}
+        onClose={() => !optionSaving && setOptionEditOpen(false)}
+        forceBottom
+      >
+        <form onSubmit={submitOptionEdit} className="space-y-3">
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">Option name</span>
+            <input
+              value={optionForm.name}
+              onChange={(event) => setOptionForm((prev) => ({ ...prev, name: event.target.value }))}
+              className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none"
+              required
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">Slug (optional)</span>
+            <input
+              value={optionForm.slug}
+              onChange={(event) => setOptionForm((prev) => ({ ...prev, slug: event.target.value }))}
+              className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm text-slate-700 outline-none"
+            />
+          </label>
+          {isColorAttribute && (
+            <div>
+              <span className="text-xs font-semibold text-slate-600">Color</span>
+              <ColorPicker
+                value={optionForm.color_hex}
+                onChange={(value) => setOptionForm((prev) => ({ ...prev, color_hex: value }))}
+                showSwatches
+                showTextInput
+                swatches={defaultSwatches}
+                inputClassName="mt-1.5 h-12 w-full rounded-xl border border-slate-200 p-1"
+                textInputClassName="mt-2 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700"
+              />
+            </div>
+          )}
+          <LoadingButton
+            type="submit"
+            isLoading={optionSaving}
+            disabled={!canSaveOption}
+            className="w-full rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            Save changes
+          </LoadingButton>
+        </form>
+      </Sheet>
+
+      <Sheet open={optionActionOpen} title={activeOption?.name || 'Option'} onClose={() => setOptionActionOpen(false)}>
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => openOptionEdit(optionParent, activeOption)}
+            className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Edit
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M14.06 4.94l3.75 3.75" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => deleteOption(optionParent, activeOption)}
+            className="flex w-full items-center justify-between rounded-2xl border border-rose-200 px-3 py-2.5 text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
+          >
+            Delete
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+              <path d="M4 7h16" strokeLinecap="round" />
+              <path d="M9 7V5h6v2" strokeLinecap="round" />
+              <path d="M7 7l1 12h8l1-12" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+      </Sheet>
     </div>
   );
 }
