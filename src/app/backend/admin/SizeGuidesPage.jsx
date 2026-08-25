@@ -20,9 +20,10 @@ const blankDraft = () => ({
   rows: [{}, {}],
   how_to_measure: '',
   notes: '',
+  visibility: 'public',
 })
 
-function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error }) {
+function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error, isAdmin, readOnly }) {
   const updateField = (key, value) => onChange({ ...draft, [key]: value })
 
   const updateColumnLabel = (index, label) => {
@@ -57,12 +58,12 @@ function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error })
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/40" onClick={onCancel}>
       <div
-        className="flex h-full w-full max-w-2xl flex-col overflow-hidden bg-white shadow-2xl dark:bg-[#1c1c1e]"
+        className="flex h-full w-full max-w-2xl flex-col overflow-hidden bg-white shadow-2xl dark:bg-[#000000]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-white/10">
           <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-            {draft.id ? 'Edit size guide' : 'New size guide'}
+            {readOnly ? 'Preview size guide' : draft.id ? 'Edit size guide' : 'New size guide'}
           </h2>
           <button
             type="button"
@@ -74,6 +75,11 @@ function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error })
         </div>
 
         <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+          {readOnly && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-zinc-400">
+              This is a public size guide published by the platform. It's read-only here — you can use it, but only an admin can edit it.
+            </div>
+          )}
           {error && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
               {error}
@@ -89,7 +95,8 @@ function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error })
               value={draft.name}
               onChange={(event) => updateField('name', event.target.value)}
               placeholder="e.g. Men's Shirts (UK/US/EU)"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+              disabled={readOnly}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 disabled:bg-slate-50 disabled:text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white dark:disabled:bg-white/[0.02]"
             />
           </div>
 
@@ -98,30 +105,49 @@ function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error })
               type="checkbox"
               checked={draft.unit_toggle}
               onChange={(event) => updateField('unit_toggle', event.target.checked)}
+              disabled={readOnly}
               className="h-4 w-4 rounded border-slate-300"
             />
             Show an IN / CM unit toggle on the storefront
           </label>
 
+          {readOnly ? null : isAdmin ? (
+            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-zinc-300">
+              <input
+                type="checkbox"
+                checked={draft.visibility !== 'private'}
+                onChange={(event) => updateField('visibility', event.target.checked ? 'public' : 'private')}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              Make public (visible to all vendors by default)
+            </label>
+          ) : (
+            <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-zinc-400">
+              This guide stays private to your store. Only admins can publish a size guide for all vendors.
+            </p>
+          )}
+
           <div>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-medium text-slate-600 dark:text-zinc-400">Table</span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={addColumn}
-                  className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
-                >
-                  + Column
-                </button>
-                <button
-                  type="button"
-                  onClick={addRow}
-                  className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
-                >
-                  + Row
-                </button>
-              </div>
+              {!readOnly && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={addColumn}
+                    className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+                  >
+                    + Column
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addRow}
+                    className="rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+                  >
+                    + Row
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-white/10">
@@ -135,9 +161,10 @@ function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error })
                             value={col.label}
                             onChange={(event) => updateColumnLabel(index, event.target.value)}
                             placeholder="Label"
-                            className="w-full min-w-[70px] rounded border border-transparent bg-transparent px-1.5 py-1 text-xs font-semibold text-slate-700 outline-none focus:border-slate-300 dark:text-zinc-200"
+                            disabled={readOnly}
+                            className="w-full min-w-[70px] rounded border border-transparent bg-transparent px-1.5 py-1 text-xs font-semibold text-slate-700 outline-none focus:border-slate-300 disabled:text-slate-500 dark:text-zinc-200"
                           />
-                          {draft.columns.length > 1 && (
+                          {!readOnly && draft.columns.length > 1 && (
                             <button
                               type="button"
                               onClick={() => removeColumn(index)}
@@ -149,7 +176,7 @@ function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error })
                         </div>
                       </th>
                     ))}
-                    <th className="w-8 border-b border-slate-200 dark:border-white/10" />
+                    {!readOnly && <th className="w-8 border-b border-slate-200 dark:border-white/10" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -160,19 +187,22 @@ function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error })
                           <input
                             value={row[col.key] || ''}
                             onChange={(event) => updateCell(rowIndex, col.key, event.target.value)}
-                            className="w-full min-w-[60px] rounded border border-transparent bg-transparent px-1.5 py-1 text-sm text-slate-700 outline-none focus:border-slate-300 dark:text-zinc-200"
+                            disabled={readOnly}
+                            className="w-full min-w-[60px] rounded border border-transparent bg-transparent px-1.5 py-1 text-sm text-slate-700 outline-none focus:border-slate-300 disabled:text-slate-500 dark:text-zinc-200"
                           />
                         </td>
                       ))}
-                      <td className="border-b border-slate-100 p-1 text-center dark:border-white/5">
-                        <button
-                          type="button"
-                          onClick={() => removeRow(rowIndex)}
-                          className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-red-600 dark:hover:bg-white/10"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </td>
+                      {!readOnly && (
+                        <td className="border-b border-slate-100 p-1 text-center dark:border-white/5">
+                          <button
+                            type="button"
+                            onClick={() => removeRow(rowIndex)}
+                            className="rounded p-1 text-slate-400 hover:bg-slate-200 hover:text-red-600 dark:hover:bg-white/10"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -189,7 +219,8 @@ function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error })
               onChange={(event) => updateField('how_to_measure', event.target.value)}
               rows={3}
               placeholder="e.g. Chest: measure around the fullest part of your chest, keeping the tape level."
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+              disabled={readOnly}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 disabled:bg-slate-50 disabled:text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white dark:disabled:bg-white/[0.02]"
             />
           </div>
 
@@ -202,7 +233,8 @@ function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error })
               onChange={(event) => updateField('notes', event.target.value)}
               rows={2}
               placeholder="e.g. Hassle-free returns: if it doesn't fit, we'll replace it or refund you."
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white"
+              disabled={readOnly}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-slate-500 disabled:bg-slate-50 disabled:text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-white dark:disabled:bg-white/[0.02]"
             />
           </div>
         </div>
@@ -213,16 +245,18 @@ function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error })
             onClick={onCancel}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
           >
-            Cancel
+            {readOnly ? 'Close' : 'Cancel'}
           </button>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={isSaving || !draft.name.trim()}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900"
-          >
-            {isSaving ? 'Saving…' : draft.id ? 'Save changes' : 'Create size guide'}
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={isSaving || !draft.name.trim()}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50 dark:bg-white dark:text-slate-900"
+            >
+              {isSaving ? 'Saving…' : draft.id ? 'Save changes' : 'Create size guide'}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -231,6 +265,7 @@ function SizeGuideEditor({ draft, onChange, onCancel, onSave, isSaving, error })
 
 export default function SizeGuidesPage() {
   const { confirmAlert, pushAlert } = useAlerts()
+  const [role, setRole] = useState('unknown')
   const [guides, setGuides] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -238,6 +273,35 @@ export default function SizeGuidesPage() {
   const [draft, setDraft] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+
+  const isAdmin = role === 'admin'
+  const isVendor = role === 'vendor'
+
+  useEffect(() => {
+    let active = true
+    const loadRole = async () => {
+      try {
+        const response = await fetch('/api/auth/role', {
+          method: 'GET',
+          cache: 'no-store',
+          credentials: 'include',
+        })
+        const payload = await response.json().catch(() => null)
+        if (!active) return
+        if (!response.ok) {
+          setRole('unknown')
+          return
+        }
+        setRole(payload?.role === 'admin' || payload?.role === 'vendor' ? payload.role : 'unknown')
+      } catch {
+        if (active) setRole('unknown')
+      }
+    }
+    void loadRole()
+    return () => {
+      active = false
+    }
+  }, [])
 
   const loadGuides = useCallback(async () => {
     setIsLoading(true)
@@ -273,6 +337,8 @@ export default function SizeGuidesPage() {
       rows: Array.isArray(guide.rows) ? guide.rows : [],
       how_to_measure: guide.how_to_measure || '',
       notes: guide.notes || '',
+      visibility: guide.visibility === 'private' ? 'private' : 'public',
+      readOnly: !guide.can_edit,
     })
   }
 
@@ -282,7 +348,7 @@ export default function SizeGuidesPage() {
   }
 
   const handleSave = async () => {
-    if (!draft?.name?.trim()) return
+    if (!draft?.name?.trim() || draft.readOnly) return
     setIsSaving(true)
     setSaveError('')
     try {
@@ -297,6 +363,7 @@ export default function SizeGuidesPage() {
         rows: draft.rows,
         how_to_measure: draft.how_to_measure || undefined,
         notes: draft.notes || undefined,
+        ...(isAdmin ? { visibility: draft.visibility === 'private' ? 'private' : 'public' } : {}),
       }
       if (draft.id) {
         await updateSizeGuide({ id: draft.id, ...payload })
@@ -371,26 +438,44 @@ export default function SizeGuidesPage() {
           </div>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2">
-            {filteredGuides.map((guide) => (
-              <div
-                key={guide.id}
-                className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-slate-300 dark:border-white/10 dark:bg-white/5"
-              >
-                <button type="button" onClick={() => openEdit(guide)} className="min-w-0 flex-1 text-left">
-                  <p className="truncate text-sm font-medium text-slate-900 dark:text-white">{guide.name}</p>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
-                    {(guide.columns || []).length} columns · {(guide.rows || []).length} rows
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(guide)}
-                  className="ml-2 shrink-0 rounded-md p-1.5 text-slate-400 opacity-0 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/40"
+            {filteredGuides.map((guide) => {
+              const isShared = guide.visibility !== 'private'
+              return (
+                <div
+                  key={guide.id}
+                  className="group flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 hover:border-slate-300 dark:border-white/10 dark:bg-white/5"
                 >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            ))}
+                  <button type="button" onClick={() => openEdit(guide)} className="min-w-0 flex-1 text-left">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-medium text-slate-900 dark:text-white">{guide.name}</p>
+                      {isVendor && (
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            isShared
+                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                              : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-zinc-300'
+                          }`}
+                        >
+                          {isShared ? 'Public' : 'Mine'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400">
+                      {(guide.columns || []).length} columns · {(guide.rows || []).length} rows
+                    </p>
+                  </button>
+                  {guide.can_edit && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(guide)}
+                      className="ml-2 shrink-0 rounded-md p-1.5 text-slate-400 opacity-0 hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 dark:hover:bg-red-950/40"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -403,6 +488,8 @@ export default function SizeGuidesPage() {
           onSave={handleSave}
           isSaving={isSaving}
           error={saveError}
+          isAdmin={isAdmin}
+          readOnly={Boolean(draft.readOnly)}
         />
       )}
     </AdminShell>

@@ -29,6 +29,10 @@ export const createSizeGuideSchema = z.object({
   rows: z.array(sizeGuideRowSchema).max(100).default([]),
   how_to_measure: z.preprocess(normalizeBlank, z.string().max(4000).optional()),
   notes: z.preprocess(normalizeBlank, z.string().max(2000).optional()),
+  // Only admins may choose 'private' (enforced in size-guide-route.ts) — a
+  // vendor-created guide is always private regardless of what they send.
+  // Same convention as admin_attributes: no visibility sent = shared/public.
+  visibility: z.enum(['public', 'private']).optional(),
 })
 
 export const updateSizeGuideSchema = z.object({
@@ -45,6 +49,8 @@ export const updateSizeGuideSchema = z.object({
     (value) => (value === '' ? null : value),
     z.string().max(2000).nullable().optional(),
   ),
+  // Admin-only, same as create — stripped for vendor requests server-side.
+  visibility: z.enum(['public', 'private']).optional(),
 })
 
 export type SizeGuideColumn = z.infer<typeof sizeGuideColumnSchema>

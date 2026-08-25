@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { requireAdmin } from '@/lib/auth/require-admin'
+import { requireDashboardUser } from '@/lib/auth/require-dashboard-user'
 import { jsonError, jsonOk } from '@/lib/http/response'
 import { createAdminSupabaseClient } from '@/lib/supabase/admin'
 import {
@@ -14,9 +14,22 @@ const SELECT_FIELDS =
 
 const buildMissingTableMessage = () => 'size_guides table not found. Run migration 113_size_guides.sql.'
 
+// Same convention as admin_attributes (see attribute-route.ts): created_by
+// null means the guide is shared/admin-published and visible to everyone;
+// a user id means it's private to whoever created it. No separate
+// is_public column — created_by already carries this meaning.
+const applyVendorVisibilityFilter = (query: any, userId: string) =>
+  query.or(`created_by.eq.${userId},created_by.is.null`)
+
+const getVisibilityState = (createdBy: string | null, userId: string) => {
+  if (createdBy && createdBy === userId) return { visibility: 'private' as const, can_edit: true }
+  if (!createdBy) return { visibility: 'shared' as const, can_edit: false }
+  return { visibility: 'private' as const, can_edit: false }
+}
+
 export async function listSizeGuides(request: NextRequest) {
-  const { applyCookies, isAdmin } = await requireAdmin(request)
-  if (!isAdmin) {
+  const { applyCookies, canManageCatalog, isAdmin, isVendor, user } = await requireDashboardUser(request)
+  if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
   const db = createAdminSupabaseClient()
@@ -32,12 +45,10 @@ export async function listSizeGuides(request: NextRequest) {
   const from = (page - 1) * per_page
   const to = from + per_page - 1
 
-  let query = db
-    .from(TABLE)
-    .select(SELECT_FIELDS)
-    .order('name', { ascending: true })
-    .range(from, to)
-
+  let query = db.from(TABLE).select(SELECT_FIELDS).order('name', { ascending: true }).range(from, to)
+  if (isVendor) {
+    query = applyVendorVisibilityFilter(query, user.id)
+  }
   if (search) {
     query = query.ilike('name', `%${search}%`)
   }
@@ -55,6 +66,7 @@ export async function listSizeGuides(request: NextRequest) {
   let totalCount = 0
   try {
     let countQuery = db.from(TABLE).select('id', { count: 'exact', head: true })
+    if (isVendor) countQuery = applyVendorVisibilityFilter(countQuery, user.id)
     if (search) countQuery = countQuery.ilike('name', `%${search}%`)
     const { count, error: countError } = await countQuery
     if (!countError) totalCount = count ?? 0
@@ -62,20 +74,37 @@ export async function listSizeGuides(request: NextRequest) {
     console.error('size guide count failed:', countErr)
   }
 
+  const items = ((data ?? []) as Array<{ created_by: string | null }>).map((row) => ({
+    ...row,
+    ...(isAdmin
+      ? {
+          visibility: row?.created_by ? ('private' as const) : ('shared' as const),
+          can_edit: true,
+          can_change_visibility: !row?.created_by || String(row?.created_by) === user.id,
+        }
+      : getVisibilityState(row?.created_by || null, user.id)),
+  }))
+
   const pages = totalCount
     ? Math.max(1, Math.ceil(totalCount / per_page))
     : data && data.length === per_page
       ? page + 1
       : page
 
-  const response = jsonOk({ items: data ?? [], pages, page, total_count: totalCount || null })
+  const response = jsonOk({
+    items,
+    pages,
+    page,
+    total_count: totalCount || null,
+    permissions: { is_admin: Boolean(isAdmin), is_vendor: Boolean(isVendor) },
+  })
   applyCookies(response)
   return response
 }
 
 export async function createSizeGuide(request: NextRequest) {
-  const { applyCookies, isAdmin, user } = await requireAdmin(request)
-  if (!isAdmin) {
+  const { applyCookies, canManageCatalog, isAdmin, user } = await requireDashboardUser(request)
+  if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
   const db = createAdminSupabaseClient()
@@ -93,6 +122,11 @@ export async function createSizeGuide(request: NextRequest) {
     return jsonError(parsed.error.issues[0]?.message || 'Invalid size guide details.', 400)
   }
 
+  // Vendors always create private guides (created_by = self). Admins can
+  // choose to publish shared (created_by = null) or keep it private to
+  // themselves, same as attribute-route.ts's createAttribute.
+  const createdBy = isAdmin && parsed.data.visibility === 'private' ? user.id : isAdmin ? null : user.id
+
   const { data, error } = await db
     .from(TABLE)
     .insert({
@@ -102,7 +136,7 @@ export async function createSizeGuide(request: NextRequest) {
       rows: parsed.data.rows,
       how_to_measure: parsed.data.how_to_measure || null,
       notes: parsed.data.notes || null,
-      created_by: user?.id || null,
+      created_by: createdBy,
     })
     .select(SELECT_FIELDS)
     .single()
@@ -122,8 +156,8 @@ export async function createSizeGuide(request: NextRequest) {
 }
 
 export async function updateSizeGuide(request: NextRequest) {
-  const { applyCookies, isAdmin } = await requireAdmin(request)
-  if (!isAdmin) {
+  const { applyCookies, canManageCatalog, isAdmin, isVendor, user } = await requireDashboardUser(request)
+  if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
   const db = createAdminSupabaseClient()
@@ -141,11 +175,31 @@ export async function updateSizeGuide(request: NextRequest) {
     return jsonError(parsed.error.issues[0]?.message || 'Invalid size guide details.', 400)
   }
 
-  const { id, ...rest } = parsed.data
+  const { id, visibility, ...rest } = parsed.data
+
+  const { data: existing, error: existingError } = await db
+    .from(TABLE)
+    .select('id, created_by')
+    .eq('id', id)
+    .maybeSingle()
+  if (existingError) {
+    console.error('size guide update lookup failed:', existingError.message)
+    return jsonError('Unable to update size guide.', 500)
+  }
+  if (!existing?.id) {
+    return jsonError('Size guide not found.', 404)
+  }
+  if (isVendor && !isAdmin && String(existing.created_by || '') !== user.id) {
+    return jsonError('You can only edit size guides you created.', 403)
+  }
+
   const updates: Record<string, unknown> = {}
   Object.entries(rest).forEach(([key, value]) => {
     if (value !== undefined) updates[key] = value
   })
+  if (isAdmin && visibility && (!existing.created_by || String(existing.created_by) === user.id)) {
+    updates.created_by = visibility === 'public' ? null : user.id
+  }
 
   if (!Object.keys(updates).length) {
     return jsonError('No fields to update.', 400)
@@ -177,14 +231,31 @@ export async function updateSizeGuide(request: NextRequest) {
 }
 
 export async function deleteSizeGuide(request: NextRequest, id: string) {
-  const { applyCookies, isAdmin } = await requireAdmin(request)
-  if (!isAdmin) {
+  const { applyCookies, canManageCatalog, isAdmin, isVendor, user } = await requireDashboardUser(request)
+  if (!canManageCatalog || !user?.id) {
     return jsonError('Forbidden.', 403)
   }
   if (!id) {
     return jsonError('Missing size guide id.', 400)
   }
   const db = createAdminSupabaseClient()
+
+  const { data: existing, error: existingError } = await db
+    .from(TABLE)
+    .select('id, name, created_by')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (existingError) {
+    console.error('size guide delete prefetch failed:', existingError.message)
+    return jsonError('Unable to delete size guide.', 500)
+  }
+  if (!existing?.id) {
+    return jsonError('Size guide not found.', 404)
+  }
+  if (isVendor && !isAdmin && String(existing.created_by || '') !== user.id) {
+    return jsonError('You can only delete size guides you created.', 403)
+  }
 
   const [categoryUsage, productUsage] = await Promise.all([
     db.from('admin_categories').select('id', { count: 'exact', head: true }).eq('size_guide_id', id),
@@ -201,20 +272,6 @@ export async function deleteSizeGuide(request: NextRequest, id: string) {
       `This size guide is still assigned to ${parts.join(' and ')}. Unassign it first.`,
       409,
     )
-  }
-
-  const { data: existing, error: existingError } = await db
-    .from(TABLE)
-    .select('id, name')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (existingError) {
-    console.error('size guide delete prefetch failed:', existingError.message)
-    return jsonError('Unable to delete size guide.', 500)
-  }
-  if (!existing?.id) {
-    return jsonError('Size guide not found.', 404)
   }
 
   const { error: deleteError } = await db.from(TABLE).delete().eq('id', id)
